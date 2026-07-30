@@ -1,0 +1,369 @@
+@page "/admin"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+
+<PageTitle>Administration - Sessage</PageTitle>
+
+<div class="admin-page space-y-6 max-w-5xl mx-auto">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-1">Systemverwaltung</p>
+            <h1 class="text-2xl font-bold text-slate-900">Administration</h1>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
+                        @(_messageIsError ? "bg-red-50 border border-red-200 text-red-700" : "bg-emerald-50 border border-emerald-200 text-emerald-700")">
+                @_message
+            </div>
+        }
+    </div>
+
+    <!-- Benutzer anlegen / bearbeiten -->
+    <div class="grid grid-cols-1 gap-4">
+
+        <!-- Benutzer anlegen / bearbeiten -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+            <div class="flex items-center gap-3 mb-1">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-base">
+                    @(_editingUserId == null ? "+" : "✎")
+                </div>
+                <h2 class="text-base font-semibold text-slate-800">
+                    @(_editingUserId == null ? "Benutzer anlegen" : "Benutzer bearbeiten")
+                </h2>
+            </div>
+            <EditForm Model="@_form" OnValidSubmit="SaveUserAsync" autocomplete="off">
+                <DataAnnotationsValidator />
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Anzeigename</label>
+                        <FluentTextField @bind-Value="_form.DisplayName" Placeholder="Vollständiger Name" Class="admin-text-field w-full" />
+                        <ValidationMessage For="@(() => _form.DisplayName)" class="text-xs text-red-600 mt-0.5" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">E-Mail-Adresse</label>
+                        <FluentTextField @bind-Value="_form.Email" Placeholder="benutzer@beispiel.de" Class="admin-text-field w-full"
+                                         autocomplete="off"
+                                         ReadOnly="@(_editingUserId != null)" />
+                        <ValidationMessage For="@(() => _form.Email)" class="text-xs text-red-600 mt-0.5" />
+                    </div>
+                    @if (_editingUserId == null)
+                    {
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Passwort</label>
+                            <FluentTextField @bind-Value="_form.Password" Placeholder="Mindestens 6 Zeichen"
+                                             TextFieldType="TextFieldType.Password" autocomplete="new-password"
+                                             Class="admin-text-field w-full" />
+                            <ValidationMessage For="@(() => _form.Password)" class="text-xs text-red-600 mt-0.5" />
+                        </div>
+                    }
+                    <FluentSwitch @bind-Checked="_form.IsAdmin">Administrator</FluentSwitch>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    @if (_editingUserId != null)
+                    {
+                        <FluentButton Appearance="Appearance.Outline" OnClick="ResetForm">Abbrechen</FluentButton>
+                    }
+                    <FluentButton ButtonType="ButtonType.Submit" Appearance="Appearance.Accent" Disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <FluentProgressRing Style="width:14px;height:14px;margin-right:6px;" />
+                        }
+                        @(_editingUserId == null ? "Anlegen" : "Speichern")
+                    </FluentButton>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+
+    <!-- Benutzerliste -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-base">👥</div>
+                <h2 class="text-base font-semibold text-slate-800">Benutzer-Übersicht</h2>
+                <span class="rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-0.5">@_users.Count</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <FluentTextField @bind-Value="_searchTerm" Placeholder="Name oder E-Mail suchen" Class="admin-text-field" Style="width:220px;"
+                                 @oninput="OnSearchInput" />
+            </div>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-12 gap-3 text-slate-400">
+                <FluentProgressRing Style="width:20px;height:20px;" />
+                <span class="text-sm">Benutzer werden geladen…</span>
+            </div>
+        }
+        else if (_users.Count == 0)
+        {
+            <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+                <span class="text-3xl">🔍</span>
+                <span class="text-sm">Keine Benutzer gefunden.</span>
+            </div>
+        }
+        else
+        {
+            <div class="divide-y divide-slate-100">
+                @foreach (var user in _users)
+                {
+                    <div class="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-sm shrink-0">
+                                @UserInitial(user.Email ?? user.UserName ?? "?")
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-medium text-slate-800 truncate">@(user.UserName ?? user.Email)</div>
+                                <div class="text-xs text-slate-500 truncate">@user.Email</div>
+                            </div>
+                            @if (user.IsAdmin)
+                            {
+                                <span class="shrink-0 rounded-full bg-amber-100 text-amber-700 text-[11px] font-semibold px-2 py-0.5 uppercase tracking-wide">
+                                    Admin
+                                </span>
+                            }
+                        </div>
+                        <div class="flex gap-2 shrink-0 ml-3">
+                            <FluentButton Appearance="Appearance.Outline" OnClick="() => StartEdit(user)"
+                                          Title="Bearbeiten">
+                                Bearbeiten
+                            </FluentButton>
+                            <FluentButton Appearance="Appearance.Outline"
+                                          Style="border-color: #fca5a5; color: #dc2626;"
+                                          OnClick="() => ConfirmDelete(user)"
+                                          Title="Löschen">
+                                Löschen
+                            </FluentButton>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Lösch-Bestätigungsdialog -->
+@if (_deleteTarget != null)
+{
+    <FluentDialog Open="true" Modal="true" Style="width:min(440px,92vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="font-semibold text-red-700">Benutzer löschen</div>
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <p class="text-sm text-slate-700">
+                Soll der Benutzer <span class="font-semibold">@_deleteTarget.Email</span> wirklich gelöscht werden?
+                Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="() => _deleteTarget = null">Abbrechen</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" Style="background:#dc2626;" OnClick="ExecuteDeleteAsync">
+                Löschen
+            </FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private string _searchTerm = string.Empty;
+    private string _message = string.Empty;
+    private bool _messageIsError;
+    private List<UserViewModel> _users = new();
+    private string? _editingUserId;
+    private UserViewModel? _deleteTarget;
+
+    private UserFormModel _form = new();
+
+    private class UserViewModel
+    {
+        public string Id { get; init; } = string.Empty;
+        public string? UserName { get; init; }
+        public string? Email { get; init; }
+        public bool IsAdmin { get; init; }
+    }
+
+    private class UserFormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Name ist erforderlich.")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "E-Mail ist erforderlich.")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Ungültige E-Mail-Adresse.")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.MinLength(6, ErrorMessage = "Passwort muss mindestens 6 Zeichen lang sein.")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool IsAdmin { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var allUsers = UserManager.Users.ToList();
+        var result = new List<UserViewModel>();
+
+        foreach (var u in allUsers)
+        {
+            if (!string.IsNullOrWhiteSpace(_searchTerm) &&
+                !(u.Email?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                  u.UserName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true))
+                continue;
+
+            var isAdmin = await UserManager.IsInRoleAsync(u, "Admin");
+            result.Add(new UserViewModel
+            {
+                Id = u.Id,
+                UserName = u.UserName,
+                Email = u.Email,
+                IsAdmin = isAdmin
+            });
+        }
+
+        _users = result.OrderBy(u => u.Email, StringComparer.OrdinalIgnoreCase).ToList();
+        _loading = false;
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? string.Empty;
+        await LoadUsersAsync();
+    }
+
+    private async Task SaveUserAsync()
+    {
+        _saving = true;
+        _message = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            if (_editingUserId == null)
+            {
+                // Neuen Benutzer anlegen
+                if (string.IsNullOrWhiteSpace(_form.Password))
+                {
+                    ShowMessage("Bitte ein Passwort eingeben.", isError: true);
+                    return;
+                }
+
+                var existing = await UserManager.FindByEmailAsync(_form.Email);
+                if (existing != null)
+                {
+                    ShowMessage("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.", isError: true);
+                    return;
+                }
+
+                var newUser = new ApplicationUser
+                {
+                    UserName = _form.Email,
+                    Email = _form.Email,
+                    EmailConfirmed = true
+                };
+
+                var createResult = await UserManager.CreateAsync(newUser, _form.Password);
+                if (!createResult.Succeeded)
+                {
+                    ShowMessage(string.Join(" ", createResult.Errors.Select(e => e.Description)), isError: true);
+                    return;
+                }
+
+                if (_form.IsAdmin)
+                    await UserManager.AddToRoleAsync(newUser, "Admin");
+
+                ShowMessage($"Benutzer {_form.Email} wurde angelegt.", isError: false);
+            }
+            else
+            {
+                // Bestehenden Benutzer bearbeiten
+                var user = await UserManager.FindByIdAsync(_editingUserId);
+                if (user == null)
+                {
+                    ShowMessage("Benutzer nicht gefunden.", isError: true);
+                    return;
+                }
+
+                var isCurrentlyAdmin = await UserManager.IsInRoleAsync(user, "Admin");
+                if (_form.IsAdmin && !isCurrentlyAdmin)
+                    await UserManager.AddToRoleAsync(user, "Admin");
+                else if (!_form.IsAdmin && isCurrentlyAdmin)
+                    await UserManager.RemoveFromRoleAsync(user, "Admin");
+
+                ShowMessage($"Benutzer {user.Email} wurde aktualisiert.", isError: false);
+            }
+
+            ResetForm();
+            await LoadUsersAsync();
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void StartEdit(UserViewModel user)
+    {
+        _editingUserId = user.Id;
+        _form = new UserFormModel
+        {
+            Email = user.Email ?? string.Empty,
+            DisplayName = user.UserName ?? user.Email ?? string.Empty,
+            IsAdmin = user.IsAdmin,
+            Password = string.Empty
+        };
+        _message = string.Empty;
+    }
+
+    private void ResetForm()
+    {
+        _editingUserId = null;
+        _form = new UserFormModel();
+        _message = string.Empty;
+    }
+
+    private void ConfirmDelete(UserViewModel user) => _deleteTarget = user;
+
+    private async Task ExecuteDeleteAsync()
+    {
+        if (_deleteTarget == null) return;
+
+        var user = await UserManager.FindByIdAsync(_deleteTarget.Id);
+        if (user != null)
+        {
+            var result = await UserManager.DeleteAsync(user);
+            if (result.Succeeded)
+                ShowMessage($"Benutzer {_deleteTarget.Email} wurde gelöscht.", isError: false);
+            else
+                ShowMessage(string.Join(" ", result.Errors.Select(e => e.Description)), isError: true);
+        }
+
+        _deleteTarget = null;
+        await LoadUsersAsync();
+    }
+
+    private void ShowMessage(string msg, bool isError)
+    {
+        _message = msg;
+        _messageIsError = isError;
+    }
+
+    private static string UserInitial(string email)
+        => email.Length > 0 ? email[0].ToString().ToUpperInvariant() : "?";
+}

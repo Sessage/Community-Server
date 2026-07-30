@@ -1,0 +1,144 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@* Profilbild-Zuschnitt-Komponente.
+   Zeigt einen Canvas mit einem verschiebbaren/vergrößerbaren quadratischen Auswahlrahmen.
+   Das Ergebnis wird als 128×128 JPEG-Data-URL zurückgegeben. *@
+
+<div class="flex flex-col gap-4">
+    @if (!_imageLoaded)
+    {
+        <div class="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-8 cursor-pointer"
+             @onclick="TriggerFileInput">
+            <div class="text-slate-400">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+            </div>
+            <div class="text-sm text-slate-600 text-center">
+                <span class="font-medium text-blue-600">Bild auswählen</span> oder hierher ziehen
+                <div class="text-xs text-slate-400 mt-1">JPEG, PNG, WebP – max. 10 MB</div>
+            </div>
+        </div>
+    }
+
+    @* Verstecktes File-Input *@
+    <input type="file" id="@_fileInputId" accept="image/*" class="hidden" />
+
+    @* Canvas für Bildauswahl (nur sichtbar wenn Bild geladen) *@
+    <div class="@(!_imageLoaded ? "hidden" : "flex flex-col gap-3")">
+        <div class="rounded-xl overflow-hidden border border-slate-200 bg-slate-900">
+            <canvas id="@_canvasId" width="500" height="400"
+                    class="w-full" style="max-height:400px;"></canvas>
+        </div>
+
+        <div class="flex items-center gap-4">
+            @* Vorschau 128×128 *@
+            <div class="shrink-0">
+                <div class="text-xs text-slate-500 mb-1 text-center">Vorschau</div>
+                <canvas id="@_previewCanvasId" width="128" height="128"
+                        class="rounded-full border-2 border-slate-200 w-20 h-20"></canvas>
+            </div>
+
+            <div class="flex-1 flex flex-col gap-2">
+                <div class="text-sm text-slate-600">
+                    Verschiebe und skaliere den Rahmen, um den gewünschten Ausschnitt zu wählen.
+                </div>
+                <div class="flex gap-2">
+                    <button type="button"
+                            class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
+                            @onclick="TriggerFileInput">
+                        Anderes Bild
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                @_errorMessage
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Wird aufgerufen, wenn ein Bild erfolgreich geladen wurde.</summary>
+    [Parameter] public EventCallback OnImageLoaded { get; set; }
+
+    private readonly string _canvasId = $"cropper-canvas-{Guid.NewGuid():N}";
+    private readonly string _fileInputId = $"cropper-file-{Guid.NewGuid():N}";
+    private readonly string _previewCanvasId = $"cropper-preview-{Guid.NewGuid():N}";
+
+    private DotNetObjectReference<ProfilePictureCropper>? _dotNetRef;
+    private bool _imageLoaded;
+    private string _errorMessage = "";
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            try
+            {
+                await JS.InvokeVoidAsync("imageCropper.init", _canvasId, _fileInputId, _previewCanvasId, _dotNetRef);
+                _initialized = true;
+            }
+            catch { /* Prerender ignorieren */ }
+        }
+    }
+
+    /// <summary>Öffnet den Datei-Dialog.</summary>
+    public async Task TriggerFileInput()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("imageCropper.triggerFileInput", _fileInputId);
+        }
+        catch { }
+    }
+
+    /// <summary>Gibt das zugeschnittene Bild als JPEG-Data-URL zurück (128×128 px).</summary>
+    public async Task<string?> GetCroppedImageDataUrlAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string>("imageCropper.getCroppedImageDataUrl");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    [JSInvokable("OnImageLoaded")]
+    public Task OnImageLoadedCallback()
+    {
+        _imageLoaded = true;
+        _errorMessage = "";
+        return InvokeAsync(async () =>
+        {
+            StateHasChanged();
+            await OnImageLoaded.InvokeAsync();
+        });
+    }
+
+    [JSInvokable]
+    public Task OnError(string message)
+    {
+        _errorMessage = message;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initialized)
+        {
+            try { await JS.InvokeVoidAsync("imageCropper.cleanup"); } catch { }
+        }
+
+        _dotNetRef?.Dispose();
+    }
+}

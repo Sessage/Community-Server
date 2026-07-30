@@ -1,0 +1,42 @@
+@page "/Account/Manage/PersonalData"
+
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Persönliche Daten</PageTitle>
+
+<StatusMessage />
+<h3>Persönliche Daten</h3>
+
+<div class="row">
+    <div class="col-md-6">
+        <p>Ihr Konto enthält persönliche Daten, die Sie uns mitgeteilt haben. Auf dieser Seite können Sie diese Daten herunterladen oder löschen.</p>
+        <p>
+            <strong>Das Löschen dieser Daten entfernt Ihr Konto dauerhaft und kann nicht rückgängig gemacht werden.</strong>
+        </p>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <form action="Account/Manage/DownloadPersonalData" method="post">
+                <AntiforgeryToken />
+                <button class="btn btn-primary" type="submit">Herunterladen</button>
+            </form>
+            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger" data-enhance-nav="false">Löschen</a>
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user  = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+        }
+    }
+}

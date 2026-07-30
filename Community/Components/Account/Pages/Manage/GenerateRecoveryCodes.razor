@@ -1,0 +1,91 @@
+@page "/Account/Manage/GenerateRecoveryCodes"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@using System.Security.Claims
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<GenerateRecoveryCodes> Logger
+
+<PageTitle>Zwei-Faktor-Authentifizierungs (2FA) Wiederherstellungscodes generieren</PageTitle>
+
+@if (recoveryCodes is not null)
+{
+    <ShowRecoveryCodes RecoveryCodes="recoveryCodes.ToArray()" StatusMessage="@message" />
+}
+else
+{
+    <h3>Zwei-Faktor-Authentifizierungs (2FA) Wiederherstellungscodes generieren</h3>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger mt-2">@_errorMessage</div>
+    }
+
+    <div class="alert alert-warning" role="alert">
+        <p>
+            <span class="glyphicon glyphicon-warning-sign"></span>
+            <strong>Bewahren Sie diese Codes an einem sicheren Ort auf.</strong>
+        </p>
+        <p>
+            Wenn Sie Ihr Gerät verlieren und keine Wiederherstellungscodes haben, verlieren Sie den Zugang zu Ihrem Konto.
+        </p>
+        <p>
+            Das Generieren neuer Wiederherstellungscodes ändert nicht die in Authenticator-Apps verwendeten Schlüssel.
+            Wenn Sie den in einer Authenticator-App verwendeten Schlüssel ändern möchten, sollten Sie
+            <a href="Account/Manage/ResetAuthenticator" data-enhance-nav="false">Ihre Authenticator-Schlüssel zurücksetzen.</a>
+        </p>
+    </div>
+
+    <button class="btn btn-danger" @onclick="OnGenerateAsync" disabled="@_loading">
+        @(_loading ? "Wird generiert…" : "Wiederherstellungscodes generieren")
+    </button>
+}
+
+@code {
+    private string? message;
+    private string? _errorMessage;
+    private bool _loading;
+    private IEnumerable<string>? recoveryCodes;
+
+    private async Task OnGenerateAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                      ?? authState.User.FindFirst("sub")?.Value;
+
+            if (userId is null) return;
+
+            var user = await UserManager.FindByIdAsync(userId);
+            if (user is null) return;
+
+            var isTwoFactorEnabled = await UserManager.GetTwoFactorEnabledAsync(user);
+            if (!isTwoFactorEnabled)
+            {
+                _errorMessage = "Wiederherstellungscodes können nicht generiert werden, da 2FA nicht aktiviert ist.";
+                _loading = false;
+                StateHasChanged();
+                return;
+            }
+
+            recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+            message = "Sie haben neue Wiederherstellungscodes generiert.";
+            Logger.LogInformation("User with ID '{UserId}' has generated new 2FA recovery codes.", userId);
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Fehler: {ex.Message}";
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

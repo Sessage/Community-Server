@@ -1,0 +1,662 @@
+@using System.Text.Json
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@inject ITodoAutomationService AutomationService
+
+<div class="space-y-5">
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">@_error</div>
+    }
+
+    @if (_editingRule is null)
+    {
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <div class="text-lg font-semibold text-slate-900">@T(AutomationText.Rules)</div>
+                <div class="text-sm text-slate-500">@T(AutomationText.Subtitle)</div>
+            </div>
+            <button type="button"
+                    class="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                    @onclick="CreateRule">
+                <span class="text-lg font-normal leading-none text-white" aria-hidden="true">+</span>
+                <span>@T(AutomationText.NewRule)</span>
+            </button>
+        </div>
+
+        @if (_loading)
+        {
+            <div class="flex items-center justify-center py-12"><FluentProgressRing /></div>
+        }
+        else if (_rules.Count == 0)
+        {
+            <div class="border-y border-slate-200 py-12 text-center">
+                <FluentIcon Value="@(new Icons.Regular.Size24.Flow())" Class="text-slate-400" />
+                <div class="mt-3 font-medium text-slate-800">@T(AutomationText.EmptyTitle)</div>
+                <div class="mt-1 text-sm text-slate-500">@T(AutomationText.EmptyHint)</div>
+            </div>
+        }
+        else
+        {
+            <div class="divide-y divide-slate-200 border-y border-slate-200">
+                @foreach (var rule in _rules)
+                {
+                    <div class="flex flex-wrap items-center gap-4 py-4">
+                        <button type="button"
+                                class="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                @onclick="() => EditRule(rule)">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-sky-50 text-sky-700">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Flow())" />
+                            </span>
+                            <span class="min-w-0">
+                                <span class="block truncate font-semibold text-slate-900">@rule.Name</span>
+                                <span class="block truncate text-sm text-slate-500">
+                                    @string.Format(T(AutomationText.RuleSummary), TriggerLabel(rule.TriggerType), rule.Conditions.Count, rule.Actions.Count)
+                                </span>
+                            </span>
+                        </button>
+                        <FluentCheckbox Value="@rule.IsEnabled"
+                                        ValueChanged="value => SetEnabledAsync(rule, value)"
+                                        Label="@T(AutomationText.Active)" />
+                        <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Edit"]" OnClick="() => EditRule(rule)">
+                            <FluentIcon Value="@(new Icons.Regular.Size20.Edit())" />
+                        </FluentButton>
+                        @if (_deleteCandidateId == rule.Id)
+                        {
+                            <span class="text-sm text-red-700">@T(AutomationText.DeleteConfirm)</span>
+                            <FluentButton Appearance="Appearance.Stealth" OnClick="CancelDelete">@L["Btn_Cancel"]</FluentButton>
+                            <FluentButton Appearance="Appearance.Accent" OnClick="() => DeleteRuleAsync(rule)">@L["Btn_Delete"]</FluentButton>
+                        }
+                        else
+                        {
+                            <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Delete"]" OnClick="() => RequestDelete(rule)">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
+                            </FluentButton>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-4">
+            <div class="min-w-0 flex-1">
+                <label class="mb-1 block text-xs font-semibold uppercase text-slate-500">@T(AutomationText.RuleName)</label>
+                <input class="h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                       @bind="_editingRule.Name"
+                       @bind:event="oninput"
+                       placeholder="@T(AutomationText.RuleNamePlaceholder)" />
+            </div>
+            <label class="flex h-12 items-center gap-2 text-sm">
+                <FluentCheckbox @bind-Value="_editingRule.IsEnabled" />
+                @T(AutomationText.Active)
+            </label>
+        </div>
+
+        <div class="mx-auto max-w-3xl space-y-0">
+            <section class="rounded-md border border-sky-200 bg-white shadow-sm">
+                <div class="flex items-center gap-3 border-b border-sky-100 bg-sky-50 px-4 py-3">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-md bg-sky-600 text-white">1</span>
+                    <div>
+                        <div class="font-semibold text-slate-900">@T(AutomationText.Trigger)</div>
+                        <div class="text-xs text-slate-500">@T(AutomationText.TriggerHint)</div>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <select class="@SelectClass" @bind="_editingRule.TriggerType">
+                        @foreach (var trigger in Enum.GetValues<TodoAutomationTriggerType>())
+                        {
+                            <option value="@trigger">@TriggerLabel(trigger)</option>
+                        }
+                    </select>
+                </div>
+            </section>
+
+            <FlowConnector />
+
+            <section class="rounded-md border border-amber-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between gap-3 border-b border-amber-100 bg-amber-50 px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-amber-500 text-white">2</span>
+                        <div>
+                            <div class="font-semibold text-slate-900">@T(AutomationText.Conditions)</div>
+                            <div class="text-xs text-slate-500">@T(AutomationText.ConditionsHint)</div>
+                        </div>
+                    </div>
+                    <button type="button"
+                            class="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+                            @onclick="AddCondition">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.Add())" />
+                        <span>@T(AutomationText.AddCondition)</span>
+                    </button>
+                </div>
+                <div class="space-y-3 p-4">
+                    @if (_editingRule.Conditions.Count == 0)
+                    {
+                        <div class="text-sm text-slate-500">@T(AutomationText.NoConditions)</div>
+                    }
+                    @foreach (var condition in _editingRule.Conditions.OrderBy(x => x.SortOrder).ToList())
+                    {
+                        <div class="grid gap-3 border-b border-slate-100 pb-3 md:grid-cols-[minmax(180px,1fr)_minmax(180px,1fr)_auto]">
+                            <select class="@SelectClass"
+                                    value="@condition.Type"
+                                    @onchange="e => ChangeConditionType(condition, e)">
+                                @foreach (var type in Enum.GetValues<TodoAutomationConditionType>())
+                                {
+                                    <option value="@type">@ConditionLabel(type)</option>
+                                }
+                            </select>
+                            <div>@ConditionEditor(condition)</div>
+                            <FluentButton Appearance="Appearance.Stealth" Title="@T(AutomationText.RemoveCondition)" OnClick="() => RemoveCondition(condition)">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
+                            </FluentButton>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <FlowConnector />
+
+            <section class="rounded-md border border-emerald-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-3">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-600 text-white">3</span>
+                        <div>
+                            <div class="font-semibold text-slate-900">@T(AutomationText.Actions)</div>
+                            <div class="text-xs text-slate-500">@T(AutomationText.ActionsHint)</div>
+                        </div>
+                    </div>
+                    <button type="button"
+                            class="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+                            @onclick="AddAction">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.Add())" />
+                        <span>@T(AutomationText.AddAction)</span>
+                    </button>
+                </div>
+                <div class="space-y-3 p-4">
+                    @foreach (var action in _editingRule.Actions.OrderBy(x => x.SortOrder).ToList())
+                    {
+                        <div class="grid items-start gap-3 border-b border-slate-100 pb-3 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.4fr)_auto]">
+                            <select class="@SelectClass"
+                                    value="@action.Type"
+                                    @onchange="e => ChangeActionType(action, e)">
+                                @foreach (var type in Enum.GetValues<TodoAutomationActionType>())
+                                {
+                                    <option value="@type">@ActionLabel(type)</option>
+                                }
+                            </select>
+                            <div>@ActionEditor(action)</div>
+                            <FluentButton Appearance="Appearance.Stealth" Title="@T(AutomationText.RemoveAction)" OnClick="() => RemoveAction(action)">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
+                            </FluentButton>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+
+        <div class="mt-5 flex justify-end gap-2 border-t border-slate-200 bg-white py-4">
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CancelEdit">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" Disabled="@_saving" OnClick="SaveRuleAsync">
+                @if (_saving) { <FluentProgressRing Style="width:16px;height:16px;" /> }
+                @L["Btn_Save"]
+            </FluentButton>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TodoListEntity List { get; set; } = default!;
+    [Parameter, EditorRequired] public string UserId { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private const string SelectClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
+    private readonly List<TodoAutomationRuleEntity> _rules = [];
+    private TodoAutomationRuleEntity? _editingRule;
+    private bool _loading = true;
+    private bool _saving;
+    private string _error = string.Empty;
+    private Guid? _deleteCandidateId;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = string.Empty;
+        try
+        {
+            _rules.Clear();
+            _rules.AddRange(await AutomationService.GetRulesAsync(UserId, List.Id));
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private void CreateRule()
+    {
+        _error = string.Empty;
+        _editingRule = new TodoAutomationRuleEntity
+        {
+            Id = Guid.Empty,
+            Name = T(AutomationText.DefaultName),
+            ListId = List.Id,
+            IsEnabled = true,
+            TriggerType = TodoAutomationTriggerType.ColumnChanged,
+            Actions =
+            [
+                new TodoAutomationActionEntity
+                {
+                    Type = TodoAutomationActionType.SetCardColor,
+                    Value = "#2563EB"
+                }
+            ]
+        };
+    }
+
+    private void EditRule(TodoAutomationRuleEntity source)
+    {
+        _error = string.Empty;
+        _editingRule = new TodoAutomationRuleEntity
+        {
+            Id = source.Id,
+            ListId = source.ListId,
+            Name = source.Name,
+            IsEnabled = source.IsEnabled,
+            TriggerType = source.TriggerType,
+            Conditions = source.Conditions.OrderBy(x => x.SortOrder).Select(CloneCondition).ToList(),
+            Actions = source.Actions.OrderBy(x => x.SortOrder).Select(CloneAction).ToList()
+        };
+        foreach (var action in _editingRule.Actions.Where(x => x.Type == TodoAutomationActionType.PostWebhook))
+            action.Value = action.GetWebhookConfiguration().Url;
+        foreach (var condition in _editingRule.Conditions)
+            EnsureConditionConfiguration(condition);
+        foreach (var action in _editingRule.Actions)
+            EnsureActionConfiguration(action);
+    }
+
+    private void CancelEdit() { _editingRule = null; _error = string.Empty; }
+    private void AddCondition() => _editingRule?.Conditions.Add(new TodoAutomationConditionEntity
+    {
+        SortOrder = _editingRule.Conditions.Count,
+        Type = TodoAutomationConditionType.ToColumnEquals,
+        Value = List.Columns.FirstOrDefault()
+    });
+    private void RemoveCondition(TodoAutomationConditionEntity item) => _editingRule?.Conditions.Remove(item);
+    private void AddAction() => _editingRule?.Actions.Add(new TodoAutomationActionEntity
+    {
+        SortOrder = _editingRule.Actions.Count,
+        Type = TodoAutomationActionType.AddComment
+    });
+    private void RemoveAction(TodoAutomationActionEntity item) => _editingRule?.Actions.Remove(item);
+
+    private void ChangeConditionType(TodoAutomationConditionEntity condition, ChangeEventArgs args)
+    {
+        if (!Enum.TryParse<TodoAutomationConditionType>(args.Value?.ToString(), out var type))
+            return;
+
+        condition.Type = type;
+        condition.CustomFieldId = null;
+        condition.Value = type switch
+        {
+            TodoAutomationConditionType.FromColumnEquals or TodoAutomationConditionType.ToColumnEquals
+                => List.Columns.FirstOrDefault(),
+            TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty
+                => null,
+            _ => null
+        };
+        if (type is TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty)
+            condition.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+    }
+
+    private void ChangeActionType(TodoAutomationActionEntity action, ChangeEventArgs args)
+    {
+        if (!Enum.TryParse<TodoAutomationActionType>(args.Value?.ToString(), out var type))
+            return;
+
+        action.Type = type;
+        action.CustomFieldId = null;
+        action.LabelId = null;
+        action.ConfigurationJson = "{}";
+        action.Value = type switch
+        {
+            TodoAutomationActionType.SetCardColor => "#2563EB",
+            TodoAutomationActionType.MoveToColumn => List.Columns.FirstOrDefault(),
+            TodoAutomationActionType.SetImportant => "true",
+            _ => null
+        };
+        if (type is TodoAutomationActionType.SetCustomField or TodoAutomationActionType.ClearCustomField)
+            action.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+        if (type == TodoAutomationActionType.AddLabel)
+            action.LabelId = List.Labels.FirstOrDefault()?.Id;
+        EnsureActionConfiguration(action);
+    }
+
+    private void EnsureConditionConfiguration(TodoAutomationConditionEntity condition)
+    {
+        if (condition.Type is TodoAutomationConditionType.FromColumnEquals or TodoAutomationConditionType.ToColumnEquals
+            && string.IsNullOrWhiteSpace(condition.Value))
+            condition.Value = List.Columns.FirstOrDefault();
+        if (condition.Type is TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty
+            && condition.CustomFieldId is null)
+            condition.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+    }
+
+    private void EnsureActionConfiguration(TodoAutomationActionEntity action)
+    {
+        if (action.Type == TodoAutomationActionType.SetCardColor && string.IsNullOrWhiteSpace(action.Value))
+            action.Value = "#2563EB";
+        if (action.Type == TodoAutomationActionType.MoveToColumn && string.IsNullOrWhiteSpace(action.Value))
+            action.Value = List.Columns.FirstOrDefault();
+        if (action.Type == TodoAutomationActionType.SetImportant && string.IsNullOrWhiteSpace(action.Value))
+            action.Value = "true";
+        if (action.Type is TodoAutomationActionType.SetCustomField or TodoAutomationActionType.ClearCustomField
+            && action.CustomFieldId is null)
+            action.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+        if (action.Type == TodoAutomationActionType.AddLabel && action.LabelId is null)
+            action.LabelId = List.Labels.FirstOrDefault()?.Id;
+        if (action.Type == TodoAutomationActionType.PostWebhook)
+        {
+            var configuration = action.GetWebhookConfiguration();
+            var fields = configuration.GetSelectedFields().ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (fields.Remove("customFields"))
+            {
+                foreach (var field in List.CustomFields)
+                    fields.Add($"custom:{field.Id}");
+            }
+            configuration.SelectedFields = fields.ToList();
+            action.ConfigurationJson = JsonSerializer.Serialize(configuration);
+        }
+    }
+
+    private async Task SaveRuleAsync()
+    {
+        if (_editingRule is null) return;
+        _saving = true;
+        _error = string.Empty;
+        try
+        {
+            foreach (var action in _editingRule.Actions.Where(x => x.Type == TodoAutomationActionType.PostWebhook))
+            {
+                var configuration = action.GetWebhookConfiguration();
+                configuration.Url = action.Value?.Trim() ?? "";
+                configuration.SelectedFields = configuration.GetSelectedFields().ToList();
+                action.ConfigurationJson = JsonSerializer.Serialize(configuration);
+            }
+            await AutomationService.SaveRuleAsync(UserId, List.Id, _editingRule);
+            _editingRule = null;
+            await LoadAsync();
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task DeleteRuleAsync(TodoAutomationRuleEntity rule)
+    {
+        try
+        {
+            await AutomationService.DeleteRuleAsync(UserId, List.Id, rule.Id);
+            _deleteCandidateId = null;
+            await LoadAsync();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void RequestDelete(TodoAutomationRuleEntity rule) => _deleteCandidateId = rule.Id;
+    private void CancelDelete() => _deleteCandidateId = null;
+
+    private async Task SetEnabledAsync(TodoAutomationRuleEntity rule, bool enabled)
+    {
+        rule.IsEnabled = enabled;
+        try { await AutomationService.SetRuleEnabledAsync(UserId, List.Id, rule.Id, enabled); }
+        catch (Exception ex) { rule.IsEnabled = !enabled; _error = ex.Message; }
+    }
+
+    private RenderFragment ConditionEditor(TodoAutomationConditionEntity condition) => builder =>
+    {
+        var seq = 0;
+        if (condition.Type is TodoAutomationConditionType.TaskIsCompleted or TodoAutomationConditionType.TaskIsOpen)
+        {
+            builder.OpenElement(seq++, "span"); builder.AddAttribute(seq++, "class", "text-sm text-slate-500"); builder.AddContent(seq++, T(AutomationText.NoAdditionalValue)); builder.CloseElement(); return;
+        }
+        if (condition.Type is TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty)
+        {
+            RenderFieldSelect(builder, ref seq, condition.CustomFieldId, value => condition.CustomFieldId = value);
+            if (condition.Type == TodoAutomationConditionType.CustomFieldIsEmpty) return;
+        }
+        if (condition.Type is TodoAutomationConditionType.FromColumnEquals or TodoAutomationConditionType.ToColumnEquals)
+            RenderStringSelect(builder, ref seq, List.Columns, condition.Value, value => condition.Value = value);
+        else
+            RenderTextInput(builder, ref seq, condition.Value, value => condition.Value = value, condition.Type == TodoAutomationConditionType.TitleContains ? T(AutomationText.TitleText) : T(AutomationText.Value));
+    };
+
+    private RenderFragment ActionEditor(TodoAutomationActionEntity action) => builder =>
+    {
+        var seq = 0;
+        switch (action.Type)
+        {
+            case TodoAutomationActionType.MarkCompleted:
+            case TodoAutomationActionType.MarkOpen:
+            case TodoAutomationActionType.ClearAssignee:
+                RenderHint(builder, ref seq, T(AutomationText.NoAdditionalValue));
+                break;
+            case TodoAutomationActionType.SetImportant:
+                RenderStringSelect(builder, ref seq, ["true", "false"], action.Value ?? "true", value => action.Value = value, value => value == "true" ? T(AutomationText.Important) : T(AutomationText.NotImportant));
+                break;
+            case TodoAutomationActionType.SetCardColor:
+                builder.OpenElement(seq++, "input"); builder.AddAttribute(seq++, "type", "color"); builder.AddAttribute(seq++, "class", "h-10 w-20 rounded border border-slate-300");
+                builder.AddAttribute(seq++, "value", string.IsNullOrWhiteSpace(action.Value) ? "#2563eb" : action.Value);
+                builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => action.Value = e.Value?.ToString())); builder.CloseElement();
+                RenderStringSelect(
+                    builder,
+                    ref seq,
+                    [nameof(TaskCardColorMode.TopOnly), nameof(TaskCardColorMode.Full)],
+                    action.GetCardColorConfiguration().Mode.ToString(),
+                    value => SetCardColorMode(action, value),
+                    value => CardColorModeLabel(value == nameof(TaskCardColorMode.Full)));
+                break;
+            case TodoAutomationActionType.SetCustomField:
+                RenderFieldSelect(builder, ref seq, action.CustomFieldId, value => action.CustomFieldId = value);
+                RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.NewValue));
+                break;
+            case TodoAutomationActionType.ClearCustomField:
+                RenderFieldSelect(builder, ref seq, action.CustomFieldId, value => action.CustomFieldId = value);
+                break;
+            case TodoAutomationActionType.AddLabel:
+                RenderGuidSelect(builder, ref seq, List.Labels.Select(x => (x.Id, x.Title)), action.LabelId, value => action.LabelId = value);
+                break;
+            case TodoAutomationActionType.MoveToColumn:
+                RenderStringSelect(builder, ref seq, List.Columns, action.Value, value => action.Value = value);
+                break;
+            case TodoAutomationActionType.PostWebhook:
+                RenderWebhookEditor(builder, ref seq, action);
+                break;
+            case TodoAutomationActionType.AddComment:
+                RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.CommentText));
+                break;
+            case TodoAutomationActionType.SendNotification:
+                RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.NotificationText));
+                break;
+            case TodoAutomationActionType.SetAssignee:
+                RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.UserOrEmail));
+                break;
+        }
+    };
+
+    private static TodoAutomationConditionEntity CloneCondition(TodoAutomationConditionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, Value = x.Value };
+    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, LabelId = x.LabelId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
+    private void RenderWebhookEditor(
+        Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder,
+        ref int seq,
+        TodoAutomationActionEntity action)
+    {
+        var configuration = action.GetWebhookConfiguration();
+        var selected = configuration.GetSelectedFields().ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, "https://example.org/webhook", "url");
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "mt-3");
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "mb-2 text-xs font-semibold uppercase text-slate-500");
+        builder.AddContent(seq++, T(AutomationText.SelectFields));
+        builder.CloseElement();
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "grid gap-2 sm:grid-cols-2");
+
+        foreach (var field in WebhookStandardFields)
+            RenderWebhookFieldCheckbox(builder, ref seq, action, selected, field.Key, field.Label);
+        foreach (var field in List.CustomFields.OrderBy(x => x.SortOrder))
+            RenderWebhookFieldCheckbox(builder, ref seq, action, selected, $"custom:{field.Id}", field.Name);
+
+        builder.CloseElement();
+        builder.CloseElement();
+        RenderTextInput(
+            builder,
+            ref seq,
+            configuration.BearerToken,
+            value => SetWebhookBearerToken(action, value),
+            configuration.BearerTokenConfigured ? T(AutomationText.TokenConfigured) : T(AutomationText.OptionalToken),
+            "password");
+    }
+
+    private void RenderWebhookFieldCheckbox(
+        Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder,
+        ref int seq,
+        TodoAutomationActionEntity action,
+        IReadOnlySet<string> selected,
+        string key,
+        string label)
+    {
+        builder.OpenElement(seq++, "label");
+        builder.AddAttribute(seq++, "class", "flex min-w-0 items-center gap-2 rounded-md border border-slate-200 px-2 py-1.5 text-sm");
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "type", "checkbox");
+        builder.AddAttribute(seq++, "class", "h-4 w-4 shrink-0");
+        builder.AddAttribute(seq++, "checked", selected.Contains(key));
+        builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(
+            this,
+            args => ToggleWebhookField(action, key, args.Value is true)));
+        builder.CloseElement();
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "truncate");
+        builder.AddContent(seq++, label);
+        builder.CloseElement();
+        builder.CloseElement();
+    }
+
+    private static void ToggleWebhookField(TodoAutomationActionEntity action, string key, bool enabled)
+    {
+        var configuration = action.GetWebhookConfiguration();
+        var fields = configuration.GetSelectedFields().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (enabled) fields.Add(key); else fields.Remove(key);
+        configuration.SelectedFields = fields.ToList();
+        action.ConfigurationJson = JsonSerializer.Serialize(configuration);
+    }
+
+    private static void SetWebhookBearerToken(TodoAutomationActionEntity action, string? token)
+    {
+        var configuration = action.GetWebhookConfiguration();
+        configuration.BearerToken = token ?? "";
+        action.ConfigurationJson = JsonSerializer.Serialize(configuration);
+    }
+
+    private static void SetCardColorMode(TodoAutomationActionEntity action, string? value)
+    {
+        var mode = Enum.TryParse<TaskCardColorMode>(value, out var parsed)
+            ? parsed
+            : TaskCardColorMode.TopOnly;
+        action.ConfigurationJson = JsonSerializer.Serialize(new TodoAutomationCardColorConfiguration
+        {
+            Mode = mode
+        });
+    }
+
+    private (string Key, string Label)[] WebhookStandardFields =>
+    [
+        ("id", T(AutomationText.FieldId)),
+        ("title", T(AutomationText.FieldTitle)),
+        ("description", T(AutomationText.FieldDescription)),
+        ("column", T(AutomationText.FieldColumn)),
+        ("done", T(AutomationText.FieldDone)),
+        ("important", T(AutomationText.FieldImportant)),
+        ("assignee", T(AutomationText.FieldAssignee)),
+        ("startDate", T(AutomationText.FieldStartDate)),
+        ("dueDate", T(AutomationText.FieldDueDate)),
+        ("cardColor", T(AutomationText.FieldCardColor))
+    ];
+
+    private string TriggerLabel(TodoAutomationTriggerType value) => T((AutomationText)((int)AutomationText.TriggerTaskCreated + (int)value));
+    private string ConditionLabel(TodoAutomationConditionType value) => T((AutomationText)((int)AutomationText.ConditionFromColumn + (int)value));
+    private string ActionLabel(TodoAutomationActionType value) => T((AutomationText)((int)AutomationText.ActionSetColor + (int)value));
+    private static string CardColorModeLabel(bool full)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return (language, full) switch
+        {
+            ("de", false) => "Nur oben einfärben",
+            ("de", true) => "Ganze Karte einfärben",
+            ("es", false) => "Colorear solo arriba",
+            ("es", true) => "Colorear toda la tarjeta",
+            ("fr", false) => "Colorer uniquement le haut",
+            ("fr", true) => "Colorer toute la carte",
+            ("hi", false) => "केवल ऊपर रंग भरें",
+            ("hi", true) => "पूरे कार्ड को रंगें",
+            ("zh", false) => "仅顶部着色",
+            ("zh", true) => "整张卡片着色",
+            (_, false) => "Color top only",
+            (_, true) => "Color entire card"
+        };
+    }
+
+    private void RenderFieldSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, Guid? value, Action<Guid?> changed)
+        => RenderGuidSelect(b, ref s, List.CustomFields.Select(x => (x.Id, x.Name)), value, changed);
+    private static void RenderHint(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string text) { b.OpenElement(s++, "span"); b.AddAttribute(s++, "class", "text-sm text-slate-500"); b.AddContent(s++, text); b.CloseElement(); }
+    private void RenderTextInput(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? value, Action<string?> changed, string placeholder, string type = "text") { b.OpenElement(s++, "input"); b.AddAttribute(s++, "type", type); b.AddAttribute(s++, "class", SelectClass); b.AddAttribute(s++, "value", value); b.AddAttribute(s++, "placeholder", placeholder); b.AddAttribute(s++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString()))); b.CloseElement(); }
+    private void RenderStringSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, IEnumerable<string> items, string? value, Action<string?> changed, Func<string, string>? label = null) { b.OpenElement(s++, "select"); b.AddAttribute(s++, "class", SelectClass); b.AddAttribute(s++, "value", value); b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString()))); foreach (var item in items) { b.OpenElement(s++, "option"); b.AddAttribute(s++, "value", item); b.AddContent(s++, label?.Invoke(item) ?? item); b.CloseElement(); } b.CloseElement(); }
+    private void RenderGuidSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, IEnumerable<(Guid Id, string Name)> items, Guid? value, Action<Guid?> changed) { b.OpenElement(s++, "select"); b.AddAttribute(s++, "class", SelectClass); b.AddAttribute(s++, "value", value?.ToString()); b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null))); b.OpenElement(s++, "option"); b.AddAttribute(s++, "value", ""); b.AddContent(s++, T(AutomationText.PleaseSelect)); b.CloseElement(); foreach (var item in items) { b.OpenElement(s++, "option"); b.AddAttribute(s++, "value", item.Id.ToString()); b.AddContent(s++, item.Name); b.CloseElement(); } b.CloseElement(); }
+
+    private string T(AutomationText key)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        var values = AutomationLanguagePacks.TryGetValue(language, out var localized)
+            ? localized
+            : AutomationLanguagePacks["en"];
+        var index = (int)key;
+        return index < values.Length
+            ? values[index]
+            : AutomationLanguagePacks["en"][index];
+    }
+
+    private enum AutomationText
+    {
+        Rules, Subtitle, NewRule, EmptyTitle, EmptyHint, RuleSummary, Active, DeleteConfirm,
+        RuleName, RuleNamePlaceholder, Trigger, TriggerHint, Conditions, ConditionsHint,
+        AddCondition, NoConditions, RemoveCondition, Actions, ActionsHint, AddAction, RemoveAction,
+        DefaultName, NoAdditionalValue, TitleText, Value, Important, NotImportant, NewValue,
+        CommentText, NotificationText, UserOrEmail, SelectFields, TokenConfigured, OptionalToken,
+        FieldId, FieldTitle, FieldDescription, FieldColumn, FieldDone, FieldImportant, FieldAssignee,
+        FieldStartDate, FieldDueDate, FieldCardColor, PleaseSelect,
+        TriggerTaskCreated, TriggerTaskUpdated, TriggerColumnChanged, TriggerTaskCompleted,
+        TriggerTaskReopened, TriggerAssigneeChanged,
+        ConditionFromColumn, ConditionToColumn, ConditionTaskCompleted, ConditionTaskOpen,
+        ConditionAssignee, ConditionFieldEquals, ConditionFieldEmpty, ConditionTitleContains,
+        ActionSetColor, ActionSetField, ActionClearField, ActionAddComment, ActionAddLabel,
+        ActionMarkCompleted, ActionMarkOpen, ActionMoveColumn, ActionSetAssignee,
+        ActionSendNotification, ActionPostWebhook, ActionSetImportant, ActionClearAssignee,
+        ColorTopOnly, ColorWholeCard
+    }
+
+    private static readonly Dictionary<string, string[]> AutomationLanguagePacks = new()
+    {
+        ["de"] = "Automatisierungsregeln|Abläufe dieser Liste zentral auslösen und ausführen.|Neue Regel|Noch keine Automatisierungen|Erstelle eine Regel für wiederkehrende Arbeitsschritte.|{0} · {1} Bedingung(en) · {2} Aktion(en)|Aktiv|Wirklich löschen?|Regelname|z. B. Farbe bei Eingang setzen|Auslöser|Wann soll die Regel starten?|Bedingungen|Optional, alle Bedingungen müssen zutreffen.|Bedingung|Keine Einschränkung. Die Regel gilt für jede passende Aufgabe.|Bedingung entfernen|Aktionen|Werden von oben nach unten ausgeführt.|Aktion|Aktion entfernen|Neue Automatisierung|Keine weitere Angabe|Text im Titel|Wert|Wichtig|Nicht wichtig|Neuer Wert|Kommentartext|Benachrichtigungstext|Benutzer-ID oder E-Mail|Felder auswählen|Bearer-Token ist hinterlegt (leer lassen zum Beibehalten)|Optionaler Bearer-Token|ID|Titel|Beschreibung|Spalte|Erledigt|Wichtig|Bearbeiter|Startdatum|Fälligkeitsdatum|Kartenfarbe|Bitte wählen|Aufgabe wurde erstellt|Aufgabe wurde geändert|Aufgabe wurde in eine andere Spalte verschoben|Aufgabe wurde fertiggestellt|Aufgabe wurde erneut geöffnet|Bearbeiter wurde geändert|Ausgangsspalte ist|Zielspalte ist|Aufgabe ist fertig|Aufgabe ist offen|Bearbeiter ist|Feld entspricht|Feld ist leer|Titel enthält|Kartenfarbe setzen|Feld befüllen|Feld leeren|Kommentar hinzufügen|Label hinzufügen|Als fertig markieren|Als offen markieren|In Spalte verschieben|Bearbeiter setzen|Benachrichtigung senden|Felder per POST senden|Wichtigkeit setzen|Bearbeiter entfernen|Nur oben einfärben|Ganze Karte einfärben".Split('|'),
+        ["en"] = "Automation rules|Trigger and run workflows for this list.|New rule|No automations yet|Create a rule for recurring workflows.|{0} · {1} condition(s) · {2} action(s)|Active|Delete this rule?|Rule name|e.g. Set color on intake|Trigger|When should the rule start?|Conditions|Optional; all conditions must match.|Condition|No restrictions. The rule applies to every matching task.|Remove condition|Actions|Run from top to bottom.|Action|Remove action|New automation|No additional value|Text in title|Value|Important|Not important|New value|Comment text|Notification text|User ID or email|Select fields|Bearer token is configured (leave empty to keep it)|Optional bearer token|ID|Title|Description|Column|Completed|Important|Assignee|Start date|Due date|Card color|Please select|Task was created|Task was updated|Task moved to another column|Task was completed|Task was reopened|Assignee changed|Source column is|Target column is|Task is completed|Task is open|Assignee is|Field equals|Field is empty|Title contains|Set card color|Set field value|Clear field|Add comment|Add label|Mark as completed|Mark as open|Move to column|Set assignee|Send notification|POST selected fields|Set importance|Clear assignee|Color top only|Color entire card".Split('|'),
+        ["es"] = "Reglas de automatización|Activa y ejecuta flujos para esta lista.|Nueva regla|Aún no hay automatizaciones|Crea una regla para tareas recurrentes.|{0} · {1} condición(es) · {2} acción(es)|Activa|¿Eliminar esta regla?|Nombre de la regla|p. ej., definir color al recibir|Disparador|¿Cuándo debe iniciarse la regla?|Condiciones|Opcional; deben cumplirse todas.|Condición|Sin restricciones. La regla se aplica a todas las tareas coincidentes.|Eliminar condición|Acciones|Se ejecutan de arriba abajo.|Acción|Eliminar acción|Nueva automatización|Sin valor adicional|Texto en el título|Valor|Importante|No importante|Nuevo valor|Texto del comentario|Texto de notificación|ID de usuario o correo|Seleccionar campos|El token Bearer está configurado (déjalo vacío para conservarlo)|Token Bearer opcional|ID|Título|Descripción|Columna|Completada|Importante|Responsable|Fecha de inicio|Fecha límite|Color de tarjeta|Seleccionar|Se creó la tarea|Se modificó la tarea|La tarea cambió de columna|Se completó la tarea|Se reabrió la tarea|Cambió el responsable|La columna de origen es|La columna de destino es|La tarea está completada|La tarea está abierta|El responsable es|El campo es igual a|El campo está vacío|El título contiene|Definir color de tarjeta|Rellenar campo|Vaciar campo|Añadir comentario|Añadir etiqueta|Marcar como completada|Marcar como abierta|Mover a columna|Asignar responsable|Enviar notificación|Enviar campos seleccionados por POST|Definir importancia|Quitar responsable|Colorear solo arriba|Colorear toda la tarjeta".Split('|'),
+        ["fr"] = "Règles d’automatisation|Déclenchez et exécutez des flux pour cette liste.|Nouvelle règle|Aucune automatisation|Créez une règle pour les tâches récurrentes.|{0} · {1} condition(s) · {2} action(s)|Active|Supprimer cette règle ?|Nom de la règle|p. ex. définir la couleur à l’arrivée|Déclencheur|Quand la règle doit-elle démarrer ?|Conditions|Facultatif ; toutes doivent être remplies.|Condition|Aucune restriction. La règle s’applique à toutes les tâches correspondantes.|Supprimer la condition|Actions|Exécutées de haut en bas.|Action|Supprimer l’action|Nouvelle automatisation|Aucune valeur supplémentaire|Texte dans le titre|Valeur|Important|Non important|Nouvelle valeur|Texte du commentaire|Texte de notification|ID utilisateur ou e-mail|Sélectionner les champs|Un jeton Bearer est configuré (laisser vide pour le conserver)|Jeton Bearer facultatif|ID|Titre|Description|Colonne|Terminée|Important|Responsable|Date de début|Date d’échéance|Couleur de carte|Veuillez sélectionner|La tâche a été créée|La tâche a été modifiée|La tâche a changé de colonne|La tâche a été terminée|La tâche a été rouverte|Le responsable a changé|La colonne source est|La colonne cible est|La tâche est terminée|La tâche est ouverte|Le responsable est|Le champ est égal à|Le champ est vide|Le titre contient|Définir la couleur|Renseigner le champ|Vider le champ|Ajouter un commentaire|Ajouter une étiquette|Marquer comme terminée|Marquer comme ouverte|Déplacer vers la colonne|Définir le responsable|Envoyer une notification|Envoyer les champs sélectionnés par POST|Définir l’importance|Retirer le responsable|Colorer uniquement le haut|Colorer toute la carte".Split('|'),
+        ["hi"] = "ऑटोमेशन नियम|इस सूची के लिए वर्कफ़्लो शुरू और चलाएँ।|नया नियम|अभी कोई ऑटोमेशन नहीं|दोहराए जाने वाले कार्यों के लिए नियम बनाएँ।|{0} · {1} शर्तें · {2} कार्रवाइयाँ|सक्रिय|क्या यह नियम हटाएँ?|नियम का नाम|जैसे, आने पर रंग सेट करें|ट्रिगर|नियम कब शुरू होना चाहिए?|शर्तें|वैकल्पिक; सभी शर्तें पूरी होनी चाहिए।|शर्त|कोई सीमा नहीं। नियम हर मेल खाने वाले कार्य पर लागू होगा।|शर्त हटाएँ|कार्रवाइयाँ|ऊपर से नीचे क्रम में चलेंगी।|कार्रवाई|कार्रवाई हटाएँ|नया ऑटोमेशन|कोई अतिरिक्त मान नहीं|शीर्षक में टेक्स्ट|मान|महत्वपूर्ण|महत्वपूर्ण नहीं|नया मान|टिप्पणी टेक्स्ट|सूचना टेक्स्ट|उपयोगकर्ता ID या ईमेल|फ़ील्ड चुनें|Bearer टोकन सेट है (रखने के लिए खाली छोड़ें)|वैकल्पिक Bearer टोकन|ID|शीर्षक|विवरण|कॉलम|पूर्ण|महत्वपूर्ण|जिम्मेदार|आरंभ तिथि|नियत तिथि|कार्ड रंग|कृपया चुनें|कार्य बनाया गया|कार्य बदला गया|कार्य दूसरे कॉलम में गया|कार्य पूर्ण हुआ|कार्य फिर खोला गया|जिम्मेदार बदला गया|स्रोत कॉलम है|लक्ष्य कॉलम है|कार्य पूर्ण है|कार्य खुला है|जिम्मेदार है|फ़ील्ड बराबर है|फ़ील्ड खाली है|शीर्षक में है|कार्ड रंग सेट करें|फ़ील्ड भरें|फ़ील्ड खाली करें|टिप्पणी जोड़ें|लेबल जोड़ें|पूर्ण चिह्नित करें|खुला चिह्नित करें|कॉलम में ले जाएँ|जिम्मेदार सेट करें|सूचना भेजें|चुने फ़ील्ड POST करें|महत्व सेट करें|जिम्मेदार हटाएँ".Split('|'),
+        ["zh"] = "自动化规则|为此列表触发并运行工作流。|新建规则|暂无自动化|为重复工作创建规则。|{0} · {1} 个条件 · {2} 个操作|启用|确定删除此规则？|规则名称|例如：进入时设置颜色|触发器|规则应何时启动？|条件|可选；所有条件都必须满足。|条件|无限制。规则适用于所有匹配的任务。|删除条件|操作|按从上到下的顺序执行。|操作|删除操作|新建自动化|无需其他值|标题中的文本|值|重要|不重要|新值|评论文本|通知文本|用户 ID 或电子邮件|选择字段|已配置 Bearer 令牌（留空以保留）|可选 Bearer 令牌|ID|标题|描述|列|已完成|重要|负责人|开始日期|截止日期|卡片颜色|请选择|任务已创建|任务已修改|任务已移动到另一列|任务已完成|任务已重新打开|负责人已更改|来源列是|目标列是|任务已完成|任务未完成|负责人是|字段等于|字段为空|标题包含|设置卡片颜色|填写字段|清空字段|添加评论|添加标签|标记为完成|标记为未完成|移动到列|设置负责人|发送通知|POST 所选字段|设置重要性|移除负责人".Split('|')
+    };
+}

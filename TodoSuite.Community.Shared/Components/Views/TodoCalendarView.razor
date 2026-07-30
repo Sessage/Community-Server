@@ -1,0 +1,71 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="@HostClass">
+    <div class="@ContainerClass" @ref="_calendarEl"></div>
+
+    @if (_events.Count == 0)
+    {
+        <div class="text-slate-500">@EmptyText</div>
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<TodoCalendarItem>? Items { get; set; }
+    [Parameter] public EventCallback<TodoCalendarItem> OnItemClick { get; set; }
+    [Parameter] public string EmptyText { get; set; } = string.Empty;
+    [Parameter] public string HostClass { get; set; } = "space-y-4";
+    [Parameter] public string ContainerClass { get; set; } = "min-h-[70vh] rounded-xl border border-slate-200 bg-white p-3 shadow-sm";
+
+    private readonly List<TodoCalendarItem> _events = [];
+    private DotNetObjectReference<TodoCalendarView>? _dotNetRef;
+    private ElementReference _calendarEl;
+    private bool _calendarNeedsRender;
+
+    protected override void OnParametersSet()
+    {
+        _events.Clear();
+        if (Items is not null)
+        {
+            _events.AddRange(Items);
+        }
+
+        _calendarNeedsRender = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_calendarNeedsRender)
+        {
+            return;
+        }
+
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("todoUi.initCalendar", _calendarEl, _events, _dotNetRef);
+        _calendarNeedsRender = false;
+    }
+
+    [JSInvokable]
+    public async Task OnCalendarItemClick(string? taskId)
+    {
+        if (string.IsNullOrWhiteSpace(taskId) || !Guid.TryParse(taskId, out var parsedTaskId))
+        {
+            return;
+        }
+
+        var item = _events.FirstOrDefault(candidate => candidate.TaskId == parsedTaskId);
+        if (item is null)
+        {
+            return;
+        }
+
+        await OnItemClick.InvokeAsync(item);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+        return ValueTask.CompletedTask;
+    }
+}

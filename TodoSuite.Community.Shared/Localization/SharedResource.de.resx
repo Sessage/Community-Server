@@ -1,0 +1,2386 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Nav_Navigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="Nav_Lists" xml:space="preserve">
+    <value>Listen</value>
+  </data>
+  <data name="Nav_NewGroup" xml:space="preserve">
+    <value>Neue Gruppe</value>
+  </data>
+  <data name="Nav_NewList" xml:space="preserve">
+    <value>Neue Liste</value>
+  </data>
+  <data name="Nav_WithoutGroup" xml:space="preserve">
+    <value>Ohne Gruppe</value>
+  </data>
+  <data name="Nav_Groups" xml:space="preserve">
+    <value>Gruppen</value>
+  </data>
+  <data name="Nav_DragToSort" xml:space="preserve">
+    <value>Ziehen zum Sortieren</value>
+  </data>
+  <data name="Nav_DragGroup" xml:space="preserve">
+    <value>Gruppe ziehen</value>
+  </data>
+  <data name="Nav_CollapseExpand" xml:space="preserve">
+    <value>Zuklappen/Aufklappen</value>
+  </data>
+  <data name="Nav_Options" xml:space="preserve">
+    <value>Optionen</value>
+  </data>
+  <data name="Nav_AddRemoveLists" xml:space="preserve">
+    <value>Listen hinzufügen/entfernen</value>
+  </data>
+  <data name="Nav_RenameGroup" xml:space="preserve">
+    <value>Gruppe umbenennen</value>
+  </data>
+  <data name="Nav_RemoveGrouping" xml:space="preserve">
+    <value>Gruppierung von Listen aufheben</value>
+  </data>
+  <data name="Nav_DropListsHere" xml:space="preserve">
+    <value>Ziehe Listen hier hinein …</value>
+  </data>
+  <data name="Nav_LoggedInAs" xml:space="preserve">
+    <value>Angemeldet als</value>
+  </data>
+  <data name="Nav_Logout" xml:space="preserve">
+    <value>Abmelden</value>
+  </data>
+  <data name="Nav_Login" xml:space="preserve">
+    <value>Login</value>
+  </data>
+  <data name="Nav_Register" xml:space="preserve">
+    <value>Registrieren</value>
+  </data>
+  <data name="Nav_ScanQrCode" xml:space="preserve">
+    <value>Einladungs-QR-Code scannen</value>
+  </data>
+  <data name="Nav_Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="Nav_ProfilePicture" xml:space="preserve">
+    <value>Profilbild</value>
+  </data>
+  <data name="Nav_AdminArea" xml:space="preserve">
+    <value>Adminbereich</value>
+  </data>
+  <data name="Nav_AccessTokens" xml:space="preserve">
+    <value>API-Zugriffstoken</value>
+  </data>
+  <data name="Nav_Template_Label" xml:space="preserve">
+    <value>Vorlage wählen</value>
+  </data>
+  <data name="Nav_Template_Blank" xml:space="preserve">
+    <value>Leere Liste</value>
+  </data>
+  <data name="Dlg_ManageGroupLists_Title" xml:space="preserve">
+    <value>Listen hinzufügen/entfernen</value>
+  </data>
+  <data name="Dlg_ManageGroupLists_Description" xml:space="preserve">
+    <value>Wähle aus, welche Listen in dieser Gruppe sein sollen.</value>
+  </data>
+  <data name="Dlg_ManageGroupLists_Close" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="Dlg_GroupPrefix" xml:space="preserve">
+    <value>Gruppe:</value>
+  </data>
+  <data name="Dlg_RenameGroup_Title" xml:space="preserve">
+    <value>Gruppe umbenennen</value>
+  </data>
+  <data name="Dlg_RenameGroup_NewName" xml:space="preserve">
+    <value>Neuer Name</value>
+  </data>
+  <data name="Dlg_Ungroup_Title" xml:space="preserve">
+    <value>Gruppierung aufheben</value>
+  </data>
+  <data name="Dlg_Ungroup_Confirm" xml:space="preserve">
+    <value>Willst du die Gruppierung für „{0}" wirklich aufheben?</value>
+  </data>
+  <data name="Dlg_Ungroup_Description" xml:space="preserve">
+    <value>Die Listen werden wieder unter „Ohne Gruppe" einsortiert, und die Gruppe wird gelöscht.</value>
+  </data>
+  <data name="Dlg_Ungroup_Button" xml:space="preserve">
+    <value>Aufheben</value>
+  </data>
+  <data name="Btn_Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="Btn_Save" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="Btn_Close" xml:space="preserve">
+    <value>Schließen</value>
+  </data>
+  <data name="Btn_Done" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="Btn_Delete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="Btn_Create" xml:space="preserve">
+    <value>Anlegen</value>
+  </data>
+  <data name="Btn_Restore" xml:space="preserve">
+    <value>Wiederherstellen</value>
+  </data>
+  <data name="Btn_Add" xml:space="preserve">
+    <value>Hinzufügen</value>
+  </data>
+  <data name="Btn_Edit" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="Lbl_Error" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Lbl_Loading" xml:space="preserve">
+    <value>Wird geladen …</value>
+  </data>
+  <data name="Lbl_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Lbl_GroupName" xml:space="preserve">
+    <value>Name der Gruppe</value>
+  </data>
+  <data name="Lbl_ListName" xml:space="preserve">
+    <value>Name der Liste</value>
+  </data>
+  <data name="QuickLink_Tasks" xml:space="preserve">
+    <value>Aufgaben</value>
+  </data>
+  <data name="QuickLink_Calendar" xml:space="preserve">
+    <value>Kalender</value>
+  </data>
+  <data name="QuickLink_Trash" xml:space="preserve">
+    <value>Papierkorb</value>
+  </data>
+  <data name="QuickLink_MyDay" xml:space="preserve">
+    <value>Mein Tag</value>
+  </data>
+  <data name="QuickLink_Important" xml:space="preserve">
+    <value>Wichtig</value>
+  </data>
+  <data name="Page_Tasks_Section" xml:space="preserve">
+    <value>Aufgaben</value>
+  </data>
+  <data name="Page_Tasks_Title" xml:space="preserve">
+    <value>Meine zugewiesenen Aufgaben</value>
+  </data>
+  <data name="Page_Tasks_Description" xml:space="preserve">
+    <value>Alle Aufgaben aus deinen Listen, bei denen du als Bearbeiter eingetragen bist.</value>
+  </data>
+  <data name="Page_Tasks_Empty" xml:space="preserve">
+    <value>Dir sind aktuell keine Aufgaben zugewiesen.</value>
+  </data>
+  <data name="Page_MyDay_Section" xml:space="preserve">
+    <value>Fokus</value>
+  </data>
+  <data name="Page_MyDay_Title" xml:space="preserve">
+    <value>Mein Tag</value>
+  </data>
+  <data name="Page_MyDay_Description" xml:space="preserve">
+    <value>Alle offenen Aufgaben mit Fälligkeit heute oder früher, die dir zugewiesen sind.</value>
+  </data>
+  <data name="Page_MyDay_Empty" xml:space="preserve">
+    <value>Heute stehen keine Aufgaben an.</value>
+  </data>
+  <data name="Page_Important_Section" xml:space="preserve">
+    <value>Priorität</value>
+  </data>
+  <data name="Page_Important_Title" xml:space="preserve">
+    <value>Wichtige Aufgaben</value>
+  </data>
+  <data name="Page_Important_Description" xml:space="preserve">
+    <value>Schneller Überblick über alle markierten Tasks.</value>
+  </data>
+  <data name="Page_Important_Empty" xml:space="preserve">
+    <value>Keine wichtigen Aufgaben vorhanden.</value>
+  </data>
+  <data name="Page_Important_Badge" xml:space="preserve">
+    <value>Wichtig</value>
+  </data>
+  <data name="Page_Important_List" xml:space="preserve">
+    <value>Liste:</value>
+  </data>
+  <data name="Page_Important_Status" xml:space="preserve">
+    <value>Status:</value>
+  </data>
+  <data name="Page_Calendar_Section" xml:space="preserve">
+    <value>Kalender</value>
+  </data>
+  <data name="Page_Calendar_Title" xml:space="preserve">
+    <value>Termine &amp; Fälligkeiten</value>
+  </data>
+  <data name="Page_Calendar_Description" xml:space="preserve">
+    <value>Aufgaben mit Start- und Fälligkeitsdatum, die dir zugewiesen sind.</value>
+  </data>
+  <data name="Page_Calendar_Empty" xml:space="preserve">
+    <value>Keine Aufgaben mit Start- und Fälligkeitsdatum gefunden. Der Kalender ist trotzdem aktiv.</value>
+  </data>
+  <data name="Page_Trash_Title" xml:space="preserve">
+    <value>Papierkorb</value>
+  </data>
+  <data name="Page_Trash_Description" xml:space="preserve">
+    <value>Gelöschte Listen und Aufgaben werden 14 Tage aufbewahrt und können in dieser Zeit wiederhergestellt werden. Danach werden sie endgültig gelöscht.</value>
+  </data>
+  <data name="Page_Trash_RestoreLists" xml:space="preserve">
+    <value>Listen wiederherstellen</value>
+  </data>
+  <data name="Page_Trash_NoDeletedLists" xml:space="preserve">
+    <value>Keine gelöschten Listen vorhanden.</value>
+  </data>
+  <data name="Page_Trash_DeletedOn" xml:space="preserve">
+    <value>Gelöscht am</value>
+  </data>
+  <data name="Page_Trash_DaysLeft" xml:space="preserve">
+    <value>noch {0} Tag</value>
+  </data>
+  <data name="Page_Trash_DaysLeftPlural" xml:space="preserve">
+    <value>noch {0} Tage</value>
+  </data>
+  <data name="Page_Trash_RestoreList" xml:space="preserve">
+    <value>Liste wiederherstellen</value>
+  </data>
+  <data name="Page_Workspace_Tasks" xml:space="preserve">
+    <value>Tasks:</value>
+  </data>
+  <data name="Page_Workspace_FilterActive" xml:space="preserve">
+    <value>Filter aktiv</value>
+  </data>
+  <data name="Page_Workspace_SortActive" xml:space="preserve">
+    <value>Sortierung aktiv</value>
+  </data>
+  <data name="Page_Workspace_ListView" xml:space="preserve">
+    <value>Aufgaben</value>
+  </data>
+  <data name="Page_Workspace_KanbanView" xml:space="preserve">
+    <value>Kanban</value>
+  </data>
+  <data name="Page_Workspace_FilterTitle" xml:space="preserve">
+    <value>Filteriste</value>
+  </data>
+  <data name="Page_Workspace_RestoreTasks" xml:space="preserve">
+    <value>Gelöschte Aufgaben wiederherstellen</value>
+  </data>
+  <data name="Task_Done_Title_Undo" xml:space="preserve">
+    <value>Erledigt (anklicken zum Rückgängig machen)</value>
+  </data>
+  <data name="Task_Done_Title_Mark" xml:space="preserve">
+    <value>Als erledigt markieren</value>
+  </data>
+  <data name="Task_Important_Title_Remove" xml:space="preserve">
+    <value>Wichtig (anklicken zum Entfernen)</value>
+  </data>
+  <data name="Task_Important_Title_Mark" xml:space="preserve">
+    <value>Als wichtig markieren</value>
+  </data>
+  <data name="Task_AddToCard" xml:space="preserve">
+    <value>Zu Karte hinzufügen</value>
+  </data>
+  <data name="Task_Options" xml:space="preserve">
+    <value>Optionen</value>
+  </data>
+  <data name="Task_ChangeCardColor" xml:space="preserve">
+    <value>Kartenfarbe ändern</value>
+  </data>
+  <data name="Task_MoveTask" xml:space="preserve">
+    <value>Aufgabe verschieben</value>
+  </data>
+  <data name="Task_DeleteTask" xml:space="preserve">
+    <value>Aufgabe löschen</value>
+  </data>
+  <data name="Task_Tab_Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Task_Tab_Comments" xml:space="preserve">
+    <value>Kommentare</value>
+  </data>
+  <data name="Task_Tab_Attachments" xml:space="preserve">
+    <value>Anhänge</value>
+  </data>
+  <data name="Task_Labels" xml:space="preserve">
+    <value>Labels</value>
+  </data>
+  <data name="Task_Labels_Clear" xml:space="preserve">
+    <value>Labels entfernen und Bereich ausblenden</value>
+  </data>
+  <data name="Task_Labels_None" xml:space="preserve">
+    <value>Keine Labels gesetzt.</value>
+  </data>
+  <data name="Task_Checklist" xml:space="preserve">
+    <value>Checkliste</value>
+  </data>
+  <data name="Task_Checklist_Clear" xml:space="preserve">
+    <value>Checkliste entfernen und Bereich ausblenden</value>
+  </data>
+  <data name="Task_Checklist_NoSteps" xml:space="preserve">
+    <value>Noch keine Schritte.</value>
+  </data>
+  <data name="Task_Checklist_StepPlaceholder" xml:space="preserve">
+    <value>Schritt</value>
+  </data>
+  <data name="Task_Checklist_NewStep" xml:space="preserve">
+    <value>Neuer Schritt…</value>
+  </data>
+  <data name="Task_Checklist_EnterHint" xml:space="preserve">
+    <value>Enter = hinzufügen</value>
+  </data>
+  <data name="Task_Description" xml:space="preserve">
+    <value>Beschreibung</value>
+  </data>
+  <data name="Task_Recurrence" xml:space="preserve">
+    <value>Wiederholung</value>
+  </data>
+  <data name="Task_Recurrence_None" xml:space="preserve">
+    <value>Keine</value>
+  </data>
+  <data name="Task_Recurrence_Daily" xml:space="preserve">
+    <value>Täglich</value>
+  </data>
+  <data name="Task_Recurrence_Weekly" xml:space="preserve">
+    <value>Wöchentlich</value>
+  </data>
+  <data name="Task_Recurrence_SpecificDays" xml:space="preserve">
+    <value>Bestimmte Wochentage</value>
+  </data>
+  <data name="Task_Recurrence_Monthly" xml:space="preserve">
+    <value>Monatlich</value>
+  </data>
+  <data name="Task_Recurrence_Yearly" xml:space="preserve">
+    <value>Jährlich</value>
+  </data>
+  <data name="Task_Recurrence_Custom" xml:space="preserve">
+    <value>Benutzerdefiniert</value>
+  </data>
+  <data name="Task_Recurrence_CustomLabel" xml:space="preserve">
+    <value>Eigene Wiederholung</value>
+  </data>
+  <data name="Task_Date" xml:space="preserve">
+    <value>Datum</value>
+  </data>
+  <data name="Task_Date_Clear" xml:space="preserve">
+    <value>Start und Fällig entfernen und Bereich ausblenden</value>
+  </data>
+  <data name="Task_Date_StartDate" xml:space="preserve">
+    <value>Startet am</value>
+  </data>
+  <data name="Task_Date_DueDate" xml:space="preserve">
+    <value>Fällig am</value>
+  </data>
+  <data name="Task_Reminder" xml:space="preserve">
+    <value>Erinnerung</value>
+  </data>
+  <data name="Task_Reminder_Clear" xml:space="preserve">
+    <value>Erinnerung entfernen und Bereich ausblenden</value>
+  </data>
+  <data name="Task_Reminder_Date" xml:space="preserve">
+    <value>Erinnerung am</value>
+  </data>
+  <data name="Task_Reminder_Time" xml:space="preserve">
+    <value>Uhrzeit</value>
+  </data>
+  <data name="Task_Meta" xml:space="preserve">
+    <value>Meta</value>
+  </data>
+  <data name="Task_Assignee" xml:space="preserve">
+    <value>Bearbeiter</value>
+  </data>
+  <data name="Task_Members" xml:space="preserve">
+    <value>Mitglieder</value>
+  </data>
+  <data name="Task_Members_Clear" xml:space="preserve">
+    <value>Mitglieder entfernen und Bereich ausblenden</value>
+  </data>
+  <data name="Task_Members_Add" xml:space="preserve">
+    <value>Mitglieder hinzufügen…</value>
+  </data>
+  <data name="Task_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Task_Status_New" xml:space="preserve">
+    <value>Neu</value>
+  </data>
+  <data name="Task_Status_InProgress" xml:space="preserve">
+    <value>In Bearbeitung</value>
+  </data>
+  <data name="Task_Status_Done" xml:space="preserve">
+    <value>Abgeschlossen</value>
+  </data>
+  <data name="Task_Column" xml:space="preserve">
+    <value>Spalte</value>
+  </data>
+  <data name="Task_Comment_NoPermission" xml:space="preserve">
+    <value>Kommentieren erfordert höhere Rechte. Bitte den Verantwortlichen der Liste um Zugang.</value>
+  </data>
+  <data name="Task_Attachment_NoPermission" xml:space="preserve">
+    <value>Anhänge hochladen erfordert höhere Rechte. Bitte den Verantwortlichen der Liste um Zugang.</value>
+  </data>
+  <data name="Task_Attachment_None" xml:space="preserve">
+    <value>Noch keine Anhänge vorhanden</value>
+  </data>
+  <data name="Task_Attachment_Uploading" xml:space="preserve">
+    <value>Wird hochgeladen…</value>
+  </data>
+  <data name="Task_Attachment_DropFiles" xml:space="preserve">
+    <value>Dateien hier ablegen</value>
+  </data>
+  <data name="Task_Attachment_ClickToSelect" xml:space="preserve">
+    <value>oder klicken zum Auswählen</value>
+  </data>
+  <data name="Task_Attachment_MultipleAllowed" xml:space="preserve">
+    <value>Mehrere Dateien möglich</value>
+  </data>
+  <data name="Task_Move_Title" xml:space="preserve">
+    <value>Aufgabe verschieben</value>
+  </data>
+  <data name="Task_Move_TargetList" xml:space="preserve">
+    <value>Liste</value>
+  </data>
+  <data name="Task_Move_TargetColumn" xml:space="preserve">
+    <value>Zielspalte</value>
+  </data>
+  <data name="Task_CardStyle_Title" xml:space="preserve">
+    <value>Kartenfarbe</value>
+  </data>
+  <data name="Task_CardStyle_Size" xml:space="preserve">
+    <value>Größe</value>
+  </data>
+  <data name="Task_CardStyle_TopOnly" xml:space="preserve">
+    <value>Nur oben</value>
+  </data>
+  <data name="Task_CardStyle_FullCard" xml:space="preserve">
+    <value>Ganze Karte</value>
+  </data>
+  <data name="Task_CardStyle_Colors" xml:space="preserve">
+    <value>Farben</value>
+  </data>
+  <data name="ListView_AddTask" xml:space="preserve">
+    <value>Aufgabe hinzufügen</value>
+  </data>
+  <data name="ListView_CompletedSection" xml:space="preserve">
+    <value>Erledigt</value>
+  </data>
+  <data name="ListView_Error" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Filter_Title" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Filter_Apply" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="Filter_Reset" xml:space="preserve">
+    <value>Zurücksetzen</value>
+  </data>
+  <data name="Page_Admin_Title" xml:space="preserve">
+    <value>Administration</value>
+  </data>
+  <data name="Page_Admin_Users" xml:space="preserve">
+    <value>Benutzer</value>
+  </data>
+  <data name="Share_InviteQrScan" xml:space="preserve">
+    <value>Einladungs-QR-Code scannen</value>
+  </data>
+  <data name="Share_Accept_Title" xml:space="preserve">
+    <value>Einladung annehmen</value>
+  </data>
+  <data name="Err_GroupCreateEmpty" xml:space="preserve">
+    <value>Gruppe konnte nicht angelegt werden: Name ist leer.</value>
+  </data>
+  <data name="Err_GroupCreate" xml:space="preserve">
+    <value>Gruppe konnte nicht angelegt werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListCreateEmpty" xml:space="preserve">
+    <value>Liste konnte nicht angelegt werden: Name ist leer.</value>
+  </data>
+  <data name="Err_ListCreate" xml:space="preserve">
+    <value>Liste konnte nicht angelegt werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListMove" xml:space="preserve">
+    <value>Liste konnte nicht in Gruppe geändert werden. Details: {0}</value>
+  </data>
+  <data name="Err_GroupRenameEmpty" xml:space="preserve">
+    <value>Gruppe konnte nicht umbenannt werden: Name ist leer.</value>
+  </data>
+  <data name="Err_GroupRename" xml:space="preserve">
+    <value>Gruppe konnte nicht umbenannt werden. Details: {0}</value>
+  </data>
+  <data name="Err_GroupUngroup" xml:space="preserve">
+    <value>Gruppierung konnte nicht aufgehoben werden. Details: {0}</value>
+  </data>
+  <data name="Err_GroupsReorder" xml:space="preserve">
+    <value>Gruppenreihenfolge konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListsReorder" xml:space="preserve">
+    <value>Listenreihenfolge konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListMoveReorder" xml:space="preserve">
+    <value>Liste konnte nicht verschoben werden. Details: {0}</value>
+  </data>
+  <data name="Err_HubStart" xml:space="preserve">
+    <value>Hub Start fehlgeschlagen. Details: {0}</value>
+  </data>
+  <data name="Err_NavSortableInit" xml:space="preserve">
+    <value>Drag&amp;Drop Navigation konnte nicht initialisiert werden. Details: {0}</value>
+  </data>
+  <data name="Err_TrashLoad" xml:space="preserve">
+    <value>Papierkorb konnte nicht geladen werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListRestore" xml:space="preserve">
+    <value>Liste konnte nicht wiederhergestellt werden. Details: {0}</value>
+  </data>
+  <data name="Layout_UnhandledError" xml:space="preserve">
+    <value>Ein unerwarteter Fehler ist aufgetreten.</value>
+  </data>
+  <data name="Layout_Reload" xml:space="preserve">
+    <value>Neu laden</value>
+  </data>
+  <data name="Login_Title" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="Login_Email" xml:space="preserve">
+    <value>E-Mail</value>
+  </data>
+  <data name="Login_Password" xml:space="preserve">
+    <value>Passwort</value>
+  </data>
+  <data name="Login_RememberMe" xml:space="preserve">
+    <value>Angemeldet bleiben</value>
+  </data>
+  <data name="Login_ForgotPassword" xml:space="preserve">
+    <value>Passwort vergessen?</value>
+  </data>
+  <data name="Login_Submit" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="Login_NoAccount" xml:space="preserve">
+    <value>Kein Konto? Registrieren</value>
+  </data>
+  <data name="Mobile_MyDay_Section" xml:space="preserve">
+    <value>Fokus</value>
+  </data>
+  <data name="Workspace_AddColumn" xml:space="preserve">
+    <value>Spalte hinzufügen</value>
+  </data>
+  <data name="Workspace_DeleteList" xml:space="preserve">
+    <value>Liste löschen</value>
+  </data>
+  <data name="Workspace_ShareList" xml:space="preserve">
+    <value>Liste teilen</value>
+  </data>
+  <data name="Workspace_ListSettings" xml:space="preserve">
+    <value>Listeneinstellungen</value>
+  </data>
+  <data name="Btn_Remove" xml:space="preserve">
+    <value>Entfernen</value>
+  </data>
+  <data name="Lbl_Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Lbl_Title" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="Lbl_Color" xml:space="preserve">
+    <value>Farbe</value>
+  </data>
+  <data name="Lbl_Actions" xml:space="preserve">
+    <value>Aktionen</value>
+  </data>
+  <data name="Lbl_Role" xml:space="preserve">
+    <value>Rolle</value>
+  </data>
+  <data name="Lbl_NoPermission" xml:space="preserve">
+    <value>Keine Berechtigung</value>
+  </data>
+  <data name="Label_Title" xml:space="preserve">
+    <value>Labels</value>
+  </data>
+  <data name="Label_Subtitle" xml:space="preserve">
+    <value>Anlegen, bearbeiten, löschen – inklusive Hintergrundfarbe.</value>
+  </data>
+  <data name="Label_NewLabel" xml:space="preserve">
+    <value>+ Neues Label</value>
+  </data>
+  <data name="Label_NoLabels" xml:space="preserve">
+    <value>Noch keine Labels vorhanden.</value>
+  </data>
+  <data name="Label_CreateTitle" xml:space="preserve">
+    <value>Ein neues Label erstellen</value>
+  </data>
+  <data name="Label_EditTitle" xml:space="preserve">
+    <value>Label bearbeiten</value>
+  </data>
+  <data name="Label_DeleteTitle" xml:space="preserve">
+    <value>Label löschen</value>
+  </data>
+  <data name="Label_DeleteConfirm" xml:space="preserve">
+    <value>Willst du das Label {0} wirklich löschen?</value>
+  </data>
+  <data name="Label_DeleteHint" xml:space="preserve">
+    <value>Hinweis: Die Join-Relationen (TaskLinks) sollten über FK/Cascade bzw. Join-Table-Bereinigung sauber sein.</value>
+  </data>
+  <data name="Label_DeletePermanent" xml:space="preserve">
+    <value>Endgültig löschen</value>
+  </data>
+  <data name="Err_LabelCreateEmpty" xml:space="preserve">
+    <value>Label konnte nicht angelegt werden: Titel ist leer.</value>
+  </data>
+  <data name="Err_LabelCreateInvalidColor" xml:space="preserve">
+    <value>Label konnte nicht angelegt werden: Ungültige Farbe '{0}'. Bitte wähle eine Farbe aus der Palette oder entferne die Farbe.</value>
+  </data>
+  <data name="Err_LabelCreate" xml:space="preserve">
+    <value>Label konnte nicht angelegt werden. Details: {0}</value>
+  </data>
+  <data name="Err_LabelSaveEmpty" xml:space="preserve">
+    <value>Label konnte nicht gespeichert werden: Titel ist leer. LabelId='{0}'.</value>
+  </data>
+  <data name="Err_LabelSaveInvalidColor" xml:space="preserve">
+    <value>Label konnte nicht gespeichert werden: Ungültige Farbe '{0}'. Bitte wähle eine Farbe aus der Palette oder entferne die Farbe.</value>
+  </data>
+  <data name="Err_LabelSave" xml:space="preserve">
+    <value>Label konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_LabelDelete" xml:space="preserve">
+    <value>Label konnte nicht gelöscht werden. Details: {0}</value>
+  </data>
+  <data name="Participants_SelectList" xml:space="preserve">
+    <value>Wähle eine Liste, um Teilnehmer zu verwalten.</value>
+  </data>
+  <data name="Participants_CheckingPermission" xml:space="preserve">
+    <value>Prüfe Berechtigung…</value>
+  </data>
+  <data name="Participants_NoPermissionMsg" xml:space="preserve">
+    <value>Nur Admins dürfen Teilnehmer und Share-Links verwalten.</value>
+  </data>
+  <data name="Participants_Invite" xml:space="preserve">
+    <value>Einladen</value>
+  </data>
+  <data name="Participants_ByEmail" xml:space="preserve">
+    <value>Per E-Mail</value>
+  </data>
+  <data name="Participants_ByLink" xml:space="preserve">
+    <value>Per Link</value>
+  </data>
+  <data name="Participants_CommentOptional" xml:space="preserve">
+    <value>Kommentar (optional)</value>
+  </data>
+  <data name="Participants_CommentPlaceholder" xml:space="preserve">
+    <value>z.B. 'Team A' / 'Extern (nur lesen)'</value>
+  </data>
+  <data name="Participants_CreateShareLink" xml:space="preserve">
+    <value>Link zum Teilen erstellen</value>
+  </data>
+  <data name="Participants_CopyLink" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="Participants_LinkTokenHint" xml:space="preserve">
+    <value>Der Link ist tokenbasiert und mehrfach nutzbar (bis Ablauf/Widerruf).</value>
+  </data>
+  <data name="Participants_ActiveShareLinks" xml:space="preserve">
+    <value>Aktive Share-Links</value>
+  </data>
+  <data name="Participants_NoComment" xml:space="preserve">
+    <value>Ohne Kommentar</value>
+  </data>
+  <data name="Participants_RoleCreated" xml:space="preserve">
+    <value>Rolle: {0} · Erstellt: {1}</value>
+  </data>
+  <data name="Participants_Expiry" xml:space="preserve">
+    <value>Ablauf: {0}</value>
+  </data>
+  <data name="Participants_EditComment" xml:space="preserve">
+    <value>Kommentar bearbeiten</value>
+  </data>
+  <data name="Participants_NoActiveShareLinks" xml:space="preserve">
+    <value>Noch keine aktiven Share-Links.</value>
+  </data>
+  <data name="Participants_Email" xml:space="preserve">
+    <value>E-Mail</value>
+  </data>
+  <data name="Participants_SearchResults" xml:space="preserve">
+    <value>Suchergebnisse</value>
+  </data>
+  <data name="Participants_ParticipantsAndRoles" xml:space="preserve">
+    <value>Teilnehmer &amp; Rollen</value>
+  </data>
+  <data name="Participants_InvitationPending" xml:space="preserve">
+    <value>Einladung ausstehend</value>
+  </data>
+  <data name="Participants_Withdraw" xml:space="preserve">
+    <value>Zurückziehen</value>
+  </data>
+  <data name="Participants_OwnerFixed" xml:space="preserve">
+    <value>Owner-Rolle ist fix.</value>
+  </data>
+  <data name="Participants_NoParticipants" xml:space="preserve">
+    <value>Noch keine Teilnehmer.</value>
+  </data>
+  <data name="Participants_RoleObserver" xml:space="preserve">
+    <value>Beobachter</value>
+  </data>
+  <data name="Participants_RoleMember" xml:space="preserve">
+    <value>Mitglied</value>
+  </data>
+  <data name="Participants_RoleAdmin" xml:space="preserve">
+    <value>Admin</value>
+  </data>
+  <data name="Err_ParticipantSearch" xml:space="preserve">
+    <value>Die Suche nach Teilnehmern ist fehlgeschlagen. Suchtext: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_InviteUnknownUser" xml:space="preserve">
+    <value>Einladung konnte nicht gesendet werden: Benutzer ist unbekannt (RequestingUserId leer). Liste: '{0}'.</value>
+  </data>
+  <data name="Err_InviteEmptyEmail" xml:space="preserve">
+    <value>Einladung konnte nicht gesendet werden: E-Mail ist leer.</value>
+  </data>
+  <data name="Err_InviteFailed" xml:space="preserve">
+    <value>Einladung konnte nicht gesendet werden. Liste: '{0}'. Empfänger: '{1}'. Details: {2}</value>
+  </data>
+  <data name="Err_InviteNoEmail" xml:space="preserve">
+    <value>Einladung konnte nicht gesendet werden: Bitte Name oder E-Mail eingeben.</value>
+  </data>
+  <data name="Err_InviteInvalidEmail" xml:space="preserve">
+    <value>Einladung konnte nicht gesendet werden: '{0}' ist keine gültige E-Mail-Adresse.</value>
+  </data>
+  <data name="Err_ShareLinkCreateUnknown" xml:space="preserve">
+    <value>Share-Link konnte nicht erstellt werden: Benutzer ist unbekannt (RequestingUserId leer). Liste: '{0}'.</value>
+  </data>
+  <data name="Err_ShareLinkCreate" xml:space="preserve">
+    <value>Share-Link konnte nicht erstellt werden. Liste: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_CopyNoLink" xml:space="preserve">
+    <value>Kopieren nicht möglich: Es ist kein Share-Link vorhanden.</value>
+  </data>
+  <data name="Err_CopyLinkEmpty" xml:space="preserve">
+    <value>Kopieren nicht möglich: Link ist leer.</value>
+  </data>
+  <data name="Err_CopyFailed" xml:space="preserve">
+    <value>Link konnte nicht kopiert werden. Details: {0}</value>
+  </data>
+  <data name="Info_LinkCopied" xml:space="preserve">
+    <value>Link wurde in die Zwischenablage kopiert.</value>
+  </data>
+  <data name="Err_ShareLinkDeleteUnknown" xml:space="preserve">
+    <value>Share-Link konnte nicht gelöscht werden: Benutzer ist unbekannt (RequestingUserId leer). Liste: '{0}'.</value>
+  </data>
+  <data name="Err_ShareLinkDelete" xml:space="preserve">
+    <value>Share-Link konnte nicht gelöscht werden. Liste: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_CommentSaveUnknown" xml:space="preserve">
+    <value>Kommentar konnte nicht gespeichert werden: Benutzer ist unbekannt (RequestingUserId leer). Liste: '{0}'.</value>
+  </data>
+  <data name="Err_CommentSave" xml:space="preserve">
+    <value>Kommentar konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Info_OwnerRoleFixed" xml:space="preserve">
+    <value>Die Rolle des Owners kann nicht geändert werden.</value>
+  </data>
+  <data name="Err_RoleChangeInvalid" xml:space="preserve">
+    <value>Rolle konnte nicht geändert werden: Ungültiger Wert '{0}'.</value>
+  </data>
+  <data name="Err_RoleChange" xml:space="preserve">
+    <value>Rolle konnte nicht geändert werden. Teilnehmer: '{0}' ({1}). Details: {2}</value>
+  </data>
+  <data name="Err_InviteWithdrawUnknown" xml:space="preserve">
+    <value>Einladung konnte nicht zurückgezogen werden: Benutzer ist unbekannt.</value>
+  </data>
+  <data name="Err_InviteWithdraw" xml:space="preserve">
+    <value>Einladung konnte nicht zurückgezogen werden. Details: {0}</value>
+  </data>
+  <data name="Kanban_NoColumns" xml:space="preserve">
+    <value>Keine Spalten vorhanden</value>
+  </data>
+  <data name="Kanban_NoColumnsHint" xml:space="preserve">
+    <value>Erstelle deine erste Spalte, um das Kanban-Board zu nutzen.</value>
+  </data>
+  <data name="Kanban_AddFirstColumn" xml:space="preserve">
+    <value>Erste Spalte anlegen</value>
+  </data>
+  <data name="Kanban_DefaultColumns" xml:space="preserve">
+    <value>Standard-Spalten</value>
+  </data>
+  <data name="Kanban_DoneColumn" xml:space="preserve">
+    <value>Erledigt-Spalte</value>
+  </data>
+  <data name="Kanban_ColumnOptions" xml:space="preserve">
+    <value>Spaltenoptionen</value>
+  </data>
+  <data name="Kanban_ColumnPrefix" xml:space="preserve">
+    <value>Spalte: {0}</value>
+  </data>
+  <data name="Kanban_AddColumnLeft" xml:space="preserve">
+    <value>Spalte links hinzufügen</value>
+  </data>
+  <data name="Kanban_AddColumnRight" xml:space="preserve">
+    <value>Spalte rechts hinzufügen</value>
+  </data>
+  <data name="Kanban_UnsetDoneColumn" xml:space="preserve">
+    <value>Erledigt-Spalte aufheben</value>
+  </data>
+  <data name="Kanban_SetDoneColumn" xml:space="preserve">
+    <value>Als Erledigt-Spalte markieren</value>
+  </data>
+  <data name="Kanban_RenameColumn" xml:space="preserve">
+    <value>Spalte umbenennen</value>
+  </data>
+  <data name="Kanban_DeleteColumn" xml:space="preserve">
+    <value>Spalte löschen</value>
+  </data>
+  <data name="Kanban_AddCard" xml:space="preserve">
+    <value>+ Karte hinzufügen…</value>
+  </data>
+  <data name="Kanban_NoWritePermission" xml:space="preserve">
+    <value>Karten anlegen erfordert höhere Rechte. Bitte den Verantwortlichen der Liste um Zugang.</value>
+  </data>
+  <data name="Kanban_AddColumnDialogRight" xml:space="preserve">
+    <value>Spalte rechts hinzufügen</value>
+  </data>
+  <data name="Kanban_AddColumnDialogLeft" xml:space="preserve">
+    <value>Spalte links hinzufügen</value>
+  </data>
+  <data name="Kanban_RenameColumnTitle" xml:space="preserve">
+    <value>Spalte umbenennen</value>
+  </data>
+  <data name="Kanban_NewNameFor" xml:space="preserve">
+    <value>Neuer Name für „{0}"</value>
+  </data>
+  <data name="Kanban_DeleteColumnTitle" xml:space="preserve">
+    <value>Spalte löschen</value>
+  </data>
+  <data name="Kanban_DeleteColumnConfirm" xml:space="preserve">
+    <value>Willst du die Spalte „{0}" wirklich löschen?</value>
+  </data>
+  <data name="Kanban_DeleteColumnQuestion" xml:space="preserve">
+    <value>Was soll mit Aufgaben passieren?</value>
+  </data>
+  <data name="Kanban_DeleteModeMove" xml:space="preserve">
+    <value>Aufgaben in eine andere Spalte verschieben</value>
+  </data>
+  <data name="Kanban_DeleteModeDelete" xml:space="preserve">
+    <value>Aufgaben in dieser Spalte löschen</value>
+  </data>
+  <data name="Kanban_TargetColumn" xml:space="preserve">
+    <value>Zielspalte</value>
+  </data>
+  <data name="Kanban_TargetColumnAuto" xml:space="preserve">
+    <value>(automatisch: erste verbleibende Spalte)</value>
+  </data>
+  <data name="Kanban_DeletePermanent" xml:space="preserve">
+    <value>Endgültig löschen</value>
+  </data>
+  <data name="Kanban_ChecklistTitle" xml:space="preserve">
+    <value>Checkliste: {0} von {1} erledigt</value>
+  </data>
+  <data name="Kanban_AttachmentCount" xml:space="preserve">
+    <value>{0} Anhang/Anhänge</value>
+  </data>
+  <data name="Kanban_CommentCount" xml:space="preserve">
+    <value>{0} Kommentar(e)</value>
+  </data>
+  <data name="Err_KanbanDoneColumn" xml:space="preserve">
+    <value>Erledigt-Spalte konnte nicht geändert werden. Spalte: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_KanbanColumnCreateEmpty" xml:space="preserve">
+    <value>Spalte konnte nicht angelegt werden: Name ist leer. Liste: '{0}'.</value>
+  </data>
+  <data name="Err_KanbanColumnCreate" xml:space="preserve">
+    <value>Spalte konnte nicht angelegt werden. Liste: '{0}'. Name: '{1}'. Details: {2}</value>
+  </data>
+  <data name="Err_KanbanDefaultColumns" xml:space="preserve">
+    <value>Standard-Spalten konnten nicht erzeugt werden. Liste: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_KanbanColumnRenameOldEmpty" xml:space="preserve">
+    <value>Spalte konnte nicht umbenannt werden: Alter Name ist leer. Liste: '{0}'.</value>
+  </data>
+  <data name="Err_KanbanColumnRenameNewEmpty" xml:space="preserve">
+    <value>Spalte '{0}' konnte nicht umbenannt werden: Neuer Name ist leer. Liste: '{1}'.</value>
+  </data>
+  <data name="Err_KanbanColumnRename" xml:space="preserve">
+    <value>Spalte '{0}' konnte nicht umbenannt werden. Neuer Name: '{1}'. Liste: '{2}'. Details: {3}</value>
+  </data>
+  <data name="Err_KanbanColumnDeleteEmpty" xml:space="preserve">
+    <value>Spalte konnte nicht gelöscht werden: Name ist leer. Liste: '{0}'.</value>
+  </data>
+  <data name="Err_KanbanColumnDelete" xml:space="preserve">
+    <value>Spalte '{0}' konnte nicht gelöscht werden. Liste: '{1}'. Details: {2}</value>
+  </data>
+  <data name="Err_KanbanColumnsReorder" xml:space="preserve">
+    <value>Spaltenreihenfolge konnte nicht gespeichert werden. Liste: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_KanbanDropInvalid" xml:space="preserve">
+    <value>Verschieben abgebrochen: Spalte nicht gefunden. Von='{0}', Nach='{1}', Liste='{2}'.</value>
+  </data>
+  <data name="Err_KanbanDropOffline" xml:space="preserve">
+    <value>Verschieben / Sortieren wird offline zwischengespeichert. Liste='{0}', TaskId='{1}', Von='{2}', Nach='{3}'. Details: {4}</value>
+  </data>
+  <data name="Err_KanbanDropFailed" xml:space="preserve">
+    <value>Verschieben / Sortieren konnte nicht gespeichert werden. Liste='{0}', TaskId='{1}', Von='{2}', Nach='{3}'. Details: {4}</value>
+  </data>
+  <data name="Err_KanbanMoveOffline" xml:space="preserve">
+    <value>Verschieben wird offline zwischengespeichert. Liste='{0}', TaskId='{1}', Von='{2}', Nach='{3}'. Details: {4}</value>
+  </data>
+  <data name="Err_KanbanMoveFailed" xml:space="preserve">
+    <value>Verschieben konnte nicht gespeichert werden. Liste='{0}', TaskId='{1}', Von='{2}', Nach='{3}'. Details: {4}</value>
+  </data>
+  <data name="Err_KanbanCardCreateEmpty" xml:space="preserve">
+    <value>Karte konnte nicht angelegt werden: Bitte einen Titel eingeben. Spalte: '{0}'.</value>
+  </data>
+  <data name="Err_KanbanCardCreate" xml:space="preserve">
+    <value>Karte konnte nicht angelegt werden. Spalte: '{0}'. Titel: '{1}'. Details: {2}</value>
+  </data>
+  <data name="ListView_NoWritePermission" xml:space="preserve">
+    <value>Aufgaben anlegen erfordert höhere Rechte. Bitte den Verantwortlichen der Liste um Zugang.</value>
+  </data>
+  <data name="ListView_ChecklistTitle" xml:space="preserve">
+    <value>Checkliste: {0} von {1} erledigt</value>
+  </data>
+  <data name="Err_ListViewTaskCreate" xml:space="preserve">
+    <value>Aufgabe konnte nicht angelegt werden. Liste: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Err_ListViewReorder" xml:space="preserve">
+    <value>Reihenfolge konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListViewDoneToggle" xml:space="preserve">
+    <value>Status 'Erledigt' konnte für '{0}' nicht gespeichert werden. Details: {1}</value>
+  </data>
+  <data name="Err_ListViewDoneReorder" xml:space="preserve">
+    <value>Reihenfolge der offenen Aufgaben konnte nach 'Erledigt' nicht neu gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_ListViewImportant" xml:space="preserve">
+    <value>Favorit konnte für '{0}' nicht gespeichert werden. Details: {1}</value>
+  </data>
+  <data name="Task_AddToCard_Btn" xml:space="preserve">
+    <value>Hinzufügen</value>
+  </data>
+  <data name="Task_Labels_Select" xml:space="preserve">
+    <value>Labels auswählen</value>
+  </data>
+  <data name="Task_Labels_Available" xml:space="preserve">
+    <value>Verfügbare Labels</value>
+  </data>
+  <data name="Task_Labels_NoneInList" xml:space="preserve">
+    <value>Noch keine Labels in dieser Liste. Fügen Sie diese in den Listenoptionen hinzu.</value>
+  </data>
+  <data name="Task_Checklist_MakeTask" xml:space="preserve">
+    <value>Zur Aufgabe machen</value>
+  </data>
+  <data name="Task_Checklist_AddStep" xml:space="preserve">
+    <value>+ Schritt hinzufügen</value>
+  </data>
+  <data name="Task_Reminder_SetFor" xml:space="preserve">
+    <value>Gesetzt für: {0} (lokal)</value>
+  </data>
+  <data name="Task_Reminder_DoneWarning" xml:space="preserve">
+    <value>Erinnerungen können nur für nicht abgeschlossene Aufgaben gesetzt werden.</value>
+  </data>
+  <data name="Task_Reminder_EmailHint" xml:space="preserve">
+    <value>Benachrichtigung erfolgt per E-Mail an Bearbeiter und Mitglieder (Server-Logik).</value>
+  </data>
+  <data name="Task_Members_SearchPlaceholder" xml:space="preserve">
+    <value>Nach Benutzern suchen</value>
+  </data>
+  <data name="Task_Members_CardMembers" xml:space="preserve">
+    <value>Kartenmitglieder</value>
+  </data>
+  <data name="Task_Members_BoardMembers" xml:space="preserve">
+    <value>Board-Mitglieder</value>
+  </data>
+  <data name="Task_Members_NoResults" xml:space="preserve">
+    <value>Keine Treffer.</value>
+  </data>
+  <data name="Task_Tab_Comments_Header" xml:space="preserve">
+    <value>Kommentare</value>
+  </data>
+  <data name="Task_Tab_Attachments_Header" xml:space="preserve">
+    <value>Anhänge</value>
+  </data>
+  <data name="Task_Comments_None" xml:space="preserve">
+    <value>Noch keine Kommentare.</value>
+  </data>
+  <data name="Task_Comments_Anonymous" xml:space="preserve">
+    <value>Anonym</value>
+  </data>
+  <data name="Task_Comments_RemoveTitle" xml:space="preserve">
+    <value>Kommentar entfernen</value>
+  </data>
+  <data name="Task_Comments_Placeholder" xml:space="preserve">
+    <value>Nachricht schreiben…</value>
+  </data>
+  <data name="Task_Comments_Send" xml:space="preserve">
+    <value>Senden (Enter)</value>
+  </data>
+  <data name="Task_Attachment_Download" xml:space="preserve">
+    <value>Datei herunterladen</value>
+  </data>
+  <data name="Task_Move_Btn" xml:space="preserve">
+    <value>Verschieben</value>
+  </data>
+  <data name="Task_CardStyle_RemoveCover" xml:space="preserve">
+    <value>Titelbild entfernen</value>
+  </data>
+  <data name="Err_TaskUserLoad" xml:space="preserve">
+    <value>Benutzerinformationen konnten nicht geladen werden: {0}</value>
+  </data>
+  <data name="Err_TaskChecklistClearConfirm" xml:space="preserve">
+    <value>Checkliste wirklich entfernen?\n\nAlle Schritte werden gelöscht.</value>
+  </data>
+  <data name="Err_TaskChecklistClearStep" xml:space="preserve">
+    <value>Checkliste konnte nicht vollständig entfernt werden: Schritt '{0}' (ID: {1}) konnte nicht gelöscht werden.</value>
+  </data>
+  <data name="Err_TaskChecklistClear" xml:space="preserve">
+    <value>Checkliste konnte nicht entfernt werden. Details: {0}</value>
+  </data>
+  <data name="Err_TaskMoveConfirm" xml:space="preserve">
+    <value>Aufgabe wirklich verschieben?\n\nTitel: '{0}'</value>
+  </data>
+  <data name="Err_TaskMove" xml:space="preserve">
+    <value>Aufgabe konnte nicht verschoben werden. Details: {0}</value>
+  </data>
+  <data name="Err_TaskSave" xml:space="preserve">
+    <value>Aufgabe konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_TaskDeleteConfirm" xml:space="preserve">
+    <value>Aufgabe wirklich löschen?\n\nTitel: '{0}'</value>
+  </data>
+  <data name="Err_TaskDeleteNotFound" xml:space="preserve">
+    <value>Aufgabe konnte nicht gelöscht werden: Aufgabe wurde nicht gefunden.</value>
+  </data>
+  <data name="Err_TaskDelete" xml:space="preserve">
+    <value>Aufgabe konnte nicht gelöscht werden. Details: {0}</value>
+  </data>
+  <data name="Err_StepSave" xml:space="preserve">
+    <value>Schritt konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="Err_StepDelete" xml:space="preserve">
+    <value>Schritt konnte nicht gelöscht werden. Details: {0}</value>
+  </data>
+  <data name="Err_StepMakeTaskEmpty" xml:space="preserve">
+    <value>Schritt konnte nicht zur Aufgabe gemacht werden: Titel ist leer.</value>
+  </data>
+  <data name="Err_StepMakeTask" xml:space="preserve">
+    <value>Schritt konnte nicht zur Aufgabe gemacht werden. Details: {0}</value>
+  </data>
+  <data name="Err_CommentDelete" xml:space="preserve">
+    <value>Kommentar konnte nicht entfernt werden. Details: {0}</value>
+  </data>
+  <data name="Err_TooManyFiles" xml:space="preserve">
+    <value>Zu viele Dateien ausgewählt (max. 100 auf einmal).</value>
+  </data>
+  <data name="Err_Upload" xml:space="preserve">
+    <value>Upload ist fehlgeschlagen: {0}</value>
+  </data>
+  <data name="Err_UploadFileTooLarge" xml:space="preserve">
+    <value>"{0}" ist zu groß (max. {1} MB).</value>
+  </data>
+  <data name="Err_UploadFileFailed" xml:space="preserve">
+    <value>"{0}" konnte nicht hochgeladen werden: {1}</value>
+  </data>
+  <data name="Err_AttachmentRemove" xml:space="preserve">
+    <value>Anhang konnte nicht entfernt werden. Details: {0}</value>
+  </data>
+  <data name="Err_DownloadNotFound" xml:space="preserve">
+    <value>Download ist fehlgeschlagen: Datei wurde nicht gefunden.</value>
+  </data>
+  <data name="Err_Download" xml:space="preserve">
+    <value>Download ist fehlgeschlagen. Details: {0}</value>
+  </data>
+  <data name="Err_Admin_UserAlreadyExists" xml:space="preserve">
+    <value>Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.</value>
+  </data>
+  <data name="Err_Admin_CannotDeleteOwnAccount" xml:space="preserve">
+    <value>Das eigene Konto kann nicht gelöscht werden.</value>
+  </data>
+  <data name="Err_Auth_RegistrationNotAllowed" xml:space="preserve">
+    <value>Registrierung ist derzeit nicht erlaubt.</value>
+  </data>
+  <data name="Err_Auth_RegistrationDisabledByAd" xml:space="preserve">
+    <value>Registrierung ist bei aktiviertem AD-Login nicht möglich.</value>
+  </data>
+  <data name="Err_Auth_AccountAlreadyExists" xml:space="preserve">
+    <value>Für diese E-Mail-Adresse existiert bereits ein Konto.</value>
+  </data>
+  <data name="Err_Upload_FormDataExpected" xml:space="preserve">
+    <value>Upload fehlgeschlagen: Form-Data erwartet.</value>
+  </data>
+  <data name="Err_Upload_NoFileReceived" xml:space="preserve">
+    <value>Upload fehlgeschlagen: Keine Datei erhalten.</value>
+  </data>
+  <data name="Err_Profile_NoImageProvided" xml:space="preserve">
+    <value>Kein Bild übertragen.</value>
+  </data>
+  <data name="Err_Profile_InvalidImageFormat" xml:space="preserve">
+    <value>Ungültiges Bildformat. Nur JPEG, PNG oder WebP sind erlaubt.</value>
+  </data>
+  <data name="Err_Profile_DecodeFailed" xml:space="preserve">
+    <value>Bild konnte nicht dekodiert werden.</value>
+  </data>
+  <data name="Err_Profile_ImageTooLarge" xml:space="preserve">
+    <value>Das Bild ist zu groß. Maximale Dateigröße: 2 MB.</value>
+  </data>
+  <data name="Err_Profile_SaveFailed" xml:space="preserve">
+    <value>Profilbild konnte nicht gespeichert werden.</value>
+  </data>
+  <data name="Page_NotFound_Title" xml:space="preserve">
+    <value>Nicht gefunden</value>
+  </data>
+  <data name="Page_NotFound_Message" xml:space="preserve">
+    <value>Der gesuchte Inhalt existiert leider nicht.</value>
+  </data>
+  <data name="Page_Error_Title" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Page_Error_Message" xml:space="preserve">
+    <value>Bei der Verarbeitung Ihrer Anfrage ist ein Fehler aufgetreten.</value>
+  </data>
+  <data name="Page_Error_DevMode" xml:space="preserve">
+    <value>Entwicklungsmodus</value>
+  </data>
+  <data name="Page_Error_DevModeHint" xml:space="preserve">
+    <value>Der Wechsel zur Development-Umgebung zeigt detailliertere Fehlerinformationen.</value>
+  </data>
+  <data name="Page_Error_DevModeWarning" xml:space="preserve">
+    <value>Die Development-Umgebung sollte nicht für veröffentlichte Anwendungen aktiviert werden. Sensible Fehlerdetails könnten sonst für Endbenutzer sichtbar werden.</value>
+  </data>
+  <data name="Page_Error_DevModeEnvVar" xml:space="preserve">
+    <value>Für lokales Debugging: Setze die Umgebungsvariable ASPNETCORE_ENVIRONMENT auf Development und starte die App neu.</value>
+  </data>
+  <data name="Search_Section" xml:space="preserve">
+    <value>Suche</value>
+  </data>
+  <data name="Search_Title" xml:space="preserve">
+    <value>Suchergebnisse</value>
+  </data>
+  <data name="Search_Placeholder" xml:space="preserve">
+    <value>Suchen …</value>
+  </data>
+  <data name="Search_EnterQuery" xml:space="preserve">
+    <value>Bitte einen Suchbegriff eingeben.</value>
+  </data>
+  <data name="Search_NoResults" xml:space="preserve">
+    <value>Keine Ergebnisse für „{0}" gefunden.</value>
+  </data>
+  <data name="Search_ResultCount" xml:space="preserve">
+    <value>{0} Ergebnis(se) für „{1}"</value>
+  </data>
+  <data name="Search_GroupLists" xml:space="preserve">
+    <value>Listen</value>
+  </data>
+  <data name="Search_GroupTasks" xml:space="preserve">
+    <value>Aufgaben</value>
+  </data>
+  <data name="Search_MatchDescription" xml:space="preserve">
+    <value>Beschreibung</value>
+  </data>
+  <data name="Search_MatchStep" xml:space="preserve">
+    <value>Schritt</value>
+  </data>
+  <data name="Search_ShowAll" xml:space="preserve">
+    <value>Alle Ergebnisse anzeigen</value>
+  </data>
+  <data name="Email_Reminder_Subject" xml:space="preserve">
+    <value>Erinnerung: {0}</value>
+  </data>
+  <data name="Email_Reminder_GoToList" xml:space="preserve">
+    <value>Zur Aufgabenliste</value>
+  </data>
+  <data name="Email_Reminder_LinkFallback" xml:space="preserve">
+    <value>Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</value>
+  </data>
+  <data name="Email_Reminder_TaskDue" xml:space="preserve">
+    <value>Eine Aufgabe ist fällig.</value>
+  </data>
+  <data name="Email_NewAssignee_Subject" xml:space="preserve">
+    <value>Aufgabe zugewiesen: {0}</value>
+  </data>
+  <data name="Email_NewAssignee_Heading" xml:space="preserve">
+    <value>Du wurdest als Bearbeiter eingetragen</value>
+  </data>
+  <data name="Email_NewAssignee_Intro" xml:space="preserve">
+    <value>Die Aufgabe „{0}" in der Liste „{1}" wurde dir zugewiesen.</value>
+  </data>
+  <data name="Email_NewAssignee_GoToTask" xml:space="preserve">
+    <value>Zur Aufgabe</value>
+  </data>
+  <data name="Email_NewAssignee_LinkFallback" xml:space="preserve">
+    <value>Falls der Button nicht funktioniert, kopiere diesen Link in deinen Browser:</value>
+  </data>
+  <data name="QuickLink_Dashboards" xml:space="preserve">
+    <value>Dashboards</value>
+  </data>
+  <data name="Dashboard_PageTitle" xml:space="preserve">
+    <value>Dashboards</value>
+  </data>
+  <data name="Dashboard_NoneSelected" xml:space="preserve">
+    <value>Kein Dashboard gewählt.</value>
+  </data>
+  <data name="Dashboard_Switch" xml:space="preserve">
+    <value>Dashboard wechseln</value>
+  </data>
+  <data name="Dashboard_Rename" xml:space="preserve">
+    <value>Dashboard umbenennen</value>
+  </data>
+  <data name="Dashboard_Create" xml:space="preserve">
+    <value>Neues Dashboard</value>
+  </data>
+  <data name="Dashboard_Delete" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="Dashboard_Sort" xml:space="preserve">
+    <value>Sortierung</value>
+  </data>
+  <data name="Dashboard_SortBy" xml:space="preserve">
+    <value>Sortieren nach</value>
+  </data>
+  <data name="Dashboard_Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Dashboard_FilterActive" xml:space="preserve">
+    <value>Aktiv</value>
+  </data>
+  <data name="Dashboard_Name" xml:space="preserve">
+    <value>Dashboard-Name</value>
+  </data>
+  <data name="Dashboard_Name_Help" xml:space="preserve">
+    <value>Der Name wird als Hauptüberschrift im Header angezeigt.</value>
+  </data>
+  <data name="Dashboard_GroupBy" xml:space="preserve">
+    <value>Gruppierung</value>
+  </data>
+  <data name="Dashboard_GroupBy_Help" xml:space="preserve">
+    <value>So werden Aufgaben in der Tabelle zusammengefasst.</value>
+  </data>
+  <data name="Dashboard_ListSelection" xml:space="preserve">
+    <value>Listen wählen</value>
+  </data>
+  <data name="Dashboard_ListSelection_Help" xml:space="preserve">
+    <value>Wählen Sie die Listen aus, deren Aufgaben im Dashboard angezeigt werden.</value>
+  </data>
+  <data name="Dashboard_Widgets" xml:space="preserve">
+    <value>Widgets und Diagramme</value>
+  </data>
+  <data name="Dashboard_Widgets_Help" xml:space="preserve">
+    <value>Stellen Sie Ihr Dashboard individuell zusammen. Änderungen werden automatisch gespeichert.</value>
+  </data>
+  <data name="Dashboard_Widget_Kpi" xml:space="preserve">
+    <value>KPI-Karten</value>
+  </data>
+  <data name="Dashboard_Widget_Status" xml:space="preserve">
+    <value>Status-Diagramm</value>
+  </data>
+  <data name="Dashboard_Widget_Priority" xml:space="preserve">
+    <value>Prioritäts-Diagramm</value>
+  </data>
+  <data name="Dashboard_Widget_Due" xml:space="preserve">
+    <value>Fälligkeits-Diagramm</value>
+  </data>
+  <data name="Dashboard_Kpi_Total" xml:space="preserve">
+    <value>Gesamt</value>
+  </data>
+  <data name="Dashboard_Kpi_Open" xml:space="preserve">
+    <value>Offen</value>
+  </data>
+  <data name="Dashboard_Kpi_Done" xml:space="preserve">
+    <value>Erledigt</value>
+  </data>
+  <data name="Dashboard_Kpi_Completion" xml:space="preserve">
+    <value>Erfüllung</value>
+  </data>
+  <data name="Dashboard_Chart_Open" xml:space="preserve">
+    <value>Offen</value>
+  </data>
+  <data name="Dashboard_Chart_Done" xml:space="preserve">
+    <value>Erledigt</value>
+  </data>
+  <data name="Dashboard_Chart_Important" xml:space="preserve">
+    <value>Wichtig</value>
+  </data>
+  <data name="Dashboard_Chart_Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Dashboard_Chart_Overdue" xml:space="preserve">
+    <value>Überfällig</value>
+  </data>
+  <data name="Dashboard_Chart_DueSoon" xml:space="preserve">
+    <value>Nächste 7 Tage</value>
+  </data>
+  <data name="Dashboard_Chart_NoDate" xml:space="preserve">
+    <value>Ohne Datum</value>
+  </data>
+  <data name="Dashboard_Items" xml:space="preserve">
+    <value>Einträge</value>
+  </data>
+  <data name="Dashboard_Col_Task" xml:space="preserve">
+    <value>Aufgabe</value>
+  </data>
+  <data name="Dashboard_Col_List" xml:space="preserve">
+    <value>Liste</value>
+  </data>
+  <data name="Dashboard_Col_Column" xml:space="preserve">
+    <value>Spalte</value>
+  </data>
+  <data name="Dashboard_Col_Due" xml:space="preserve">
+    <value>Fällig</value>
+  </data>
+  <data name="Dashboard_Create_Title" xml:space="preserve">
+    <value>Neues Dashboard erstellen</value>
+  </data>
+  <data name="Dashboard_FilterTitle" xml:space="preserve">
+    <value>Dashboard-Filter</value>
+  </data>
+  <data name="Dashboard_Search" xml:space="preserve">
+    <value>Suche ...</value>
+  </data>
+  <data name="Dashboard_Status_All" xml:space="preserve">
+    <value>Status: Alle</value>
+  </data>
+  <data name="Dashboard_Status_OpenOnly" xml:space="preserve">
+    <value>Nur offen</value>
+  </data>
+  <data name="Dashboard_Status_DoneOnly" xml:space="preserve">
+    <value>Nur erledigt</value>
+  </data>
+  <data name="Dashboard_Filter_Overdue" xml:space="preserve">
+    <value>Überfällig</value>
+  </data>
+  <data name="Dashboard_Filter_NextDay" xml:space="preserve">
+    <value>Nächste 24h</value>
+  </data>
+  <data name="Dashboard_Filter_NextWeek" xml:space="preserve">
+    <value>Nächste 7 Tage</value>
+  </data>
+  <data name="Dashboard_Filter_NextMonth" xml:space="preserve">
+    <value>Nächste 30 Tage</value>
+  </data>
+  <data name="Dashboard_Filter_NoDue" xml:space="preserve">
+    <value>Ohne Fälligkeitsdatum</value>
+  </data>
+  <data name="Dashboard_Filter_AssignedToMe" xml:space="preserve">
+    <value>Mir zugewiesen</value>
+  </data>
+  <data name="Dashboard_Filter_NoAssignee" xml:space="preserve">
+    <value>Ohne Bearbeiter</value>
+  </data>
+  <data name="Dashboard_Filter_Important" xml:space="preserve">
+    <value>Wichtig</value>
+  </data>
+  <data name="Dashboard_Autosave_Pending" xml:space="preserve">
+    <value>Automatische Speicherung ...</value>
+  </data>
+  <data name="Dashboard_Autosave_Saved" xml:space="preserve">
+    <value>Automatisch gespeichert</value>
+  </data>
+  <data name="Dashboard_AllTasks" xml:space="preserve">
+    <value>Alle Aufgaben</value>
+  </data>
+  <data name="Dashboard_GroupBy_None" xml:space="preserve">
+    <value>Keine Gruppierung</value>
+  </data>
+  <data name="Dashboard_GroupBy_List" xml:space="preserve">
+    <value>Nach Liste</value>
+  </data>
+  <data name="Dashboard_GroupBy_Status" xml:space="preserve">
+    <value>Nach Status</value>
+  </data>
+  <data name="Dashboard_GroupBy_DueDate" xml:space="preserve">
+    <value>Nach Fälligkeitsdatum</value>
+  </data>
+  <data name="Dashboard_Settings" xml:space="preserve">
+    <value>Dashboard-Einstellungen</value>
+  </data>
+  <data name="Dashboard_Customize_Widgets" xml:space="preserve">
+    <value>Widgets anpassen</value>
+  </data>
+  <data name="Dashboard_Widget_Tasks" xml:space="preserve">
+    <value>Aufgaben-Tabelle</value>
+  </data>
+  <data name="Dashboard_Widget_Order" xml:space="preserve">
+    <value>Reihenfolge</value>
+  </data>
+  <data name="Sort_Custom" xml:space="preserve">
+    <value>Benutzerdefiniert</value>
+  </data>
+  <data name="Sort_Importance" xml:space="preserve">
+    <value>Wichtigkeit</value>
+  </data>
+  <data name="Sort_DueDate" xml:space="preserve">
+    <value>Fälligkeitsdatum</value>
+  </data>
+  <data name="Sort_Alphabetical" xml:space="preserve">
+    <value>Alphabetisch</value>
+  </data>
+  <data name="Sort_CreatedAt" xml:space="preserve">
+    <value>Erstellt am</value>
+  </data>
+  <data name="Dialog_Close" xml:space="preserve">
+    <value>Schließen</value>
+  </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="Dialog_Create" xml:space="preserve">
+    <value>Erstellen</value>
+  </data>
+  <data name="Common_NoListLoaded" xml:space="preserve">
+    <value>Keine Liste geladen.</value>
+  </data>
+  <data name="CustomField_NamePlaceholder" xml:space="preserve">
+    <value>Feldname</value>
+  </data>
+  <data name="CustomField_OptionsPlaceholder" xml:space="preserve">
+    <value>Optionen hinzufügen</value>
+  </data>
+  <data name="CustomField_OptionPlaceholder" xml:space="preserve">
+    <value>Neue Option</value>
+  </data>
+  <data name="CustomField_OptionsEmpty" xml:space="preserve">
+    <value>Noch keine Optionen.</value>
+  </data>
+  <data name="CustomField_SelectSourceList" xml:space="preserve">
+    <value>Quellliste auswählen</value>
+  </data>
+  <data name="CustomField_TaskTitleSelect_AddHelp" xml:space="preserve">
+    <value>Aufgaben-Auswahl zeigt die Aufgabentexte der ausgewählten Liste als Auswahlfeld. Hinzufügen ist nur möglich, wenn Sie in dieser Liste und in der aktuellen Liste Admin sind.</value>
+  </data>
+  <data name="CustomField_TaskTitleSelect_SaveHelp" xml:space="preserve">
+    <value>Aufgaben-Auswahl zeigt die Aufgabentexte der ausgewählten Liste als Auswahlfeld. Speichern ist nur möglich, wenn Sie in beiden Listen Admin sind.</value>
+  </data>
+  <data name="CustomField_NoSourceList" xml:space="preserve">
+    <value>Keine passende Quellliste verfügbar. Sie benötigen Adminrechte in mindestens einer weiteren Liste.</value>
+  </data>
+  <data name="CustomField_Empty" xml:space="preserve">
+    <value>Noch keine benutzerdefinierten Felder.</value>
+  </data>
+  <data name="CustomField_SourceList" xml:space="preserve">
+    <value>Quellliste</value>
+  </data>
+  <data name="CustomField_SourceList_NotSelected" xml:space="preserve">
+    <value>nicht ausgewählt</value>
+  </data>
+  <data name="CustomField_SourceList_NotAvailable" xml:space="preserve">
+    <value>nicht verfügbar</value>
+  </data>
+  <data name="CustomField_Type_Number" xml:space="preserve">
+    <value>Zahl</value>
+  </data>
+  <data name="CustomField_Type_Dropdown" xml:space="preserve">
+    <value>Dropdown</value>
+  </data>
+  <data name="CustomField_Type_MultiSelect" xml:space="preserve">
+    <value>Mehrfachauswahl</value>
+  </data>
+  <data name="CustomField_Type_Date" xml:space="preserve">
+    <value>Datum</value>
+  </data>
+  <data name="CustomField_Type_Checkbox" xml:space="preserve">
+    <value>Checkbox</value>
+  </data>
+  <data name="CustomField_Type_TaskTitleSelect" xml:space="preserve">
+    <value>Aufgaben-Auswahl</value>
+  </data>
+  <data name="CustomField_Type_Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="CustomField_SectionTitle" xml:space="preserve">
+    <value>Benutzerdefinierte Felder</value>
+  </data>
+  <data name="CustomField_NoneDefined" xml:space="preserve">
+    <value>Keine Felder definiert</value>
+  </data>
+  <data name="FormDesigner_Forms" xml:space="preserve">
+    <value>Formulare</value>
+  </data>
+  <data name="FormDesigner_Creating" xml:space="preserve">
+    <value>Wird angelegt...</value>
+  </data>
+  <data name="FormDesigner_NewForm" xml:space="preserve">
+    <value>Neues Formular</value>
+  </data>
+  <data name="FormDesigner_FormList" xml:space="preserve">
+    <value>Formularliste</value>
+  </data>
+  <data name="FormDesigner_Empty" xml:space="preserve">
+    <value>Noch keine Formulare.</value>
+  </data>
+  <data name="FormDesigner_SelectOrCreate" xml:space="preserve">
+    <value>Wählen Sie ein Formular aus oder legen Sie ein neues an.</value>
+  </data>
+  <data name="FormDesigner_Password" xml:space="preserve">
+    <value>Passwort</value>
+  </data>
+  <data name="FormDesigner_Open" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="FormDesigner_Preview" xml:space="preserve">
+    <value>Vorschau</value>
+  </data>
+  <data name="FormDesigner_AvailableFields" xml:space="preserve">
+    <value>Verfügbare Felder</value>
+  </data>
+  <data name="FormDesigner_Title" xml:space="preserve">
+    <value>Formular-Designer</value>
+  </data>
+  <data name="FormDesigner_DragSort" xml:space="preserve">
+    <value>Per Drag and Drop sortieren</value>
+  </data>
+  <data name="FormDesigner_Move" xml:space="preserve">
+    <value>Verschieben</value>
+  </data>
+  <data name="FormDesigner_Required" xml:space="preserve">
+    <value>Pflicht</value>
+  </data>
+  <data name="FormDesigner_HelpText" xml:space="preserve">
+    <value>Hilfetext</value>
+  </data>
+  <data name="FormDesigner_PreviewAria" xml:space="preserve">
+    <value>Formularvorschau</value>
+  </data>
+  <data name="FormDesigner_PreviewHint" xml:space="preserve">
+    <value>So erscheint das Formular öffentlich.</value>
+  </data>
+  <data name="FormDesigner_LoadError" xml:space="preserve">
+    <value>Formulare konnten nicht geladen werden. Details: {0}</value>
+  </data>
+  <data name="FormDesigner_CreateSuccess" xml:space="preserve">
+    <value>Formular wurde angelegt.</value>
+  </data>
+  <data name="FormDesigner_CreateError" xml:space="preserve">
+    <value>Formular konnte nicht angelegt werden. Details: {0}</value>
+  </data>
+  <data name="FormDesigner_SaveSuccess" xml:space="preserve">
+    <value>Formular wurde gespeichert.</value>
+  </data>
+  <data name="FormDesigner_SaveError" xml:space="preserve">
+    <value>Formular konnte nicht gespeichert werden. Details: {0}</value>
+  </data>
+  <data name="FormDesigner_DeleteSuccess" xml:space="preserve">
+    <value>Formular wurde gelöscht.</value>
+  </data>
+  <data name="FormDesigner_DeleteError" xml:space="preserve">
+    <value>Formular konnte nicht gelöscht werden. Details: {0}</value>
+  </data>
+  <data name="FormDesigner_Status_Public" xml:space="preserve">
+    <value>Öffentlich</value>
+  </data>
+  <data name="FormDesigner_Status_Private" xml:space="preserve">
+    <value>Privat</value>
+  </data>
+  <data name="FormDesigner_Status_PasswordProtected" xml:space="preserve">
+    <value>Mit Passwort</value>
+  </data>
+  <data name="FormDesigner_Status_Draft" xml:space="preserve">
+    <value>Entwurf</value>
+  </data>
+  <data name="FormDesigner_Field_Title" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="FormDesigner_FieldType_Standard" xml:space="preserve">
+    <value>Standardfeld</value>
+  </data>
+  <data name="FormDesigner_FieldType_Custom" xml:space="preserve">
+    <value>Benutzerdefiniert</value>
+  </data>
+  <data name="FormDesigner_FieldType_CustomWithType" xml:space="preserve">
+    <value>Benutzerdefiniert · {0}</value>
+  </data>
+  <data name="PublicForm_Loading" xml:space="preserve">
+    <value>Formular wird geladen...</value>
+  </data>
+  <data name="PublicForm_NotAvailableTitle" xml:space="preserve">
+    <value>Formular nicht verfügbar</value>
+  </data>
+  <data name="PublicForm_NotAvailableMessage" xml:space="preserve">
+    <value>Das Formular ist nicht veröffentlicht oder Sie haben keinen Zugriff.</value>
+  </data>
+  <data name="PublicForm_Thanks" xml:space="preserve">
+    <value>Vielen Dank</value>
+  </data>
+  <data name="PublicForm_DefaultSuccessMessage" xml:space="preserve">
+    <value>Ihre Eingabe wurde erfolgreich übermittelt.</value>
+  </data>
+  <data name="PublicForm_CheckingPassword" xml:space="preserve">
+    <value>Wird geprüft...</value>
+  </data>
+  <data name="PublicForm_Open" xml:space="preserve">
+    <value>Formular öffnen</value>
+  </data>
+  <data name="PublicForm_Submitting" xml:space="preserve">
+    <value>Wird gesendet...</value>
+  </data>
+  <data name="PublicForm_Submit" xml:space="preserve">
+    <value>Absenden</value>
+  </data>
+  <data name="PublicForm_PasswordRequired" xml:space="preserve">
+    <value>Bitte geben Sie das Passwort ein.</value>
+  </data>
+  <data name="PublicForm_PasswordInvalid" xml:space="preserve">
+    <value>Das Passwort ist nicht korrekt.</value>
+  </data>
+  <data name="PublicForm_PasswordCheckError" xml:space="preserve">
+    <value>Das Passwort konnte nicht geprüft werden. Details: {0}</value>
+  </data>
+  <data name="PublicForm_SubmitError" xml:space="preserve">
+    <value>Das Formular konnte nicht abgeschickt werden. Details: {0}</value>
+  </data>
+  <data name="PublicForm_SelectPlaceholder" xml:space="preserve">
+    <value>Bitte wählen</value>
+  </data>
+  <data name="Table_TaskCount" xml:space="preserve">
+    <value>{0} Aufgabe(n)</value>
+  </data>
+  <data name="Table_ResetSort" xml:space="preserve">
+    <value>Sortierung zurücksetzen</value>
+  </data>
+  <data name="Table_Columns" xml:space="preserve">
+    <value>Spalten</value>
+  </data>
+  <data name="Table_MoveColumn" xml:space="preserve">
+    <value>Spalte verschieben</value>
+  </data>
+  <data name="Table_MoveTask" xml:space="preserve">
+    <value>Aufgabe sortieren</value>
+  </data>
+  <data name="Bulk_Select" xml:space="preserve">
+    <value>Auswählen</value>
+  </data>
+  <data name="Bulk_SelectTasks" xml:space="preserve">
+    <value>Aufgaben auswählen</value>
+  </data>
+  <data name="Bulk_SelectedCount" xml:space="preserve">
+    <value>{0} ausgewählt</value>
+  </data>
+  <data name="Bulk_SelectAction" xml:space="preserve">
+    <value>Maßnahme wählen</value>
+  </data>
+  <data name="Bulk_MarkDone" xml:space="preserve">
+    <value>Als fertig markieren</value>
+  </data>
+  <data name="Bulk_Move" xml:space="preserve">
+    <value>Verschieben</value>
+  </data>
+  <data name="Bulk_ChangeColor" xml:space="preserve">
+    <value>Kartenfarbe ändern</value>
+  </data>
+  <data name="Bulk_ClearColor" xml:space="preserve">
+    <value>Kartenfarbe entfernen</value>
+  </data>
+  <data name="Bulk_Apply" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="Bulk_ClearSelection" xml:space="preserve">
+    <value>Auswahl aufheben</value>
+  </data>
+  <data name="Task_CardStyle_ModeTopOnly" xml:space="preserve">
+    <value>Farbbalken</value>
+  </data>
+  <data name="Task_CardStyle_ModeFull" xml:space="preserve">
+    <value>Ganze Karte</value>
+  </data>
+  <data name="Table_Open" xml:space="preserve">
+    <value>Öffnen</value>
+  </data>
+  <data name="Table_Notify" xml:space="preserve">
+    <value>Benachrichtigen</value>
+  </data>
+  <data name="Table_SortShort" xml:space="preserve">
+    <value>Sort</value>
+  </data>
+  <data name="Table_FilterShort" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Table_ColumnOptions" xml:space="preserve">
+    <value>Spaltenoptionen</value>
+  </data>
+  <data name="Table_SortAscending" xml:space="preserve">
+    <value>Aufsteigend sortieren</value>
+  </data>
+  <data name="Table_SortDescending" xml:space="preserve">
+    <value>Absteigend sortieren</value>
+  </data>
+  <data name="Table_FilterPlaceholder" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Table_HideColumn" xml:space="preserve">
+    <value>Spalte verbergen</value>
+  </data>
+  <data name="Table_OpenTask" xml:space="preserve">
+    <value>Aufgabe öffnen</value>
+  </data>
+  <data name="Table_OpenAttachments" xml:space="preserve">
+    <value>Anhänge öffnen</value>
+  </data>
+  <data name="Table_OpenComments" xml:space="preserve">
+    <value>Kommentare öffnen</value>
+  </data>
+  <data name="Table_NewTask" xml:space="preserve">
+    <value>Neue Aufgabe</value>
+  </data>
+  <data name="Table_Yes" xml:space="preserve">
+    <value>Ja</value>
+  </data>
+  <data name="Table_No" xml:space="preserve">
+    <value>Nein</value>
+  </data>
+  <data name="Table_Created" xml:space="preserve">
+    <value>Erstellt</value>
+  </data>
+  <data name="Table_SortedAscending" xml:space="preserve">
+    <value>Aufsteigend sortiert</value>
+  </data>
+  <data name="Table_SortedDescending" xml:space="preserve">
+    <value>Absteigend sortiert</value>
+  </data>
+  <data name="Task_Watch_Stop" xml:space="preserve">
+    <value>Aufgabe nicht mehr beobachten</value>
+  </data>
+  <data name="Task_Watch_Start" xml:space="preserve">
+    <value>Aufgabe beobachten</value>
+  </data>
+  <data name="Task_Move_NoLists" xml:space="preserve">
+    <value>Keine Listen gefunden</value>
+  </data>
+  <data name="Task_Move_NoColumns" xml:space="preserve">
+    <value>Keine Spalten gefunden</value>
+  </data>
+  <data name="Task_Move_SelectDifferentList" xml:space="preserve">
+    <value>Bitte zuerst eine andere Liste auswählen. Danach kann die Zielspalte festgelegt werden.</value>
+  </data>
+  <data name="Err_ParticipantCommentSave" xml:space="preserve">
+    <value>Kommentar konnte nicht gespeichert werden. Liste: '{0}'. Details: {1}</value>
+  </data>
+  <data name="Account_AccessDenied_Title" xml:space="preserve">
+    <value>Zugriff verweigert</value>
+  </data>
+  <data name="Account_AccessDenied_Message" xml:space="preserve">
+    <value>Sie haben keinen Zugriff auf diese Ressource.</value>
+  </data>
+  <data name="Account_ConfirmEmailChange_Title" xml:space="preserve">
+    <value>E-Mail-Änderung bestätigen</value>
+  </data>
+  <data name="Account_ConfirmEmailChange_InvalidLink" xml:space="preserve">
+    <value>Fehler: Der Bestätigungslink für die E-Mail-Änderung ist ungültig.</value>
+  </data>
+  <data name="Account_UserNotFound" xml:space="preserve">
+    <value>Benutzer mit ID '{0}' konnte nicht gefunden werden.</value>
+  </data>
+  <data name="Account_ConfirmEmailChange_EmailError" xml:space="preserve">
+    <value>Fehler beim Ändern der E-Mail-Adresse.</value>
+  </data>
+  <data name="Account_ConfirmEmailChange_UserNameError" xml:space="preserve">
+    <value>Fehler beim Ändern des Benutzernamens.</value>
+  </data>
+  <data name="Account_ConfirmEmailChange_Success" xml:space="preserve">
+    <value>Vielen Dank für die Bestätigung Ihrer E-Mail-Änderung.</value>
+  </data>
+  <data name="Account_ExternalLogin_Associate" xml:space="preserve">
+    <value>Ihr {0}-Konto verknüpfen.</value>
+  </data>
+  <data name="Account_ExternalLogin_Info" xml:space="preserve">
+    <value>Sie haben sich erfolgreich mit {0} authentifiziert. Geben Sie unten eine E-Mail-Adresse für diese Seite ein und klicken Sie auf Registrieren, um die Anmeldung abzuschließen.</value>
+  </data>
+  <data name="Account_EmailPlaceholder" xml:space="preserve">
+    <value>Bitte geben Sie Ihre E-Mail-Adresse ein.</value>
+  </data>
+  <data name="Account_InvalidUser_Title" xml:space="preserve">
+    <value>Ungültiger Benutzer</value>
+  </data>
+  <data name="Auth_Authenticated_Title" xml:space="preserve">
+    <value>Sie sind angemeldet</value>
+  </data>
+  <data name="Auth_Authenticated_Hello" xml:space="preserve">
+    <value>Hallo {0}!</value>
+  </data>
+  <data name="Common_Yes" xml:space="preserve">
+    <value>Ja</value>
+  </data>
+  <data name="Common_No" xml:space="preserve">
+    <value>Nein</value>
+  </data>
+  <data name="Export_Header_Title" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="Export_Header_Description" xml:space="preserve">
+    <value>Beschreibung</value>
+  </data>
+  <data name="Export_Header_Column" xml:space="preserve">
+    <value>Spalte</value>
+  </data>
+  <data name="Export_Header_Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Export_Header_Done" xml:space="preserve">
+    <value>Erledigt</value>
+  </data>
+  <data name="Export_Header_Important" xml:space="preserve">
+    <value>Wichtig</value>
+  </data>
+  <data name="Export_Header_DueDate" xml:space="preserve">
+    <value>Fälligkeitsdatum</value>
+  </data>
+  <data name="Export_Header_Labels" xml:space="preserve">
+    <value>Labels</value>
+  </data>
+  <data name="Mobile_OfflineSync" xml:space="preserve">
+    <value>Offline - Änderungen werden synchronisiert, sobald die Verbindung wiederhergestellt ist.</value>
+  </data>
+  <data name="Workspace_PageTitle" xml:space="preserve">
+    <value>Todo Board</value>
+  </data>
+  <data name="Workspace_StartWatching" xml:space="preserve">
+    <value>Board beobachten</value>
+  </data>
+  <data name="Workspace_StopWatching" xml:space="preserve">
+    <value>Board nicht mehr beobachten</value>
+  </data>
+  <data name="Workspace_TableView" xml:space="preserve">
+    <value>Tabelle</value>
+  </data>
+  <data name="Workspace_ListOptions" xml:space="preserve">
+    <value>Listenoptionen</value>
+  </data>
+  <data name="Workspace_RenameList" xml:space="preserve">
+    <value>Liste umbenennen</value>
+  </data>
+  <data name="Workspace_ManageLabels" xml:space="preserve">
+    <value>Labels verwalten</value>
+  </data>
+  <data name="Workspace_ChangeBackground" xml:space="preserve">
+    <value>Hintergrund ändern</value>
+  </data>
+  <data name="Workspace_ChangeDesign" xml:space="preserve">
+    <value>Design ändern</value>
+  </data>
+  <data name="Workspace_Notifications" xml:space="preserve">
+    <value>Benachrichtigungen</value>
+  </data>
+  <data name="Workspace_NotificationsOn" xml:space="preserve">
+    <value>Benachrichtigungen ein</value>
+  </data>
+  <data name="Workspace_NotificationsOff" xml:space="preserve">
+    <value>Benachrichtigungen aus</value>
+  </data>
+  <data name="Workspace_CopyList" xml:space="preserve">
+    <value>Liste kopieren</value>
+  </data>
+  <data name="Workspace_DuplicateList" xml:space="preserve">
+    <value>Liste duplizieren</value>
+  </data>
+  <data name="Workspace_SaveAsTemplate" xml:space="preserve">
+    <value>Als Vorlage speichern</value>
+  </data>
+  <data name="Workspace_ExportList" xml:space="preserve">
+    <value>Liste exportieren</value>
+  </data>
+  <data name="Workspace_Share" xml:space="preserve">
+    <value>Teilen</value>
+  </data>
+  <data name="Workspace_Actions" xml:space="preserve">
+    <value>Aktionen</value>
+  </data>
+  <data name="Workspace_NoListLoaded" xml:space="preserve">
+    <value>Keine Liste geladen.</value>
+  </data>
+  <data name="Workspace_NewName" xml:space="preserve">
+    <value>Neuer Name</value>
+  </data>
+  <data name="Workspace_DeleteListWarning" xml:space="preserve">
+    <value>Alle Aufgaben werden dauerhaft entfernt.</value>
+  </data>
+  <data name="Workspace_DeleteListConfirm" xml:space="preserve">
+    <value>Willst du die Liste {0} wirklich löschen?</value>
+  </data>
+  <data name="Workspace_DeleteFinal" xml:space="preserve">
+    <value>Endgültig löschen</value>
+  </data>
+  <data name="Workspace_RestoreDeletedTasks" xml:space="preserve">
+    <value>Gelöschte Aufgaben wiederherstellen</value>
+  </data>
+  <data name="Workspace_RestoreEmpty" xml:space="preserve">
+    <value>Keine gelöschten Aufgaben in dieser Liste.</value>
+  </data>
+  <data name="Workspace_RestoreDeletedOn" xml:space="preserve">
+    <value>Gelöscht am</value>
+  </data>
+  <data name="Workspace_RestoreDaysLeft" xml:space="preserve">
+    <value>noch {0} Tag(e)</value>
+  </data>
+  <data name="Workspace_RestoreTask" xml:space="preserve">
+    <value>Aufgabe wiederherstellen</value>
+  </data>
+  <data name="Workspace_FilterTitle" xml:space="preserve">
+    <value>Filtern</value>
+  </data>
+  <data name="Workspace_EditFilter" xml:space="preserve">
+    <value>Filter bearbeiten</value>
+  </data>
+  <data name="Workspace_FilterPlaceholder" xml:space="preserve">
+    <value>Geben Sie ein Stichwort ein ...</value>
+  </data>
+  <data name="Workspace_FilterHint" xml:space="preserve">
+    <value>Durchsuchen Sie Karten, Mitglieder, Labels und mehr.</value>
+  </data>
+  <data name="Workspace_FilterAssignee" xml:space="preserve">
+    <value>Bearbeiter</value>
+  </data>
+  <data name="Workspace_FilterAssignedToMe" xml:space="preserve">
+    <value>Karten, die mir zugewiesen wurden</value>
+  </data>
+  <data name="Workspace_FilterNoAssignee" xml:space="preserve">
+    <value>Keinen Bearbeiter</value>
+  </data>
+  <data name="Workspace_FilterNoMembers" xml:space="preserve">
+    <value>Keine Mitglieder</value>
+  </data>
+  <data name="Workspace_FilterSelectMembers" xml:space="preserve">
+    <value>Mitglieder auswählen</value>
+  </data>
+  <data name="Workspace_FilterCardStatus" xml:space="preserve">
+    <value>Karten-Status</value>
+  </data>
+  <data name="Workspace_FilterDone" xml:space="preserve">
+    <value>Als abgeschlossen markiert</value>
+  </data>
+  <data name="Workspace_FilterNotDone" xml:space="preserve">
+    <value>Nicht als abgeschlossen markiert</value>
+  </data>
+  <data name="Workspace_FilterDue" xml:space="preserve">
+    <value>Frist</value>
+  </data>
+  <data name="Workspace_FilterNoDueDate" xml:space="preserve">
+    <value>Ohne Fälligkeitsdatum</value>
+  </data>
+  <data name="Workspace_FilterOverdue" xml:space="preserve">
+    <value>Überfällig</value>
+  </data>
+  <data name="Workspace_FilterDueNextDay" xml:space="preserve">
+    <value>Innerhalb des nächsten Tages fällig</value>
+  </data>
+  <data name="Workspace_FilterDueNextWeek" xml:space="preserve">
+    <value>Innerhalb der nächsten Woche fällig</value>
+  </data>
+  <data name="Workspace_FilterDueNextMonth" xml:space="preserve">
+    <value>Innerhalb des nächsten Monats fällig</value>
+  </data>
+  <data name="Workspace_FilterNoLabels" xml:space="preserve">
+    <value>Keine Labels vorhanden.</value>
+  </data>
+  <data name="Workspace_FilterReset" xml:space="preserve">
+    <value>Zurücksetzen</value>
+  </data>
+  <data name="Workspace_FilterApply" xml:space="preserve">
+    <value>Anwenden</value>
+  </data>
+  <data name="Workspace_CopyName" xml:space="preserve">
+    <value>Name der neuen Liste</value>
+  </data>
+  <data name="Workspace_CopyIncludeTasks" xml:space="preserve">
+    <value>Aufgaben mitkopieren</value>
+  </data>
+  <data name="Workspace_CopyAction" xml:space="preserve">
+    <value>Kopieren</value>
+  </data>
+  <data name="Workspace_TemplateSaved" xml:space="preserve">
+    <value>Vorlage {0} wurde gespeichert.</value>
+  </data>
+  <data name="Workspace_TemplateName" xml:space="preserve">
+    <value>Name der Vorlage</value>
+  </data>
+  <data name="Workspace_TemplateHelp" xml:space="preserve">
+    <value>Spalten, Labels und Hintergrundfarbe werden übernommen. Aufgaben werden nicht kopiert.</value>
+  </data>
+  <data name="Workspace_ExportTaskCount" xml:space="preserve">
+    <value>{0} Aufgaben</value>
+  </data>
+  <data name="Workspace_ExportJson" xml:space="preserve">
+    <value>Als JSON exportieren</value>
+  </data>
+  <data name="Workspace_ExportJsonHelp" xml:space="preserve">
+    <value>Maschinenlesbares Format, alle Felder</value>
+  </data>
+  <data name="Workspace_ExportCsv" xml:space="preserve">
+    <value>Als CSV exportieren</value>
+  </data>
+  <data name="Workspace_ExportCsvHelp" xml:space="preserve">
+    <value>Tabellenformat, Excel-kompatibel</value>
+  </data>
+  <data name="Workspace_ExportPdf" xml:space="preserve">
+    <value>Als PDF exportieren</value>
+  </data>
+  <data name="Workspace_ExportPdfHelp" xml:space="preserve">
+    <value>Druckansicht im Browser öffnen</value>
+  </data>
+  <data name="Workspace_ExportedAt" xml:space="preserve">
+    <value>Exportiert am {0} - {1} Aufgaben</value>
+  </data>
+  <data name="Workspace_ExportJsonError" xml:space="preserve">
+    <value>JSON-Export konnte nicht gestartet werden: {0}</value>
+  </data>
+  <data name="Workspace_ExportCsvError" xml:space="preserve">
+    <value>CSV-Export konnte nicht gestartet werden: {0}</value>
+  </data>
+  <data name="Workspace_ExportPdfError" xml:space="preserve">
+    <value>PDF-Export konnte nicht gestartet werden: {0}</value>
+  </data>
+  <data name="Notifications_Event" xml:space="preserve">
+    <value>Ereignis</value>
+  </data>
+  <data name="Notifications_Admins" xml:space="preserve">
+    <value>Admins</value>
+  </data>
+  <data name="Notifications_Users" xml:space="preserve">
+    <value>Benutzer</value>
+  </data>
+  <data name="Notifications_BoardWatchersShort" xml:space="preserve">
+    <value>Board Beob.</value>
+  </data>
+  <data name="Notifications_CardWatchersShort" xml:space="preserve">
+    <value>Karten Beob.</value>
+  </data>
+  <data name="Notifications_Assigned" xml:space="preserve">
+    <value>Zugewiesen</value>
+  </data>
+  <data name="Notifications_Author" xml:space="preserve">
+    <value>Autor</value>
+  </data>
+  <data name="Notifications_TaskCreated" xml:space="preserve">
+    <value>Vorgang erstellt</value>
+  </data>
+  <data name="Notifications_TaskUpdated" xml:space="preserve">
+    <value>Vorgang aktualisiert</value>
+  </data>
+  <data name="Notifications_TaskAssigned" xml:space="preserve">
+    <value>Vorgang zugewiesen</value>
+  </data>
+  <data name="Notifications_TaskCompleted" xml:space="preserve">
+    <value>Vorgang erledigt</value>
+  </data>
+  <data name="Notifications_TaskReopened" xml:space="preserve">
+    <value>Vorgang erneut geöffnet</value>
+  </data>
+  <data name="Notifications_TaskDeleted" xml:space="preserve">
+    <value>Vorgang gelöscht</value>
+  </data>
+  <data name="Notifications_TaskMoved" xml:space="preserve">
+    <value>Vorgang verschoben</value>
+  </data>
+  <data name="Notifications_CommentAdded" xml:space="preserve">
+    <value>Vorgang kommentiert</value>
+  </data>
+  <data name="Notifications_CommentDeleted" xml:space="preserve">
+    <value>Vorgangskommentar gelöscht</value>
+  </data>
+  <data name="Notifications_AttachmentAdded" xml:space="preserve">
+    <value>Neuer Anhang</value>
+  </data>
+  <data name="Notifications_AttachmentDeleted" xml:space="preserve">
+    <value>Anhang gelöscht</value>
+  </data>
+  <data name="Err_Generic" xml:space="preserve">
+    <value>Fehler: {0}</value>
+  </data>
+  <data name="Account_Email" xml:space="preserve">
+    <value>E-Mail</value>
+  </data>
+  <data name="Account_Password" xml:space="preserve">
+    <value>Passwort</value>
+  </data>
+  <data name="Account_ConfirmPassword" xml:space="preserve">
+    <value>Passwort bestätigen</value>
+  </data>
+  <data name="Account_Username" xml:space="preserve">
+    <value>Benutzername</value>
+  </data>
+  <data name="Account_WindowsUsername" xml:space="preserve">
+    <value>Verzeichnis-Benutzername</value>
+  </data>
+  <data name="Account_RememberMe" xml:space="preserve">
+    <value>Angemeldet bleiben</value>
+  </data>
+  <data name="Account_Or" xml:space="preserve">
+    <value>ODER</value>
+  </data>
+  <data name="Account_BackToLogin" xml:space="preserve">
+    <value>Zur Anmeldung</value>
+  </data>
+  <data name="Account_Login_Title" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="Account_Login_WithWindows" xml:space="preserve">
+    <value>Mit LDAP / Active Directory anmelden.</value>
+  </data>
+  <data name="Account_Login_WindowsButton" xml:space="preserve">
+    <value>Mit Verzeichnis anmelden</value>
+  </data>
+  <data name="Account_Login_WithLocal" xml:space="preserve">
+    <value>Mit lokalem Konto anmelden.</value>
+  </data>
+  <data name="Account_Login_Button" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="Account_Login_WithPasskey" xml:space="preserve">
+    <value>Mit Passkey anmelden</value>
+  </data>
+  <data name="Account_ForgotPasswordLink" xml:space="preserve">
+    <value>Passwort vergessen?</value>
+  </data>
+  <data name="Account_RegisterNewUser" xml:space="preserve">
+    <value>Als neuer Benutzer registrieren</value>
+  </data>
+  <data name="Account_ResendEmailConfirmation" xml:space="preserve">
+    <value>E-Mail-Bestätigung erneut senden</value>
+  </data>
+  <data name="Account_Error_NotAllowed" xml:space="preserve">
+    <value>Fehler: Dieses Konto ist noch nicht freigeschaltet. Bitte bestätige zuerst deine E-Mail-Adresse oder fordere die Bestätigungs-E-Mail erneut an.</value>
+  </data>
+  <data name="Account_Error_InvalidLogin" xml:space="preserve">
+    <value>Fehler: Ungültige Anmeldedaten.</value>
+  </data>
+  <data name="Account_Error_AdLoginFailed" xml:space="preserve">
+    <value>Fehler: Anmeldung am Active Directory fehlgeschlagen.</value>
+  </data>
+  <data name="Account_Error_UserCreateFailed" xml:space="preserve">
+    <value>Fehler: Benutzer konnte nicht angelegt werden: {0}</value>
+  </data>
+  <data name="Account_Error_LoginIncomplete" xml:space="preserve">
+    <value>Fehler: Anmeldung konnte nicht abgeschlossen werden.</value>
+  </data>
+  <data name="Account_Error_TooManyAttempts" xml:space="preserve">
+    <value>Fehler: Zu viele fehlgeschlagene Anmeldeversuche. Bitte in {0} erneut versuchen.</value>
+  </data>
+  <data name="Account_Register_Title" xml:space="preserve">
+    <value>Registrieren</value>
+  </data>
+  <data name="Account_Register_DisabledTitle" xml:space="preserve">
+    <value>Registrierung deaktiviert</value>
+  </data>
+  <data name="Account_Register_DisabledText" xml:space="preserve">
+    <value>Die Selbst-Registrierung ist derzeit nicht verfügbar. Bitte wenden Sie sich an einen Administrator.</value>
+  </data>
+  <data name="Account_Register_CreateAccount" xml:space="preserve">
+    <value>Neues Konto erstellen.</value>
+  </data>
+  <data name="Account_Register_Button" xml:space="preserve">
+    <value>Registrieren</value>
+  </data>
+  <data name="Account_LoginExistingUser" xml:space="preserve">
+    <value>Als bestehender Benutzer anmelden</value>
+  </data>
+  <data name="Account_Error_EmailExists" xml:space="preserve">
+    <value>Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.</value>
+  </data>
+  <data name="Account_Error_ConfirmationEmailFailed" xml:space="preserve">
+    <value>Das Konto wurde angelegt, aber die Bestätigungs-E-Mail konnte nicht versendet werden. {0}</value>
+  </data>
+  <data name="Account_ForgotPassword_Title" xml:space="preserve">
+    <value>Passwort vergessen</value>
+  </data>
+  <data name="Account_ForgotPassword_Subtitle" xml:space="preserve">
+    <value>Reset-Link per E-Mail erhalten.</value>
+  </data>
+  <data name="Account_ForgotPassword_Send" xml:space="preserve">
+    <value>Reset-Link senden</value>
+  </data>
+  <data name="Account_Error_ResetEmailFailed" xml:space="preserve">
+    <value>Fehler: Die Reset-E-Mail konnte nicht versendet werden. {0}</value>
+  </data>
+  <data name="Account_ResetPassword_Title" xml:space="preserve">
+    <value>Passwort zurücksetzen</value>
+  </data>
+  <data name="Account_ResetPassword_Subtitle" xml:space="preserve">
+    <value>Neues Passwort vergeben.</value>
+  </data>
+  <data name="Account_ResetPassword_Save" xml:space="preserve">
+    <value>Passwort speichern</value>
+  </data>
+  <data name="Automation_Title" xml:space="preserve"><value>Automatisierung</value></data>
+  <data name="Account_Settings" xml:space="preserve"><value>Einstellungen</value></data>
+  <data name="Account_PageSubtitle" xml:space="preserve"><value>Verwalten Sie Ihre Anmeldedaten und Sicherheitsoptionen.</value></data>
+  <data name="Language_Title" xml:space="preserve"><value>Sprache</value></data>
+  <data name="Language_Hint" xml:space="preserve"><value>Überschreibt die Sprache des Browsers oder Geräts für dieses Benutzerkonto.</value></data>
+  <data name="Language_Automatic" xml:space="preserve"><value>Automatisch (Browser oder Gerät)</value></data>
+  <data name="Language_German" xml:space="preserve"><value>Deutsch</value></data>
+  <data name="Language_English" xml:space="preserve"><value>Englisch</value></data>
+  <data name="Language_Spanish" xml:space="preserve"><value>Spanisch</value></data>
+  <data name="Language_French" xml:space="preserve"><value>Französisch</value></data>
+  <data name="Language_Hindi" xml:space="preserve"><value>Hindi</value></data>
+  <data name="Language_ChineseSimplified" xml:space="preserve"><value>Chinesisch (vereinfacht)</value></data>
+  <data name="Language_SaveError" xml:space="preserve"><value>Sprache konnte nicht gespeichert werden: {0}</value></data>
+  <data name="Account_Loading" xml:space="preserve"><value>Konto wird geladen …</value></data>
+  <data name="Account_LoadError" xml:space="preserve"><value>Kontodaten konnten nicht geladen werden.</value></data>
+  <data name="Account_EmailChangeError" xml:space="preserve"><value>E-Mail-Adresse konnte nicht geändert werden.</value></data>
+  <data name="Account_ConfirmationEmailSendError" xml:space="preserve"><value>Bestätigungs-E-Mail konnte nicht gesendet werden.</value></data>
+  <data name="Account_ExternalLoginManaged" xml:space="preserve"><value>Sie sind über eine externe Anmeldung verbunden. E-Mail-Adresse und Passwort werden über Ihren Anbieter verwaltet.</value></data>
+  <data name="Account_EmailAddress" xml:space="preserve"><value>E-Mail-Adresse</value></data>
+  <data name="Account_EmailUnconfirmed" xml:space="preserve"><value>Ihre E-Mail-Adresse ist noch nicht bestätigt.</value></data>
+  <data name="Account_SendConfirmation" xml:space="preserve"><value>Bestätigungs-E-Mail senden</value></data>
+  <data name="Account_CurrentEmail" xml:space="preserve"><value>Aktuelle E-Mail-Adresse</value></data>
+  <data name="Account_EmailConfirmed" xml:space="preserve"><value>bestätigt</value></data>
+  <data name="Account_NewEmail" xml:space="preserve"><value>Neue E-Mail-Adresse</value></data>
+  <data name="Account_Saving" xml:space="preserve"><value>Wird gespeichert …</value></data>
+  <data name="Account_ChangeEmail" xml:space="preserve"><value>E-Mail-Adresse ändern</value></data>
+  <data name="Account_ChangePassword" xml:space="preserve"><value>Passwort ändern</value></data>
+  <data name="Account_CurrentPassword" xml:space="preserve"><value>Aktuelles Passwort</value></data>
+  <data name="Account_NewPassword" xml:space="preserve"><value>Neues Passwort</value></data>
+  <data name="Account_ConfirmNewPassword" xml:space="preserve"><value>Neues Passwort bestätigen</value></data>
+  <data name="Account_PasswordMismatch" xml:space="preserve"><value>Passwörter stimmen nicht überein.</value></data>
+  <data name="Account_UpdatePassword" xml:space="preserve"><value>Passwort aktualisieren</value></data>
+  <data name="Account_PasswordChanged" xml:space="preserve"><value>Passwort wurde erfolgreich geändert.</value></data>
+  <data name="Account_ConfirmationLinkSent" xml:space="preserve"><value>Bestätigungslink gesendet. Bitte prüfen Sie Ihre E-Mails.</value></data>
+  <data name="Account_ConfirmationEmailSent" xml:space="preserve"><value>Bestätigungs-E-Mail wurde gesendet.</value></data>
+  <data name="Account_NoServer" xml:space="preserve"><value>Kein Server konfiguriert.</value></data>
+  <data name="Notifications_Title" xml:space="preserve"><value>Benachrichtigungen</value></data>
+  <data name="Notifications_GlobalHint" xml:space="preserve"><value>Gilt global für alle Listen und persönlichen Benachrichtigungen.</value></data>
+  <data name="Notifications_ChannelEmail" xml:space="preserve"><value>E-Mail</value></data>
+  <data name="Notifications_ChannelBrowser" xml:space="preserve"><value>Browser</value></data>
+  <data name="Notifications_ChannelBoth" xml:space="preserve"><value>Beides</value></data>
+  <data name="Notifications_SaveSuccess" xml:space="preserve"><value>Benachrichtigungszustellung wurde gespeichert.</value></data>
+  <data name="Push_EnableRegisteredApps" xml:space="preserve"><value>Push-Nachrichten für registrierte Apps aktivieren</value></data>
+  <data name="Push_DeviceTitle" xml:space="preserve"><value>Push-Nachrichten auf diesem Gerät</value></data>
+  <data name="Push_RelayHint" xml:space="preserve"><value>Zustellung über das zentrale Sessage Push Relay.</value></data>
+  <data name="Push_Enable" xml:space="preserve"><value>Push aktivieren</value></data>
+  <data name="Push_Disable" xml:space="preserve"><value>Push deaktivieren</value></data>
+  <data name="Push_LockScreenContent" xml:space="preserve"><value>Inhalt auf dem Sperrbildschirm</value></data>
+  <data name="Push_AnonymousNoTaskContent" xml:space="preserve"><value>Anonym – ohne Aufgabeninhalt</value></data>
+  <data name="Push_Anonymous" xml:space="preserve"><value>Anonym</value></data>
+  <data name="Push_AnonymousExample" xml:space="preserve"><value>„Eine Benachrichtigung von Sessage ist eingegangen“</value></data>
+  <data name="Push_Detailed" xml:space="preserve"><value>Mit Inhalt</value></data>
+  <data name="Push_DetailedWithText" xml:space="preserve"><value>Mit Benachrichtigungstext</value></data>
+  <data name="Push_DetailedExample" xml:space="preserve"><value>Zum Beispiel „Erinnerung: Test“</value></data>
+  <data name="Push_DevicesHint" xml:space="preserve"><value>Geräte werden in der Sessage App registriert. Diese Einstellung gilt für alle angemeldeten Geräte.</value></data>
+  <data name="Push_SaveSuccess" xml:space="preserve"><value>Push-Einstellung wurde gespeichert.</value></data>
+  <data name="Push_DisplaySaveSuccess" xml:space="preserve"><value>Darstellung der Push-Nachrichten wurde gespeichert.</value></data>
+  <data name="Push_ChangeError" xml:space="preserve"><value>Push konnte nicht geändert werden: {0}</value></data>
+  <data name="Settings_SaveError" xml:space="preserve"><value>Einstellung konnte nicht gespeichert werden: {0}</value></data>
+  <data name="Security_Title" xml:space="preserve"><value>Sicherheit</value></data>
+  <data name="Security_TwoFactor" xml:space="preserve"><value>Zwei-Faktor-Authentifizierung</value></data>
+  <data name="Status_Enabled" xml:space="preserve"><value>Aktiviert</value></data>
+  <data name="Status_Disabled" xml:space="preserve"><value>Deaktiviert</value></data>
+  <data name="Btn_Manage" xml:space="preserve"><value>Verwalten</value></data>
+  <data name="Security_RecoveryCodesRemaining" xml:space="preserve"><value>Nur {0} Wiederherstellungscodes übrig</value></data>
+  <data name="Security_NoPasskey" xml:space="preserve"><value>Kein Passkey hinterlegt</value></data>
+  <data name="Security_PasskeysStored" xml:space="preserve"><value>{0} Passkey(s) hinterlegt</value></data>
+  <data name="PersonalData_Title" xml:space="preserve"><value>Persönliche Daten</value></data>
+  <data name="PersonalData_WebHint" xml:space="preserve"><value>Sie können Ihre gespeicherten Daten herunterladen oder Ihr Konto dauerhaft löschen.</value></data>
+  <data name="PersonalData_MobileHint" xml:space="preserve"><value>Profilbild, API-Token und Kontodaten sind auch in der App erreichbar.</value></data>
+  <data name="PersonalData_ManageAccount" xml:space="preserve"><value>Daten &amp; Konto verwalten</value></data>
+  <data name="PersonalData_ManageProfilePicture" xml:space="preserve"><value>Profilbild verwalten</value></data>
+  <data name="PersonalData_ManageApiTokens" xml:space="preserve"><value>API-Token verwalten</value></data>
+</root>

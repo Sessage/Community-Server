@@ -1,0 +1,3071 @@
+﻿@page "/list/{ListId:guid?}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Klassenbibliothek.Components.Views
+@using Klassenbibliothek.Data
+@using System.Security.Claims
+@inject ITodoListService ListService
+@inject ITodoListPreferencesService ListPreferencesService
+@inject INotificationService NotificationService
+@inject IListEmailImportService EmailImportService
+@inject ITodoTrashService TrashService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITodoHubConnectionFactory HubConnectionFactory
+@inject NavigationManager Nav
+@inject UserDirectoryService Directory
+@inject IJSRuntime JS
+@inject IProductFeatureCatalog ProductFeatures
+@using Klassenbibliothek.Features
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+
+<PageTitle>@L["Workspace_PageTitle"]</PageTitle>
+
+<div class="mx-auto h-full min-h-0 flex flex-col overflow-hidden overflow-x-hidden"
+     style="@(!string.IsNullOrWhiteSpace(_list?.BackgroundColor) ? $"background-color:{_list!.BackgroundColor}" : "")">
+
+    <!-- Sticky Header -->
+    <div class="sticky rounded-xl top-0 z-30 shrink-0">
+        <div class="py-2 px-4 flex items-center justify-between gap-3">
+
+            <div class="min-w-0 flex items-center gap-3">
+                @if (ToggleNavCallback is not null)
+                {
+                    <FluentButton Appearance="Appearance.Stealth"
+                                          Title="@L["Nav_CollapseExpand"]"
+                                          OnClick="ToggleNavCallback">
+                        @if (IsNavCollapsed)
+                        {
+                            
+                            
+                                <FluentIcon Value="@(new Icons.Regular.Size20.ChevronRight())" />
+                           
+                        }
+                        else
+                        {
+                          
+                                <FluentIcon Value="@(new Icons.Regular.Size20.ChevronLeft())" />
+                            
+                            
+                        }
+                    </FluentButton>
+                   
+                }
+                <div class="text-lg font-semibold truncate">
+                    <span class="inline-flex items-center rounded-md px-2 py-1"
+                              style="background-color: var(--neutral-fill-stealth-rest); color: var(--neutral-foreground-rest);">
+                              @(_list?.Name ?? "—")
+                              </span>
+                    </div>
+                <div class="text-sm whitespace-nowrap">
+                    @{
+                        var total = _list?.Tasks?.Count ?? 0;
+                        var filtered = total; // optional: könntest du in Workspace berechnen, wenn du willst
+                    }
+                    <div class="text-sm whitespace-nowrap">
+                        <span class="inline-flex items-center rounded-md px-2 py-1"
+                              style="background-color: var(--neutral-fill-stealth-rest); color: var(--neutral-foreground-rest);">
+                        @L["Page_Workspace_Tasks"] @total
+                        </span>
+                        @if (_filter.IsActive())
+                        {
+                            <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 border border-green-200 text-green-700">
+                                @L["Page_Workspace_FilterActive"]
+                            </span>
+                        }
+                        @if (_currentSortMode != ListSortMode.Custom)
+                        {
+                            <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-100 border border-green-200 text-green-700">
+                                @L["Page_Workspace_SortActive"]
+                            </span>
+                        }
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+
+                @if (SupportsBulkSelection)
+                {
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Style="@(_selectionMode ? "background-color:#dbeafe;color:#1d4ed8;" : null)"
+                                  Disabled="@(_list is null)"
+                                  Title="@L["Bulk_SelectTasks"]"
+                                  aria-pressed="@_selectionMode"
+                                  OnClick="ToggleBulkSelection">
+                        @if (_selectionMode)
+                        {
+                            <FluentIcon Value="@(new Icons.Filled.Size20.CheckmarkSquare())" />
+                        }
+                        else
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size20.CheckmarkSquare())" />
+                        }
+                    </FluentButton>
+                }
+
+                <FluentButton Appearance="Appearance.Stealth"
+                              Disabled="@(_list is null)"
+                              Title="@(IsWatchingList ? L["Workspace_StopWatching"] : L["Workspace_StartWatching"])"
+                              OnClick="ToggleListWatchingAsync">
+                    @if (IsWatchingList)
+                    {
+                        <FluentIcon Value="@(new Icons.Filled.Size20.Alert())" />
+                    }
+                    else
+                    {
+                        <FluentIcon Value="@(new Icons.Regular.Size20.Alert())" />
+                    }
+                </FluentButton>
+
+                <FloatingDropdown @ref="_viewDropdown">
+                    <ChildContent>
+                        <button type="button"
+                                class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                            <span>@CurrentViewLabel</span>
+                            <span aria-hidden="true">▾</span>
+                        </button>
+                    </ChildContent>
+                    <DropdownContent>
+                        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                            <button class="@ViewMenuItemCss(BoardView.List)" @onclick="() => SwitchView(BoardView.List)">
+                                @L["Page_Workspace_ListView"]
+                            </button>
+                            <button class="@ViewMenuItemCss(BoardView.Kanban)" @onclick="() => SwitchView(BoardView.Kanban)">
+                                @L["Page_Workspace_KanbanView"]
+                            </button>
+                            <button class="@ViewMenuItemCss(BoardView.Calendar)" @onclick="() => SwitchView(BoardView.Calendar)">
+                                @L["QuickLink_Calendar"]
+                            </button>
+                            <button class="@ViewMenuItemCss(BoardView.Table)" @onclick="() => SwitchView(BoardView.Table)">
+                                @L["Workspace_TableView"]
+                            </button>
+                            @if (ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
+                            {
+                                <button class="@ViewMenuItemCss(BoardView.Forms)" @onclick="() => SwitchView(BoardView.Forms)">@L["FormDesigner_Forms"]</button>
+                            }
+                        </div>
+                    </DropdownContent>
+                </FloatingDropdown>
+
+                <!-- Papierkorb: Gelöschte Aufgaben wiederherstellen -->
+                <div class="relative">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Title="@L["Page_Workspace_RestoreTasks"]"
+                                  OnClick="OpenRestoreTasksDialog">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
+                    </FluentButton>
+                </div>
+
+                <div class="relative">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Title="@L["Page_Workspace_FilterTitle"]"
+                                  OnClick="OpenFilterDialog">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Filter())" />
+                    </FluentButton>
+                </div>
+
+                @if (_view != BoardView.Table && _view != BoardView.Forms)
+                {
+                <!-- Actions Dropdown (ohne FluentMenu) -->
+                <div class="relative">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Title="@L["Nav_Options"]"
+                                  @onclick="ToggleSorts">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.ArrowSort())" />
+                    </FluentButton>
+
+                    @if (_sortsOpen)
+                    {
+                        <div class="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                             @onclick:stopPropagation="true">
+
+                            <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between gap-2">
+                                <span>@L["Dashboard_SortBy"]</span>
+                                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" @onclick="() => _sortsOpen = false">✕</FluentButton>
+                            </div>
+
+                            <button class="@MenuItemCss(_currentSortMode == ListSortMode.Custom)"
+                                    @onclick="() => SetSortAsync(ListSortMode.Custom)">
+                                @L["Sort_Custom"]
+                            </button>
+                            <button class="@MenuItemCss(_currentSortMode == ListSortMode.Importance)"
+                                    @onclick="() => SetSortAsync(ListSortMode.Importance)">
+                                @L["Sort_Importance"]
+                            </button>
+                            <button class="@MenuItemCss(_currentSortMode == ListSortMode.DueDate)"
+                                    @onclick="() => SetSortAsync(ListSortMode.DueDate)">
+                                @L["Sort_DueDate"]
+                            </button>
+                            <button class="@MenuItemCss(_currentSortMode == ListSortMode.Alphabetical)"
+                                    @onclick="() => SetSortAsync(ListSortMode.Alphabetical)">
+                                @L["Sort_Alphabetical"]
+                            </button>
+                            <button class="@MenuItemCss(_currentSortMode == ListSortMode.CreatedAt)"
+                                    @onclick="() => SetSortAsync(ListSortMode.CreatedAt)">
+                                @L["Sort_CreatedAt"]
+                            </button>
+
+                            
+                        </div>
+                    }
+                </div>
+                }
+
+                @if (CanAdminCurrentList())
+                {
+                <!-- Actions Dropdown (ohne FluentMenu) -->
+                <div class="relative">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Title="@L["Nav_Options"]"
+                                  @onclick="ToggleActions">
+                        ⋯
+                    </FluentButton>
+
+                    @if (_actionsOpen)
+                    {
+                        <div class="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                             @onclick:stopPropagation="true">
+
+
+                            
+                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between gap-2">
+                                    <span>@L["Workspace_ListOptions"]</span>
+                                    <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" @onclick="() => _actionsOpen = false">✕</FluentButton>
+                                </div>
+
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenRenameDialog">
+                                    @L["Workspace_RenameList"]
+                                </button>
+
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenLabelsDialog">
+                                    @L["Workspace_ManageLabels"]
+                                </button>
+                                @if (ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
+                                {
+                                    <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                            @onclick="OpenCustomFieldsDialog">
+                                        @L["CustomField_SectionTitle"]
+                                    </button>
+                                }
+                                @if (ProductFeatures.IsEnabled(ProductFeatureIds.Automation))
+                                {
+                                    <button class="w-full text-left px-3 py-2 hover:bg-slate-50" @onclick="OpenAutomationDialog">@L["Automation_Title"]</button>
+                                }
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenBackgroundDialog">
+                                    @L["Workspace_ChangeBackground"]
+                                </button>
+
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenNotificationSettingsDialog">
+                                    @L["Workspace_Notifications"]
+                                </button>
+                                @if (ProductFeatures.IsEnabled(ProductFeatureIds.EmailImport))
+                                {
+                                    <button class="w-full text-left px-3 py-2 hover:bg-slate-50" @onclick="OpenEmailImportDialogAsync">E-Mail</button>
+                                }
+
+                                <div class="my-1 border-t border-slate-100"></div>
+
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenCopyDialog">
+                                    @L["Workspace_CopyList"]
+                                </button>
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenTemplateDialog">
+                                    @L["Workspace_SaveAsTemplate"]
+                                </button>
+                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                        @onclick="OpenExportDialog">
+                                    @L["Dashboard_Export"]
+                                </button>
+
+                                <div class="my-1 border-t border-slate-100"></div>
+
+                                <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
+                                        @onclick="OpenDeleteDialog">
+                                    @L["Workspace_DeleteList"]
+                                </button>
+                            
+                        </div>
+                    }
+                </div>
+                }
+
+                <!-- Share -->
+                <!-- Share (nur Admin) -->
+                @if (_list is not null && CanAdminCurrentList())
+                {
+                    <FluentButton Appearance="Appearance.Accent" OnClick="OpenShareDialog">
+                        @L["Workspace_Share"]
+                    </FluentButton>
+                }
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="flex-1 min-h-0 overflow-hidden" @onclick="CloseOverlays">
+        <div class="flex flex-col lg:flex-row gap-4 h-full min-h-0">
+
+            <!-- Main -->
+            <div class="flex-1 min-w-0 min-h-0 overflow-hidden">
+                <div class="flex flex-col h-full min-h-0">
+
+                    @if (!string.IsNullOrWhiteSpace(_error))
+                    {
+                        <div class="mt-4 mx-5 md:mx-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 shrink-0">
+                            <div class="font-semibold">@L["Lbl_Error"]</div>
+                            <div>@_error</div>
+                        </div>
+                    }
+
+                    <div class="flex-1 min-h-0 overflow-hidden pt-2">
+                        @if (_listLoading)
+                        {
+                            <div class="px-4 py-3 flex items-center gap-2 text-slate-600">
+                                <FluentProgressRing Style="width:20px;height:20px;" />
+                                <span>@L["Lbl_Loading"]</span>
+                            </div>
+                        }
+                        else if (_list is null)
+                        {
+                            <div class="text-slate-600 px-4">@L["Workspace_NoListLoaded"]</div>
+                        }
+                        else
+                        {
+                            @if (_view == BoardView.List)
+                            {
+                                <ToDoListView @ref="_listViewRef"
+                                              List="_list"
+                                              Filter="_filter"
+                                              SidebarVisible="_selectedTask is not null"
+                                              SortMode="_listSortMode"
+                                              @bind-SelectionMode="_selectionMode"
+                                              OnChanged="ReloadAsync"
+                                              OnDraggingChanged="OnDraggingChangedAsync"
+                                              OnTaskSelected="OpenTaskDetails" />
+
+                               @*  <ToDoListView @ref="_listViewRef" 
+                                    List="_list"
+                                              SidebarVisible="_selectedTask is not null"
+                                              SortMode="_listSortMode"
+                                              OnChanged="ReloadAsync"
+                                              OnDraggingChanged="OnDraggingChangedAsync"
+                                              OnTaskSelected="OpenTaskDetails" /> *@
+
+                               
+
+                            }
+                            else if (_view == BoardView.Kanban)
+                            {
+
+                                <ToDoKanbanView @key="_view"
+                                                List="_list"
+                                                Filter="_filter"
+                                                SortMode="_kanbanSortMode"
+                                                @bind-SelectionMode="_selectionMode"
+                                                OnChanged="ReloadAsync"
+                                                OnDraggingChanged="OnDraggingChangedAsync"
+                                                OnTaskSelected="OpenTaskDetails" />
+
+                                @* <ToDoKanbanView @key="_view"
+                                                List="_list"
+                                                SortMode="_kanbanSortMode"
+                                                OnChanged="ReloadAsync"
+                                                OnTaskSelected="OpenTaskDetails" /> *@
+
+                            }
+                            else if (_view == BoardView.Table)
+                            {
+                                <ToDoTableView List="_list"
+                                               EnableCustomFields="@ProductFeatures.IsEnabled(ProductFeatureIds.Forms)"
+                                               Filter="_filter"
+                                               AvailableLists="_lists"
+                                               @bind-SelectionMode="_selectionMode"
+                                               OnChanged="ReloadAsync"
+                                               OnTaskUpdated="HandleTaskUpdated"
+                                               OnTaskSelected="OpenTaskDetails"
+                                               OnTaskOpenRequested="OpenTaskFromTable"
+                                               OnTaskDetailsRequested="OpenTaskDetailsFromTable"
+                                               OnTaskAttachmentsRequested="OpenTaskAttachmentsFromTable"
+                                               OnTaskCommentsRequested="OpenTaskCommentsFromTable" />
+                            }
+                            else if (_view == BoardView.Forms)
+                            {
+                                <TodoFormDesignerView List="_list"
+                                                      UserId="@_userId"
+                                                      OnChanged="ReloadAsync" />
+                            }
+                            else
+                            {
+                                <TodoCalendarView Items="GetCalendarItemsForCurrentList()"
+                                                  OnItemClick="OpenCalendarTaskAsync"
+                                                  EmptyText="@L["Page_Calendar_Empty"]"
+                                                  HostClass="p-3 h-full"
+                                                  ContainerClass="min-h-[70vh] rounded-xl border border-slate-200 bg-white p-3 shadow-sm" />
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            @if (_selectedTask is not null)
+            {
+                @* <aside class="w-full lg:w-96 shrink-0 h-full min-h-0 overflow-hidden"> *@
+                    @* <TaskDetailsPanel Task="_selectedTask"
+                                      ListId="_selectedListId"
+                                      Columns="_list?.Columns"
+                                      Labels="_list?.Labels"
+                                      OnClose="CloseTaskDetails"
+                                      OnTaskUpdated="HandleTaskUpdated"
+                                      OnListChanged="ReloadAsync" /> *@
+
+                     <TaskEditModal @key="SelectedTaskModalKey"
+                                      Task="_selectedTask"
+                                      ListId="_selectedListId"
+                                     Columns="_list?.Columns"
+                                     Labels="_list?.Labels"
+                                     List="_list"
+                                     AvailableLists="_lists"
+                                     EnableCustomFields="@ProductFeatures.IsEnabled(ProductFeatureIds.Forms)"
+                               InitialTabId="@_selectedTaskInitialTabId"
+                               InitialTabVersion="@_selectedTaskInitialTabVersion"
+                                      OnClose="CloseTaskDetails"
+                                      OnTaskUpdated="HandleTaskUpdated"
+                                      OnListChanged="ReloadAsync" />
+
+               @*  </aside> *@
+            }
+        </div>
+    </div>
+</div>
+
+@if (_renameOpen)
+{
+    <FluentDialog id="workspace-rename-dlg" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseRenameDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_RenameList"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog">✕</FluentButton>
+
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div class="text-sm text-slate-600">@L["Workspace_NewName"]</div>
+                <input class="w-full rounded-xl border border-slate-200 p-2"
+                       @bind="_renameValue" />
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="RenameAsync" Disabled="@(_list is null)">@L["Btn_Save"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_customFieldsOpen && _list is not null && ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
+{
+    <div class="fixed inset-0 flex items-center justify-center p-4"
+         style="z-index: 1000; background: rgba(0, 0, 0, 0.35);"
+         role="presentation"
+         @onclick="CloseCustomFieldsDialog">
+        <div class="w-full rounded-lg bg-white shadow-2xl"
+             style="max-width: 953px; max-height: calc(100vh - 48px); overflow: auto;"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="workspace-custom-fields-title"
+             @onclick:stopPropagation="true">
+            <div class="flex items-center justify-between gap-3 px-8 pb-6 pt-8">
+                <div id="workspace-custom-fields-title" class="text-xl font-semibold">@L["CustomField_SectionTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCustomFieldsDialog">✕</FluentButton>
+            </div>
+            <div class="px-8 pb-8">
+                <CustomFieldManagerPanel List="_list" AvailableLists="_lists" UserId="@_userId" OnChanged="ReloadAsync" />
+            </div>
+        </div>
+    </div>
+}
+
+@if (_automationOpen && _list is not null && CanAdminCurrentList())
+{
+    <div class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
+         role="presentation"
+         @onclick="CloseAutomationDialog">
+        <section class="flex max-h-[calc(100dvh-32px)] w-full max-w-[1120px] flex-col overflow-hidden rounded-lg bg-white shadow-2xl"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="workspace-automation-title"
+                 @onclick:stopPropagation="true">
+            <div class="shrink-0 border-b border-slate-200 px-6 py-4">
+            <div class="flex w-full items-center justify-between gap-4">
+                <div class="min-w-0">
+                    <div id="workspace-automation-title" class="text-lg font-semibold text-slate-900">@L["Automation_Title"]</div>
+                    <div class="truncate text-sm text-slate-500">@_list.Name</div>
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseAutomationDialog">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                </FluentButton>
+            </div>
+            </div>
+            <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <AutomationManagerPanel @key="_list.Id"
+                                        List="_list"
+                                        UserId="@_userId"
+                                        OnChanged="ReloadAsync" />
+            </div>
+        </section>
+    </div>
+}
+
+@if (_deleteOpen)
+{
+    <FluentDialog id="workspace-delete-dlg" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseDeleteDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold text-red-700">@L["Workspace_DeleteList"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div>@((MarkupString)string.Format(L["Workspace_DeleteListConfirm"], $"<span class=\"font-semibold\">{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(_list?.Name ?? string.Empty)}</span>"))</div>
+                <div class="text-sm text-slate-600">@L["Workspace_DeleteListWarning"]</div>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteAsync" Disabled="@(_list is null)">
+                @L["Btn_Delete"]
+            </FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_shareOpen)
+{
+    <FluentDialog id="workspace-share-dlg" Open="true" Modal="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_Share"]</div>
+                
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseShareDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="share-dialog-scroll-content max-h-[calc(92vh-120px)] overflow-y-auto">
+                <ParticipantsPanel List="_list"
+                                   Directory="Directory"
+                                   RequestingUserId="@_userId"
+                                   OnChanged="ReloadAsync" />
+            </div>
+        </FluentDialogBody>
+
+        
+    </FluentDialog>
+}
+
+@if (_labelsOpen)
+{
+    <FluentDialog id="workspace-labels-dlg" Open="true" Modal="true" Style="--dialog-width: min(600px, 96vw);" TrapFocus="true" HiddenChanged="@(_ => CloseLabelsDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_ManageLabels"]</div>
+               
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseLabelsDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            @if (_list is null)
+            {
+                <div class="text-slate-600">@L["Workspace_NoListLoaded"]</div>
+            }
+            else
+            {
+                <LabelManagerPanel ListId="_list.Id"
+                                   Labels="_list.Labels"
+                                   OnChanged="ReloadAsyncForce" />
+            }
+        </FluentDialogBody>
+
+       
+    </FluentDialog>
+}
+
+@if (_backgroundOpen)
+{
+    <FluentDialog id="workspace-background-dlg" Open="true" Modal="true" Style="width:min(480px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseBackgroundDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_ChangeBackground"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseBackgroundDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <LabelColorPicker Palette="@_backgroundPalette"
+                              SelectedColor="@_backgroundDraft"
+                              SelectedColorChanged="@(c => _backgroundDraft = c)"
+                              ShowHexValue="true" />
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseBackgroundDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveBackgroundAsync" Disabled="@(_list is null)">@L["Btn_Save"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_restoreTasksOpen && _list is not null)
+{
+    <FluentDialog id="workspace-restore-dlg" Open="true" Modal="true" Style="--dialog-width: min(640px, 96vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 font-semibold">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
+                    @L["Workspace_RestoreDeletedTasks"]
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRestoreTasksDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            @if (_restoreTasksLoading)
+            {
+                <div class="text-slate-500 text-sm py-4">@L["Lbl_Loading"]</div>
+            }
+            else if (_deletedTasks.Count == 0)
+            {
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    @L["Workspace_RestoreEmpty"]
+                </div>
+            }
+            else
+            {
+                <div class="flex flex-col gap-2 max-h-[55vh] overflow-auto pr-1">
+                    @foreach (var task in _deletedTasks)
+                    {
+                        var daysLeft = TrashDaysLeft(task.DeletedAt);
+                        <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-sm gap-3">
+                            <div class="min-w-0">
+                                <div class="font-medium truncate">@task.Title</div>
+                                <div class="text-xs text-slate-500">
+                                    @L["Workspace_RestoreDeletedOn"] @task.DeletedAt!.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    &bull; @string.Format(L["Workspace_RestoreDaysLeft"], daysLeft)
+                                </div>
+                            </div>
+                            <FluentButton Appearance="Appearance.Outline"
+                                           Title="@L["Workspace_RestoreTask"]"
+                                          OnClick="@(() => RestoreTaskAsync(task.Id))">
+                                          <div class="flex">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
+                                <span class="ml-1 text-sm">@L["Btn_Restore"]</span>
+                                </div>
+                            </FluentButton>
+                        </div>
+                    }
+                </div>
+            }
+        </FluentDialogBody>
+
+        
+    </FluentDialog>
+}
+
+@if (_filterOpen && _list is not null)
+{
+    <FluentDialog id="workspace-filter-dlg" Open="true" Modal="true" Style="--dialog-width: min(560px, 96vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_FilterTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseFilterDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-4">
+
+                <!-- Suche -->
+                <div class="space-y-1">
+                    <input class="w-full rounded-xl border border-slate-200 p-2"
+                           placeholder="@L["Workspace_FilterPlaceholder"]"
+                           @bind="_filterDraft.Query" />
+                    <div class="text-xs text-slate-500">
+                        @L["Workspace_FilterHint"]
+                    </div>
+                </div>
+
+                <!-- Bearbeiter -->
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Workspace_FilterAssignee"]</div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox"
+                               class="accent-slate-700"
+                               checked="@_filterDraft.AssignedToMe"
+                               @onchange="OnAssignedToMeChanged" />
+                        <span>@L["Workspace_FilterAssignedToMe"]</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox"
+                               class="accent-slate-700"
+                               checked="@_filterDraft.NoAssignee"
+                               @onchange="OnNoAssigneeChanged" />
+                        <span>@L["Workspace_FilterNoAssignee"]</span>
+                    </label>
+                </div>
+
+
+                <!-- Mitglieder -->
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Task_Members"]</div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.NoMembers" />
+                        <span>@L["Workspace_FilterNoMembers"]</span>
+                    </label>
+
+                    <div class="rounded-xl border border-slate-200 p-2 space-y-2">
+                        <div class="text-xs text-slate-500">@L["Workspace_FilterSelectMembers"]</div>
+
+                        @foreach (var p in (_list.Participants ?? new()))
+                        {
+                            var uid = (p.UserId ?? "").Trim();
+                            if (string.IsNullOrWhiteSpace(uid)) { continue; }
+
+                            <label class="flex items-center gap-2 text-sm">
+                                <input type="checkbox"
+                                       class="accent-slate-700"
+                                       checked="@IsMemberChecked(uid)"
+                                       @onchange="(e) => ToggleMember(uid, e)" />
+                                <span>@p.DisplayName</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Workspace_FilterCardStatus"]</div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700"
+                               checked="@(_filterDraft.Done == true)"
+                               @onchange="(e) => SetDoneFilter(true, e)" />
+                        <span>@L["Workspace_FilterDone"]</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700"
+                               checked="@(_filterDraft.Done == false)"
+                               @onchange="(e) => SetDoneFilter(false, e)" />
+                        <span>@L["Workspace_FilterNotDone"]</span>
+                    </label>
+                </div>
+
+                <!-- Frist -->
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Workspace_FilterDue"]</div>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.NoDueDate" />
+                        <span>@L["Workspace_FilterNoDueDate"]</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.Overdue" />
+                        <span>@L["Workspace_FilterOverdue"]</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.DueNextDay" />
+                        <span>@L["Workspace_FilterDueNextDay"]</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.DueNextWeek" />
+                        <span>@L["Workspace_FilterDueNextWeek"]</span>
+                    </label>
+
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.DueNextMonth" />
+                        <span>@L["Workspace_FilterDueNextMonth"]</span>
+                    </label>
+                </div>
+
+                <!-- Labels -->
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Task_Labels"]</div>
+
+                    @if (_list.Labels is null || _list.Labels.Count == 0)
+                    {
+                        <div class="text-sm text-slate-500">@L["Workspace_FilterNoLabels"]</div>
+                    }
+                    else
+                    {
+                        <div class="space-y-2">
+                            @foreach (var lab in _list.Labels)
+                            {
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox"
+                                           class="accent-slate-700"
+                                           checked="@_filterDraft.LabelIds.Contains(lab.Id)"
+                                           @onchange="(e) => ToggleLabel(lab.Id, e)" />
+                                    <span>@lab.Title</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                </div>
+
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="ClearFilter">
+                @L["Workspace_FilterReset"]
+            </FluentButton>
+
+            <div class="flex-1"></div>
+
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseFilterDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="ApplyFilter">@L["Workspace_FilterApply"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@* ─── Liste kopieren ─────────────────────────────────────────────────────── *@
+@if (_copyOpen)
+{
+    <FluentDialog id="workspace-copy-dlg" Open="true" Modal="true" Style="width:min(520px,92vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_CopyList"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCopyDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <div class="text-sm text-slate-600">@L["Workspace_CopyName"]</div>
+                    <input class="w-full rounded-xl border border-slate-200 p-2"
+                           @bind="_copyName" />
+                </div>
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" class="accent-slate-700" @bind="_copyIncludeTasks" />
+                    <span>@L["Workspace_CopyIncludeTasks"]</span>
+                </label>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCopyDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="CopyListAsync"
+                          Disabled="@(_list is null || string.IsNullOrWhiteSpace(_copyName))">
+                @L["Workspace_CopyAction"]
+            </FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@* ─── Als Vorlage speichern ──────────────────────────────────────────────── *@
+@if (_templateOpen)
+{
+    <FluentDialog id="workspace-template-dlg" Open="true" Modal="true" Style="width:min(520px,92vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_SaveAsTemplate"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseTemplateDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            @if (_templateSaved)
+            {
+                <div class="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 flex items-center gap-2">
+                    <span>✓</span>
+                    <span>@((MarkupString)string.Format(L["Workspace_TemplateSaved"], $"<strong>{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(_templateName)}</strong>"))</span>
+                </div>
+            }
+            else
+            {
+                <div class="space-y-4">
+                    <div class="space-y-1">
+                        <div class="text-sm text-slate-600">@L["Workspace_TemplateName"]</div>
+                        <input class="w-full rounded-xl border border-slate-200 p-2"
+                               @bind="_templateName" />
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                        @L["Workspace_TemplateHelp"]
+                    </div>
+                </div>
+            }
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            @if (_templateSaved)
+            {
+                <FluentButton Appearance="Appearance.Accent" OnClick="CloseTemplateDialog">@L["Btn_Close"]</FluentButton>
+            }
+            else
+            {
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseTemplateDialog">@L["Btn_Cancel"]</FluentButton>
+                <FluentButton Appearance="Appearance.Accent" OnClick="SaveAsTemplateAsync"
+                              Disabled="@(_list is null || string.IsNullOrWhiteSpace(_templateName))">
+                    @L["Btn_Save"]
+                </FluentButton>
+            }
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@* ─── Exportieren ────────────────────────────────────────────────────────── *@
+@if (_exportOpen)
+{
+    <FluentDialog id="workspace-export-dlg" Open="true" Modal="true" Style="width:min(480px,92vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_ExportList"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseExportDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div class="text-sm text-slate-500 mb-3">
+                    <span class="font-medium text-slate-700">@(_list?.Name)</span> –
+                    @string.Format(L["Workspace_ExportTaskCount"], (_list?.Tasks?.Count(t => t.DeletedAt == null)) ?? 0)
+                </div>
+
+                <button class="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-left transition-colors"
+                        @onclick="ExportJsonAsync">
+                    <span class="text-xl">{ }</span>
+                    <div>
+                        <div class="font-medium text-sm">@L["Workspace_ExportJson"]</div>
+                        <div class="text-xs text-slate-500">@L["Workspace_ExportJsonHelp"]</div>
+                    </div>
+                </button>
+
+                <button class="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-left transition-colors"
+                        @onclick="ExportCsvAsync">
+                    <span class="text-xl">≡</span>
+                    <div>
+                        <div class="font-medium text-sm">@L["Workspace_ExportCsv"]</div>
+                        <div class="text-xs text-slate-500">@L["Workspace_ExportCsvHelp"]</div>
+                    </div>
+                </button>
+
+                <button class="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-left transition-colors"
+                        @onclick="ExportPdfAsync">
+                    <span class="text-xl">⎙</span>
+                    <div>
+                        <div class="font-medium text-sm">@L["Workspace_ExportPdf"]</div>
+                        <div class="text-xs text-slate-500">@L["Workspace_ExportPdfHelp"]</div>
+                    </div>
+                </button>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseExportDialog">@L["Btn_Close"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_emailImportOpen && _list is not null && CanAdminCurrentList())
+{
+    <FluentDialog id="workspace-email-import-dlg" Open="true" Modal="true" Style="width:min(680px,94vw);" TrapFocus="true" HiddenChanged="@(_ => CloseEmailImportDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3 w-full">
+                <div>
+                    <div class="font-semibold">E-Mail-Import</div>
+                    <div class="text-sm text-slate-500">@_list.Name</div>
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseEmailImportDialog">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                </FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-4">
+                <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                    Ungelesene E-Mails aus dem gewählten IMAP-Ordner werden als Aufgaben importiert. Der Betreff wird zur Aufgabenbezeichnung, der E-Mail-Text zur Beschreibung. Importierte E-Mails werden als gelesen markiert und nicht gelöscht. Der automatische Import läuft standardmäßig alle 15 Minuten; der Abstand kann zentral in der appsettings.json geändert werden.
+                </div>
+
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" class="accent-slate-700" @bind="_emailImportEnabled" />
+                    <span>Import für diese Liste aktivieren</span>
+                </label>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="md:col-span-2 space-y-1">
+                        <div class="text-sm text-slate-600">IMAP-Server</div>
+                        <input class="w-full rounded-lg border border-slate-200 p-2"
+                               placeholder="imap.example.com"
+                               @bind="_emailImportHost"
+                               @bind:event="oninput" />
+                    </div>
+                    <div class="space-y-1">
+                        <div class="text-sm text-slate-600">Port</div>
+                        <input type="number" class="w-full rounded-lg border border-slate-200 p-2"
+                               min="1"
+                               @bind="_emailImportPort"
+                               @bind:event="oninput" />
+                    </div>
+                </div>
+
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" class="accent-slate-700" @bind="_emailImportUseSsl" />
+                    <span>SSL/TLS verwenden</span>
+                </label>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="space-y-1">
+                        <div class="text-sm text-slate-600">Benutzername</div>
+                        <input class="w-full rounded-lg border border-slate-200 p-2"
+                               autocomplete="username"
+                               @bind="_emailImportUserName"
+                               @bind:event="oninput" />
+                    </div>
+                    <div class="space-y-1">
+                        <div class="text-sm text-slate-600">Passwort</div>
+                        <input type="password" class="w-full rounded-lg border border-slate-200 p-2"
+                               autocomplete="current-password"
+                               placeholder="@(_emailImportHasPassword ? "Gespeichertes Passwort beibehalten" : "")"
+                               @bind="_emailImportPassword"
+                               @bind:event="oninput" />
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    <FluentButton Appearance="Appearance.Neutral" OnClick="TestEmailImportConnectionAsync" Disabled="@(_emailImportBusy || !EmailImportCanTest)">
+                        Verbindung testen
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Neutral" OnClick="RunEmailImportNowAsync" Disabled="@(_emailImportBusy || !_emailImportHasConfiguration)">
+                        Neue E-Mails prüfen
+                    </FluentButton>
+                    @if (_emailImportBusy)
+                    {
+                        <span class="text-sm text-slate-500">@_emailImportBusyText</span>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_emailImportStatus))
+                    {
+                        <span class="@(_emailImportTestSucceeded ? "text-sm text-green-700" : "text-sm text-red-700")">@_emailImportStatus</span>
+                    }
+                </div>
+
+                <div class="space-y-1">
+                    <div class="text-sm text-slate-600">Ordner zum Einlesen</div>
+                    @if (_emailImportFolders.Count > 0)
+                    {
+                        <select class="w-full rounded-lg border border-slate-200 p-2 bg-white"
+                                @bind="_emailImportFolderName">
+                            @foreach (var folder in _emailImportFolders)
+                            {
+                                <option value="@folder">@folder</option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <input class="w-full rounded-lg border border-slate-200 p-2"
+                               @bind="_emailImportFolderName" />
+                    }
+                    <div class="text-xs text-slate-500">Standard ist INBOX. Nach einem erfolgreichen Verbindungstest kannst du aus den gefundenen Ordnern auswählen.</div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="text-sm text-slate-600">Zielspalte</div>
+                    <select class="w-full rounded-lg border border-slate-200 p-2 bg-white"
+                            @bind="_emailImportTargetColumn"
+                            disabled="@(EmailImportColumnOptions.Count == 0)">
+                        @if (EmailImportColumnOptions.Count == 0)
+                        {
+                            <option value="Backlog">Backlog</option>
+                        }
+                        else
+                        {
+                            @foreach (var column in EmailImportColumnOptions)
+                            {
+                                <option value="@column">@column</option>
+                            }
+                        }
+                    </select>
+                    <div class="text-xs text-slate-500">Neue Aufgaben aus E-Mails werden in diese Spalte eingeordnet.</div>
+                </div>
+
+                @if (_emailImportCreatedTasks.Count > 0)
+                {
+                    <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                        <div class="font-semibold mb-2">Neu angelegte Aufgaben</div>
+                        <div class="divide-y divide-emerald-100 rounded-lg overflow-hidden bg-white/70">
+                            @foreach (var task in _emailImportCreatedTasks)
+                            {
+                                <div class="flex items-center justify-between gap-3 px-3 py-2">
+                                    <div class="min-w-0">
+                                        <div class="font-medium truncate">@task.Title</div>
+                                        <div class="text-xs text-emerald-800">@task.Column</div>
+                                    </div>
+                                    <div class="text-xs text-emerald-700 shrink-0">@task.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (_emailImportLastImportAtUtc is not null || !string.IsNullOrWhiteSpace(_emailImportLastError))
+                {
+                    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                        @if (_emailImportLastImportAtUtc is not null)
+                        {
+                            <div>Letzter Import: @_emailImportLastImportAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_emailImportLastError))
+                        {
+                            <div class="text-red-700">Letzter Fehler: @_emailImportLastError</div>
+                        }
+                    </div>
+                }
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="DeleteEmailImportConfigurationAsync" Disabled="@(_emailImportBusy || !_emailImportHasConfiguration)">
+                Entfernen
+            </FluentButton>
+            <div class="flex-1"></div>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEmailImportDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveEmailImportConfigurationAsync" Disabled="@(_emailImportBusy || !EmailImportCanSave)">
+                @L["Btn_Save"]
+            </FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@if (_notificationSettingsOpen && _list is not null && CanAdminCurrentList())
+{
+    <FluentDialog id="workspace-notifications-dlg"
+                  Class="notifications-dialog"
+                  Open="true"
+                  Modal="true"
+                  Style="--dialog-width:min(1040px, calc(100vw - 32px)); --dialog-height:min(920px, calc(100dvh - 32px));"
+                  TrapFocus="true"
+                  HiddenChanged="@(_ => CloseNotificationSettingsDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-4 w-full px-1">
+                <div class="min-w-0">
+                    <div class="text-lg font-semibold text-slate-900">@L["Workspace_Notifications"]</div>
+                    <div class="text-sm text-slate-500 truncate">@_list.Name</div>
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseNotificationSettingsDialog">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                </FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="notifications-modal-scroll">
+            <div class="notifications-modal-content">
+                <div class="notifications-table-wrap rounded-lg border border-slate-200 bg-white">
+                    <table class="w-full text-sm" style="min-width:860px; table-layout:fixed;">
+                        <colgroup>
+                            <col style="width:230px;" />
+                            <col style="width:90px;" />
+                            <col style="width:100px;" />
+                            <col style="width:125px;" />
+                            <col style="width:125px;" />
+                            <col style="width:110px;" />
+                            <col style="width:80px;" />
+                        </colgroup>
+                        <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-3 py-2.5 text-left font-semibold">@L["Notifications_Event"]</th>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-2 py-2.5 text-center font-semibold">@L["Notifications_Admins"]</th>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-2 py-2.5 text-center font-semibold">@L["Notifications_Users"]</th>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-2 py-2.5 text-center font-semibold">@L["Notifications_BoardWatchersShort"]</th>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-2 py-2.5 text-center font-semibold">@L["Notifications_CardWatchersShort"]</th>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-2 py-2.5 text-center font-semibold">@L["Notifications_Assigned"]</th>
+                                <th class="sticky top-0 z-10 bg-slate-50 px-2 py-2.5 text-center font-semibold">@L["Notifications_Author"]</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach (var rule in _notificationRules)
+                            {
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="px-3 py-2 font-medium text-slate-800">@NotificationEventLabel(rule.EventType)</td>
+                                    @foreach (var group in NotificationGroups)
+                                    {
+                                        <td class="px-2 py-2 text-center">
+                                            <FluentCheckbox Value="@HasNotificationGroup(rule, group)"
+                                                            ValueChanged="@(v => SetNotificationRuleGroupAsync(rule.EventType, group, v))" />
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            </div>
+        </FluentDialogBody>
+    </FluentDialog>
+}
+
+
+@code {
+    [Parameter] public Guid? ListId { get; set; }
+    [SupplyParameterFromQuery(Name = "taskId")] public Guid? TaskId { get; set; }
+
+    [CascadingParameter(Name = "IsNavCollapsed")] private bool IsNavCollapsed { get; set; }
+    [CascadingParameter(Name = "ToggleNavCallback")] private Action? ToggleNavCallback { get; set; }
+
+    private enum BoardView { List, Kanban, Calendar, Table, Forms }
+
+    private string _userId = "gast";
+    private string _error = "";
+
+    private List<TodoListEntity> _lists = new();
+    private TodoListEntity? _list;
+
+    private Guid _selectedListId;
+    private BoardView _view = BoardView.List;
+    private bool _selectionMode;
+    private bool SupportsBulkSelection =>
+        _view is BoardView.List or BoardView.Kanban or BoardView.Table;
+
+    // SortMode pro View
+    private ListSortMode _listSortMode = ListSortMode.Custom;
+    private ListSortMode _kanbanSortMode = ListSortMode.Custom;
+
+    private ListSortMode _currentSortMode => _view switch
+    {
+        BoardView.List => _listSortMode,
+        BoardView.Kanban => _kanbanSortMode,
+        _ => ListSortMode.Custom
+    };
+
+    private Guid? _selectedTaskId;
+    private TodoTaskEntity? _selectedTask;
+    private string? _selectedTaskInitialTabId;
+    private int _selectedTaskInitialTabVersion;
+    private string SelectedTaskModalKey => $"{_selectedTaskId?.ToString("N") ?? "none"}:{_selectedTaskInitialTabId ?? "details"}:{_selectedTaskInitialTabVersion}";
+    private FloatingDropdown? _viewDropdown;
+
+    // Dropdown + Dialogs
+    private bool _actionsOpen;
+    private bool _sortsOpen;
+
+    private bool _renameOpen;
+    private string _renameValue = "";
+
+    private bool _deleteOpen;
+
+    private bool _shareOpen;
+    private bool _emailImportOpen;
+    private bool _emailImportBusy;
+    private bool _emailImportEnabled = true;
+    private bool _emailImportUseSsl = true;
+    private bool _emailImportHasPassword;
+    private bool _emailImportHasConfiguration;
+    private bool _emailImportTestSucceeded;
+    private int _emailImportPort = 993;
+    private string _emailImportHost = "";
+    private string _emailImportUserName = "";
+    private string _emailImportPassword = "";
+    private string _emailImportFolderName = "INBOX";
+    private string _emailImportTargetColumn = "";
+    private string _emailImportStatus = "";
+    private string _emailImportBusyText = "Verbindung wird geprüft...";
+    private string? _emailImportLastError;
+    private DateTime? _emailImportLastImportAtUtc;
+    private List<string> _emailImportFolders = new() { "INBOX" };
+    private List<EmailImportedTaskDto> _emailImportCreatedTasks = new();
+    private IReadOnlyList<string> EmailImportColumnOptions => (_list?.Columns ?? new List<string>())
+        .Where(column => !string.IsNullOrWhiteSpace(column))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private bool EmailImportCanTest => !string.IsNullOrWhiteSpace(_emailImportHost) && !string.IsNullOrWhiteSpace(_emailImportUserName);
+    private bool EmailImportCanSave => EmailImportCanTest && (_emailImportHasPassword || !string.IsNullOrWhiteSpace(_emailImportPassword));
+    private bool _notificationSettingsOpen;
+    private bool _notificationsOpen;
+    private int _unreadNotifications;
+    private List<UserNotificationEntity> _latestNotifications = new();
+    private List<BoardNotificationRuleEntity> _notificationRules = new();
+    private static readonly NotificationRecipientGroup[] NotificationGroups =
+    [
+        NotificationRecipientGroup.Admins,
+        NotificationRecipientGroup.Members,
+        NotificationRecipientGroup.ProjectWatchers,
+        NotificationRecipientGroup.TaskWatchers,
+        NotificationRecipientGroup.Assignee,
+        NotificationRecipientGroup.Author
+    ];
+
+    // ===== Backdrop-Click-Hooks für Dialoge =====
+    private DotNetObjectReference<Workspace>? _selfRef;
+    private bool _shareHookActive;
+    private bool _renameHookActive;
+    private bool _deleteHookActive;
+    private bool _labelsHookActive;
+    private bool _backgroundHookActive;
+    private bool _filterHookActive;
+    private bool _restoreHookActive;
+    private bool _copyHookActive;
+    private bool _templateHookActive;
+    private bool _exportHookActive;
+    private bool _emailImportHookActive;
+    private bool _notificationSettingsHookActive;
+
+    /* Dragging in ListView */
+    private bool _isDragging;
+    private bool _reloadQueued;
+    private bool _listLoading = true;
+    private global::Klassenbibliothek.Components.Views.ToDoListView? _listViewRef;
+
+    // ===== SignalR Hub =====
+    private HubConnection? _hubConnection;
+    private Guid? _subscribedListId;
+    private bool _hubStarted;
+
+    // Reload-Queue (damit Dragging nicht kaputt geht)
+    private bool _reloadQueuedForce;
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _selfRef ??= DotNetObjectReference.Create(this);
+
+        _shareHookActive = await UpdateDialogHookAsync(_shareOpen, "workspace-share-dlg", _shareHookActive);
+        _renameHookActive = await UpdateDialogHookAsync(_renameOpen, "workspace-rename-dlg", _renameHookActive);
+        _deleteHookActive = await UpdateDialogHookAsync(_deleteOpen, "workspace-delete-dlg", _deleteHookActive);
+        _labelsHookActive = await UpdateDialogHookAsync(_labelsOpen, "workspace-labels-dlg", _labelsHookActive);
+        _backgroundHookActive = await UpdateDialogHookAsync(_backgroundOpen, "workspace-background-dlg", _backgroundHookActive);
+        _filterHookActive = await UpdateDialogHookAsync(_filterOpen && _list is not null, "workspace-filter-dlg", _filterHookActive);
+        _restoreHookActive = await UpdateDialogHookAsync(_restoreTasksOpen && _list is not null, "workspace-restore-dlg", _restoreHookActive);
+        _copyHookActive = await UpdateDialogHookAsync(_copyOpen, "workspace-copy-dlg", _copyHookActive);
+        _templateHookActive = await UpdateDialogHookAsync(_templateOpen, "workspace-template-dlg", _templateHookActive);
+        _exportHookActive = await UpdateDialogHookAsync(_exportOpen, "workspace-export-dlg", _exportHookActive);
+        _emailImportHookActive = await UpdateDialogHookAsync(_emailImportOpen, "workspace-email-import-dlg", _emailImportHookActive);
+        _notificationSettingsHookActive = await UpdateDialogHookAsync(_notificationSettingsOpen, "workspace-notifications-dlg", _notificationSettingsHookActive);
+    }
+
+    private async Task<bool> UpdateDialogHookAsync(bool isOpen, string dialogId, bool hookActive)
+    {
+        if (isOpen && !hookActive)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("todoUi.enableDialogOutsideCloseById", dialogId, _selfRef, Array.Empty<string>());
+                return true;
+            }
+            catch { }
+        }
+        else if (!isOpen && hookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", dialogId); } catch { }
+            return false;
+        }
+        return hookActive;
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        _shareOpen = false;
+        _renameOpen = false;
+        _deleteOpen = false;
+        _labelsOpen = false;
+        _backgroundOpen = false;
+        _filterOpen = false;
+        _restoreTasksOpen = false;
+        _copyOpen = false;
+        _templateOpen = false;
+        _exportOpen = false;
+        _emailImportOpen = false;
+        _notificationSettingsOpen = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            // ✅ Primär: ASP.NET Identity / allgemein: NameIdentifier
+            var id =
+                user.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user.FindFirstValue("sub"); // ✅ fallback für OIDC
+
+            _userId = string.IsNullOrWhiteSpace(id) ? "gast" : id;
+        }
+        else
+        {
+            _userId = "gast";
+        }
+        _selectedTaskId = TaskId;
+        await ReloadAsync();
+        await RefreshNotificationsAsync();
+
+        await StartHubAsync();
+        await EnsureListSubscriptionAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ListId.HasValue && _lists.Count > 0)
+        {
+            var match = _lists.FirstOrDefault(x => x.Id == ListId.Value);
+            if (match is not null)
+            {
+                var listChanged = _selectedListId != match.Id;
+                _list = match;
+                _selectedListId = match.Id;
+
+                if (listChanged)
+                {
+                    _selectedTaskId = TaskId;
+                    await ReloadForListChangeAsync();
+                }
+                else if (TaskId.HasValue && TaskId != _selectedTaskId)
+                {
+                    _selectedTaskId = TaskId;
+                    _selectedTask = _list?.Tasks.FirstOrDefault(t => t.Id == TaskId.Value);
+                }
+            }
+            else if (_selectedListId != ListId.Value)
+            {
+                // List not in cache yet (e.g. just created) – reload to fetch fresh data
+                _selectedListId = ListId.Value;
+                _selectedTaskId = TaskId;
+                await ReloadForListChangeAsync();
+            }
+        }
+    }
+    /* Hub */
+    private async Task StartHubAsync()
+    {
+        if (_hubStarted) return;
+
+        _hubConnection = await HubConnectionFactory.CreateAsync();
+        if (_hubConnection is null)
+            return;
+
+        // ✅ Wenn sich eine Liste ändert -> nur reload, wenn wir diese Liste gerade offen haben
+        _hubConnection.On<Guid>(TodoHub.ListsUpdated, async (listId) =>
+        {
+            if (listId != _selectedListId) return;
+
+            await InvokeAsync(async () =>
+            {
+                // nicht "force", weil Dragging-Queue sonst übergangen würde
+                await ReloadAsyncCore(force: false);
+                StateHasChanged();
+            });
+        });
+
+        // ✅ Wenn ein Kommentar oder Anhang sich ändert -> Liste neu laden (Kommentar-/Anhang-Zähler aktualisieren)
+        _hubConnection.On<Guid, Guid>(TodoHub.TaskCommentsUpdated, async (listId, taskId) =>
+        {
+            if (listId != _selectedListId) return;
+
+            await InvokeAsync(async () =>
+            {
+                await ReloadAsyncCore(force: false);
+                StateHasChanged();
+            });
+        });
+
+        _hubConnection.On<Guid, Guid>(TodoHub.TaskAttachmentsUpdated, async (listId, taskId) =>
+        {
+            if (listId != _selectedListId) return;
+
+            await InvokeAsync(async () =>
+            {
+                await ReloadAsyncCore(force: false);
+                StateHasChanged();
+            });
+        });
+
+        _hubConnection.On(TodoHub.BrowserNotification, async () =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await RefreshNotificationsAsync();
+                StateHasChanged();
+            });
+        });
+
+        _hubConnection.On<string, string, Guid>(TodoHub.ReminderTriggered, async (title, body, taskId) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                try { await JS.InvokeVoidAsync("todoUi.showNotification", title, body); } catch { }
+
+                await RefreshNotificationsAsync();
+
+                if (_selectedListId != Guid.Empty)
+                    await ReloadAsyncCore(force: false);
+
+                StateHasChanged();
+            });
+        });
+
+        // ✅ Reconnect: User + List subscriptions erneut setzen
+        _hubConnection.Reconnected += async _ =>
+        {
+            try
+            {
+                await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
+
+                if (_selectedListId != Guid.Empty)
+                {
+                    await _hubConnection.SendAsync(TodoHub.SubscribeToList, _selectedListId);
+                    _subscribedListId = _selectedListId;
+                }
+            }
+            catch { }
+        };
+
+        await _hubConnection.StartAsync();
+        await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
+
+        _hubStarted = true;
+    }
+
+    private async Task EnsureListSubscriptionAsync()
+    {
+        if (_hubConnection is null) return;
+        if (_hubConnection.State != HubConnectionState.Connected) return;
+
+        // keine Liste offen -> ggf. abmelden
+        if (_selectedListId == Guid.Empty)
+        {
+            if (_subscribedListId is not null)
+            {
+                try { await _hubConnection.SendAsync(TodoHub.UnsubscribeFromList, _subscribedListId.Value); } catch { }
+                _subscribedListId = null;
+            }
+            return;
+        }
+
+        // schon korrekt subscribed
+        if (_subscribedListId == _selectedListId) return;
+
+        // alte List-Gruppe verlassen
+        if (_subscribedListId is not null)
+        {
+            try { await _hubConnection.SendAsync(TodoHub.UnsubscribeFromList, _subscribedListId.Value); } catch { }
+        }
+
+        // neue List-Gruppe beitreten
+        await _hubConnection.SendAsync(TodoHub.SubscribeToList, _selectedListId);
+        _subscribedListId = _selectedListId;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+            await _hubConnection.DisposeAsync();
+
+        if (_shareHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-share-dlg"); } catch { }
+        if (_renameHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-rename-dlg"); } catch { }
+        if (_deleteHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-delete-dlg"); } catch { }
+        if (_labelsHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-labels-dlg"); } catch { }
+        if (_backgroundHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-background-dlg"); } catch { }
+        if (_filterHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-filter-dlg"); } catch { }
+        if (_restoreHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-restore-dlg"); } catch { }
+        if (_copyHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-copy-dlg"); } catch { }
+        if (_templateHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-template-dlg"); } catch { }
+        if (_exportHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-export-dlg"); } catch { }
+        if (_emailImportHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-email-import-dlg"); } catch { }
+        if (_notificationSettingsHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-notifications-dlg"); } catch { }
+
+        _selfRef?.Dispose();
+    }
+    /* Dragging in ListView */
+    private async Task OnDraggingChangedAsync(bool dragging)
+    {
+        _isDragging = dragging;
+
+        if (!_isDragging && _reloadQueued)
+        {
+            _reloadQueued = false;
+            var force = _reloadQueuedForce;
+            _reloadQueuedForce = false;
+
+            await ReloadAsyncCore(force: force);
+        }
+    }
+
+
+
+    private Task ReloadAsync()
+        => ReloadAsyncCore(force: false);
+
+    private Task ReloadAsyncForce()
+        => ReloadAsyncCore(force: true);
+
+    private Task ReloadForListChangeAsync()
+        => ReloadAsyncCore(force: false, showLoading: true);
+
+    private async Task ReloadAsyncCore(bool force, bool? showLoading = null)
+    {
+        // ✅ Während Dragging nie reloaden – auch nicht "force"
+        if (_isDragging)
+        {
+            _reloadQueued = true;
+            _reloadQueuedForce = _reloadQueuedForce || force;
+            return;
+        }
+
+        _error = "";
+        var requestedListId = ListId ?? (_selectedListId != Guid.Empty ? _selectedListId : null);
+        var shouldShowLoading = showLoading ?? (_list is null || (requestedListId.HasValue && _list.Id != requestedListId.Value));
+        if (shouldShowLoading)
+        {
+            _listLoading = true;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        try
+        {
+            _lists = (await ListService.GetWorkspaceListsAsync(_userId, requestedListId)).ToList();
+
+            if (_shareOpen && !CanAdminCurrentList())
+                _shareOpen = false;
+
+            if (_lists.Count == 0)
+            {
+                _list = null;
+                _selectedListId = Guid.Empty;
+
+                // ✅ Subscription ggf. aufräumen
+                await EnsureListSubscriptionAsync();
+                return;
+            }
+
+            if (ListId.HasValue)
+                _selectedListId = ListId.Value;
+            else if (_selectedListId == Guid.Empty)
+                _selectedListId = _lists[0].Id;
+
+            _list = _lists.FirstOrDefault(x => x.Id == _selectedListId) ?? _lists[0];
+            _selectedListId = _list.Id;
+
+            // ✅ Hier nach Auswahl/Load in die richtige Hub-Gruppe
+            await EnsureListSubscriptionAsync();
+
+            var keepFormsView = _view == BoardView.Forms;
+
+            // Preferences...
+            try
+            {
+                var pref = await ListPreferencesService.GetListPreferencesAsync(_userId, _list.Id);
+                if (pref is not null && !keepFormsView)
+                {
+                    _view = pref.LastView switch
+                    {
+                        DefaultListView.Kanban => BoardView.Kanban,
+                        DefaultListView.Calendar => BoardView.Calendar,
+                        DefaultListView.Tabelle => BoardView.Table,
+                        DefaultListView.Forms => BoardView.Forms,
+                        _ => BoardView.List
+                    };
+                    _listSortMode = pref.ListSortMode;
+                    _kanbanSortMode = pref.KanbanSortMode;
+                }
+                else if (!keepFormsView)
+                {
+                    _view = _list.DefaultView switch
+                    {
+                        DefaultListView.Kanban => BoardView.Kanban,
+                        DefaultListView.Calendar => BoardView.Calendar,
+                        DefaultListView.Tabelle => BoardView.Table,
+                        DefaultListView.Forms => BoardView.Forms,
+                        _ => BoardView.List
+                    };
+                }
+            }
+            catch { }
+
+            if (_selectedTaskId.HasValue && _list is not null)
+            {
+                _selectedTask = _list.Tasks.FirstOrDefault(task => task.Id == _selectedTaskId.Value);
+                if (_selectedTask is null) _selectedTaskId = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Beim Laden ist ein Fehler aufgetreten. Benutzer: '{_userId}'. Details: {ex.Message}";
+        }
+        finally
+        {
+            if (shouldShowLoading)
+                _listLoading = false;
+        }
+    }
+
+
+    private async Task SwitchView(BoardView v)
+    {
+        if (_viewDropdown is not null)
+        {
+            await _viewDropdown.CloseAsync();
+        }
+
+        _view = v;
+        _selectionMode = false;
+
+        // Auswahl beim View-Wechsel zurücksetzen
+        _selectedTaskId = null;
+        _selectedTask = null;
+
+        CloseOverlays();
+
+        // ✅ Persistieren (nur wenn Liste vorhanden)
+        if (_list is not null)
+        {
+            var prefView = _view switch
+            {
+                BoardView.Kanban => DefaultListView.Kanban,
+                BoardView.Calendar => DefaultListView.Calendar,
+                BoardView.Table => DefaultListView.Tabelle,
+                BoardView.Forms => DefaultListView.Forms,
+                _ => DefaultListView.Liste
+            };
+
+            // View speichern, Sortmodes beibehalten
+            await ListPreferencesService.SetListPreferencesAsync(
+                _userId,
+                _list.Id,
+                prefView,
+                _listSortMode,
+                _kanbanSortMode);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleBulkSelection()
+        => _selectionMode = !_selectionMode;
+
+
+    private async Task SetSortAsync(ListSortMode mode)
+    {
+        if (_list is null) return;
+
+        if (_view == BoardView.List) _listSortMode = mode;
+        else if (_view == BoardView.Kanban) _kanbanSortMode = mode;
+        else
+        {
+            CloseOverlays();
+            return;
+        }
+
+        CloseOverlays();
+
+        // ✅ Persistieren (Sort nur für die betroffene View ändern)
+        await ListPreferencesService.SetListPreferencesAsync(
+            _userId,
+            _list.Id,
+            null, // View unverändert
+            _listSortMode,
+            _kanbanSortMode);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    private string CurrentViewLabel => _view switch
+    {
+        BoardView.Kanban => L["Page_Workspace_KanbanView"],
+        BoardView.Calendar => L["QuickLink_Calendar"],
+        BoardView.Table => L["Workspace_TableView"],
+        BoardView.Forms => L["FormDesigner_Forms"],
+        _ => L["Page_Workspace_ListView"]
+    };
+
+    private string ViewMenuItemCss(BoardView view)
+        => $"block w-full px-3 py-2 text-left hover:bg-slate-50 {(view == _view ? "bg-blue-50 text-blue-700" : "text-slate-700")}";
+
+    private bool IsWatchingList =>
+        _list?.Watchers?.Any(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase)) == true;
+
+    private async Task ToggleListWatchingAsync()
+    {
+        if (_list is null) return;
+        var watch = !IsWatchingList;
+        if (await ListService.SetListWatchingAsync(_userId, _list.Id, watch))
+            await ReloadAsyncForce();
+    }
+
+    private async Task RefreshNotificationsAsync()
+    {
+        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
+        if (_notificationsOpen)
+            _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
+    }
+
+    private async Task ToggleNotificationsPanelAsync()
+    {
+        _notificationsOpen = !_notificationsOpen;
+        if (_notificationsOpen)
+            await RefreshNotificationsAsync();
+    }
+
+    private void CloseNotificationsPanel()
+        => _notificationsOpen = false;
+
+    private async Task MarkNotificationsReadAsync()
+    {
+        await NotificationService.MarkAllReadAsync(_userId);
+        _unreadNotifications = 0;
+        _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
+    }
+
+    private async Task DeleteNotificationAsync(Guid notificationId)
+    {
+        await NotificationService.DeleteNotificationAsync(_userId, notificationId);
+        _latestNotifications.RemoveAll(n => n.Id == notificationId);
+        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
+    }
+
+    private async Task DeleteAllNotificationsAsync()
+    {
+        await NotificationService.DeleteAllNotificationsAsync(_userId);
+        _latestNotifications.Clear();
+        _unreadNotifications = 0;
+    }
+
+    private async Task OpenNotificationAsync(UserNotificationEntity notification)
+    {
+        _notificationsOpen = false;
+        if (notification.TaskId.HasValue)
+            Nav.NavigateTo($"/list/{notification.ListId}?taskId={notification.TaskId.Value}");
+        else
+            Nav.NavigateTo($"/list/{notification.ListId}");
+        await Task.CompletedTask;
+    }
+
+    private async Task OpenEmailImportDialogAsync()
+    {
+        _actionsOpen = false;
+        if (_list is null || !CanAdminCurrentList()) return;
+
+        ResetEmailImportDraft();
+        try
+        {
+            var config = await EmailImportService.GetConfigurationAsync(_userId, _list.Id);
+            if (config is not null)
+            {
+                _emailImportHasConfiguration = true;
+                _emailImportEnabled = config.Enabled;
+                _emailImportHost = config.Host;
+                _emailImportPort = config.Port;
+                _emailImportUseSsl = config.UseSsl;
+                _emailImportUserName = config.UserName;
+                _emailImportFolderName = string.IsNullOrWhiteSpace(config.FolderName) ? "INBOX" : config.FolderName;
+                _emailImportTargetColumn = ResolveEmailImportTargetColumn(config.TargetColumn);
+                _emailImportHasPassword = config.HasPassword;
+                _emailImportLastImportAtUtc = config.LastImportAtUtc;
+                _emailImportLastError = config.LastError;
+                _emailImportFolders = new List<string> { _emailImportFolderName };
+                if (!string.Equals(_emailImportFolderName, "INBOX", StringComparison.OrdinalIgnoreCase))
+                    _emailImportFolders.Insert(0, "INBOX");
+            }
+
+            _emailImportOpen = true;
+            EnsureEmailImportTargetColumn();
+        }
+        catch (Exception ex)
+        {
+            _error = $"E-Mail-Konfiguration konnte nicht geladen werden. Details: {ex.Message}";
+        }
+    }
+
+    private void CloseEmailImportDialog() => _emailImportOpen = false;
+
+    private async Task TestEmailImportConnectionAsync()
+    {
+        if (_list is null || !CanAdminCurrentList()) return;
+
+        _emailImportBusy = true;
+        _emailImportBusyText = "Verbindung wird geprüft...";
+        _emailImportStatus = "";
+        _emailImportTestSucceeded = false;
+        _emailImportCreatedTasks.Clear();
+
+        try
+        {
+            var result = await EmailImportService.TestConnectionAsync(_userId, _list.Id, BuildEmailImportRequest());
+            _emailImportStatus = result.Message;
+            _emailImportTestSucceeded = result.Success;
+
+            if (result.Success)
+            {
+                _emailImportFolders = result.Folders.Count == 0 ? new List<string> { "INBOX" } : result.Folders.ToList();
+                if (!_emailImportFolders.Contains(_emailImportFolderName, StringComparer.OrdinalIgnoreCase))
+                    _emailImportFolderName = _emailImportFolders.FirstOrDefault(f => string.Equals(f, "INBOX", StringComparison.OrdinalIgnoreCase))
+                        ?? _emailImportFolders.FirstOrDefault()
+                        ?? "INBOX";
+            }
+        }
+        catch (Exception ex)
+        {
+            _emailImportStatus = $"Verbindung fehlgeschlagen: {ex.Message}";
+        }
+        finally
+        {
+            _emailImportBusy = false;
+        }
+    }
+
+    private async Task RunEmailImportNowAsync()
+    {
+        if (_list is null || !CanAdminCurrentList()) return;
+
+        _emailImportBusy = true;
+        _emailImportBusyText = "Neue E-Mails werden geprüft...";
+        _emailImportStatus = "";
+        _emailImportTestSucceeded = false;
+        _emailImportCreatedTasks.Clear();
+
+        try
+        {
+            var result = await EmailImportService.ImportListAsync(_userId, _list.Id);
+            _emailImportCreatedTasks = result.ImportedTasks.ToList();
+            _emailImportLastError = result.Error;
+
+            if (!string.IsNullOrWhiteSpace(result.Error))
+            {
+                _emailImportStatus = $"Import fehlgeschlagen: {result.Error}";
+                return;
+            }
+
+            _emailImportLastImportAtUtc = DateTime.UtcNow;
+            _emailImportTestSucceeded = true;
+            _emailImportStatus = result.Count == 0
+                ? "Keine neuen ungelesenen E-Mails gefunden."
+                : $"{result.Count} neue Aufgabe(n) angelegt.";
+
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _emailImportStatus = $"Import fehlgeschlagen: {ex.Message}";
+        }
+        finally
+        {
+            _emailImportBusy = false;
+        }
+    }
+
+    private async Task SaveEmailImportConfigurationAsync()
+    {
+        if (_list is null || !CanAdminCurrentList()) return;
+
+        _emailImportBusy = true;
+        _emailImportBusyText = "Konfiguration wird gespeichert...";
+        _emailImportStatus = "";
+        _emailImportCreatedTasks.Clear();
+
+        try
+        {
+            await EmailImportService.SaveConfigurationAsync(_userId, _list.Id, BuildEmailImportRequest());
+            _emailImportOpen = false;
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _emailImportStatus = $"Speichern fehlgeschlagen: {ex.Message}";
+        }
+        finally
+        {
+            _emailImportBusy = false;
+        }
+    }
+
+    private async Task DeleteEmailImportConfigurationAsync()
+    {
+        if (_list is null || !CanAdminCurrentList()) return;
+
+        _emailImportBusy = true;
+        _emailImportBusyText = "Konfiguration wird entfernt...";
+        _emailImportCreatedTasks.Clear();
+        try
+        {
+            await EmailImportService.DeleteConfigurationAsync(_userId, _list.Id);
+            _emailImportOpen = false;
+        }
+        catch (Exception ex)
+        {
+            _emailImportStatus = $"Entfernen fehlgeschlagen: {ex.Message}";
+        }
+        finally
+        {
+            _emailImportBusy = false;
+        }
+    }
+
+    private ListEmailImportSaveRequest BuildEmailImportRequest()
+        => new(
+            _emailImportEnabled,
+            _emailImportHost,
+            _emailImportPort,
+            _emailImportUseSsl,
+            _emailImportUserName,
+            string.IsNullOrWhiteSpace(_emailImportPassword) ? null : _emailImportPassword,
+            string.IsNullOrWhiteSpace(_emailImportFolderName) ? "INBOX" : _emailImportFolderName,
+            string.IsNullOrWhiteSpace(_emailImportTargetColumn) ? null : _emailImportTargetColumn);
+
+    private void ResetEmailImportDraft()
+    {
+        _emailImportBusy = false;
+        _emailImportEnabled = true;
+        _emailImportUseSsl = true;
+        _emailImportHasPassword = false;
+        _emailImportHasConfiguration = false;
+        _emailImportTestSucceeded = false;
+        _emailImportPort = 993;
+        _emailImportHost = "";
+        _emailImportUserName = "";
+        _emailImportPassword = "";
+        _emailImportFolderName = "INBOX";
+        _emailImportTargetColumn = ResolveEmailImportTargetColumn(null);
+        _emailImportStatus = "";
+        _emailImportBusyText = "Verbindung wird geprüft...";
+        _emailImportLastError = null;
+        _emailImportLastImportAtUtc = null;
+        _emailImportFolders = new List<string> { "INBOX" };
+        _emailImportCreatedTasks = new();
+    }
+
+    private void EnsureEmailImportTargetColumn()
+        => _emailImportTargetColumn = ResolveEmailImportTargetColumn(_emailImportTargetColumn);
+
+    private string ResolveEmailImportTargetColumn(string? configuredColumn)
+    {
+        var columns = EmailImportColumnOptions;
+        if (columns.Count == 0)
+            return "Backlog";
+
+        if (!string.IsNullOrWhiteSpace(configuredColumn))
+        {
+            var existing = columns.FirstOrDefault(column => string.Equals(column, configuredColumn.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(existing))
+                return existing;
+        }
+
+        return columns[0];
+    }
+
+    private async Task OpenNotificationSettingsDialog()
+    {
+        _actionsOpen = false;
+        if (_list is null || !CanAdminCurrentList()) return;
+
+        _notificationRules = (await NotificationService.GetBoardRulesAsync(_userId, _list.Id)).ToList();
+        _notificationSettingsOpen = true;
+    }
+
+    private void CloseNotificationSettingsDialog() => _notificationSettingsOpen = false;
+
+    private static bool HasNotificationGroup(BoardNotificationRuleEntity rule, NotificationRecipientGroup group)
+        => (rule.RecipientGroups & group) != 0;
+
+    private async Task SetNotificationRuleGroupAsync(NotificationEventType eventType, NotificationRecipientGroup group, bool enabled)
+    {
+        if (_list is null) return;
+        var rule = _notificationRules.FirstOrDefault(r => r.EventType == eventType);
+        if (rule is null) return;
+
+        rule.RecipientGroups = enabled ? rule.RecipientGroups | group : rule.RecipientGroups & ~group;
+        await NotificationService.SetBoardRuleAsync(_userId, _list.Id, eventType, rule.RecipientGroups);
+    }
+
+    private string NotificationEventLabel(NotificationEventType eventType)
+        => eventType switch
+        {
+            NotificationEventType.TaskCreated => L["Notifications_TaskCreated"],
+            NotificationEventType.TaskUpdated => L["Notifications_TaskUpdated"],
+            NotificationEventType.TaskAssigned => L["Notifications_TaskAssigned"],
+            NotificationEventType.TaskCompleted => L["Notifications_TaskCompleted"],
+            NotificationEventType.TaskReopened => L["Notifications_TaskReopened"],
+            NotificationEventType.TaskDeleted => L["Notifications_TaskDeleted"],
+            NotificationEventType.TaskMoved => L["Notifications_TaskMoved"],
+            NotificationEventType.CommentAdded => L["Notifications_CommentAdded"],
+            NotificationEventType.CommentDeleted => L["Notifications_CommentDeleted"],
+            NotificationEventType.AttachmentAdded => L["Notifications_AttachmentAdded"],
+            NotificationEventType.AttachmentDeleted => L["Notifications_AttachmentDeleted"],
+            _ => eventType.ToString()
+        };
+
+    private IReadOnlyList<TodoCalendarItem> GetCalendarItemsForCurrentList()
+    {
+        if (_list is null)
+        {
+            return [];
+        }
+
+        return (_list.Tasks ?? [])
+            .Where(task => task.StartDate.HasValue && task.DueDate.HasValue)
+            .Where(PassesCalendarFilter)
+            .Select(task =>
+            {
+                var startDate = task.StartDate!.Value.Date;
+                var dueDate = task.DueDate!.Value.Date;
+                var endDate = dueDate >= startDate ? dueDate.AddDays(1) : startDate.AddDays(1);
+
+                return new TodoCalendarItem
+                {
+                    TaskId = task.Id,
+                    ListId = _list.Id,
+                    Title = task.Title,
+                    Start = startDate,
+                    End = endDate,
+                    CardColor = task.CardColor,
+                    CardColorMode = task.CardColorMode,
+                    AssigneeUserId = string.IsNullOrWhiteSpace(task.Assignee) ? null : task.Assignee.Trim(),
+                    AssigneeDisplayName = GetCalendarAssigneeDisplayName(task.Assignee),
+                    AssigneeInitials = GetCalendarAssigneeInitials(task.Assignee),
+                    AssigneeAvatarColor = GetCalendarAssigneeAvatarColor(task.Assignee),
+                    AssigneeProfilePictureUrl = GetCalendarAssigneeProfilePictureUrl(task.Assignee)
+                };
+            })
+            .ToList();
+    }
+
+    private string? GetCalendarAssigneeDisplayName(string? userId)
+    {
+        var participant = FindCalendarParticipant(userId);
+        return participant is not null && !string.IsNullOrWhiteSpace(participant.DisplayName)
+            ? participant.DisplayName
+            : string.IsNullOrWhiteSpace(userId) ? null : userId.Trim();
+    }
+
+    private string? GetCalendarAssigneeInitials(string? userId)
+    {
+        var displayName = GetCalendarAssigneeDisplayName(userId);
+        if (string.IsNullOrWhiteSpace(displayName))
+            return null;
+
+        var parts = displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+
+        return parts.Length == 1 && parts[0].Length > 0
+            ? parts[0][0].ToString().ToUpperInvariant()
+            : "?";
+    }
+
+    private ListParticipantEntity? FindCalendarParticipant(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || _list?.Participants is null)
+            return null;
+
+        var uid = userId.Trim();
+        return _list.Participants.FirstOrDefault(p =>
+            (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(p.Email) && string.Equals(p.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string? GetCalendarAssigneeAvatarColor(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return null;
+
+        var colors = new[] { "#0079bf", "#d29034", "#519839", "#b04632", "#89609e", "#cd5a91", "#4bbf6b", "#00aecc", "#838c91" };
+        var hash = 0;
+        foreach (var c in userId.Trim())
+            hash = unchecked(hash * 31 + c);
+        return colors[Math.Abs(hash) % colors.Length];
+    }
+
+    private static string? GetCalendarAssigneeProfilePictureUrl(string? userId)
+        => string.IsNullOrWhiteSpace(userId)
+            ? null
+            : $"/api/profile-picture/{Uri.EscapeDataString(userId.Trim())}";
+
+    private bool PassesCalendarFilter(TodoTaskEntity task)
+    {
+        var now = DateTime.UtcNow;
+        var query = (_filter.Query ?? string.Empty).Trim();
+        if (!string.IsNullOrWhiteSpace(query)
+            && !($"{task.Title} {task.Description} {task.Column}".Contains(query, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        if (_filter.Done is not null && task.Done != _filter.Done.Value) return false;
+        if (_filter.NoDueDate && task.DueDate is not null) return false;
+        if (_filter.Overdue && (task.DueDate is null || task.DueDate >= now)) return false;
+        if (_filter.DueNextDay && (task.DueDate is null || task.DueDate > now.AddDays(1) || task.DueDate < now)) return false;
+        if (_filter.DueNextWeek && (task.DueDate is null || task.DueDate > now.AddDays(7) || task.DueDate < now)) return false;
+        if (_filter.DueNextMonth && (task.DueDate is null || task.DueDate > now.AddDays(30) || task.DueDate < now)) return false;
+        if (_filter.NoMembers && (task.MemberUserIds?.Count ?? 0) > 0) return false;
+        if (_filter.AssignedToMe && !(task.MemberUserIds?.Contains(_userId) ?? false)) return false;
+        if (_filter.NoAssignee && (!string.IsNullOrWhiteSpace(task.Assignee) || (task.MemberUserIds?.Count ?? 0) > 0)) return false;
+        if (_filter.MemberUserIds.Count > 0 && !(task.MemberUserIds ?? []).Any(memberId => _filter.MemberUserIds.Contains(memberId))) return false;
+        if (_filter.LabelIds.Count > 0 && !(task.LabelLinks ?? []).Any(link => _filter.LabelIds.Contains(link.LabelId))) return false;
+
+        return true;
+    }
+
+    private Task OpenCalendarTaskAsync(TodoCalendarItem item)
+    {
+        if (_list is null || item.TaskId is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var task = (_list.Tasks ?? []).FirstOrDefault(candidate => candidate.Id == item.TaskId.Value);
+        if (task is not null)
+        {
+            OpenTaskDetails(task);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static string MenuItemCss(bool active)
+        => active
+            ? "w-full text-left px-3 py-2 bg-slate-100 font-semibold"
+            : "w-full text-left px-3 py-2 hover:bg-slate-50";
+
+    private void ToggleActions()
+        => _actionsOpen = !_actionsOpen;
+
+    private void ToggleSorts()
+    {
+        if (_view == BoardView.Calendar)
+        {
+            _sortsOpen = false;
+            return;
+        }
+
+        _sortsOpen = !_sortsOpen;
+    }
+
+    private void CloseOverlays()
+    {
+        _actionsOpen = false;
+        _sortsOpen = false;
+        _filterOpen = false;
+        _restoreTasksOpen = false;
+        _notificationsOpen = false;
+    }
+
+
+    private void OpenTaskDetails(TodoTaskEntity task)
+    {
+        _selectedTaskInitialTabVersion++;
+        _selectedTaskId = task.Id;
+        _selectedTask = task;
+        _selectedTaskInitialTabId = "details";
+    }
+
+    private void OpenTaskDetailsFromTable(TodoTaskEntity task)
+        => OpenTaskInTab(task, "details");
+
+    private void OpenTaskAttachmentsFromTable(TodoTaskEntity task)
+        => OpenTaskInTab(task, "attachments");
+
+    private void OpenTaskCommentsFromTable(TodoTaskEntity task)
+        => OpenTaskInTab(task, "comments");
+
+    private void OpenTaskFromTable(TodoTaskOpenRequest request)
+        => OpenTaskInTab(request.Task, request.TabId);
+
+    private void OpenTaskInTab(TodoTaskEntity task, string? tabId)
+    {
+        _selectedTaskInitialTabVersion++;
+        _selectedTaskInitialTabId = NormalizeTaskModalTabId(tabId);
+        _selectedTaskId = task.Id;
+        _selectedTask = task;
+    }
+
+    private static string NormalizeTaskModalTabId(string? tabId)
+        => tabId?.Trim().ToLowerInvariant() switch
+        {
+            "attachments" or "tab-3" => "attachments",
+            "comments" or "tab-2" => "comments",
+            _ => "details"
+        };
+
+    private void CloseTaskDetails()
+    {
+        _selectedTaskId = null;
+        _selectedTask = null;
+        _selectedTaskInitialTabId = null;
+        _selectedTaskInitialTabVersion++;
+    }
+
+    private void HandleTaskUpdated(TodoTaskEntity updatedTask)
+    {
+        if (_selectedTaskId == updatedTask.Id)
+            _selectedTask = updatedTask;
+
+        if (_list?.Tasks is null) return;
+
+        var existing = _list.Tasks.FirstOrDefault(t => t.Id == updatedTask.Id);
+        if (existing is null) return;
+
+        // Felder patchen (Referenz bleibt gleich)
+        existing.Title = updatedTask.Title;
+        existing.Description = updatedTask.Description;
+        existing.StartDate = updatedTask.StartDate;
+        existing.DueDate = updatedTask.DueDate;
+        existing.Done = updatedTask.Done;
+        existing.IsImportant = updatedTask.IsImportant;
+        existing.Assignee = updatedTask.Assignee;
+        existing.Recurrence = updatedTask.Recurrence;
+        existing.CustomRecurrence = updatedTask.CustomRecurrence;
+        existing.Column = updatedTask.Column;
+
+        // Children ersetzen (ok)
+        existing.Attachments = updatedTask.Attachments;
+        existing.Comments = updatedTask.Comments;
+        existing.Steps = updatedTask.Steps;
+        existing.Watchers = updatedTask.Watchers;
+        existing.CustomFieldValues = updatedTask.CustomFieldValues;
+
+        // ✅ Sortable neu synchronisieren
+        _listViewRef?.RequestSortableResync();
+
+        StateHasChanged();
+    }
+
+
+
+    /* ------------ Rename / Delete ------------ */
+
+    private void OpenRenameDialog()
+    {
+        CloseOverlays();
+        _renameValue = _list?.Name ?? "";
+        _renameOpen = true;
+    }
+
+    private void CloseRenameDialog()
+        => _renameOpen = false;
+
+    private async Task RenameAsync()
+    {
+        if (_list is null) return;
+
+        var newName = (_renameValue ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            _error = $"Listenname darf nicht leer sein. Liste: '{_list.Name}'.";
+            _renameOpen = false;
+            return;
+        }
+
+        try
+        {
+            await ListService.RenameListAsync(_userId, _list.Id, newName);
+            _renameOpen = false;
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Liste konnte nicht umbenannt werden. Liste: '{_list.Name}'. Details: {ex.Message}";
+            _renameOpen = false;
+        }
+    }
+
+    private void OpenDeleteDialog()
+    {
+        CloseOverlays();
+        _deleteOpen = true;
+    }
+
+    private void CloseDeleteDialog()
+        => _deleteOpen = false;
+
+    private async Task DeleteAsync()
+    {
+        if (_list is null) return;
+
+        try
+        {
+            await ListService.DeleteListAsync(_userId, _list.Id);
+            _deleteOpen = false;
+
+            // zurück zur Startseite / erste Liste
+            _selectedListId = Guid.Empty;
+            _selectedTaskId = null;
+            _selectedTask = null;
+
+            Nav.NavigateTo("/");
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Liste konnte nicht gelöscht werden. Liste: '{_list.Name}'. Details: {ex.Message}";
+            _deleteOpen = false;
+        }
+    }
+
+    /* ------------ Share ------------ */
+
+    private void OpenShareDialog()
+{
+    CloseOverlays();
+
+    if (_list is null || !CanAdminCurrentList())
+        return;
+
+    _shareOpen = true;
+}
+
+    private void CloseShareDialog()
+        => _shareOpen = false;
+
+    private bool CanAdminCurrentList()
+    {
+        if (_list is null) return false;
+
+        var uid = (_userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+
+        if (string.Equals((_list.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return _list.Participants?.Any(p =>
+            !p.InvitationPending
+            && p.Role == ListRole.Admin
+            && (
+                (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(p.Email) && string.Equals(p.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            )) == true;
+    }
+
+    /* Filter */
+    private bool _filterOpen;
+    private TodoTaskFilter _filter = new();
+    private TodoTaskFilter _filterDraft = new();
+
+    private void OpenFilterDialog()
+    {
+        CloseOverlays();
+        _filterDraft = CloneFilter(_filter);
+        _filterOpen = true;
+    }
+
+    private void CloseFilterDialog() => _filterOpen = false;
+
+    private void ApplyFilter()
+    {
+        _filter = CloneFilter(_filterDraft);
+        _filterOpen = false;
+
+        // Optional: wenn Filter aktiv ist -> Sortable/Drag safe machen, passiert in Views
+        StateHasChanged();
+    }
+
+    private void ClearFilter()
+    {
+        _filterDraft = new TodoTaskFilter();
+        _filter = new TodoTaskFilter();
+        _filterOpen = false;
+        StateHasChanged();
+    }
+
+    private static TodoTaskFilter CloneFilter(TodoTaskFilter src)
+    {
+        return new TodoTaskFilter
+        {
+            Query = src.Query ?? "",
+            Done = src.Done,
+            NoDueDate = src.NoDueDate,
+            Overdue = src.Overdue,
+            DueNextDay = src.DueNextDay,
+            DueNextWeek = src.DueNextWeek,
+            DueNextMonth = src.DueNextMonth,
+            NoMembers = src.NoMembers,
+            AssignedToMe = src.AssignedToMe,
+            NoAssignee = src.NoAssignee,
+            MemberUserIds = new HashSet<string>(src.MemberUserIds ?? new(), StringComparer.OrdinalIgnoreCase),
+            LabelIds = new HashSet<Guid>(src.LabelIds ?? new())
+        };
+    }
+
+
+
+    // Checkbox-Helpers (damit "Done == true/false/null" sauber toggelt)
+    private void SetDoneFilter(bool value, ChangeEventArgs e)
+    {
+        var checkedNow = e?.Value is bool b && b;
+
+        if (!checkedNow)
+        {
+            // wenn abgewählt: nur dann null setzen, wenn es genau dieser Wert war
+            if (_filterDraft.Done == value) _filterDraft.Done = null;
+            return;
+        }
+
+        _filterDraft.Done = value;
+    }
+
+    private void ToggleLabel(Guid id, ChangeEventArgs e)
+    {
+        var on = e?.Value is bool b && b;
+        if (on) _filterDraft.LabelIds.Add(id);
+        else _filterDraft.LabelIds.Remove(id);
+    }
+
+    private void ToggleMemberKey(string key, ChangeEventArgs e)
+    {
+        var on = e?.Value is bool b && b;
+        if (on) _filterDraft.MemberKeys.Add(key);
+        else _filterDraft.MemberKeys.Remove(key);
+    }
+    private bool IsMemberChecked(string userId)
+    => _filterDraft.MemberUserIds.Contains(userId);
+
+    private void ToggleMember(string userId, ChangeEventArgs e)
+    {
+        // Blazor liefert bei Checkbox meist bool
+        var on = e?.Value is bool b && b;
+
+        if (on)
+            _filterDraft.MemberUserIds.Add(userId);
+        else
+            _filterDraft.MemberUserIds.Remove(userId);
+    }
+
+    private Task SetMemberCheckedAsync(string userId, bool value)
+    {
+        if (value)
+            _filterDraft.MemberUserIds.Add(userId);
+        else
+            _filterDraft.MemberUserIds.Remove(userId);
+
+        return Task.CompletedTask;
+    }
+
+    private void OnAssignedToMeChanged(ChangeEventArgs e)
+    {
+        var on = e?.Value is bool b && b;
+
+        _filterDraft.AssignedToMe = on;
+
+        // Gegenseitig ausschließen
+        if (on)
+            _filterDraft.NoAssignee = false;
+    }
+
+    private void OnNoAssigneeChanged(ChangeEventArgs e)
+    {
+        var on = e?.Value is bool b && b;
+
+        _filterDraft.NoAssignee = on;
+
+        // Gegenseitig ausschließen
+        if (on)
+            _filterDraft.AssignedToMe = false;
+    }
+
+
+
+    /* Ende Filter */
+
+    /* Labels */
+    private bool _labelsOpen;
+    private void OpenLabelsDialog()
+    {
+        CloseOverlays();
+        _labelsOpen = true;
+    }
+
+    private void CloseLabelsDialog()
+        => _labelsOpen = false;
+
+    /* Ende Labels */
+
+    /* Custom fields */
+    private bool _customFieldsOpen;
+    private void OpenCustomFieldsDialog()
+    {
+        CloseOverlays();
+        _customFieldsOpen = true;
+    }
+
+    private void CloseCustomFieldsDialog()
+        => _customFieldsOpen = false;
+
+    private bool _automationOpen;
+    private void OpenAutomationDialog()
+    {
+        CloseOverlays();
+        if (_list is not null && CanAdminCurrentList())
+            _automationOpen = true;
+    }
+    private void CloseAutomationDialog() => _automationOpen = false;
+
+    /* Ende Custom fields */
+
+    /* Background */
+    private bool _backgroundOpen;
+    private string? _backgroundDraft;
+
+    private static readonly IReadOnlyList<string> _backgroundPalette = new[]
+    {
+        "#0079BF", "#D29034", "#519839", "#B04632", "#89609E",
+        "#CD5A91", "#4BBF6B", "#00AECC", "#838C91", "#B3D4FF",
+        "#ABF5D1", "#FFBDAD", "#C0B6F2", "#FFE380", "#E3FCEF",
+        "#FFF0B3", "#FFEBE6", "#EAE6FF", "#DEEBFF", "#E2E8F0",
+        "#F1F5F9", "#475569", "#1E293B", "#0F172A", "#FFFFFF"
+    };
+
+    private void OpenBackgroundDialog()
+    {
+        CloseOverlays();
+        _backgroundDraft = _list?.BackgroundColor;
+        _backgroundOpen = true;
+    }
+
+    private void CloseBackgroundDialog()
+        => _backgroundOpen = false;
+
+    private async Task SaveBackgroundAsync()
+    {
+        if (_list is null) return;
+
+        try
+        {
+            await ListService.SetBackgroundColorAsync(_userId, _list.Id, _backgroundDraft);
+            _backgroundOpen = false;
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Hintergrundfarbe konnte nicht gespeichert werden. Details: {ex.Message}";
+            _backgroundOpen = false;
+        }
+    }
+    /* Ende Background */
+
+    /* Papierkorb: Aufgaben wiederherstellen */
+    private bool _restoreTasksOpen;
+    private bool _restoreTasksLoading;
+    private List<TodoTaskEntity> _deletedTasks = new();
+
+    private async Task OpenRestoreTasksDialog()
+    {
+        if (_list is null) return;
+        CloseOverlays();
+        _restoreTasksOpen = true;
+        _restoreTasksLoading = true;
+
+        try
+        {
+            _deletedTasks = (await TrashService.GetDeletedTasksAsync(_userId, _list.Id)).ToList();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Gelöschte Aufgaben konnten nicht geladen werden. Details: {ex.Message}";
+            _restoreTasksOpen = false;
+        }
+        finally
+        {
+            _restoreTasksLoading = false;
+        }
+    }
+
+    private void CloseRestoreTasksDialog()
+    {
+        _restoreTasksOpen = false;
+        _deletedTasks.Clear();
+    }
+
+    private async Task RestoreTaskAsync(Guid taskId)
+    {
+        if (_list is null) return;
+        _error = "";
+
+        try
+        {
+            await TrashService.RestoreTaskAsync(_userId, _list.Id, taskId);
+            _deletedTasks.RemoveAll(t => t.Id == taskId);
+            await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Aufgabe konnte nicht wiederhergestellt werden. Details: {ex.Message}";
+        }
+    }
+
+    private static int TrashDaysLeft(DateTime? deletedAt)
+    {
+        if (deletedAt is null) return 0;
+        var expiry = deletedAt.Value.AddDays(14);
+        var remaining = (expiry - DateTime.UtcNow).TotalDays;
+        return Math.Max(0, (int)Math.Ceiling(remaining));
+    }
+    /* Ende Papierkorb */
+
+    /* ─── Liste kopieren ─────────────────────────────────────────────────── */
+    private bool _copyOpen;
+    private string _copyName = "";
+    private bool _copyIncludeTasks;
+
+    private void OpenCopyDialog()
+    {
+        CloseOverlays();
+        _copyName = $"Kopie von {_list?.Name ?? ""}";
+        _copyIncludeTasks = false;
+        _copyOpen = true;
+    }
+
+    private void CloseCopyDialog() => _copyOpen = false;
+
+    private async Task CopyListAsync()
+    {
+        if (_list is null) return;
+
+        var name = (_copyName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        // Label-ID-Mapping: alt -> neu
+        var labelIdMap = new Dictionary<Guid, Guid>();
+        var newLabels = (_list.Labels ?? new()).Select(l =>
+        {
+            var newId = Guid.NewGuid();
+            labelIdMap[l.Id] = newId;
+            return new TodoLabelEntity { Id = newId, Title = l.Title, BackgroundColor = l.BackgroundColor };
+        }).ToList();
+
+        var newTasks = new List<TodoTaskEntity>();
+        var customFieldIdMap = new Dictionary<Guid, Guid>();
+        List<TodoCustomFieldDefinitionEntity> newCustomFields = ProductFeatures.IsEnabled(ProductFeatureIds.Forms)
+            ? (_list.CustomFields ?? new()).OrderBy(f => f.SortOrder).Select((f, index) =>
+        {
+            var newFieldId = Guid.NewGuid();
+            customFieldIdMap[f.Id] = newFieldId;
+            return new TodoCustomFieldDefinitionEntity
+            {
+                Id = newFieldId,
+                Name = f.Name,
+                Type = f.Type,
+                IsRequired = f.IsRequired,
+                SortOrder = index,
+                Options = (f.Options ?? new()).OrderBy(o => o.SortOrder).Select((o, optionIndex) => new TodoCustomFieldOptionEntity
+                {
+                    Id = Guid.NewGuid(),
+                    Value = o.Value,
+                    SortOrder = optionIndex
+                }).ToList()
+            };
+        }).ToList() : [];
+
+        if (_copyIncludeTasks)
+        {
+            foreach (var t in (_list.Tasks ?? new()).Where(t => t.DeletedAt == null))
+            {
+                var newTaskId = Guid.NewGuid();
+                newTasks.Add(new TodoTaskEntity
+                {
+                    Id = newTaskId,
+                    Title = t.Title,
+                    Description = t.Description,
+                    Column = t.Column,
+                    Done = t.Done,
+                    IsImportant = t.IsImportant,
+                    DueDate = t.DueDate,
+                    StartDate = t.StartDate,
+                    Recurrence = t.Recurrence,
+                    CustomRecurrence = t.CustomRecurrence,
+                    CardColor = t.CardColor,
+                    CardColorMode = t.CardColorMode,
+                    CustomFieldValues = (t.CustomFieldValues ?? new())
+                        .Where(v => customFieldIdMap.ContainsKey(v.FieldId))
+                        .Select(v => new TodoTaskCustomFieldValueEntity { Id = Guid.NewGuid(), TaskId = newTaskId, FieldId = customFieldIdMap[v.FieldId], Value = v.Value })
+                        .ToList(),
+                    LabelLinks = (t.LabelLinks ?? new())
+                        .Where(ll => labelIdMap.ContainsKey(ll.LabelId))
+                        .Select(ll => new TodoTaskLabelEntity { TaskId = newTaskId, LabelId = labelIdMap[ll.LabelId] })
+                        .ToList()
+                });
+            }
+        }
+
+        var newList = new TodoListEntity
+        {
+            Name = name,
+            Columns = new List<string>(_list.Columns ?? new()),
+            DoneColumns = new List<string>(_list.DoneColumns ?? new()),
+            DefaultView = _list.DefaultView,
+            BackgroundColor = _list.BackgroundColor,
+            Labels = newLabels,
+            CustomFields = newCustomFields,
+            Tasks = newTasks
+        };
+
+        try
+        {
+            var created = await ListService.AddListAsync(_userId, newList);
+            _copyOpen = false;
+            await ReloadAsync();
+            Nav.NavigateTo($"/list/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Liste konnte nicht kopiert werden. Details: {ex.Message}";
+            _copyOpen = false;
+        }
+    }
+    /* Ende Liste kopieren */
+
+    /* ─── Als Vorlage speichern ──────────────────────────────────────────── */
+    private bool _templateOpen;
+    private bool _templateSaved;
+    private string _templateName = "";
+
+    private void OpenTemplateDialog()
+    {
+        CloseOverlays();
+        _templateName = _list?.Name ?? "";
+        _templateSaved = false;
+        _templateOpen = true;
+    }
+
+    private void CloseTemplateDialog()
+    {
+        _templateOpen = false;
+        _templateSaved = false;
+    }
+
+    private async Task SaveAsTemplateAsync()
+    {
+        if (_list is null) return;
+
+        var name = (_templateName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var newLabels = (_list.Labels ?? new()).Select(l => new TodoLabelEntity
+        {
+            Id = Guid.NewGuid(),
+            Title = l.Title,
+            BackgroundColor = l.BackgroundColor
+        }).ToList();
+
+        List<TodoCustomFieldDefinitionEntity> newCustomFields = ProductFeatures.IsEnabled(ProductFeatureIds.Forms)
+            ? (_list.CustomFields ?? new()).OrderBy(f => f.SortOrder).Select((f, index) => new TodoCustomFieldDefinitionEntity
+        {
+            Id = Guid.NewGuid(),
+            Name = f.Name,
+            Type = f.Type,
+            IsRequired = f.IsRequired,
+            SortOrder = index,
+            Options = (f.Options ?? new()).OrderBy(o => o.SortOrder).Select((o, optionIndex) => new TodoCustomFieldOptionEntity
+            {
+                Id = Guid.NewGuid(),
+                Value = o.Value,
+                SortOrder = optionIndex
+            }).ToList()
+        }).ToList() : [];
+
+        var template = new TodoListEntity
+        {
+            Name = name,
+            Columns = new List<string>(_list.Columns ?? new()),
+            DoneColumns = new List<string>(_list.DoneColumns ?? new()),
+            DefaultView = _list.DefaultView,
+            BackgroundColor = _list.BackgroundColor,
+            Labels = newLabels,
+            CustomFields = newCustomFields,
+            IsTemplate = true
+        };
+
+        try
+        {
+            await ListService.AddListAsync(_userId, template);
+            _templateSaved = true;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Vorlage konnte nicht gespeichert werden. Details: {ex.Message}";
+            _templateOpen = false;
+        }
+    }
+    /* Ende Vorlage */
+
+    /* ─── Exportieren ────────────────────────────────────────────────────── */
+    private bool _exportOpen;
+
+    private void OpenExportDialog()
+    {
+        CloseOverlays();
+        _exportOpen = true;
+    }
+
+    private void CloseExportDialog() => _exportOpen = false;
+
+    private async Task ExportJsonAsync()
+    {
+        if (_list is null) return;
+
+        var tasks = (_list.Tasks ?? new()).Where(t => t.DeletedAt == null).Select(t => new
+        {
+            titel = t.Title,
+            beschreibung = t.Description,
+            spalte = t.Column,
+            erledigt = t.Done,
+            wichtig = t.IsImportant,
+            faelligkeitsdatum = t.DueDate?.ToString("yyyy-MM-dd"),
+            erstellt = t.CreatedAtUtc.ToString("yyyy-MM-dd"),
+            labels = (t.LabelLinks ?? new()).Select(ll => ll.Label?.Title ?? "").Where(s => s.Length > 0).ToList()
+        });
+
+        var export = new
+        {
+            liste = _list.Name,
+            exportiert_am = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
+            spalten = _list.Columns,
+            labels = (_list.Labels ?? new()).Select(l => new { l.Title, l.BackgroundColor }),
+            aufgaben = tasks
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(export,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+
+        var filename = $"{SanitizeFilename(_list.Name)}_{DateTime.Now:yyyy-MM-dd}.json";
+        await JS.InvokeVoidAsync("todoUi.downloadFile", filename, json, "application/json");
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        if (_list is null) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine(string.Join(",", new[]
+        {
+            CsvEscape(L["Export_Header_Title"]),
+            CsvEscape(L["Export_Header_Description"]),
+            CsvEscape(L["Export_Header_Column"]),
+            CsvEscape(L["Export_Header_Done"]),
+            CsvEscape(L["Export_Header_Important"]),
+            CsvEscape(L["Export_Header_DueDate"]),
+            CsvEscape(L["Export_Header_Labels"])
+        }));
+
+        foreach (var t in (_list.Tasks ?? new()).Where(t => t.DeletedAt == null))
+        {
+            var labels = string.Join("|", (t.LabelLinks ?? new()).Select(ll => ll.Label?.Title ?? "").Where(s => s.Length > 0));
+            sb.AppendLine(string.Join(",", new[]
+            {
+                CsvEscape(t.Title),
+                CsvEscape(t.Description ?? ""),
+                CsvEscape(t.Column),
+                t.Done ? L["Common_Yes"] : L["Common_No"],
+                t.IsImportant ? L["Common_Yes"] : L["Common_No"],
+                t.DueDate?.ToString("dd.MM.yyyy") ?? "",
+                CsvEscape(labels)
+            }));
+        }
+
+        var filename = $"{SanitizeFilename(_list.Name)}_{DateTime.Now:yyyy-MM-dd}.csv";
+        await JS.InvokeVoidAsync("todoUi.downloadFile", filename, "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
+    }
+
+    private async Task ExportPdfAsync()
+    {
+        if (_list is null) return;
+
+        var tasks = (_list.Tasks ?? new()).Where(t => t.DeletedAt == null).ToList();
+
+        var rows = new System.Text.StringBuilder();
+        foreach (var t in tasks)
+        {
+            var cls = t.Done ? " style=\"text-decoration:line-through;color:#64748b\"" : "";
+            rows.Append($"<tr><td{cls}>{HtmlEncode(t.Title)}</td>" +
+                        $"<td>{HtmlEncode(t.Column)}</td>" +
+                        $"<td>{(t.DueDate.HasValue ? t.DueDate.Value.ToString("dd.MM.yyyy") : "–")}</td>" +
+                        $"<td>{(t.IsImportant ? "★" : "")}</td></tr>");
+        }
+
+        var mediaPrintCss = "@media print{body{padding:0}}";
+        var exportedAt = string.Format(L["Workspace_ExportedAt"], DateTime.Now.ToString("dd.MM.yyyy HH:mm"), tasks.Count);
+        var html = $$"""
+            <!DOCTYPE html>
+            <html><head>
+            <meta charset="utf-8"/>
+            <title>{{HtmlEncode(_list.Name)}}</title>
+            <style>
+              body{font-family:Arial,sans-serif;padding:24px;color:#1e293b}
+              h1{font-size:18px;margin-bottom:4px}
+              .meta{font-size:11px;color:#64748b;margin-bottom:16px}
+              table{border-collapse:collapse;width:100%;font-size:12px}
+              th{background:#f1f5f9;text-align:left;padding:6px 8px;border:1px solid #e2e8f0}
+              td{padding:5px 8px;border:1px solid #e2e8f0;vertical-align:top}
+              {{mediaPrintCss}}
+            </style>
+            </head><body>
+            <h1>{{HtmlEncode(_list.Name)}}</h1>
+            <div class="meta">{{HtmlEncode(exportedAt)}}</div>
+            <table>
+              <thead><tr>
+                <th>{{HtmlEncode(L["Export_Header_Title"])}}</th><th>{{HtmlEncode(L["Export_Header_Column"])}}</th><th>{{HtmlEncode(L["Export_Header_DueDate"])}}</th><th>{{HtmlEncode(L["Export_Header_Important"])}}</th>
+              </tr></thead>
+              <tbody>{{rows}}</tbody>
+            </table>
+            </body></html>
+            """;
+
+        await JS.InvokeVoidAsync("todoUi.printContent", html);
+    }
+
+    private static string CsvEscape(string? value)
+    {
+        if (value is null) return "";
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+
+    private static string HtmlEncode(string? value)
+        => System.Net.WebUtility.HtmlEncode(value ?? "");
+
+    private static string SanitizeFilename(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "liste";
+        var invalid = System.IO.Path.GetInvalidFileNameChars();
+        return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+    }
+    /* Ende Exportieren */
+}

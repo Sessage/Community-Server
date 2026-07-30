@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>TodoSuite.Community</AssemblyName>
+    <RootNamespace>TodoSuite.Server</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>aspnet-TodoSuite_Server-155ec3b5-7a11-4a1d-a331-b301910df00c</UserSecretsId>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <DefaultItemExcludes>$(DefaultItemExcludes);node_modules\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.14.3" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.21.0" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.14.3" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="10.0.10" />
+    <PackageReference Include="QRCoder" Version="1.8.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\TodoSuite.Community.Shared\TodoSuite.Community.Shared.csproj" />
+    <!-- The implementation is compiled only into the Enterprise module. Community
+         keeps the contracts/data shape for upgrade and mobile compatibility. -->
+    <Compile Remove="Services\TodoCustomFieldService.cs" />
+  </ItemGroup>
+
+  <!-- Local and example settings may contain workstation credentials and must never
+       become part of Community or transitive Enterprise customer publishes. -->
+  <ItemGroup>
+    <Content Update="appsettings.Development.json;appsettings.Local.json;appsettings.example.json"
+             CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <!-- deprecated: Empty Visual Studio folder placeholder is not needed for build output. -->
+  <!--
+  <ItemGroup>
+    <Folder Include="Data\Entities\" />
+  </ItemGroup>
+  -->
+
+</Project>

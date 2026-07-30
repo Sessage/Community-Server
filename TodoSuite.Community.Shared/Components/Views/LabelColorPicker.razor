@@ -1,0 +1,86 @@
+﻿@using Microsoft.FluentUI.AspNetCore.Components
+@using Klassenbibliothek.Data
+
+<div class="space-y-3">
+
+    <!-- Preview-Bar wie im Screenshot -->
+    <div class="w-full h-12 rounded-lg border border-slate-200"
+         style="background:@(PreviewColor)">
+    </div>
+
+    <div class="text-sm font-semibold text-slate-700">Wählen Sie eine Farbe aus</div>
+
+    <!-- Palette -->
+    <div class="grid grid-cols-5 gap-3">
+        @foreach (var c in Palette)
+        {
+            var isSelected = string.Equals(NormalizeHex(SelectedColor), NormalizeHex(c), StringComparison.OrdinalIgnoreCase);
+
+            <button type="button"
+                    class="@SwatchCss(isSelected)"
+                    style="background:@c"
+                    title="@c"
+                    @onclick="() => Select(c)">
+                <span class="sr-only">Farbe @c auswählen</span>
+            </button>
+        }
+    </div>
+
+    <FluentButton Appearance="Appearance.Outline"
+                  Class="w-full"
+                  OnClick="Clear">
+        ✕&nbsp;&nbsp;Farbe entfernen
+    </FluentButton>
+
+    <!-- Optional: wenn du den HEX-Wert sichtbar haben willst (wie manchmal in UI) -->
+    @if (ShowHexValue)
+    {
+        <div class="text-xs text-slate-600">
+            Aktuell: <span class="font-mono">@(!string.IsNullOrWhiteSpace(SelectedColor) ? SelectedColor : "—")</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<string> Palette { get; set; } = Array.Empty<string>();
+
+    /// <summary>Aktuell ausgewählte Farbe (#RRGGBB) oder null/""</summary>
+    [Parameter] public string? SelectedColor { get; set; }
+
+    [Parameter] public EventCallback<string?> SelectedColorChanged { get; set; }
+
+    /// <summary>Optional: Hex-Wert anzeigen</summary>
+    [Parameter] public bool ShowHexValue { get; set; } = false;
+
+    private string PreviewColor
+        => IsValidHexColor(SelectedColor) ? SelectedColor!.Trim() : "#E2E8F0";
+
+    private async Task Select(string color)
+    {
+        // wir speichern exakt den Farbwert aus der Palette
+        SelectedColor = color;
+        if (SelectedColorChanged.HasDelegate)
+            await SelectedColorChanged.InvokeAsync(color);
+    }
+
+    private async Task Clear()
+    {
+        SelectedColor = null;
+        if (SelectedColorChanged.HasDelegate)
+            await SelectedColorChanged.InvokeAsync(null);
+    }
+
+    private static string SwatchCss(bool selected)
+        => selected
+            ? "w-12 h-10 rounded-md border-2 border-blue-500 outline-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+            : "w-12 h-10 rounded-md border border-slate-200 hover:brightness-95 outline-none focus:outline-none focus:ring-2 focus:ring-slate-300";
+
+    private static bool IsValidHexColor(string? s)
+        => !string.IsNullOrWhiteSpace(s)
+           && s.Trim().StartsWith("#")
+           && s.Trim().Length == 7
+           && s.Trim().Skip(1).All(ch => "0123456789abcdefABCDEF".Contains(ch));
+
+    private static string NormalizeHex(string? s)
+        => (s ?? "").Trim();
+}

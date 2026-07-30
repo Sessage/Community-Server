@@ -1,0 +1,215 @@
+@page "/profile"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Components.Views
+@using System.Security.Claims
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.EntityFrameworkCore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Profil</PageTitle>
+
+<div class="flex flex-col h-full min-h-0 overflow-y-auto">
+    <div class="max-w-2xl mx-auto w-full p-6 space-y-6">
+
+        <!-- Header -->
+        <div>
+            <div class="text-xs uppercase text-slate-500">Konto</div>
+            <h1 class="text-2xl font-semibold">Profilbild</h1>
+            <p class="text-sm text-slate-600">Lade ein Profilbild hoch und schneide es auf den gewünschten Ausschnitt zu.</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_statusMessage))
+        {
+            <div class="rounded-xl border @(_isError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm">
+                @_statusMessage
+            </div>
+        }
+
+        <!-- Aktuelles Profilbild -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            <div class="font-medium">Aktuelles Profilbild</div>
+
+            <div class="flex items-center gap-4">
+                @if (!string.IsNullOrEmpty(_currentPictureUrl))
+                {
+                    <img src="@_currentPictureUrl" alt="Profilbild"
+                         class="w-20 h-20 rounded-full object-cover border-2 border-slate-200"
+                         @key="_currentPictureUrl" />
+                    <button type="button"
+                            class="rounded-xl border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                            @onclick="DeleteProfilePictureAsync"
+                            disabled="@_saving">
+                        Profilbild entfernen
+                    </button>
+                }
+                else
+                {
+                    <div class="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-semibold text-2xl">
+                        @(_userName?.Length > 0 ? _userName[0].ToString().ToUpper() : "?")
+                    </div>
+                    <div class="text-sm text-slate-500">Kein Profilbild hinterlegt</div>
+                }
+            </div>
+        </div>
+
+        <!-- Neues Profilbild hochladen -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            <div class="font-medium">Neues Profilbild hochladen</div>
+
+            <ProfilePictureCropper @ref="_cropper" OnImageLoaded="OnCropperImageLoaded" />
+
+            @if (_imageReady)
+            {
+                <div class="flex justify-end">
+                    <button type="button"
+                            class="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+                            style="background-color:#2563eb;color:#ffffff;"
+                            @onclick="SaveProfilePictureAsync"
+                            disabled="@_saving">
+                        @(_saving ? "Wird gespeichert…" : "Profilbild speichern")
+                    </button>
+                </div>
+            }
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private ProfilePictureCropper? _cropper;
+
+    private string? _userId;
+    private string? _userName;
+    private string? _currentPictureUrl;
+
+    private bool _imageReady;
+    private bool _saving;
+    private string _statusMessage = "";
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        _userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+               ?? user.FindFirst("sub")?.Value;
+
+        _userName = user.Identity?.Name
+                 ?? user.FindFirst(ClaimTypes.Email)?.Value;
+
+        await LoadCurrentPictureAsync();
+        // Erfolgsmeldung nach Speichern (per Reload weitergegeben)
+        var uri = new Uri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("saved", out _))
+            SetSuccess("Profilbild wurde erfolgreich gespeichert.");
+    }
+
+    private async Task LoadCurrentPictureAsync()
+    {
+        if (_userId is null) return;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var hasPicture = await db.Users
+            .Where(u => u.Id == _userId)
+            .Select(u => u.ProfilePicturePath != null)
+            .FirstOrDefaultAsync();
+
+        // Cache-Buster, damit das Bild nach einem Update neu geladen wird
+        _currentPictureUrl = hasPicture
+            ? $"/api/profile-picture/{_userId}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}"
+            : null;
+    }
+
+    private void OnCropperImageLoaded()
+    {
+        _imageReady = true;
+        _statusMessage = "";
+        StateHasChanged();
+    }
+
+    private async Task SaveProfilePictureAsync()
+    {
+        if (_cropper is null || !_imageReady) return;
+
+        _saving = true;
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var dataUrl = await _cropper.GetCroppedImageDataUrlAsync();
+            if (string.IsNullOrEmpty(dataUrl))
+            {
+                SetError("Kein Bild zum Speichern vorhanden.");
+                return;
+            }
+
+            var response = await JS.InvokeAsync<UploadResult>("uploadProfilePicture", dataUrl);
+
+            if (response.Success)
+            {
+                _imageReady = false;
+                // Seite neu laden, damit das NavMenu-Profilbild sofort aktualisiert wird
+                Navigation.NavigateTo("/profile?saved=1", forceLoad: true);
+                return;
+            }
+            else
+            {
+                SetError(response.Error ?? "Unbekannter Fehler beim Speichern.");
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError($"Fehler: {ex.Message}");
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteProfilePictureAsync()
+    {
+        _saving = true;
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var result = await JS.InvokeAsync<UploadResult>("deleteProfilePicture");
+            if (result.Success)
+            {
+                SetSuccess("Profilbild wurde entfernt.");
+                _currentPictureUrl = null;
+            }
+            else
+            {
+                SetError(result.Error ?? "Fehler beim Entfernen.");
+            }
+        }
+        catch (Exception ex)
+        {
+            SetError($"Fehler: {ex.Message}");
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetSuccess(string msg) { _statusMessage = msg; _isError = false; }
+    private void SetError(string msg) { _statusMessage = msg; _isError = true; }
+
+    private record UploadResult(bool Success, string? Error, string? Url);
+}

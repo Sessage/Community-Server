@@ -1,0 +1,218 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Endpoints
+@using Microsoft.AspNetCore.Http
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <FluentDesignSystemProvider />
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="_content/TodoSuite.Community.Shared/lib/tailwind/tailwind.css" />
+    <link rel="stylesheet" href="_content/TodoSuite.Community.Shared/app.css" />
+    <link rel="stylesheet" href="@Assets["TodoSuite.Community.styles.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes @rendermode="PageRenderMode" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
+    <script src="_content/TodoSuite.Community.Shared/lib/sortablejs/Sortable.min.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-list.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-kanban.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-nav.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-dashboard.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-table.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-form-designer.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/publicFormAccessibility.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/todo-calendar.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/floatingDropdown.js"></script>
+    <script src="_content/TodoSuite.Community.Shared/js/imageCropper.js"></script>
+    <script>
+        window.todoUi = window.todoUi || {};
+        window.todoUi.__dlgOutsideClose = window.todoUi.__dlgOutsideClose || {};
+
+        function isOverlayClick(path) {
+          // Fluent UI Dialog nutzt im Shadow DOM meist part="overlay"
+          for (const el of path) {
+            if (!el || !el.getAttribute) continue;
+            const part = el.getAttribute("part");
+            if (part === "overlay" || part === "backdrop") return true;
+          }
+          return false;
+        }
+
+        function normalizeIgnoreIds(ignoreIds) {
+          if (!ignoreIds) return [];
+          if (!Array.isArray(ignoreIds)) return [];
+          return ignoreIds
+            .map(x => (typeof x === "string" ? x.trim() : ""))
+            .filter(x => x.length > 0);
+        }
+
+        function isInsideAnyIgnore(target, ignoreIds) {
+          if (!target) return false;
+
+          for (const id of ignoreIds) {
+            const el = document.getElementById(id);
+            if (el && el.contains(target)) return true;
+          }
+          return false;
+        }
+
+        window.todoUi.enableDialogOutsideCloseById = (dialogId, dotNetRef, ignoreIds) => {
+          window.todoUi.disableDialogOutsideCloseById(dialogId);
+
+          const ignore = normalizeIgnoreIds(ignoreIds);
+
+          const handlerPointer = (ev) => {
+            const dialogEl = document.getElementById(dialogId);
+            if (!dialogEl) return;
+
+            // nur linker Klick
+            if (ev.type === "mousedown" && ev.button !== 0) return;
+
+            const path = typeof ev.composedPath === "function" ? ev.composedPath() : [];
+            const pathHasDialog = path.includes(dialogEl);
+
+            const target = ev.target;
+
+            // Klicks im Unterdialog ignorieren, Overlay-Klicks des Unterdialogs aber schließen lassen.
+            if (isInsideAnyIgnore(target, ignore) && !isOverlayClick(path)) return;
+
+            // ✅ 0b) Klick innerhalb eines FloatingDropdown-Panels (Portal außerhalb des Dialogs) -> niemals schließen
+            if (target && target.closest && target.closest('.floating-dropdown-panel')) return;
+
+            // 1) Klick auf Overlay im Dialog -> schließen
+            //    Aber: wenn overlay-click gleichzeitig aus einem ignore kommt (Shadow/Portals),
+            //    haben wir oben schon rausgefiltert.
+            if (pathHasDialog && isOverlayClick(path)) {
+              dotNetRef.invokeMethodAsync("CloseFromOutsideClick");
+              return;
+            }
+
+            // 2) Klick wirklich komplett außerhalb des Dialog-Host -> schließen
+            //    (Fallback, falls Overlay-Detection bei einem Update anders ist)
+            const insideHost = dialogEl.contains(target);
+            if (!insideHost && !pathHasDialog) {
+              dotNetRef.invokeMethodAsync("CloseFromOutsideClick");
+            }
+          };
+
+          const handlerKey = (ev) => {
+            if (ev.key === "Escape") {
+              dotNetRef.invokeMethodAsync("CloseFromOutsideClick");
+            }
+          };
+
+          document.addEventListener("mousedown", handlerPointer, true);
+          document.addEventListener("touchstart", handlerPointer, true);
+          document.addEventListener("keydown", handlerKey, true);
+
+          window.todoUi.__dlgOutsideClose[dialogId] = { handlerPointer, handlerKey, ignore };
+        };
+
+        window.todoUi.disableDialogOutsideCloseById = (dialogId) => {
+          const entry = window.todoUi.__dlgOutsideClose[dialogId];
+          if (!entry) return;
+
+          document.removeEventListener("mousedown", entry.handlerPointer, true);
+          document.removeEventListener("touchstart", entry.handlerPointer, true);
+          document.removeEventListener("keydown", entry.handlerKey, true);
+
+          delete window.todoUi.__dlgOutsideClose[dialogId];
+        };
+
+        // ✅ Optional: falls du Ignore-IDs nachträglich updaten willst (Dialoge öffnen/schließen während Hook aktiv ist)
+        window.todoUi.updateDialogOutsideCloseIgnore = (dialogId, ignoreIds) => {
+          const entry = window.todoUi.__dlgOutsideClose[dialogId];
+          if (!entry) return;
+          entry.ignore = normalizeIgnoreIds(ignoreIds);
+        };
+
+        // ─── Datei-Download ─────────────────────────────────────────────────────
+        window.todoUi.downloadFile = function (filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
+        window.todoUi.printContent = function (html) {
+            const w = window.open('', '_blank');
+            if (!w) return;
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+            setTimeout(() => { w.print(); }, 250);
+        };
+
+        // ─── Browser-Zeitzone ────────────────────────────────────────────────────
+        window.getBrowserUtcOffsetMinutes = () => -new Date().getTimezoneOffset();
+
+        // ─── Profilbild-API-Helfer ───────────────────────────────────────────────
+        window.uploadProfilePicture = async (imageDataUrl) => {
+          try {
+            const resp = await fetch('/api/profile-picture', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ imageData: imageDataUrl }),
+              credentials: 'same-origin'
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              return { success: true, url: data.url, error: null };
+            } else {
+              let errMsg = 'Fehler beim Hochladen.';
+              try { const err = await resp.json(); errMsg = err.error || errMsg; } catch {}
+              return { success: false, url: null, error: errMsg };
+            }
+          } catch (e) {
+            return { success: false, url: null, error: e.message };
+          }
+        };
+
+        window.deleteProfilePicture = async () => {
+          try {
+            const resp = await fetch('/api/profile-picture', {
+              method: 'DELETE',
+              credentials: 'same-origin'
+            });
+            if (resp.ok || resp.status === 204) {
+              return { success: true, url: null, error: null };
+            } else {
+              let errMsg = 'Fehler beim Entfernen.';
+              try { const err = await resp.json(); errMsg = err.error || errMsg; } catch {}
+              return { success: false, url: null, error: errMsg };
+            }
+          } catch (e) {
+            return { success: false, url: null, error: e.message };
+          }
+        };
+    </script>
+
+
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? new InteractiveServerRenderMode(prerender: false) : null;
+}

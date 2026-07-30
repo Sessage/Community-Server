@@ -1,0 +1,180 @@
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@inject ITodoTaskService TaskService
+@inject ITodoCurrentUserService CurrentUserService
+
+@if (SelectedTaskIds.Count > 0)
+{
+    <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
+        <span class="font-medium text-slate-700">@L["Bulk_SelectedCount", SelectedTaskIds.Count]</span>
+        <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                @bind="_action">
+            <option value="">@L["Bulk_SelectAction"]</option>
+            <option value="@ActionComplete">@L["Bulk_MarkDone"]</option>
+            <option value="@ActionMove">@L["Bulk_Move"]</option>
+            <option value="@ActionColor">@L["Bulk_ChangeColor"]</option>
+            <option value="@ActionClearColor">@L["Bulk_ClearColor"]</option>
+            <option value="@ActionDelete">@L["Btn_Delete"]</option>
+        </select>
+
+        @if (_action == ActionMove)
+        {
+            <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    @bind="_targetColumn">
+                <option value="">@L["Task_Move_TargetColumn"]</option>
+                @foreach (var column in List.Columns ?? [])
+                {
+                    <option value="@column">@column</option>
+                }
+            </select>
+        }
+        else if (_action == ActionColor)
+        {
+            <input class="h-9 w-12 rounded-lg border border-slate-200 bg-white p-1"
+                   type="color"
+                   title="@L["Lbl_Color"]"
+                   @bind="_cardColor" />
+            <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    @bind="_cardColorMode">
+                <option value="@TaskCardColorMode.TopOnly">@L["Task_CardStyle_ModeTopOnly"]</option>
+                <option value="@TaskCardColorMode.Full">@L["Task_CardStyle_ModeFull"]</option>
+            </select>
+        }
+
+        <button type="button"
+                class="bulk-apply-button inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 font-medium text-white disabled:opacity-50"
+                disabled="@(!CanApply)"
+                @onclick="ApplyAsync">
+            <FluentIcon Class="bulk-apply-icon" Value="@(new Icons.Regular.Size16.Checkmark())" />
+            <span>@L["Bulk_Apply"]</span>
+        </button>
+
+        <button type="button"
+                class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                @onclick="ClearSelectionAsync">
+            @L["Bulk_ClearSelection"]
+        </button>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <span class="text-red-600">@_error</span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public TodoListEntity List { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyCollection<Guid> SelectedTaskIds { get; set; } = [];
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback OnSelectionCleared { get; set; }
+
+    private const string ActionComplete = "complete";
+    private const string ActionDelete = "delete";
+    private const string ActionMove = "move";
+    private const string ActionColor = "color";
+    private const string ActionClearColor = "clear-color";
+
+    private string _userId = "gast";
+    private string _action = "";
+    private string _targetColumn = "";
+    private string _cardColor = "#3b82f6";
+    private TaskCardColorMode _cardColorMode = TaskCardColorMode.TopOnly;
+    private string _error = "";
+    private bool _busy;
+
+    private bool CanApply =>
+        !_busy
+        && SelectedTaskIds.Count > 0
+        && _action switch
+        {
+            ActionMove => !string.IsNullOrWhiteSpace(_targetColumn),
+            ActionColor => !string.IsNullOrWhiteSpace(_cardColor),
+            ActionComplete or ActionDelete or ActionClearColor => true,
+            _ => false
+        };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _userId = (await CurrentUserService.GetCurrentUserAsync()).UserId; } catch { }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(_targetColumn))
+            _targetColumn = (List.Columns ?? []).FirstOrDefault() ?? "";
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (!CanApply)
+            return;
+
+        _busy = true;
+        _error = "";
+
+        try
+        {
+            var selected = (List.Tasks ?? [])
+                .Where(t => SelectedTaskIds.Contains(t.Id))
+                .ToList();
+
+            foreach (var task in selected)
+            {
+                if (_action == ActionDelete)
+                {
+                    await TaskService.DeleteTaskAsync(_userId, List.Id, task.Id);
+                    continue;
+                }
+
+                ApplyUpdate(task);
+                await TaskService.UpdateTaskAsync(_userId, List.Id, task);
+            }
+
+            if (_action == ActionDelete)
+                (List.Tasks ?? []).RemoveAll(t => SelectedTaskIds.Contains(t.Id));
+
+            await OnChanged.InvokeAsync();
+            await ClearSelectionAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ApplyUpdate(TodoTaskEntity task)
+    {
+        switch (_action)
+        {
+            case ActionComplete:
+                task.Done = true;
+                task.ReminderAtUtc = null;
+                var doneColumn = (List.DoneColumns ?? []).FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(doneColumn))
+                    task.Column = doneColumn;
+                break;
+            case ActionMove:
+                task.Column = _targetColumn;
+                task.Done = (List.DoneColumns ?? []).Contains(_targetColumn, StringComparer.OrdinalIgnoreCase);
+                if (task.Done)
+                    task.ReminderAtUtc = null;
+                break;
+            case ActionColor:
+                task.CardColor = _cardColor;
+                task.CardColorMode = _cardColorMode;
+                break;
+            case ActionClearColor:
+                task.CardColor = null;
+                task.CardColorMode = TaskCardColorMode.TopOnly;
+                break;
+        }
+    }
+
+    private Task ClearSelectionAsync()
+        => OnSelectionCleared.InvokeAsync();
+}

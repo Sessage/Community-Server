@@ -1,0 +1,22 @@
+@using System.Globalization
+
+<div class="rounded-2xl border border-slate-200 bg-white p-4">
+    <div class="font-semibold mb-2">@Title</div>
+    @foreach (var bar in Bars)
+    {
+        var pct = Total == 0 ? 0.0 : Math.Clamp((double)bar.Value / Total * 100, 0, 100);
+        <div class="mb-2">
+            <div class="text-xs text-slate-500 mb-1">@bar.Label (@bar.Value)</div>
+            <div class="h-2 rounded bg-slate-100">
+                <div class="h-2 rounded bg-blue-500"
+                     style="width:@pct.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public (string Label, int Value)[] Bars { get; set; } = [];
+    [Parameter] public int Total { get; set; }
+}

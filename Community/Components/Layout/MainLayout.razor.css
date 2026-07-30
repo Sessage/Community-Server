@@ -1,0 +1,65 @@
+.nav-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    color: #0f172a;
+    text-decoration: none;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.nav-pill:hover {
+    background-color: #e2e8f0;
+}
+
+.nav-pill.active {
+    background-color: #0f172a;
+    color: #ffffff;
+}
+
+.app-shell__mobile-header {
+    display: none;
+}
+
+.app-shell__nav {
+    transition: width 200ms ease, min-width 200ms ease;
+}
+
+@media (min-width: 901px) {
+    .app-shell.nav-collapsed .app-shell__nav {
+        width: 0;
+        min-width: 0;
+        border-right: none;
+        box-shadow: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .app-shell {
+        position: relative;
+    }
+
+    .app-shell__nav,
+    .app-shell__main {
+        width: 100%;
+        min-width: 100%;
+        height: 100%;
+        border-right: none;
+        box-shadow: none;
+    }
+
+    .app-shell.mobile-nav-visible .app-shell__main {
+        display: none;
+    }
+
+    .app-shell.mobile-content-visible .app-shell__nav {
+        display: none;
+    }
+
+    .app-shell.mobile-content-visible .app-shell__mobile-header {
+        display: flex;
+        align-items: center;
+    }
+}

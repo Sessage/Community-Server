@@ -1,0 +1,1055 @@
+@using Klassenbibliothek.Services
+﻿@using Microsoft.FluentUI.AspNetCore.Components
+@inject ITodoTaskService TaskService
+@inject ITodoCurrentUserService CurrentUserService
+@inject IJSRuntime JS
+@using Klassenbibliothek.Data
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+
+<div class="flex flex-col h-full min-h-0">
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 shrink-0">
+            <div class="font-semibold">@L["Lbl_Error"]</div>
+            <div>@_error</div>
+        </div>
+    }
+
+    @if (_selectedTaskIds.Count > 0)
+    {
+        <div class="mx-3 flex flex-wrap items-center justify-center gap-2 pb-2 shrink-0">
+            <BulkTaskActionBar List="List"
+                               SelectedTaskIds="_selectedTaskIds"
+                               OnChanged="HandleBulkChangedAsync"
+                               OnSelectionCleared="ClearSelectionAsync" />
+        </div>
+    }
+
+    <!-- Scrollbereich -->
+    <div class="flex-1 mx-3 overflow-y-auto min-h-0 pr-1 thin-scrollbar"
+         @ref="_listScrollEl">
+
+        <!-- OFFENE Aufgaben (sortable host nur für offene Aufgaben!) -->
+        <div class="space-y-3 pb-4" data-list-sortable-host="true" @ref="_sortableHostEl" @key="_sortableHostVersion">
+            @foreach (var t in GetOpenTasks())
+            {
+                <div @key="t.Id"
+                     class="todo-list-card w-full rounded-2xl border border-slate-200 bg-white p-3 hover:shadow-md transition cursor-pointer"
+                     role="button"
+                     data-taskid="@t.Id"
+                     @onclick="() => SelectTaskAsync(t)">
+
+                    <div class="todo-list-card-row w-full"
+                         style="display:grid; grid-template-columns:@CardGridColumns; column-gap:0.75rem; row-gap:0.35rem; align-items:start;">
+
+                        @if (SelectionMode)
+                        {
+                            <label class="shrink-0 flex items-start pt-1" style="grid-column:1; grid-row:1;" data-nodrag="true" @onclick:stopPropagation="true">
+                                <input type="checkbox"
+                                       class="h-5 w-5 rounded border-slate-300"
+                                       checked="@IsTaskSelected(t.Id)"
+                                       @onchange="e => ToggleTaskSelection(t.Id, e)" />
+                            </label>
+                        }
+
+                        <!-- DONE -->
+                        <div class="shrink-0 flex items-start pt-1" style="grid-column:@DoneGridColumn; grid-row:1;">
+                            <button type="button"
+                                    @onclick:preventDefault="true"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => ToggleDoneAsync(t)">
+                                @if (t.Done)
+                                {
+                                    <FluentIcon Value="@(new Icons.Filled.Size24.CheckmarkCircle())" />
+                                }
+                                else
+                                {
+                                    <FluentIcon Value="@(new Icons.Regular.Size24.Circle())" />
+                                }
+                            </button>
+                        </div>
+
+                        <!-- TITLE -->
+                        <div class="todo-list-title-wrap min-w-0 text-lg font-semibold" style="grid-column:@TitleGridColumn; grid-row:1; min-width:0; max-width:100%; overflow:visible;">
+                            <span class="todo-list-title"
+                                  style="display:block; width:100%; max-width:100%; white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; line-height:1.45;">
+                                @t.Title
+                            </span>
+                            <div class="todo-list-meta flex flex-wrap items-center gap-1">
+                                @if (t.Comments.Count() > 0)
+                                {
+                                    <span class="text-base text-slate-500">@t.Comments.Count() </span>
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Chat())" style="--accent-fill-rest: rgb(71 85 105 / var(--tw-text-opacity, 1))" />
+                                }
+                                @if (t.Attachments.Count() > 0)
+                                {
+                                    <span class="ml-1 text-slate-500 text-base">@t.Attachments.Count() </span>
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Attach())" style="--accent-fill-rest: rgb(71 85 105 / var(--tw-text-opacity, 1))" />
+                                }
+                                @if (t.Steps != null && t.Steps.Count > 0)
+                                {
+                                    var _steDone = t.Steps.Count(s => s.IsCompleted);
+                                    var _steCnt = t.Steps.Count;
+                                    <span class="ml-1 flex items-center gap-0.5 text-slate-500 text-sm"
+                                          title="@(string.Format(L["ListView_ChecklistTitle"].Value, _steDone, _steCnt))"
+                                          style="@(_steDone == _steCnt ? "color:#22c55e;" : "")">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                        @_steDone/@_steCnt
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- IMPORTANT -->
+                        <div class="shrink-0 flex items-start justify-end pt-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
+                            <button type="button"
+                                    @onclick:preventDefault="true"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => ToggleImportantAsync(t)">
+                                @if (t.IsImportant)
+                                {
+                                    <FluentIcon Value="@(new Icons.Filled.Size24.Star())" />
+                                }
+                                else
+                                {
+                                    <FluentIcon Value="@(new Icons.Regular.Size24.Star())" />
+                                }
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- ERLEDIGT Bereich (einklappbar, keine Sortierung nötig) -->
+        @{
+            var doneCount = GetDoneTasks().Count;
+        }
+
+        @if (doneCount > 0)
+        {
+            <div class="mt-2 mb-4">
+                <button type="button"
+                        class="rounded-2xl border border-slate-200 bg-slate-50 p-3 flex items-center justify-between hover:shadow-sm transition"
+                        @onclick="ToggleDoneSection">
+                    <div class="flex items-center gap-2 font-semibold text-slate-700">
+                        <span>@L["ListView_CompletedSection"]</span>
+                        <span class="text-xs rounded-full bg-slate-200 px-2 py-0.5">@doneCount</span>
+                    </div>
+                    <div class="text-slate-600">
+                        @if (_doneSectionOpen)
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size20.ChevronUp())" />
+                        }
+                        else
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size20.ChevronDown())" />
+                        }
+                    </div>
+                </button>
+
+                @if (_doneSectionOpen)
+                {
+                    <div class="mt-3 space-y-3">
+                        @foreach (var t in GetDoneTasks())
+                        {
+                            <div @key="t.Id"
+                                 class="w-full rounded-2xl border border-slate-200 bg-white p-3 hover:shadow-md transition cursor-pointer opacity-90"
+                                 role="button"
+                                 @onclick="() => SelectTaskAsync(t)">
+
+                                <div class="todo-list-card-row w-full"
+                                     style="display:grid; grid-template-columns:@CardGridColumns; column-gap:0.75rem; row-gap:0.35rem; align-items:start;">
+
+                                    @if (SelectionMode)
+                                    {
+                                        <label class="shrink-0 flex items-start pt-1" style="grid-column:1; grid-row:1;" data-nodrag="true" @onclick:stopPropagation="true">
+                                            <input type="checkbox"
+                                                   class="h-5 w-5 rounded border-slate-300"
+                                                   checked="@IsTaskSelected(t.Id)"
+                                                   @onchange="e => ToggleTaskSelection(t.Id, e)" />
+                                        </label>
+                                    }
+
+                                    <!-- DONE (zum Zurücksetzen) -->
+                                    <div class="shrink-0 flex items-start pt-1" style="grid-column:@DoneGridColumn; grid-row:1;">
+                                        <button type="button"
+                                                @onclick:preventDefault="true"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => ToggleDoneAsync(t)">
+                                            <FluentIcon Value="@(new Icons.Filled.Size24.CheckmarkCircle())" />
+                                        </button>
+                                    </div>
+
+                                    <!-- TITLE -->
+                                    <div class="todo-list-title-wrap min-w-0 text-lg font-semibold line-through text-slate-600" style="grid-column:@TitleGridColumn; grid-row:1; min-width:0; max-width:100%; overflow:visible;">
+                                        <span class="todo-list-title"
+                                              style="display:block; width:100%; max-width:100%; white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; line-height:1.45;">
+                                            @t.Title
+                                        </span>
+                                        <div class="todo-list-meta flex flex-wrap items-center gap-1">
+                                            @if (t.Comments.Count() > 0)
+                                            {
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.Chat())" />
+                                            }
+                                            @if (t.Attachments.Count() > 0)
+                                            {
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.Attach())" />
+                                            }
+                                            @if (t.Steps != null && t.Steps.Count > 0)
+                                            {
+                                                var _steDone = t.Steps.Count(s => s.IsCompleted);
+                                                var _steCnt = t.Steps.Count;
+                                                <span class="ml-1 flex items-center gap-0.5 text-slate-400 text-sm no-underline"
+                                                      title="@(string.Format(L["ListView_ChecklistTitle"].Value, _steDone, _steCnt))"
+                                                      style="@(_steDone == _steCnt ? "color:#22c55e;" : "")">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                                    @_steDone/@_steCnt
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- IMPORTANT (optional, bleibt nutzbar) -->
+                                    <div class="shrink-0 flex items-start justify-end pt-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
+                                        <button type="button"
+                                                @onclick:preventDefault="true"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => ToggleImportantAsync(t)">
+                                            @if (t.IsImportant)
+                                            {
+                                                <FluentIcon Value="@(new Icons.Filled.Size24.Star())" />
+                                            }
+                                            else
+                                            {
+                                                <FluentIcon Value="@(new Icons.Regular.Size24.Star())" />
+                                            }
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (ShowAddTaskInput)
+        {
+            @if (CanWriteToList())
+            {
+                <!-- Addbar unten -->
+                <div class="sticky bottom-0 z-20 backdrop-blur">
+                    <div class="pt-2 pb-2">
+                        <input class="task-quick-add-input w-full text-base"
+                               placeholder="@L["ListView_AddTask"]"
+                               value="@_newTitle"
+                               @oninput="OnNewTitleInput"
+                               @onkeydown="OnNewTitleKeyDown" />
+                    </div>
+                </div>
+
+                <!-- etwas Abstand damit sticky input nicht überlappt -->
+                <div class="h-2"></div>
+            }
+            else
+            {
+                <!-- Hinweis für Beobachter -->
+                <div class="sticky bottom-0 z-20 backdrop-blur">
+                    <div class="pt-2 pb-2">
+                        <div class="flex items-center gap-2 px-3 py-3 rounded-2xl border border-slate-200 bg-slate-50 text-xs text-slate-500">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Class="flex-shrink-0" />
+                            <span>@L["ListView_NoWritePermission"]</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- etwas Abstand -->
+                <div class="h-2"></div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TodoListEntity List { get; set; } = default!;
+    [Parameter, EditorRequired] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskSelected { get; set; }
+    [Parameter] public bool SidebarVisible { get; set; }
+
+    [Parameter] public ListSortMode SortMode { get; set; } = ListSortMode.Custom;
+    [Parameter] public bool ShowAddTaskInput { get; set; } = true;
+    [Parameter] public Func<TodoTaskEntity, Guid>? ListIdSelector { get; set; }
+    [Parameter] public EventCallback<bool> OnDraggingChanged { get; set; }
+    [Parameter] public bool SelectionMode { get; set; }
+    [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
+    private bool _isDragging;
+    private bool _disposed;
+    private bool _lastSelectionMode;
+    private readonly HashSet<Guid> _selectedTaskIds = new();
+
+    private string _userId = "gast";
+    private string _error = "";
+
+    private string _newTitle = "";
+    private bool _isAdding = false;
+    private readonly SemaphoreSlim _addPersistLock = new(1, 1);
+
+    // Done-Accordion
+    private bool _doneSectionOpen = false;
+    private readonly Dictionary<Guid, bool> _pendingDoneStates = new();
+
+    // JS Interop (SortableJS wrapper: window.todoUi.initSortableList / disposeSortableList)
+    private ElementReference _sortableHostEl;
+    private ElementReference _listScrollEl;
+    private DotNetObjectReference<ToDoListView>? _dotNetRef;
+
+    private bool _sortableInitialized = false;
+    private ListSortMode _lastSortMode = ListSortMode.Custom;
+
+    private string _lastDomSignature = "";
+    private bool _needsSortableResync = false;
+    private DateTime _lastDragEndUtc = DateTime.MinValue;
+    private long _latestDragToken = 0;
+    private bool _deferredDragEndNotificationToParent = false;
+
+    // Speichert die vom letzten Drag-Drop resultierende Aufgabenreihenfolge.
+    // Solange der Parent noch alte SortOrder-Werte liefert, rendert die View
+    // über dieses Overlay die zuletzt gezogene Reihenfolge (kein Zurückspringen).
+    private List<Guid>? _pendingOrder;
+    private Dictionary<Guid, int>? _pendingOrderIndex;
+    private System.Threading.Timer? _dragWatchdogTimer;
+
+    // Watchdog bewusst deaktiviert: ein fixer Timeout bricht legitime lange Drag-Gesten ab.
+    // Hängende Drags werden über JS-Events (onEnd/onCancel/onUnchoose), visibilitychange
+    // und dispose/reset bereinigt.
+    private const bool EnableDragWatchdog = false;
+    private static readonly TimeSpan DragWatchdogTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan IgnoreLateDragStartWindow = TimeSpan.FromMilliseconds(600);
+
+    private void ToggleDoneSection() => _doneSectionOpen = !_doneSectionOpen;
+
+    private Guid GetListIdForTask(TodoTaskEntity task)
+        => ListIdSelector?.Invoke(task) ?? List.Id;
+
+    private void SetPendingOrder(List<Guid>? ids)
+    {
+        _pendingOrder = ids;
+        _pendingOrderIndex = ids is { Count: > 0 }
+            ? ids.Select((id, idx) => new { id, idx }).ToDictionary(x => x.id, x => x.idx)
+            : null;
+    }
+
+    private int GetEffectiveCustomOrder(TodoTaskEntity task)
+        => _pendingOrderIndex is not null && _pendingOrderIndex.TryGetValue(task.Id, out var idx)
+            ? idx
+            : task.ListSortOrder;
+
+    private string BuildDomSignature()
+    {
+        // stabil genug: IDs + SortOrder + Done/Important + Child-Counts
+        return string.Join("|", List.Tasks
+            .OrderBy(t => t.Id)
+            .Select(t => $"{t.Id:N}:{t.ListSortOrder}:{(IsTaskDone(t) ? 1 : 0)}:{(t.IsImportant ? 1 : 0)}:{t.Attachments.Count}:{t.Comments.Count}:{t.Steps.Count}"));
+    }
+
+    [JSInvokable]
+    public async Task SetDragging(bool value)
+        => await ApplyDraggingStateAsync(value);
+
+    [JSInvokable]
+    public async Task SetDraggingWithToken(bool value, long token)
+    {
+        if (token < _latestDragToken) return;
+        _latestDragToken = token;
+        // Ein frischer Token belegt einen echten neuen Drag-Start.
+        if (value) _lastDragEndUtc = DateTime.MinValue;
+        await ApplyDraggingStateAsync(value);
+    }
+
+    /// <summary>
+    /// Kombiniert Drag-Ende und Reorder in einem einzigen Blazor-Aufruf.
+    /// Dadurch ist _pendingOrder bereits gesetzt, bevor ApplyDraggingStateAsync(false)
+    /// via OnDraggingChanged den Parent-Re-render auslöst – kein Zurückspringen mehr.
+    /// </summary>
+    [JSInvokable]
+    public async Task FinishListDragWithOrder(long token, string[] orderedTaskIds)
+    {
+        if (token < _latestDragToken) return;
+        _latestDragToken = token;
+
+        if (SortMode != ListSortMode.Custom)
+        {
+            await ApplyDraggingStateAsync(false);
+            return;
+        }
+
+        try
+        {
+            var ids = new List<Guid>(orderedTaskIds.Length);
+            foreach (var s in orderedTaskIds)
+                if (Guid.TryParse(s, out var g))
+                    ids.Add(g);
+
+            // Lokal patchen (optimistisch) — BEVOR OnDraggingChanged den Parent-Reload auslöst
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var task = List.Tasks.FirstOrDefault(t => t.Id == ids[i]);
+                if (task is not null) task.ListSortOrder = i;
+            }
+
+            // Reihenfolge merken — BEVOR ApplyDraggingStateAsync(false) feuert,
+            // damit OnParametersSet beim Parent-Reload die korrekte Reihenfolge findet.
+            SetPendingOrder(ids);
+
+            // Drag-State absichtlich NOCH NICHT beenden:
+            // Solange Persistierung/Parent-Reload laufen, blockt ShouldRender() Zwischen-Frames,
+            // die sonst kurz die alte Reihenfolge zeigen könnten.
+            _deferredDragEndNotificationToParent = true;
+
+            _ = PersistListReorderAsync(ids);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
+            _deferredDragEndNotificationToParent = false;
+            await ApplyDraggingStateAsync(false);
+            RequestSortableResync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ApplyDraggingStateAsync(bool value, bool notifyParent = true)
+    {
+        if (_disposed) return;
+
+        // Defensive against out-of-order JS interop calls:
+        // a delayed SetDragging(true) arriving shortly after SetDragging(false)
+        // can otherwise leave the UI in a permanently "dragging" state.
+        if (value && _lastDragEndUtc != DateTime.MinValue
+            && (DateTime.UtcNow - _lastDragEndUtc) < IgnoreLateDragStartWindow)
+        {
+            return;
+        }
+
+        _isDragging = value;
+
+        if (value)
+        {
+            StartDragWatchdog();
+        }
+        else
+        {
+            _lastDragEndUtc = DateTime.UtcNow;
+            StopDragWatchdog();
+        }
+
+        if (notifyParent && OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(value);
+    }
+
+    private async Task FlushDeferredDragEndNotificationAsync()
+    {
+        if (!_deferredDragEndNotificationToParent) return;
+        _deferredDragEndNotificationToParent = false;
+
+        if (OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(false);
+    }
+
+    protected override bool ShouldRender() => !_isDragging;
+
+    private void StartDragWatchdog()
+    {
+        if (!EnableDragWatchdog) return;
+        // deprecated: Unreachable while EnableDragWatchdog is intentionally disabled.
+        // _dragWatchdogTimer?.Dispose();
+        // _dragWatchdogTimer = new System.Threading.Timer(
+        //     _ => OnDragWatchdogFired(),
+        //     null,
+        //     DragWatchdogTimeout,
+        //     System.Threading.Timeout.InfiniteTimeSpan);
+    }
+
+    private void StopDragWatchdog()
+    {
+        _dragWatchdogTimer?.Dispose();
+        _dragWatchdogTimer = null;
+    }
+
+    private void OnDragWatchdogFired()
+    {
+        if (!_isDragging || _disposed) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            if (_disposed) return;
+
+            _isDragging = false;
+            _lastDragEndUtc = DateTime.UtcNow;
+            StopDragWatchdog();
+
+            if (OnDraggingChanged.HasDelegate)
+                await OnDraggingChanged.InvokeAsync(false);
+        });
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_lastSelectionMode && !SelectionMode)
+        {
+            _selectedTaskIds.Clear();
+            RequestSortableResync(rebuildHost: false);
+        }
+        _lastSelectionMode = SelectionMode;
+
+        // Optimistischen Reorder-Stand auf das frisch geladene List-Objekt übertragen,
+        // bevor Blazor rendert – verhindert das kurze Zurückspringen in die alte Reihenfolge.
+        if (_pendingOrder is not null && List?.Tasks is not null)
+        {
+            // Nur dann verwerfen, wenn die vom Parent gelieferte Reihenfolge bereits der
+            // zuletzt gezogenen Reihenfolge entspricht. Andernfalls _pendingOrder behalten,
+            // damit bei weiteren Parent-Reloads weiterhin kein "Zurückspringen" sichtbar ist.
+            var incomingOpenOrder = List.Tasks
+                .Where(x => !x.Done)
+                .OrderBy(x => x.ListSortOrder)
+                .Select(x => x.Id)
+                .ToList();
+            var parentAlreadyInPendingOrder = incomingOpenOrder.SequenceEqual(_pendingOrder);
+
+            if (parentAlreadyInPendingOrder)
+                SetPendingOrder(null);
+        }
+
+        if (_pendingDoneStates.Count > 0 && List?.Tasks is not null)
+        {
+            foreach (var task in List.Tasks)
+            {
+                if (_pendingDoneStates.TryGetValue(task.Id, out var pendingDone) && task.Done == pendingDone)
+                    _pendingDoneStates.Remove(task.Id);
+            }
+        }
+
+        var sig = BuildDomSignature();
+        if (_lastDomSignature != sig)
+        {
+            _lastDomSignature = sig;
+
+            // Wenn Sortable aktiv ist, nach dem nächsten Render resyncen
+            if (SortMode == ListSortMode.Custom && _sortableInitialized)
+                _needsSortableResync = true;
+        }
+    }
+
+    private int _sortableHostVersion = 0;
+
+    public void RequestSortableResync(bool rebuildHost = true)
+    {
+        if (SortMode == ListSortMode.Custom && !FilterActive && !SelectionMode)
+        {
+            _needsSortableResync = true;
+            if (rebuildHost)
+                _sortableHostVersion++; // zwingt Blazor, den Host-DOM neu aufzubauen
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await CurrentUserService.GetCurrentUserAsync();
+        _userId = currentUser.UserId;
+
+        _lastSortMode = SortMode;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Sortable nur für OFFENE Tasks, und nur in Custom
+        if (SortMode == ListSortMode.Custom && !FilterActive && !SelectionMode)
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+
+            if (!_sortableInitialized)
+            {
+                await JS.InvokeVoidAsync("todoUi.initSortableList", _sortableHostEl, _listScrollEl, _dotNetRef);
+                _sortableInitialized = true;
+            }
+            else if (_needsSortableResync)
+            {
+                _needsSortableResync = false;
+                await JS.InvokeVoidAsync("todoUi.reinitSortableList", _sortableHostEl, _listScrollEl, _dotNetRef);
+            }
+        }
+        else
+        {
+            if (_sortableInitialized)
+            {
+                try { await JS.InvokeVoidAsync("todoUi.disposeSortableList", _sortableHostEl); } catch { }
+                _sortableInitialized = false;
+            }
+        }
+
+        _lastSortMode = SortMode;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        StopDragWatchdog();
+        try
+        {
+            if (_sortableInitialized)
+                await JS.InvokeVoidAsync("todoUi.disposeSortableList", _sortableHostEl);
+        }
+        catch { /* ign */ }
+
+        _dotNetRef?.Dispose();
+    }
+
+    // ====== Datenquellen (Trennung: offen / erledigt) ======
+
+    private List<TodoTaskEntity> GetOpenTasks()
+        => GetTasksInternal().Where(t => !IsTaskDone(t)).ToList();
+
+    private List<TodoTaskEntity> GetDoneTasks()
+        // keine Sortierung nötig – ich gebe sie trotzdem stabil aus (z.B. neueste oben)
+        => List.Tasks.Where(IsTaskDone)
+            .OrderByDescending(t => t.CreatedAtUtc)
+            .ToList();
+
+    private bool IsTaskDone(TodoTaskEntity task)
+        => _pendingDoneStates.TryGetValue(task.Id, out var pendingDone)
+            ? pendingDone
+            : task.Done;
+
+    private string CardGridColumns => SelectionMode
+        ? "auto auto minmax(0, 1fr) auto"
+        : "auto minmax(0, 1fr) auto";
+
+    private int DoneGridColumn => SelectionMode ? 2 : 1;
+    private int TitleGridColumn => SelectionMode ? 3 : 2;
+    private int ImportantGridColumn => SelectionMode ? 4 : 3;
+
+    private bool IsTaskSelected(Guid taskId) => _selectedTaskIds.Contains(taskId);
+
+    private void ToggleTaskSelection(Guid taskId, ChangeEventArgs e)
+    {
+        if (e.Value is bool selected && selected)
+            _selectedTaskIds.Add(taskId);
+        else
+            _selectedTaskIds.Remove(taskId);
+    }
+
+    private async Task ClearSelectionAsync()
+    {
+        _selectedTaskIds.Clear();
+        await SelectionModeChanged.InvokeAsync(false);
+        RequestSortableResync(rebuildHost: false);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleBulkChangedAsync()
+    {
+        await OnChanged.InvokeAsync();
+        RequestSortableResync();
+    }
+
+    private IEnumerable<TodoTaskEntity> GetTasksInternal()
+    {
+        IEnumerable<TodoTaskEntity> q = SortMode switch
+        {
+            ListSortMode.Custom => List.Tasks.OrderBy(t => GetEffectiveCustomOrder(t)),
+            ListSortMode.Importance => List.Tasks.OrderByDescending(t => t.IsImportant).ThenBy(t => t.ListSortOrder),
+            ListSortMode.DueDate => List.Tasks.OrderBy(t => t.DueDate ?? DateTime.MaxValue).ThenBy(t => t.ListSortOrder),
+            ListSortMode.Alphabetical => List.Tasks.OrderBy(t => t.Title).ThenBy(t => t.ListSortOrder),
+            ListSortMode.CreatedAt => List.Tasks.OrderByDescending(t => t.CreatedAtUtc).ThenBy(t => t.ListSortOrder),
+            _ => List.Tasks.OrderBy(t => t.ListSortOrder)
+        };
+
+        return q.Where(t => MatchesFilter(t));
+    }
+
+
+    /* ---------------- Berechtigungsprüfung ---------------- */
+
+    private bool CanWriteToList()
+    {
+        var uid = (_userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+
+        if (string.Equals((List.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var p = List.Participants?.FirstOrDefault(x =>
+            (!string.IsNullOrWhiteSpace(x.UserId) && string.Equals(x.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(x.Email) && string.Equals(x.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+
+        if (p is null) return false;
+        return p.Role != ListRole.Observer;
+    }
+
+    /* ---------------- Addbar ---------------- */
+
+    private void OnNewTitleInput(ChangeEventArgs e)
+        => _newTitle = e.Value?.ToString() ?? "";
+
+    private async Task OnNewTitleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+
+        var title = _newTitle.Trim();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        if (_isAdding) return;
+
+        _isAdding = true;
+        _error = "";
+
+        // Neue Aufgabe wird IMMER unten eingefügt (Custom-Order)
+        var max = List.Tasks.Where(t => !t.Done).Max(t => (int?)t.ListSortOrder) ?? -1;
+
+        var t = new TodoTaskEntity
+        {
+            Id = Guid.NewGuid(),
+            Title = title,
+            Column = List.Columns.FirstOrDefault() ?? "Backlog",
+            // DueDate = DateTime.Today.AddDays(1),
+            Done = false,
+            ListSortOrder = max + 1
+        };
+
+        _newTitle = "";
+        List.Tasks.Add(t);
+        _isAdding = false;
+
+        await InvokeAsync(StateHasChanged);
+        _ = PersistNewTaskAsync(t, title);
+    }
+
+    private async Task PersistNewTaskAsync(TodoTaskEntity localTask, string originalTitle)
+    {
+        await Task.Yield();
+
+        try
+        {
+            TodoTaskEntity? saved;
+            await _addPersistLock.WaitAsync();
+            try
+            {
+                saved = await TaskService.AddTaskAsync(_userId, List.Id, localTask);
+            }
+            finally
+            {
+                _addPersistLock.Release();
+            }
+
+            if (saved is null)
+                throw new InvalidOperationException($"Aufgabe konnte nicht angelegt werden (Liste='{List.Name}').");
+
+            if (_disposed) return;
+
+            await InvokeAsync(() =>
+            {
+                var index = List.Tasks.FindIndex(x => x.Id == localTask.Id);
+                if (index >= 0)
+                    List.Tasks[index] = saved;
+
+                StateHasChanged();
+            });
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            if (_disposed) return;
+
+            await InvokeAsync(() =>
+            {
+                List.Tasks.RemoveAll(x => x.Id == localTask.Id);
+                if (string.IsNullOrWhiteSpace(_newTitle))
+                    _newTitle = originalTitle;
+
+                RequestSortableResync();
+                _error = string.Format(L["Err_ListViewTaskCreate"].Value, List.Name, ex.Message);
+                StateHasChanged();
+            });
+        }
+    }
+
+    /* ---------------- Sortable callback (kommt aus JS) ---------------- */
+
+    [JSInvokable]
+    public async Task OnListReordered(string[] orderedTaskIds)
+    {
+        if (SortMode != ListSortMode.Custom) return;
+
+        try
+        {
+            var ids = new List<Guid>(orderedTaskIds.Length);
+            foreach (var s in orderedTaskIds)
+                if (Guid.TryParse(s, out var g))
+                    ids.Add(g);
+
+            // Lokal patchen (optimistisch)
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var task = List.Tasks.FirstOrDefault(t => t.Id == ids[i]);
+                if (task is not null) task.ListSortOrder = i;
+            }
+
+            // Reihenfolge als Overlay merken, damit Parent-Reloads mit altem Datenstand
+            // im UI nicht kurz auf die alte Reihenfolge zurückspringen.
+            SetPendingOrder(ids);
+
+            // ✅ Optimistisches UI-Update sofort anzeigen – Persistence läuft im Hintergrund.
+            await InvokeAsync(StateHasChanged);
+
+            _ = PersistListReorderAsync(ids);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
+            RequestSortableResync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task PersistListReorderAsync(List<Guid> ids)
+    {
+        try
+        {
+            await TaskService.ReorderListAsync(_userId, List.Id, ids);
+            await OnChanged.InvokeAsync();
+            await FlushDeferredDragEndNotificationAsync();
+
+            // ✅ WICHTIG: Sortable DOM ist manipuliert -> immer resyncen
+            RequestSortableResync();
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            if (_disposed) return;
+            _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
+            _pendingOrder = null;
+            await OnChanged.InvokeAsync();
+            await FlushDeferredDragEndNotificationAsync();
+
+            // ✅ auch hier: DOM wieder “sauber”
+            RequestSortableResync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+
+    /* ---------------- Toggle / Select ---------------- */
+
+    private async Task ToggleDoneAsync(TodoTaskEntity t)
+    {
+        _error = "";
+
+        var wasDone = IsTaskDone(t);
+        var persistedDone = t.Done;
+        var willBeDone = !wasDone;
+
+        // Wenn Done -> offen (also "reaktivieren"): ans Ende der offenen Liste hängen (bei Custom)
+        if (wasDone && !willBeDone && SortMode == ListSortMode.Custom)
+        {
+            var maxOpen = List.Tasks.Where(x => !IsTaskDone(x) && x.Id != t.Id).Max(x => (int?)x.ListSortOrder) ?? -1;
+            t.ListSortOrder = maxOpen + 1;
+        }
+
+        t.Done = willBeDone;
+        _pendingDoneStates[t.Id] = willBeDone;
+        RequestSortableResync(rebuildHost: false);
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var listId = GetListIdForTask(t);
+            await TaskService.UpdateTaskAsync(_userId, listId, t);
+
+            // Wenn offen -> done: offene Liste muss neu indiziert + gespeichert werden (Custom)
+            if (!wasDone && willBeDone && SortMode == ListSortMode.Custom)
+            {
+                await PersistOpenOrderAfterDoneChangeAsync();
+            }
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            // rollback
+            t.Done = persistedDone;
+            _pendingDoneStates.Remove(t.Id);
+            RequestSortableResync(rebuildHost: false);
+            _error = string.Format(L["Err_ListViewDoneToggle"].Value, t.Title, ex.Message);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task PersistOpenOrderAfterDoneChangeAsync()
+    {
+        try
+        {
+            // offene Tasks nach aktueller Custom-Reihenfolge (ListSortOrder) neu durchnummerieren
+            var open = List.Tasks
+                .Where(x => !IsTaskDone(x))
+                .OrderBy(x => x.ListSortOrder)
+                .ToList();
+
+            var ids = new List<Guid>(open.Count);
+            for (int i = 0; i < open.Count; i++)
+            {
+                open[i].ListSortOrder = i;
+                ids.Add(open[i].Id);
+            }
+
+            await TaskService.ReorderListAsync(_userId, List.Id, ids);
+
+            // Sortable muss danach neu syncen; ein Host-Rebuild wäre auf iOS sichtbar.
+            RequestSortableResync(rebuildHost: false);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListViewDoneReorder"].Value, ex.Message);
+        }
+    }
+
+    private async Task ToggleImportantAsync(TodoTaskEntity t)
+    {
+        _error = "";
+        t.IsImportant = !t.IsImportant;
+
+        try
+        {
+            var listId = GetListIdForTask(t);
+            await TaskService.UpdateTaskAsync(_userId, listId, t);
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            t.IsImportant = !t.IsImportant;
+            _error = string.Format(L["Err_ListViewImportant"].Value, t.Title, ex.Message);
+        }
+    }
+
+    private Task SelectTaskAsync(TodoTaskEntity task)
+        => OnTaskSelected.HasDelegate ? OnTaskSelected.InvokeAsync(task) : Task.CompletedTask;
+
+        /* Filter */
+    [Parameter] public TodoTaskFilter? Filter { get; set; }
+
+    private bool FilterActive => Filter?.IsActive() == true;
+
+    private bool MatchesFilter(TodoTaskEntity t)
+    {
+        var f = Filter;
+        if (f is null || !f.IsActive())
+            return true;
+
+        // ==========================
+        // Query
+        // ==========================
+        if (!string.IsNullOrWhiteSpace(f.Query))
+        {
+            var q = f.Query.Trim().ToLowerInvariant();
+            var hay = $"{t.Title} {t.Description}".ToLowerInvariant();
+            if (!hay.Contains(q))
+                return false;
+        }
+
+        // ==========================
+        // Done
+        // ==========================
+        if (f.Done is not null && IsTaskDone(t) != f.Done.Value)
+            return false;
+
+        // ==========================
+        // Due buckets
+        // ==========================
+        if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
+        {
+            var today = DateTime.Today;
+            var due = t.DueDate?.Date;
+
+            var match =
+                (f.NoDueDate && due is null) ||
+                (f.Overdue && due is not null && due.Value < today) ||
+                (f.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1)) ||
+                (f.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7)) ||
+                (f.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
+
+            if (!match)
+                return false;
+        }
+
+        // ==========================
+        // Labels
+        // ==========================
+        if (f.LabelIds.Count > 0)
+        {
+            if (t.LabelLinks is null || t.LabelLinks.Count == 0)
+                return false;
+
+            if (!t.LabelLinks.Any(l => f.LabelIds.Contains(l.LabelId)))
+                return false;
+        }
+
+        // ==========================
+        // 🔹 ASSIGNEE (Bearbeiter)
+        // ==========================
+        var assignee = (t.Assignee ?? "").Trim();
+        var me = (_userId ?? "").Trim();
+
+        // ❌ Kein Bearbeiter
+        if (f.NoAssignee)
+        {
+            if (!string.IsNullOrWhiteSpace(assignee))
+                return false;
+        }
+
+        // 👤 Mir zugewiesen
+        if (f.AssignedToMe)
+        {
+            if (string.IsNullOrWhiteSpace(me))
+                return false;
+
+            if (!string.Equals(assignee, me, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        // ==========================
+        // 👀 MEMBERS = Beobachter
+        // ==========================
+        var members = t.MemberUserIds ?? new List<string>();
+
+        // Konkrete Beobachter ausgewählt
+        if (f.MemberUserIds.Count > 0)
+        {
+            if (members.Count == 0)
+                return false;
+
+            if (!members.Any(m => f.MemberUserIds.Contains(m)))
+                return false;
+        }
+
+        // Keine Beobachter
+        if (f.NoMembers)
+        {
+            if (members.Count > 0)
+                return false;
+        }
+
+        return true;
+    }
+
+
+
+
+
+        /* Ende Filter */
+}

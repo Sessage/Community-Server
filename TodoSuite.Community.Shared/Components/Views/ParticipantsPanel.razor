@@ -1,0 +1,893 @@
+@using Klassenbibliothek.Services
+﻿@using Microsoft.FluentUI.AspNetCore.Components
+@using Klassenbibliothek.Data
+@inject IListSharingService SharingService
+@inject IDirectorySharingService DirectorySharing
+@inject IJSRuntime JS
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+<div class="">
+    <div class="space-y-4">
+
+      
+        @if (List is null)
+        {
+            <div class="text-sm text-slate-600">@L["Participants_SelectList"]</div>
+        }
+        else if (!_isAdminChecked)
+        {
+            <div class="text-sm text-slate-600">@L["Participants_CheckingPermission"]</div>
+        }
+        else if (!_isAdmin)
+        {
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div class="font-semibold">@L["Lbl_NoPermission"]</div>
+                <div>@L["Participants_NoPermissionMsg"]</div>
+            </div>
+        }
+        else
+        {
+            @* Messages *@
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <div class="font-semibold">@L["Lbl_Error"]</div>
+                    <div>@_error</div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_info))
+            {
+                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                    <div class="font-semibold">@L["Lbl_Info"]</div>
+                    <div>@_info</div>
+                </div>
+            }
+
+            <div class="space-y-4">
+                <div class="flex flex-row items-center">
+                    <div class="flex-1 text-xs uppercase tracking-wide text-slate-500">@L["Participants_Invite"]</div>
+
+                    <div class="inline-flex rounded-xl bg-slate-200 p-1">
+                        <button class="@TabButtonClass(SharePanelTab.Email)"
+                                type="button"
+                                @onclick="() => _activeTab = SharePanelTab.Email">
+                            @L["Participants_ByEmail"]
+                        </button>
+                        <button class="@TabButtonClass(SharePanelTab.Link)"
+                                type="button"
+                                @onclick="() => _activeTab = SharePanelTab.Link">
+                            @L["Participants_ByLink"]
+                        </button>
+                        @if (DirectorySharing.IsAvailable)
+                        {
+                            <button class="@TabButtonClass(SharePanelTab.Directory)" type="button" @onclick="() => _activeTab = SharePanelTab.Directory">Verzeichnis</button>
+                        }
+                    </div>
+                </div>
+                @if (_activeTab == SharePanelTab.Link)
+                {
+                    <div class="space-y-3">
+                        <div class="flex flex-col md:flex-row gap-2 items-stretch md:items-end">
+                            <div class="flex-1">
+                                <div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div>
+                                <select class="w-full rounded-xl border border-slate-200 p-2 bg-white"
+                                        @bind="_linkRole">
+                                    <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
+                                    <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
+                                    <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
+                                </select>
+                            </div>
+
+                            <div class="flex-1">
+                                <div class="text-sm text-slate-700 mb-1">@L["Participants_CommentOptional"]</div>
+                                <input class="w-full rounded-xl border border-slate-200 p-2 bg-white"
+                                       @bind="_shareComment"
+                                       placeholder="@L["Participants_CommentPlaceholder"]" />
+                            </div>
+
+                            <FluentButton Appearance="Appearance.Accent" OnClick="CreateShareLinkAsync" Disabled="_busy">
+                                @L["Participants_CreateShareLink"]
+                            </FluentButton>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(_shareLink))
+                        {
+                            var newLinkQrCodeDataUrl = GetQrDataUrlForLink(_shareLink);
+                            <div class="flex flex-col md:flex-row gap-2 items-stretch">
+                                <input class="w-full rounded-xl border border-slate-200 p-2 bg-white"
+                                       value="@_shareLink"
+                                       readonly />
+                                <FluentButton Appearance="Appearance.Neutral" OnClick="CopyLinkAsync">
+                                    @L["Participants_CopyLink"]
+                                </FluentButton>
+                            </div>
+
+                            <div class="text-xs text-slate-600">
+                                @L["Participants_LinkTokenHint"]
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(newLinkQrCodeDataUrl))
+                            {
+                                <div class="rounded-xl border border-slate-200 bg-white p-3 inline-flex flex-col gap-2">
+                                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">QR-Code</div>
+                                    <img src="@newLinkQrCodeDataUrl"
+                                         alt="QR-Code für neuen Share-Link"
+                                         class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2" />
+                                </div>
+                            }
+                        }
+
+                        <div class="pt-2 space-y-2">
+                            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_ActiveShareLinks"]</div>
+
+                            @if (ActiveShareLinks.Any())
+                            {
+                                @foreach (var s in ActiveShareLinks)
+                                {
+                                    var expanded = _expandedLinks.ContainsKey(s.Id) && _expandedLinks[s.Id];
+
+                                    <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0 flex-1">
+                                                <div class="text-sm font-semibold truncate">
+                                                    @(string.IsNullOrWhiteSpace(s.Comment) ? L["Participants_NoComment"].Value : s.Comment)
+                                                </div>
+
+                                                <div class="text-xs text-slate-600">
+                                                    @(string.Format(L["Participants_RoleCreated"].Value, s.Role, s.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")))
+                                                    @if (s.ExpiresAtUtc is not null)
+                                                    {
+                                                        <span> · @(string.Format(L["Participants_Expiry"].Value, s.ExpiresAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")))</span>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            <div class="flex gap-2 shrink-0">
+
+                                                <FluentButton Appearance="Appearance.Neutral"
+                                                              OnClick="@(() => CopyAnyLinkAsync(s.Link))"
+                                                              Disabled="_busy">
+                                                    @L["Participants_CopyLink"]
+                                                </FluentButton>
+
+                                                <FluentButton Appearance="Appearance.Neutral"
+                                                              OnClick="@(() => DeleteShareLinkAsync(s.Id))"
+                                                              Disabled="_busy">
+                                                    @L["Btn_Delete"]
+                                                </FluentButton>
+
+                                                <FluentButton Appearance="Appearance.Stealth"
+                                                              OnClick="@(()=> ToggleExpanded(s.Id))"
+                                                              Disabled="_busy">
+                                                    @if (expanded)
+                                                    {
+                                                        <FluentIcon Value="@(new Icons.Regular.Size24.ChevronDown())" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <FluentIcon Value="@(new Icons.Regular.Size24.ChevronUp())" />
+                                                    }
+
+
+                                                </FluentButton>
+
+                                            </div>
+                                        </div>
+
+                                        @if (expanded)
+                                        {
+                                            <input class="w-full rounded-xl border border-slate-200 p-2 bg-white text-sm"
+                                                   value="@s.Link"
+                                                   readonly />
+                                            @if (!string.IsNullOrWhiteSpace(s.QrCodeDataUrl))
+                                            {
+                                                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 inline-flex flex-col gap-2">
+                                                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-500">QR-Code</div>
+                                                    <img src="@s.QrCodeDataUrl"
+                                                         alt="QR-Code für Share-Link"
+                                                         class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2" />
+                                                </div>
+                                            }
+
+                                            <div class="flex flex-col md:flex-row gap-2 items-stretch md:items-end">
+                                                <div class="flex-1">
+                                                    <div class="text-xs text-slate-500 mb-1">@L["Participants_EditComment"]</div>
+                                                    <input class="w-full rounded-xl border border-slate-200 p-2 bg-white"
+                                                           value="@(_editComments.TryGetValue(s.Id, out var c) ? c : "")"
+                                                           @oninput="(e => OnEditCommentInput(s.Id, e))" />
+                                                </div>
+
+                                                <FluentButton Appearance="Appearance.Outline"
+                                                              OnClick="@(() => SaveShareLinkCommentAsync(s.Id))"
+                                                              Disabled="_busy">
+                                                    @L["Btn_Save"]
+                                                </FluentButton>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-sm text-slate-600">@L["Participants_NoActiveShareLinks"]</div>
+                            }
+                        </div>
+                    </div>
+                }
+                else if (_activeTab == SharePanelTab.Directory)
+                {
+                    <DirectorySharingPanel ResourceType="DirectoryShareResourceType.List" ResourceId="List.Id" RequestingUserId="RequestingUserId" OnChanged="OnChanged" />
+                }
+                else
+                {
+                    <div class="space-y-3">
+                        <div class="flex flex-col md:flex-row md:items-end gap-2">
+                            <div class="flex-1">
+                                <div class="text-sm text-slate-700 mb-1">@L["Participants_Email"]</div>
+                                <input class="w-full rounded-xl border border-slate-200 p-2 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                                       type="email"
+                                       value="@_query"
+                                       @oninput="e => _query = e.Value?.ToString() ?? string.Empty"
+                                       placeholder="@L["Participants_Email"]" />
+                            </div>
+
+                            <div class="md:w-56">
+                                <div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div>
+                                <select class="w-full rounded-xl border border-slate-200 p-2 bg-white"
+                                        @bind="_inviteRole">
+                                    <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
+                                    <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
+                                    <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
+                                </select>
+                            </div>
+
+                            <FluentButton Appearance="Appearance.Accent" OnClick="InviteAsync" Disabled="_busy">
+                                @L["Participants_Invite"]
+                            </FluentButton>
+                        </div>
+
+                        
+
+                        @if (_results?.Any() == true)
+                        {
+                            <div class="pt-2 space-y-2">
+                                <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_SearchResults"]</div>
+
+                                @foreach (var u in _results)
+                                {
+                                    <div class="flex items-center justify-between text-sm border border-slate-200 rounded-2xl px-3 py-2">
+                                        <span>@u.DisplayName (@u.Email)</span>
+                                        <FluentButton Appearance="Appearance.Stealth"
+                                                      OnClick="@(() => InviteKnownAsync(u.DisplayName, u.Email))"
+                                                      Disabled="_busy">
+                                            @L["Participants_Invite"]
+                                        </FluentButton>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Current participants with role management -->
+            <div class="pt-2 space-y-2">
+                <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_ParticipantsAndRoles"]</div>
+
+                @if (List.Participants?.Any() == true)
+                {
+                    @foreach (var p in List.Participants
+                                .OrderByDescending(x => IsOwner(x) ? 1 : 0)
+                                .ThenByDescending(x => x.Role == ListRole.Admin)
+                                .ThenBy(x => x.DisplayName))
+                    {
+                        var isOwner = IsOwner(p);
+                        var isPending = p.DirectInvitationPending || p.InvitationPending;
+                        var isInheritedOnly = (p.PortfolioRole is not null || p.DirectoryRole is not null) && p.DirectRole is null;
+
+                        <div class="flex flex-col md:flex-row md:items-center gap-2 border border-slate-200 rounded-2xl px-3 py-2">
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-semibold truncate">
+                                    @p.DisplayName
+                                    @if (isOwner)
+                                    {
+                                        <span class="ml-2 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded-full">Owner</span>
+                                    }
+                                    @if (p.PortfolioRole is not null)
+                                    {
+                                        <span class="ml-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">Über Portfolio</span>
+                                    }
+                                    @if (p.DirectoryRole is not null)
+                                    {
+                                        <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">Über Verzeichnis</span>
+                                    }
+                                </div>
+                                <div class="text-xs text-slate-600 truncate">@p.Email</div>
+
+                                @if (isPending)
+                                {
+                                    <div class="mt-1 inline-flex text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
+                                        @L["Participants_InvitationPending"]
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="flex items-center gap-2">
+                                @if (isPending)
+                                {
+                                    <FluentButton Appearance="Appearance.Outline"
+                                                  OnClick="@(async () => await RemovePendingInvitationAsync(p.Id))"
+                                                  Disabled="_busy">
+                                        @L["Participants_Withdraw"]
+                                    </FluentButton>
+                                }
+                                else
+                                {
+                                    <div class="text-xs text-slate-600">@L["Lbl_Role"]</div>
+
+                                    <select class="rounded-xl border border-slate-200 p-2 bg-white"
+                                            disabled="@(_busy || isOwner || isInheritedOnly)"
+                                            value="@p.Role"
+                                            @onchange="(e => OnRoleChanged(p, e))">
+
+                                        <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
+                                        <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
+                                        <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
+                                    </select>
+
+                                    @if (isOwner)
+                                    {
+                                        <span class="text-xs text-slate-500">@L["Participants_OwnerFixed"]</span>
+                                    }
+                                    else if (isInheritedOnly)
+                                    {
+                                        <span class="text-xs text-slate-500">An der Freigabequelle verwalten</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-sm text-slate-600">@L["Participants_NoParticipants"]</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public TodoListEntity? List { get; set; }
+
+    [Parameter, EditorRequired] public UserDirectoryService Directory { get; set; } = default!;
+    [Parameter, EditorRequired] public string RequestingUserId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public EventCallback OnChanged { get; set; }
+
+    private string _query = string.Empty;
+    private IReadOnlyCollection<ManagedUser>? _results;
+
+    private string _error = string.Empty;
+    private string _info = string.Empty;
+
+    private bool _busy;
+
+    private ListRole _inviteRole = ListRole.Member;
+    private ListRole _linkRole = ListRole.Member;
+
+    private string? _shareLink;
+
+    private string _shareComment = "";
+    private IReadOnlyList<ShareLinkInfo> _shareLinks = Array.Empty<ShareLinkInfo>();
+    private SharePanelTab _activeTab = SharePanelTab.Email;
+
+    // pro Link temporäres Edit-Feld
+    private readonly Dictionary<Guid, string> _editComments = new();
+    private IEnumerable<ShareLinkInfo> ActiveShareLinks => _shareLinks.Where(x => !x.Revoked);
+
+    // Admin-Check (UI-Gating)
+    private bool _isAdmin;
+    private bool _isAdminChecked;
+
+    private string TabButtonClass(SharePanelTab tab)
+        => "share-mode-tab rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none "
+         + (tab == _activeTab
+            ? "bg-white text-slate-900 shadow-sm"
+            : "text-slate-600 hover:text-slate-900");
+
+    private enum SharePanelTab
+    {
+        Email,
+        Link,
+        Directory
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ResetMessages();
+
+        _isAdminChecked = false;
+        _isAdmin = false;
+
+        if (List is null || string.IsNullOrWhiteSpace(RequestingUserId))
+            return;
+
+        // UI nur für Admin
+        _isAdmin = IsAdminForList(List, RequestingUserId);
+        _isAdminChecked = true;
+
+        if (_isAdmin)
+            await LoadShareLinksAsync();
+    }
+
+    private bool IsAdminForList(TodoListEntity list, string requestingUserId)
+    {
+        var key = (requestingUserId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(key))
+            return false;
+
+        // Owner ist immer Admin
+        if (string.Equals((list.OwnerId ?? "").Trim(), key, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Participant Admin (match über UserId ODER Email)
+        return list.Participants?.Any(p =>
+            !p.InvitationPending
+            && p.Role == ListRole.Admin
+            && (
+                (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), key, StringComparison.OrdinalIgnoreCase))
+                || string.Equals((p.Email ?? "").Trim(), key, StringComparison.OrdinalIgnoreCase)
+            )) == true;
+    }
+
+    private bool IsOwner(ListParticipantEntity p)
+    {
+        if (List is null) return false;
+
+        var owner = (List.OwnerId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(owner)) return false;
+
+        // Owner match bevorzugt UserId
+        if (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), owner, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Fallback: Email match (falls OwnerId = Email oder Legacy)
+        if (!string.IsNullOrWhiteSpace(p.Email) && string.Equals(p.Email.Trim(), owner, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    private async Task LoadShareLinksAsync()
+    {
+        try
+        {
+            _shareLinks = await SharingService.GetShareLinksAsync(RequestingUserId, List!.Id);
+
+            var ids = new HashSet<Guid>(_shareLinks.Select(x => x.Id));
+            foreach (var k in _editComments.Keys.ToList())
+                if (!ids.Contains(k))
+                    _editComments.Remove(k);
+
+            foreach (var s in _shareLinks)
+                if (!_editComments.ContainsKey(s.Id))
+                    _editComments[s.Id] = s.Comment ?? "";
+        }
+        catch
+        {
+            _shareLinks = Array.Empty<ShareLinkInfo>();
+            _editComments.Clear();
+        }
+    }
+
+    private void ResetMessages()
+    {
+        _error = string.Empty;
+        _info = string.Empty;
+    }
+
+    private async Task SearchAsync()
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        try
+        {
+            _results = await Directory.SearchAsync(_query);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ParticipantSearch"].Value, _query, ex.Message);
+        }
+    }
+
+    private async Task InviteKnownAsync(string displayName, string email)
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _error = string.Format(L["Err_InviteUnknownUser"].Value, List.Name);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            _error = L["Err_InviteEmptyEmail"].Value;
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+
+            var res = await SharingService.InviteByEmailAsync(
+                requestingUserId: RequestingUserId,
+                listId: List.Id,
+                email: email.Trim(),
+                displayName: (displayName ?? string.Empty).Trim(),
+                role: _inviteRole
+            );
+
+            if (!res.Success)
+            {
+                _error = string.Format(L["Err_InviteFailed"].Value, List.Name, email, res.Message);
+                return;
+            }
+
+            _info = res.Message;
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_InviteFailed"].Value, List.Name, email, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task InviteAsync()
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _error = string.Format(L["Err_InviteUnknownUser"].Value, List.Name);
+            return;
+        }
+
+        var q = (_query ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            _error = L["Err_InviteNoEmail"].Value;
+            return;
+        }
+
+        if (!q.Contains('@', StringComparison.Ordinal))
+        {
+            _error = string.Format(L["Err_InviteInvalidEmail"].Value, q);
+            return;
+        }
+
+        await InviteKnownAsync(displayName: q, email: q);
+    }
+
+    private async Task CreateShareLinkAsync()
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _error = string.Format(L["Err_ShareLinkCreateUnknown"].Value, List.Name);
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+
+            var (success, message, link) = await SharingService.CreateShareLinkAsync(
+                requestingUserId: RequestingUserId,
+                listId: List.Id,
+                role: _linkRole,
+                comment: _shareComment
+            );
+
+            if (!success)
+            {
+                _error = string.Format(L["Err_ShareLinkCreate"].Value, List.Name, message);
+                return;
+            }
+
+            _shareLink = link;
+            _info = message;
+
+            _shareComment = "";
+
+            await LoadShareLinksAsync();
+            ExpandNewlyCreatedShareLink();
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ShareLinkCreate"].Value, List.Name, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CopyLinkAsync()
+    {
+        ResetMessages();
+
+        if (string.IsNullOrWhiteSpace(_shareLink))
+        {
+            _error = L["Err_CopyNoLink"].Value;
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _shareLink);
+            _info = L["Info_LinkCopied"].Value;
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_CopyFailed"].Value, ex.Message);
+        }
+    }
+
+    private async Task CopyAnyLinkAsync(string link)
+    {
+        ResetMessages();
+
+        if (string.IsNullOrWhiteSpace(link))
+        {
+            _error = L["Err_CopyLinkEmpty"].Value;
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", link);
+            _info = L["Info_LinkCopied"].Value;
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_CopyFailed"].Value, ex.Message);
+        }
+    }
+
+    private async Task DeleteShareLinkAsync(Guid inviteId)
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _error = string.Format(L["Err_ShareLinkDeleteUnknown"].Value, List.Name);
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+
+            var (success, message) = await SharingService.RevokeShareLinkAsync(
+                requestingUserId: RequestingUserId,
+                listId: List.Id,
+                inviteId: inviteId
+            );
+
+            if (!success)
+            {
+                _error = message;
+                return;
+            }
+
+            _info = message;
+
+            await LoadShareLinksAsync();
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ShareLinkDelete"].Value, List.Name, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OnEditCommentInput(Guid inviteId, ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString() ?? "";
+        _editComments[inviteId] = v;
+    }
+
+    private async Task SaveShareLinkCommentAsync(Guid inviteId)
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _error = string.Format(L["Err_CommentSaveUnknown"].Value, List.Name);
+            return;
+        }
+
+        if (!_editComments.TryGetValue(inviteId, out var comment))
+            comment = "";
+
+        try
+        {
+            _busy = true;
+
+            var (success, message) = await SharingService.UpdateShareLinkCommentAsync(
+                requestingUserId: RequestingUserId,
+                listId: List.Id,
+                inviteId: inviteId,
+                comment: comment
+            );
+
+            if (!success)
+            {
+                _error = message;
+                return;
+            }
+
+            _info = message;
+
+            await LoadShareLinksAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ParticipantCommentSave"].Value, List.Name, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task OnRoleChanged(ListParticipantEntity participant, ChangeEventArgs e)
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (participant is null)
+            return;
+
+        // Owner nicht änderbar
+        if (IsOwner(participant))
+        {
+            _info = L["Info_OwnerRoleFixed"].Value;
+            return;
+        }
+
+        if (!Enum.TryParse<ListRole>(e?.Value?.ToString(), out var newRole))
+        {
+            _error = string.Format(L["Err_RoleChangeInvalid"].Value, e?.Value);
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+
+            var (success, message) = await SharingService.UpdateParticipantRoleAsync(
+                requestingUserId: RequestingUserId,
+                listId: List.Id,
+                participantId: participant.Id,
+                role: newRole
+            );
+
+            if (!success)
+            {
+                _error = message;
+                return;
+            }
+
+            _info = message;
+
+            // Liste neu laden lassen (damit UI + DB sicher synchron sind)
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_RoleChange"].Value, participant.DisplayName, participant.Email, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+    private async Task RemovePendingInvitationAsync(Guid participantId)
+    {
+        ResetMessages();
+
+        if (List is null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _error = L["Err_InviteWithdrawUnknown"].Value;
+            return;
+        }
+
+        try
+        {
+            _busy = true;
+
+            var (success, message) = await SharingService.RemovePendingInvitationAsync(
+                requestingUserId: RequestingUserId,
+                listId: List.Id,
+                participantId: participantId
+            );
+
+            if (!success)
+            {
+                _error = message;
+                return;
+            }
+
+            _info = message;
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_InviteWithdraw"].Value, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Dictionary<Guid, bool> _expandedLinks = new();
+    private string? GetQrDataUrlForLink(string? link)
+        => _shareLinks.FirstOrDefault(x => string.Equals(x.Link, link, StringComparison.OrdinalIgnoreCase))?.QrCodeDataUrl;
+
+    private void ExpandNewlyCreatedShareLink()
+    {
+        if (string.IsNullOrWhiteSpace(_shareLink))
+            return;
+
+        var created = _shareLinks.FirstOrDefault(x => string.Equals(x.Link, _shareLink, StringComparison.OrdinalIgnoreCase));
+        if (created is not null)
+            _expandedLinks[created.Id] = true;
+    }
+
+    private void ToggleExpanded(Guid id)
+    {
+        if (_expandedLinks.ContainsKey(id))
+            _expandedLinks[id] = !_expandedLinks[id];
+        else
+            _expandedLinks[id] = true;
+    }
+
+}

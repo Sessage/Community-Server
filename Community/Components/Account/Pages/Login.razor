@@ -1,0 +1,378 @@
+@page "/Account/Login"
+@layout BodyOnlyLayout
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@using TodoSuite.Server.Services
+@using System.Security.Claims
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject ILogger<Login> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject LdapAuthService LdapAuth
+@inject AdminSettingsService AdminSettings
+@inject ActiveDirectoryOptions AdOptions
+@inject IDirectoryIdentitySynchronizer DirectoryIdentitySynchronizer
+@inject IUserStore<ApplicationUser> UserStore
+@inject AuthAttemptProtectionService AttemptProtection
+
+<PageTitle>@L["Account_Login_Title"]</PageTitle>
+
+
+<div class="row justify-center">
+    <div class="col-lg-6">
+        <section>
+            <StatusMessage Message="@errorMessage" />
+            <div class="flex justify-center mb-3">
+                <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
+            </div>
+            <h1 class="h1">@L["Account_Login_Title"]</h1>
+            @if (AdOptions.Enabled)
+            {
+                <!-- Active-Directory-/LDAP-Login -->
+                <EditForm EditContext="adEditContext" method="post" OnSubmit="LoginWithAd" FormName="login-ad">
+                    <DataAnnotationsValidator />
+                    <h2>@L["Account_Login_WithWindows"]</h2>
+                    <hr />
+                    <ValidationSummary class="text-danger" role="alert" />
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="AdInput.Username" id="AdInput.Username" class="form-control" autocomplete="username" aria-required="true" placeholder="@L["Account_Username"]" />
+                        <label for="AdInput.Username" class="form-label">@L["Account_WindowsUsername"]</label>
+                        <ValidationMessage For="() => AdInput.Username" class="text-danger" />
+                    </div>
+                    <div class="form-floating mb-3">
+                        <InputText type="password" @bind-Value="AdInput.Password" id="AdInput.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
+                        <label for="AdInput.Password" class="form-label">@L["Account_Password"]</label>
+                        <ValidationMessage For="() => AdInput.Password" class="text-danger" />
+                    </div>
+                    <div class="checkbox mb-3">
+                        <label class="form-label">
+                            <InputCheckbox @bind-Value="AdInput.RememberMe" class="darker-border-checkbox form-check-input" />
+                            @L["Account_RememberMe"]
+                        </label>
+                    </div>
+                    <div>
+                        <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Login_WindowsButton"]</button>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <!-- Lokaler Login -->
+                <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
+                    <DataAnnotationsValidator />
+                    <h2>@L["Account_Login_WithLocal"]</h2>
+                    <hr />
+                    <ValidationSummary class="text-danger" role="alert" />
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
+                        <label for="Input.Email" class="form-label">@L["Account_Email"]</label>
+                        <ValidationMessage For="() => Input.Email" class="text-danger" />
+                    </div>
+                    <div class="form-floating mb-3">
+                        <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
+                        <label for="Input.Password" class="form-label">@L["Account_Password"]</label>
+                        <ValidationMessage For="() => Input.Password" class="text-danger" />
+                    </div>
+                    <div class="checkbox mb-3">
+                        <label class="form-label">
+                            <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
+                            @L["Account_RememberMe"]
+                        </label>
+                    </div>
+                    <div>
+                        <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Login_Button"]</button>
+                    </div>
+                    <hr />
+                    <div class="d-flex flex-column">
+                        <span class="text-secondary mx-auto mt-2">@L["Account_Or"]</span>
+                        <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="btn btn-link mx-auto">@L["Account_Login_WithPasskey"]</PasskeySubmit>
+                    </div>
+                    <hr />
+                    <div>
+                        <p>
+                            <a href="Account/ForgotPassword">@L["Account_ForgotPasswordLink"]</a>
+                        </p>
+                        @if (AdminSettings.AllowSelfRegistration)
+                        {
+                            <p>
+                                <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">@L["Account_RegisterNewUser"]</a>
+                            </p>
+                        }
+                        <p>
+                            <a href="Account/ResendEmailConfirmation">@L["Account_ResendEmailConfirmation"]</a>
+                        </p>
+                    </div>
+                </EditForm>
+            }
+        </section>
+    </div>
+    @* @if (!AdOptions.Enabled)
+    {
+        <div class="col-lg-4 col-lg-offset-2">
+            <section>
+                <h3>Mit einem anderen Dienst anmelden.</h3>
+                <hr />
+                <ExternalLoginPicker />
+            </section>
+        </div>
+    } *@
+</div>
+
+@code {
+    private string? errorMessage;
+    private EditContext editContext = default!;
+    private EditContext adEditContext = default!;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "login")]
+    private InputModel Input { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "login-ad")]
+    private AdInputModel AdInput { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        AdInput ??= new();
+
+        editContext = new EditContext(Input);
+        adEditContext = new EditContext(AdInput);
+
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        }
+    }
+
+    public async Task LoginUser()
+    {
+        if (!string.IsNullOrEmpty(Input.Passkey?.Error))
+        {
+            errorMessage = string.Format(L["Err_Generic"], Input.Passkey.Error);
+            return;
+        }
+
+        SignInResult result;
+        if (!string.IsNullOrEmpty(Input.Passkey?.CredentialJson))
+        {
+            result = await SignInManager.PasskeySignInAsync(Input.Passkey.CredentialJson);
+        }
+        else
+        {
+            if (!editContext.Validate())
+                return;
+
+            var email = Input.Email.Trim();
+            Input.Email = email;
+            var subject = NormalizeLoginSubject(email);
+            var block = AttemptProtection.Check(HttpContext, subject);
+            if (block.IsBlocked)
+            {
+                errorMessage = GetTooManyAttemptsMessage(block);
+                return;
+            }
+
+            var user = await UserManager.FindByEmailAsync(email);
+            var twoFactorEnabled = user is not null && await UserManager.GetTwoFactorEnabledAsync(user);
+            if (user is not null && twoFactorEnabled && await UserManager.IsLockedOutAsync(user))
+                await UserManager.SetLockoutEndDateAsync(user, null);
+
+            result = user is null
+                ? await SignInManager.PasswordSignInAsync(email, Input.Password, Input.RememberMe, lockoutOnFailure: false)
+                : await SignInManager.PasswordSignInAsync(user, Input.Password, Input.RememberMe, lockoutOnFailure: !twoFactorEnabled);
+
+            if (!result.Succeeded && !result.RequiresTwoFactor)
+                AttemptProtection.RecordFailure(HttpContext, subject);
+            else
+                AttemptProtection.RecordSuccess(HttpContext, subject);
+        }
+
+        if (result.Succeeded)
+        {
+            Logger.LogInformation("Benutzer hat sich angemeldet.");
+            RedirectManager.RedirectTo(ReturnUrl);
+        }
+        else if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });
+        }
+        else if (result.IsLockedOut)
+        {
+            Logger.LogWarning("Benutzerkonto gesperrt.");
+            RedirectManager.RedirectTo("Account/Lockout");
+        }
+        else if (result.IsNotAllowed)
+        {
+            errorMessage = L["Account_Error_NotAllowed"];
+        }
+        else
+        {
+            errorMessage = L["Account_Error_InvalidLogin"];
+        }
+    }
+
+    public async Task LoginWithAd()
+    {
+        if (!adEditContext.Validate())
+            return;
+
+        var subject = NormalizeLoginSubject(AdInput.Username);
+        var block = AttemptProtection.Check(HttpContext, subject);
+        if (block.IsBlocked)
+        {
+            errorMessage = GetTooManyAttemptsMessage(block);
+            return;
+        }
+
+        var adUser = await LdapAuth.AuthenticateAsync(AdInput.Username, AdInput.Password);
+        if (adUser is null)
+        {
+            AttemptProtection.RecordFailure(HttpContext, subject);
+            errorMessage = L["Account_Error_AdLoginFailed"];
+            return;
+        }
+
+        // Lokalen Identity-Benutzer suchen oder anlegen
+        var localUser = await UserManager.FindByEmailAsync(adUser.Email);
+        if (localUser is null)
+        {
+            localUser = new ApplicationUser
+            {
+                UserName = adUser.Email,
+                Email = adUser.Email,
+                EmailConfirmed = true
+            };
+
+            var createResult = await UserManager.CreateAsync(localUser);
+            if (!createResult.Succeeded)
+            {
+                errorMessage = string.Format(L["Account_Error_UserCreateFailed"], string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                return;
+            }
+
+            Logger.LogInformation("Verzeichnisbenutzer '{Username}' wurde als lokaler Benutzer angelegt.", adUser.UserName);
+        }
+
+        await DirectoryIdentitySynchronizer.SynchronizeAsync(localUser.Id, adUser.DirectoryIdentity);
+        var result = await SignInAdUserOrRequireTwoFactorAsync(localUser, AdInput.RememberMe);
+
+        if (result.Succeeded)
+        {
+            AttemptProtection.RecordSuccess(HttpContext, subject);
+            Logger.LogInformation("Verzeichnisbenutzer '{Username}' hat sich angemeldet.", adUser.UserName);
+            RedirectManager.RedirectTo(ReturnUrl);
+        }
+        else if (result.RequiresTwoFactor)
+        {
+            AttemptProtection.RecordSuccess(HttpContext, subject);
+            Logger.LogInformation("Verzeichnisbenutzer '{Username}' muss den zweiten Faktor best\u00e4tigen.", adUser.UserName);
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = AdInput.RememberMe });
+        }
+        else if (result.IsLockedOut)
+        {
+            Logger.LogWarning("Verzeichnisbenutzerkonto '{Username}' ist gesperrt.", adUser.UserName);
+            RedirectManager.RedirectTo("Account/Lockout");
+        }
+        else
+        {
+            AttemptProtection.RecordFailure(HttpContext, subject);
+            errorMessage = L["Account_Error_LoginIncomplete"];
+        }
+    }
+
+    private static string NormalizeLoginSubject(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "unknown" : value.Trim().ToUpperInvariant();
+
+    private string GetTooManyAttemptsMessage(AuthBlockStatus block)
+        => string.Format(L["Account_Error_TooManyAttempts"], FormatRetryAfter(block.RetryAfter));
+
+    private static string FormatRetryAfter(TimeSpan retryAfter)
+    {
+        if (retryAfter.TotalHours >= 1)
+            return $"{Math.Ceiling(retryAfter.TotalHours):0} Stunde(n)";
+
+        if (retryAfter.TotalMinutes >= 1)
+            return $"{Math.Ceiling(retryAfter.TotalMinutes):0} Minute(n)";
+
+        return $"{Math.Ceiling(retryAfter.TotalSeconds):0} Sekunde(n)";
+    }
+
+    private async Task<SignInResult> SignInAdUserOrRequireTwoFactorAsync(ApplicationUser user, bool isPersistent)
+    {
+        if (!await SignInManager.CanSignInAsync(user))
+            return SignInResult.NotAllowed;
+
+        var twoFactorConfigured = await SignInManager.IsTwoFactorEnabledAsync(user);
+        var requiresTwoFactor = twoFactorConfigured &&
+            !await SignInManager.IsTwoFactorClientRememberedAsync(user);
+
+        if (twoFactorConfigured && UserManager.SupportsUserLockout && await UserManager.IsLockedOutAsync(user))
+            await UserManager.SetLockoutEndDateAsync(user, null);
+
+        if (!twoFactorConfigured && UserManager.SupportsUserLockout && await UserManager.IsLockedOutAsync(user))
+            return SignInResult.LockedOut;
+
+        if (requiresTwoFactor)
+        {
+            var userId = await UserManager.GetUserIdAsync(user);
+            var identity = new ClaimsIdentity(IdentityConstants.TwoFactorUserIdScheme);
+            identity.AddClaim(new Claim(ClaimTypes.Name, userId));
+
+            await HttpContext.SignInAsync(
+                IdentityConstants.TwoFactorUserIdScheme,
+                new ClaimsPrincipal(identity));
+
+            return SignInResult.TwoFactorRequired;
+        }
+
+        await SignInManager.SignInWithClaimsAsync(
+            user,
+            new AuthenticationProperties { IsPersistent = isPersistent },
+            [new Claim("amr", "ldap")]);
+
+        return SignInResult.Success;
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [Display(Name = "Angemeldet bleiben?")]
+        public bool RememberMe { get; set; }
+
+        public PasskeyInputModel? Passkey { get; set; }
+    }
+
+    private sealed class AdInputModel
+    {
+        [Required]
+        public string Username { get; set; } = "";
+
+        [Required]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [Display(Name = "Angemeldet bleiben?")]
+        public bool RememberMe { get; set; }
+    }
+}

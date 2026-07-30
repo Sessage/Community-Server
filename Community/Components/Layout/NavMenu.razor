@@ -1,0 +1,1966 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.AspNetCore.Identity
+@implements IAsyncDisposable
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITodoListService ListService
+@inject INotificationService NotificationService
+@inject IJSRuntime JS
+@inject ITodoHubConnectionFactory HubConnectionFactory
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Components.Views
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@inject ITodoNavigationService NavService
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject ISearchService SearchService
+@inject NavigationRefreshNotifier NavigationRefresh
+@inject IProductFeatureCatalog ProductFeatures
+@using Klassenbibliothek.Features
+
+<div class="flex flex-col gap-3 h-full min-h-0 text-slate-900">
+    <div class="flex items-center px-3 pt-4">
+        <div class="flex items-center gap-2">
+            <a href="/"
+               class="font-semibold cursor-pointer"
+               title="Zur Hauptseite">
+                <img src="_content/TodoSuite.Community.Shared/img/logo.png" alt="Sessage" />
+            </a>
+        </div>
+    </div>
+
+    <!-- Search box -->
+    <div class="px-3 relative" @onclick:stopPropagation="true" @onfocusout="OnSearchFocusOut">
+        <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm focus-within:ring-2 focus-within:ring-blue-400 focus-within:border-blue-400 transition-all">
+            <FluentIcon Value="@(new Icons.Regular.Size16.Search())" Color="Color.Neutral" />
+            <input class="p-2 flex-1 outline-none text-sm bg-transparent min-w-0"
+                   type="text"
+                   placeholder="@L["Search_Placeholder"]"
+                   value="@_searchQuery"
+                   @oninput="OnSearchInput"
+                   @onfocus="OnSearchFocus"
+                   @onkeydown="OnSearchKeyDown" />
+            @if (!string.IsNullOrEmpty(_searchQuery))
+            {
+                <button type="button" class="text-slate-400 hover:text-slate-600 shrink-0" @onclick="ClearSearchAsync">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
+                </button>
+            }
+        </div>
+
+        @if (_searchOpen && !string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            <div class="absolute left-3 right-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden max-h-[60vh] overflow-y-auto">
+                @if (_searchLoading)
+                {
+                    <div class="px-3 py-2 text-sm text-slate-500">@L["Lbl_Loading"]</div>
+                }
+                else if (_searchResults.Count == 0)
+                {
+                    <div class="px-3 py-2 text-sm text-slate-500">@string.Format(L["Search_NoResults"], _searchQuery)</div>
+                }
+                else
+                {
+                    @if (_searchListResults.Count > 0)
+                    {
+                        <div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">@L["Search_GroupLists"]</div>
+                        @foreach (var item in _searchListResults.Take(5))
+                        {
+                            <button type="button"
+                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 min-w-0"
+                                    @onmousedown:preventDefault
+                                    @onmousedown="() => NavigateToSearchResult(item)">
+                                <FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" Color="Color.Accent" />
+                                <span class="truncate text-sm">@item.Title</span>
+                            </button>
+                        }
+                    }
+
+                    @if (_searchTaskResults.Count > 0)
+                    {
+                        <div class="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold @(_searchListResults.Count > 0 ? "border-t border-slate-100" : "")">@L["Search_GroupTasks"]</div>
+                        @foreach (var item in _searchTaskResults.Take(5))
+                        {
+                            <button type="button"
+                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 flex flex-col min-w-0"
+                                    @onmousedown:preventDefault
+                                    @onmousedown="() => NavigateToSearchResult(item)">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Neutral" />
+                                    <span class="truncate text-sm">@item.Title</span>
+                                    @if (item.MatchField == "description")
+                                    {
+                                        <span class="shrink-0 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px]">@L["Search_MatchDescription"]</span>
+                                    }
+                                    else if (item.MatchField == "step")
+                                    {
+                                        <span class="shrink-0 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px]">@L["Search_MatchStep"]</span>
+                                    }
+                                </div>
+                                <div class="text-[11px] text-slate-400 pl-6 truncate">@item.ListName</div>
+                            </button>
+                        }
+                    }
+
+                    @if (_searchResults.Count > 0)
+                    {
+                        <div class="border-t border-slate-100">
+                            <button type="button"
+                                    class="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
+                                    @onmousedown:preventDefault
+                                    @onmousedown="ShowAllSearchResults">
+                                <FluentIcon Value="@(new Icons.Regular.Size16.ArrowRight())" Color="Color.Accent" />
+                                @L["Search_ShowAll"]
+                            </button>
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    <div class="px-3  min-h-0 ">
+        <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">@L["Nav_Navigation"]</div>
+        <div class="flex flex-col gap-1">
+            @foreach (var quickLink in _quickLinks)
+            {
+                <NavLink class="flex p-1 nav-pill nav-link" href="@quickLink.Href" Match="@GetQuickLinkMatch(quickLink.Href)">
+                    <FluentIcon Value="@quickLink.Icon" Color="Color.Accent" />
+                    <span class="ml-1">@quickLink.Label</span>
+                </NavLink>
+            }
+        </div>
+    </div>
+
+    <div class="px-3 flex-1 overflow-y-auto">
+        <div class="flex items-center justify-between mb-2">
+            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Nav_Lists"]</div>
+
+            <div class="flex items-center gap-1">
+                <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleCreateGroup"><FluentIcon Value="@(new Icons.Regular.Size16.FolderAdd())" Color="Color.Accent" /></FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleCreateList">
+                    <div class="flex">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.Add())" Class="mr-1" Color="Color.Accent" />
+                        @L["Nav_NewList"]
+                    </div>
+                </FluentButton>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 mb-2">
+                <div class="font-semibold">@L["Lbl_Error"]</div>
+                <div>@_error</div>
+            </div>
+        }
+
+        @if (_showCreateGroup)
+        {
+            <div class="bg-white rounded-lg border border-slate-200 p-2 shadow-sm mb-2">
+                <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">@L["Nav_NewGroup"]</div>
+                <div @onkeydown="HandleCreateGroupKeyDown">
+                    <input class="p-1 flex-1 outline-none w-full align-middle" @ref="_groupInputRef" @bind-Value="_newGroupName" @bind-Value:event="oninput" Placeholder="@L["Lbl_GroupName"]" />
+                    @if (ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
+                    {
+                        <label class="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                            <input type="checkbox" @bind="_newGroupIsPortfolio" />
+                            <span>Als Portfolio mit Dashboard erstellen</span>
+                        </label>
+                    }
+                    <div class="mt-2 flex items-center justify-end gap-2">
+                        <FluentButton Appearance="Appearance.Stealth" OnClick="() => _showCreateGroup = false">@L["Btn_Cancel"]</FluentButton>
+                        <FluentButton Appearance="Appearance.Accent" OnClick="CreateGroupAsync">@L["Btn_Create"]</FluentButton>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_showCreateList)
+        {
+            <div class="bg-white rounded-lg border border-slate-200 p-2 shadow-sm mb-2">
+                <div @onkeydown="HandleCreateListKeyDown">
+                    <input class="p-1 flex-1 outline-none w-full align-middle" @ref="_listInputRef" @bind-Value="_newList.Name" @bind-Value:event="oninput" Placeholder="@L["Lbl_ListName"]" />
+
+                    @if (_templatesLoading)
+                    {
+                        <div class="mt-2 text-xs text-slate-400">@L["Lbl_Loading"]</div>
+                    }
+                    else if (_availableTemplates.Count > 0)
+                    {
+                        <div class="mt-2">
+                            <div class="text-xs text-slate-500 mb-1">@L["Nav_Template_Label"]</div>
+                            <div class="flex flex-col gap-1">
+                                <button type="button"
+                                        class="text-left px-2 py-1 rounded text-sm @(_selectedTemplateId == null ? "bg-blue-100 text-blue-800 font-medium" : "hover:bg-slate-50 text-slate-700")"
+                                        @onclick="() => _selectedTemplateId = null">
+                                    @L["Nav_Template_Blank"]
+                                </button>
+                                @foreach (var tpl in _availableTemplates)
+                                {
+                                    <button type="button"
+                                            class="text-left px-2 py-1 rounded text-sm @(_selectedTemplateId == tpl.Id ? "bg-blue-100 text-blue-800 font-medium" : "hover:bg-slate-50 text-slate-700")"
+                                            @onclick="() => _selectedTemplateId = tpl.Id">
+                                        @tpl.Name
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="mt-2 flex items-center justify-end gap-2">
+                        <FluentButton Appearance="Appearance.Stealth" OnClick="() => _showCreateList = false">@L["Btn_Cancel"]</FluentButton>
+                        <FluentButton Appearance="Appearance.Accent" OnClick="CreateListAsync">@L["Btn_Create"]</FluentButton>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_navigationLoading && _lists.Count == 0 && _groups.Count == 0)
+        {
+            <div class="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-slate-500">
+                <FluentProgressRing Style="width:16px;height:16px;" />
+                <span>@L["Lbl_Loading"]</span>
+            </div>
+        }
+
+        <!-- UNIFIED NAVIGATION: Gruppen und Root-Listen gemischt -->
+        <div @key="_navRenderVersion" id="nav-unified-host" class="@NavHostClass">
+            @foreach (var entry in NavItemsOrdered)
+            {
+                @if (entry.IsGroup)
+                {
+                    var g = _groups.FirstOrDefault(x => x.Id == entry.Id);
+                    @if (g is not null)
+                    {
+                        var collapsed = _collapsedGroups.Contains(g.Id);
+
+                        <!-- Gruppe: kein Rahmen, Chevron ganz rechts -->
+                        <div @key="g.Id" class="nav-mixed-item nav-group-card" data-groupid="@g.Id">
+                            <div class="flex items-center gap-1 px-1 py-0.5 rounded-lg hover:bg-slate-50 group/grp">
+                                <span class="nav-drag-handle inline-flex items-center justify-center w-5 cursor-grab select-none text-slate-300 hover:text-slate-500"
+                                      title="@L["Nav_DragGroup"]">⋮⋮</span>
+
+                                <span aria-hidden="true" class="pt-0.5 shrink-0 text-blue-500">
+                                    @if (g.IsPortfolio && ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios)) { <FluentIcon Value="@(new Icons.Regular.Size24.ArrowTrendingLines())" /> }
+                                    else { <FluentIcon Value="@(collapsed ? (Icon)new Icons.Regular.Size24.Folder() : new Icons.Regular.Size24.FolderOpen())" /> }
+                                </span>
+
+                                @if (g.IsPortfolio && ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
+                                {
+                                    <button type="button" class="font-semibold truncate flex-1 text-left text-sm text-slate-700"
+                                            title="Portfolio-Dashboard öffnen"
+                                            @onclick="() => NavigateToPortfolio(g.Id)">@g.Name</button>
+                                }
+                                else
+                                {
+                                    <div class="font-semibold truncate flex-1 text-sm text-slate-700">@g.Name</div>
+                                }
+
+                                @if (g.CanManage)
+                                {
+                                <div class="shrink-0" @onclick:stopPropagation="true">
+                                    @{
+                                        FloatingDropdown? groupDropdown = default;
+                                    }
+                                    <FloatingDropdown @ref="groupDropdown" MinWidth="220" CloseOnContentClick="true">
+                                        <ChildContent>
+                                            <FluentButton Appearance="Appearance.Stealth" Title="@L["Nav_Options"]">⋯</FluentButton>
+                                        </ChildContent>
+                                        <DropdownContent>
+                                            <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden py-1">
+                                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                                                    Gruppe: @g.Name
+                                                </div>
+                                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenManageGroupLists(g.Id); }">
+                                                    @L["Nav_AddRemoveLists"]
+                                                </button>
+                                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenRenameGroup(g.Id, g.Name); }">
+                                                    @L["Nav_RenameGroup"]
+                                                </button>
+                                                @if (g.OwnerId == _userId)
+                                                {
+                                                @if (ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
+                                                {
+                                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); await TogglePortfolioAsync(g); }">
+                                                    @(g.IsPortfolio ? "Portfolio deaktivieren" : "In Portfolio umwandeln")
+                                                </button>
+                                                }
+                                                <div class="h-px bg-slate-100 my-1"></div>
+                                                <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
+                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenUngroupGroup(g.Id, g.Name); }">
+                                                    @L["Nav_RemoveGrouping"]
+                                                </button>
+                                                }
+                                            </div>
+                                        </DropdownContent>
+                                    </FloatingDropdown>
+                                </div>
+                                }
+
+                                <FluentButton Appearance="Appearance.Stealth"
+                                              Title="@L["Nav_CollapseExpand"]"
+                                              @onclick="() => ToggleGroupCollapseAsync(g.Id)">
+                                    @if (collapsed)
+                                    {
+                                        <FluentIcon Value="@(new Icons.Regular.Size16.ChevronDown())" />
+                                    }
+                                    else
+                                    {
+                                        <FluentIcon Value="@(new Icons.Regular.Size16.ChevronUp())" />
+                                    }
+                                </FluentButton>
+                            </div>
+
+                            @if (!collapsed)
+                            {
+                                <div class="pl-7 pb-1">
+                                    <div class="flex flex-col gap-1 nav-group-lists-host" data-groupid="@g.Id" data-canmanage="@(g.CanManage ? "true" : "false")">
+                                        @foreach (var list in ListsInGroupOrdered(g.Id))
+                                        {
+                                            <button @key="list.Id" type="button"
+                                                    class="@ListNavClass(list.Id)"
+                                                    data-listid="@list.Id"
+                                                    @onclick=@(() => Navigation.NavigateTo($"/list/{list.Id}"))>
+                                                @if (!g.IsPortfolio || g.CanManage)
+                                                {
+                                                    <span class="nav-drag-handle inline-flex items-center justify-center w-5 cursor-grab select-none text-slate-300"
+                                                          title="@L["Nav_DragToSort"]">⋮⋮</span>
+                                                }
+
+                                                <span aria-hidden="true" class="pt-0.5">
+                                                    <FluentIcon Value="@(new Icons.Regular.Size24.DocumentBulletList())" />
+                                                </span>
+
+                                                <span class="px-1 truncate">@list.Name</span>
+                                            </button>
+                                        }
+                                    </div>
+
+                                    @if (!ListsInGroupOrdered(g.Id).Any())
+                                    {
+                                        <div class="text-xs text-slate-400 px-2 py-1">
+                                            @L["Nav_DropListsHere"]
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    var list = _lists.FirstOrDefault(x => x.Id == entry.Id);
+                    @if (list is not null)
+                    {
+                        <button @key="list.Id" type="button"
+                                class="nav-mixed-item @ListNavClass(list.Id)"
+                                data-listid="@list.Id"
+                                @onclick=@(() => Navigation.NavigateTo($"/list/{list.Id}"))>
+                            <span class="nav-drag-handle inline-flex items-center justify-center w-5 cursor-grab select-none text-slate-300"
+                                  title="@L["Nav_DragToSort"]">⋮⋮</span>
+
+                            <span aria-hidden="true" class="pt-0.5">
+                                <FluentIcon Value="@(new Icons.Regular.Size24.DocumentBulletList())" />
+                            </span>
+
+                            <span class="px-1 truncate">@list.Name</span>
+                        </button>
+                    }
+                }
+            }
+        </div>
+
+    </div>
+
+    <AuthorizeView>
+        <Authorized>
+            <div class="px-3 pb-3 shrink-0 border-t border-slate-200 pt-3 bg-white">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-1">
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      Title="@L["QuickLink_Trash"]"
+                                      OnClick="@(() => Navigation.NavigateTo("/trash"))">
+                            <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
+                        </FluentButton>
+
+                    <FloatingDropdown @ref="_notificationsDropdown" MinWidth="320" AlwaysAbove="true">
+                        <ChildContent>
+                            <span class="relative inline-flex">
+                                <FluentButton Appearance="Appearance.Stealth"
+                                              Title="Neueste Änderungen"
+                                              OnClick="ToggleNotificationsPanelAsync">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Alert())" />
+                                </FluentButton>
+                                @if (_unreadNotifications > 0)
+                                {
+                                    <span class="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-5 text-white text-center">
+                                        @_unreadNotifications
+                                    </span>
+                                }
+                            </span>
+                        </ChildContent>
+                        <DropdownContent>
+                            <div class="w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between gap-2">
+                                    <span>Neueste Änderungen</span>
+                                    <FluentButton Appearance="Appearance.Stealth" Title="Schließen" @onclick="CloseNotificationsPanel">x</FluentButton>
+                                </div>
+                                <div class="max-h-80 overflow-auto divide-y divide-slate-100">
+                                    @if (_latestNotifications.Count == 0)
+                                    {
+                                        <div class="px-3 py-4 text-sm text-slate-500">Keine neuen Änderungen.</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var n in _latestNotifications)
+                                        {
+                                            <div class="flex items-start gap-1 px-3 py-2 hover:bg-slate-50">
+                                                <button class="min-w-0 flex-1 text-left"
+                                                        @onclick="() => OpenNotificationAsync(n)">
+                                                    <div class="text-sm font-medium text-slate-800">@n.Title</div>
+                                                    <div class="text-xs text-slate-500">@n.Message</div>
+                                                    <div class="text-[11px] text-slate-400">@n.CreatedAtUtc.ToLocalTime().ToString("g")</div>
+                                                </button>
+                                                <FluentButton Appearance="Appearance.Stealth"
+                                                              Title="Benachrichtigung löschen"
+                                                              OnClick="() => DeleteNotificationAsync(n.Id)">
+                                                    <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
+                                                </FluentButton>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                                <div class="border-t border-slate-100 p-2 flex items-center justify-between gap-2">
+                                    <FluentButton Appearance="Appearance.Stealth"
+                                                  Disabled="@(_latestNotifications.Count == 0)"
+                                                  OnClick="DeleteAllNotificationsAsync">
+                                        Alle löschen
+                                    </FluentButton>
+                                    <FluentButton Appearance="Appearance.Stealth" OnClick="MarkNotificationsReadAsync">Gelesen</FluentButton>
+                                </div>
+                            </div>
+                        </DropdownContent>
+                    </FloatingDropdown>
+                    </div>
+
+                    <FloatingDropdown MinWidth="220" AlwaysAbove="true">
+                        <ChildContent>
+                            <button type="button"
+                                    class="app-account-menu-trigger inline-flex items-center gap-2 rounded-xl hover:bg-slate-100 p-2 transition-colors"
+                                    title="@_userName">
+                                @if (!string.IsNullOrEmpty(_profilePictureUrl))
+                                {
+                                    <img src="@_profilePictureUrl" alt="@_userName"
+                                         class="w-9 h-9 rounded-full object-cover shrink-0 border border-slate-200"
+                                         @key="_profilePictureUrl" />
+                                }
+                                else
+                                {
+                                    <div class="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold shrink-0">
+                                        @(_userName?.Length > 0 ? _userName[0].ToString().ToUpper() : "?")
+                                    </div>
+                                }
+                                <FluentIcon Value="@(new Icons.Regular.Size20.ChevronDown())" Color="Color.Neutral" />
+                            </button>
+                        </ChildContent>
+                        <DropdownContent>
+                        <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden py-1">
+                            @* Konto-Einstellungen *@
+                            <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                                @_userName
+                            </div>
+
+                            <button type="button"
+                                    class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                    @onclick="@(() => Navigation.NavigateTo("/konto"))">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Person())" Color="Color.Neutral" />
+                                @L["Nav_Account"]
+                            </button>
+
+                            <button type="button"
+                                    class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                    @onclick="@(() => Navigation.NavigateTo("/profile"))">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.ImageCircle())" Color="Color.Neutral" />
+                                @L["Nav_ProfilePicture"]
+                            </button>
+
+                            <button type="button"
+                                    class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                    @onclick="@(() => Navigation.NavigateTo("/access-tokens"))">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.Key())" Color="Color.Neutral" />
+                                @L["Nav_AccessTokens"]
+                            </button>
+
+                            @* Admin-Bereich nur für Admins *@
+                            <AuthorizeView Roles="Admin" Context="adminContext">
+                                <Authorized>
+                                    <div class="h-px bg-slate-100 my-1"></div>
+                                    <button type="button"
+                                            class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                            @onclick="@(() => Navigation.NavigateTo("/admin"))">
+                                        <FluentIcon Value="@(new Icons.Regular.Size20.Shield())" Color="Color.Neutral" />
+                                        @L["Nav_AdminArea"]
+                                    </button>
+                                </Authorized>
+                            </AuthorizeView>
+
+                            <div class="h-px bg-slate-100 my-1"></div>
+
+                            @* Abmelden *@
+                            <a href="Account/Logout?returnUrl=Account/Login"
+                               data-enhance-nav="false"
+                               class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-700 flex items-center gap-2">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.SignOut())" Color="Color.Error" />
+                                @L["Nav_Logout"]
+                            </a>
+                        </div>
+                        </DropdownContent>
+                    </FloatingDropdown>
+                </div>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="px-3 pb-3 shrink-0 border-t border-slate-200 pt-3 bg-white">
+                <div class="flex gap-2">
+                    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => Navigation.NavigateTo("/Account/Login", forceLoad: true))">@L["Nav_Login"]</FluentButton>
+                    <FluentButton Appearance="Appearance.Outline" OnClick="@(() => Navigation.NavigateTo("/Account/Register", forceLoad: true))">@L["Nav_Register"]</FluentButton>
+                </div>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+<!-- Manage Group Lists Dialog -->
+@if (_manageGroupListsOpen)
+{
+    <FluentDialog id="nav-manage-group-lists-dlg" Open="true" Modal="true" Style="width:min(720px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseManageGroupLists())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Dlg_ManageGroupLists_Title"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseManageGroupLists">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="text-sm text-slate-600 mb-2">
+                @L["Dlg_ManageGroupLists_Description"]
+            </div>
+
+            <div class="mb-4 flex flex-col sm:flex-row gap-2 sm:items-end rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div class="flex-1">
+                    <div class="text-sm font-medium text-slate-700 mb-1">@ManageGroupCreateLabel</div>
+                    <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                           placeholder="@L["Lbl_ListName"]" @bind-value="_manageNewListName" @bind-value:event="oninput" @onkeydown="HandleManageNewListKeyDown" />
+                </div>
+                <FluentButton Appearance="Appearance.Accent" Disabled="_manageCreateBusy" OnClick="CreateListInManagedGroupAsync">@L["Btn_Create"]</FluentButton>
+            </div>
+
+            <div class="space-y-2 max-h-[55vh] overflow-auto pr-1">
+                @foreach (var l in _lists.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    var isInGroup = l.NavigationGroupId == _manageGroupId;
+                    var canChange = CanChangeListPlacement(l, isInGroup ? null : _manageGroupId);
+
+                    <div class="flex items-center gap-2 rounded-xl border border-slate-200 p-2 bg-white">
+                        <FluentCheckbox Value="@isInGroup"
+                                        Disabled="@(!canChange)"
+                                        ValueChanged="@(v => ToggleListInManageGroup(l.Id, v))" />
+                        <div class="truncate">@l.Name</div>
+                    </div>
+                }
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseManageGroupLists">@L["Btn_Done"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+<!-- Rename Group Dialog -->
+@if (_renameGroupOpen)
+{
+    <FluentDialog id="nav-rename-group-dlg" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseRenameGroup())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Dlg_RenameGroup_Title"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameGroup">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div class="text-sm text-slate-600">@L["Dlg_RenameGroup_NewName"]</div>
+                <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                       type="text"
+                       @bind-value="_renameGroupValue"
+                       @bind-value:event="oninput" />
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameGroup">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="RenameGroupAsync">@L["Btn_Save"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+<!-- Ungroup Group Dialog -->
+@if (_ungroupGroupOpen)
+{
+    <FluentDialog id="nav-ungroup-group-dlg" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseUngroupGroup())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold text-red-700">@L["Dlg_Ungroup_Title"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseUngroupGroup">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div>@string.Format(L["Dlg_Ungroup_Confirm"], _ungroupGroupName)</div>
+                <div class="text-sm text-slate-600">
+                    @L["Dlg_Ungroup_Description"]
+                </div>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseUngroupGroup">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="UngroupGroupAsync">@L["Dlg_Ungroup_Button"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code
+{
+    private List<(string Label, string Href, Icon Icon)> _quickLinks = new();
+
+    private string _userId = "gast";
+    private string _userName = "gast";
+    private string? _profilePictureUrl;
+    private FloatingDropdown? _notificationsDropdown;
+    private int _unreadNotifications;
+    private List<UserNotificationEntity> _latestNotifications = new();
+
+    private List<TodoListEntity> _lists = new();
+    private List<TodoListGroupEntity> _groups = new();
+    private bool _navigationLoading = true;
+
+    private bool _showCreateList;
+    private TodoListEntity _newList = new() { Name = "" };
+    private List<TodoListEntity> _availableTemplates = new();
+    private Guid? _selectedTemplateId;
+    private bool _templatesLoading;
+
+    private bool _showCreateGroup;
+    private string _newGroupName = "";
+    private bool _newGroupIsPortfolio;
+
+    private string _error = "";
+
+    // Search
+    private string _searchQuery = "";
+    private bool _searchOpen;
+    private bool _searchLoading;
+    private List<SearchResultItem> _searchResults = new();
+    private List<SearchResultItem> _searchListResults = new();
+    private List<SearchResultItem> _searchTaskResults = new();
+    private CancellationTokenSource? _searchDebounce;
+
+    // Group UI state
+    private readonly HashSet<Guid> _collapsedGroups = new();
+
+    // Dialogs
+    private bool _manageGroupListsOpen;
+    private Guid _manageGroupId;
+    private string _manageNewListName = "";
+    private bool _manageCreateBusy;
+    private string ManageGroupCreateLabel => _groups.FirstOrDefault(g => g.Id == _manageGroupId)?.IsPortfolio == true
+        ? "Neue Liste direkt in diesem Portfolio erstellen"
+        : "Neue Liste direkt in dieser Gruppe erstellen";
+
+    private bool _renameGroupOpen;
+    private Guid _renameGroupId;
+    private string _renameGroupValue = "";
+
+    private bool _ungroupGroupOpen;
+    private Guid _ungroupGroupId;
+    private string _ungroupGroupName = "";
+
+    // Autofocus refs
+    private ElementReference _groupInputRef;
+    private ElementReference _listInputRef;
+    private bool _focusGroupInput;
+    private bool _focusListInput;
+
+    // Sortable init
+    private DotNetObjectReference<NavMenu>? _dotNetRef;
+    private bool _manageGroupListsHookActive;
+    private bool _renameGroupHookActive;
+    private bool _ungroupGroupHookActive;
+    private bool _navSortableInitialized;
+    private int _navRenderVersion;
+    private int _pendingSortOps;
+    private bool _isDragging;
+
+    private HubConnection? _hubConnection;
+    private CancellationTokenSource? _hubCts;
+    private bool _hubStarted;
+    private bool _disposed;
+
+    private string NavHostClass =>
+        _navigationLoading && _lists.Count == 0 && _groups.Count == 0
+            ? "hidden"
+            : "flex flex-col gap-1 mt-2";
+
+    private string ListNavClass(Guid listId)
+    {
+        var isActive = Navigation.Uri.EndsWith($"/list/{listId}", StringComparison.OrdinalIgnoreCase);
+        return isActive
+            ? "flex p-1 text-gray-700 rounded-lg bg-slate-100 nav-list-item w-full text-left"
+            : "flex p-1 text-gray-700 rounded-lg hover:bg-slate-50 nav-list-item w-full text-left";
+    }
+
+    private static NavLinkMatch GetQuickLinkMatch(string href)
+        => href == "/" ? NavLinkMatch.All : NavLinkMatch.Prefix;
+
+    private void OnSearchFocus()
+    {
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+            _searchOpen = true;
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _searchQuery = e.Value?.ToString() ?? "";
+
+        if (string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            _searchOpen = false;
+            _searchResults.Clear();
+            _searchListResults.Clear();
+            _searchTaskResults.Clear();
+            return;
+        }
+
+        _searchOpen = true;
+
+        _searchDebounce?.Cancel();
+        _searchDebounce = new CancellationTokenSource();
+        var token = _searchDebounce.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        await RunNavSearchAsync();
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            _searchOpen = false;
+            Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_searchQuery)}");
+        }
+        else if (e.Key == "Escape")
+        {
+            _searchOpen = false;
+        }
+    }
+
+    private async Task ClearSearchAsync()
+    {
+        _searchQuery = "";
+        _searchOpen = false;
+        _searchResults.Clear();
+        _searchListResults.Clear();
+        _searchTaskResults.Clear();
+        await Task.CompletedTask;
+    }
+
+    private async Task RunNavSearchAsync()
+    {
+        _searchLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var all = await SearchService.SearchAsync(_userId, _searchQuery);
+            _searchResults = all.ToList();
+            _searchListResults = _searchResults.Where(r => r.Kind == SearchResultKind.List).ToList();
+            _searchTaskResults = _searchResults.Where(r => r.Kind == SearchResultKind.Task).ToList();
+        }
+        catch
+        {
+            _searchResults.Clear();
+            _searchListResults.Clear();
+            _searchTaskResults.Clear();
+        }
+        finally
+        {
+            _searchLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToSearchResult(SearchResultItem item)
+    {
+        _searchOpen = false;
+        if (item.TaskId.HasValue)
+            Navigation.NavigateTo($"/list/{item.ListId}?taskId={item.TaskId}");
+        else
+            Navigation.NavigateTo($"/list/{item.ListId}");
+    }
+
+    private void ShowAllSearchResults()
+    {
+        _searchOpen = false;
+        Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_searchQuery)}");
+    }
+
+    private async Task OnSearchFocusOut(FocusEventArgs e)
+    {
+        // Small delay to allow click events inside the dropdown to fire first
+        await Task.Delay(150);
+        _searchOpen = false;
+        StateHasChanged();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+        => _ = InvokeAsync(async () =>
+        {
+            await RefreshNavigationForCurrentRouteAsync(e.Location);
+            await SafeStateHasChangedAsync();
+        });
+
+    private async Task RefreshNavigationForCurrentRouteAsync(string location)
+    {
+        if (_disposed) return;
+
+        var segments = Navigation.ToAbsoluteUri(location).AbsolutePath
+            .Trim('/')
+            .Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var unknownList = segments.Length == 2
+            && segments[0].Equals("list", StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParse(segments[1], out var listId)
+            && _lists.All(l => l.Id != listId);
+        var unknownPortfolio = segments.Length == 2
+            && segments[0].Equals("portfolio", StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParse(segments[1], out var portfolioId)
+            && _groups.All(g => g.Id != portfolioId);
+
+        if (unknownList || unknownPortfolio)
+            await LoadNavigationAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        NavigationRefresh.RefreshRequested += OnNavigationRefreshRequestedAsync;
+        _quickLinks =
+        [
+            (L["QuickLink_Tasks"], "/", new Icons.Filled.Size20.TaskListSquareSparkle())
+        ];
+        if (ProductFeatures.IsEnabled(ProductFeatureIds.Dashboards))
+            _quickLinks.Add((L["QuickLink_Dashboards"], "/dashboards", new Icons.Regular.Size20.DocumentBulletList()));
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            var id =
+                user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? user.FindFirst("sub")?.Value;
+
+            _userId = string.IsNullOrWhiteSpace(id) ? "gast" : id;
+
+            _userName =
+                user.Identity?.Name
+                ?? user.FindFirst(ClaimTypes.Email)?.Value
+                ?? _userId;
+
+            _ = LoadNavigationAsync();
+
+            // Profilbild-URL laden
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var hasPicture = await db.Users
+                .Where(u => u.Id == _userId)
+                .Select(u => u.ProfilePicturePath != null)
+                .FirstOrDefaultAsync();
+            _profilePictureUrl = hasPicture ? $"/api/profile-picture/{_userId}" : null;
+            await RefreshNotificationsAsync();
+        }
+        else
+        {
+            _userId = "gast";
+            _userName = "Gast";
+            _ = LoadNavigationAsync();
+        }
+    }
+
+    private Task OnNavigationRefreshRequestedAsync()
+        => InvokeAsync(LoadNavigationAsync);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (_userId != "gast")
+                await StartHubAsync();
+        }
+
+        if (_focusGroupInput)
+        {
+            _focusGroupInput = false;
+            try { await _groupInputRef.FocusAsync(); } catch { }
+        }
+
+        if (_focusListInput)
+        {
+            _focusListInput = false;
+            try { await _listInputRef.FocusAsync(); } catch { }
+        }
+
+        if (!_navSortableInitialized)
+        {
+            try
+            {
+                _dotNetRef ??= DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("todoUi.disposeNavSortable");
+            }
+            catch { }
+
+            try
+            {
+                await JS.InvokeVoidAsync("todoUi.initNavSortable", _dotNetRef);
+                _navSortableInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                _error = string.Format(L["Err_NavSortableInit"], ex.Message);
+            }
+        }
+
+        _manageGroupListsHookActive = await UpdateDialogHookAsync(_manageGroupListsOpen, "nav-manage-group-lists-dlg", _manageGroupListsHookActive);
+        _renameGroupHookActive = await UpdateDialogHookAsync(_renameGroupOpen, "nav-rename-group-dlg", _renameGroupHookActive);
+        _ungroupGroupHookActive = await UpdateDialogHookAsync(_ungroupGroupOpen, "nav-ungroup-group-dlg", _ungroupGroupHookActive);
+    }
+
+    private async Task<bool> UpdateDialogHookAsync(bool isOpen, string dialogId, bool hookActive)
+    {
+        if (isOpen && !hookActive)
+        {
+            try
+            {
+                _dotNetRef ??= DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("todoUi.enableDialogOutsideCloseById", dialogId, _dotNetRef, Array.Empty<string>());
+                return true;
+            }
+            catch { }
+        }
+        else if (!isOpen && hookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", dialogId); } catch { }
+            return false;
+        }
+
+        return hookActive;
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        _manageGroupListsOpen = false;
+        _renameGroupOpen = false;
+        _ungroupGroupOpen = false;
+        await SafeStateHasChangedAsync();
+    }
+
+    private void RequestNavResync()
+    {
+        _navSortableInitialized = false;
+        _isDragging = false;
+        _navRenderVersion++;
+    }
+
+    private async Task LoadNavigationAsync()
+    {
+        if (_disposed) return;
+
+        var showInitialLoading = _lists.Count == 0 && _groups.Count == 0;
+        if (showInitialLoading)
+        {
+            _navigationLoading = true;
+            await SafeStateHasChangedAsync();
+        }
+
+        try
+        {
+            var listsTask = ListService.GetNavigationListsAsync(_userId);
+            var groupsTask = NavService.GetListGroupsAsync(_userId);
+
+            await Task.WhenAll(listsTask, groupsTask);
+
+            _lists = listsTask.Result.ToList();
+            _groups = groupsTask.Result.ToList();
+            _collapsedGroups.Clear();
+            foreach (var group in _groups.Where(g => g.IsCollapsed))
+                _collapsedGroups.Add(group.Id);
+        }
+        catch
+        {
+            try
+            {
+                _lists = (await ListService.GetNavigationListsAsync(_userId)).ToList();
+            }
+            catch
+            {
+                _lists = new();
+            }
+
+            try
+            {
+                _groups = (await NavService.GetListGroupsAsync(_userId)).ToList();
+            }
+            catch
+            {
+                _groups = new();
+            }
+        }
+        finally
+        {
+            _navigationLoading = false;
+        }
+
+        // UI: wenn Gruppe nicht mehr existiert, Listen zurücksetzen
+        var groupIds = _groups.Select(g => g.Id).ToHashSet();
+        foreach (var l in _lists)
+        {
+            if (l.NavigationGroupId is not null && !groupIds.Contains(l.NavigationGroupId.Value))
+                l.NavigationGroupId = null;
+        }
+
+        // Sicherstellen, dass Gruppen und Root-Listen im selben globalen Zahlenraum liegen.
+        // Ohne das würden frische Installationen (SortOrder 0,1,2 in beiden Namensräumen)
+        // falsch gemischt dargestellt.
+        NormalizeNavSortOrders();
+
+        RequestNavResync();
+        await SafeStateHasChangedAsync();
+    }
+
+    /// <summary>
+    /// Stellt sicher, dass Gruppen-SortOrder und Root-Listen-NavigationSortOrder
+    /// im selben globalen Zahlenraum liegen. Rein in-memory – kein DB-Zugriff.
+    /// Wird bei jedem Laden aufgerufen, sodass kollidierende Positionen (z.B. nach
+    /// frischer Installation) zuverlässig aufgelöst werden.
+    /// Bereits korrekt global positionierte Werte bleiben stabil, weil nur die
+    /// Reihenfolge erhalten wird, nicht die Zahlenwerte an sich.
+    /// </summary>
+    private void NormalizeNavSortOrders()
+    {
+        var rootLists = _lists.Where(l => l.NavigationGroupId is null).ToList();
+        if (rootLists.Count == 0 && _groups.Count == 0) return;
+
+        // Kombinierte Sortierung: erst nach Position, bei Gleichstand Listen vor Gruppen,
+        // dann alphabetisch. Das entspricht dem alten Verhalten (Listen-Sektion zuerst).
+        var combined = rootLists
+            .Select(l => (IsGroup: false, Pos: l.NavigationSortOrder, Name: l.Name, ListRef: (TodoListEntity?)l, GroupRef: (TodoListGroupEntity?)null))
+            .Concat(_groups.Select(g => (IsGroup: true, Pos: g.SortOrder, Name: g.Name, ListRef: (TodoListEntity?)null, GroupRef: (TodoListGroupEntity?)g)))
+            .OrderBy(x => x.Pos)
+            .ThenBy(x => x.IsGroup ? 1 : 0)   // Gleichstand: Listen vor Gruppen
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        for (int i = 0; i < combined.Count; i++)
+        {
+            var item = combined[i];
+            if (!item.IsGroup && item.ListRef is not null)
+                item.ListRef.NavigationSortOrder = i;
+            else if (item.IsGroup && item.GroupRef is not null)
+                item.GroupRef.SortOrder = i;
+        }
+    }
+
+    private async Task SafeStateHasChangedAsync()
+    {
+        if (_disposed) return;
+
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Komponente wurde während eines async-Callbacks bereits freigegeben.
+        }
+        catch (InvalidOperationException)
+        {
+            // Renderer/Circuit ist nicht mehr verfügbar.
+        }
+    }
+
+
+    // Repräsentiert einen einzelnen Eintrag in der gemischten Navigationsliste
+    private record NavEntry(bool IsGroup, Guid Id, int SortOrder, string Name);
+
+    /// <summary>
+    /// Gibt Gruppen und Root-Listen in einer gemeinsamen Reihenfolge zurück,
+    /// sortiert nach dem globalen SortOrder-Wert (derselbe numerische Raum für beide Typen).
+    /// </summary>
+    private IEnumerable<NavEntry> NavItemsOrdered =>
+        _lists
+            .Where(l => l.NavigationGroupId is null)
+            .Select(l => new NavEntry(false, l.Id, l.NavigationSortOrder, l.Name))
+            .Concat(_groups.Select(g => new NavEntry(true, g.Id, g.SortOrder, g.Name)))
+            .OrderBy(e => e.SortOrder)
+            .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase);
+
+    private IEnumerable<TodoListEntity> ListsInGroupOrdered(Guid groupId) =>
+        _lists
+            .Where(l => l.NavigationGroupId == groupId)
+            .OrderBy(l => l.NavigationSortOrder)
+            .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase);
+
+
+    private void ToggleCreateList()
+    {
+        _showCreateList = !_showCreateList;
+        if (_showCreateList)
+        {
+            _newList = new TodoListEntity { Name = "" };
+            _selectedTemplateId = null;
+            _focusListInput = true;
+            _ = LoadTemplatesAsync();
+        }
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        _templatesLoading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            _availableTemplates = (await ListService.GetTemplatesAsync(_userId)).ToList();
+        }
+        catch
+        {
+            _availableTemplates = new List<TodoListEntity>();
+        }
+        finally
+        {
+            _templatesLoading = false;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleCreateGroup()
+    {
+        _showCreateGroup = !_showCreateGroup;
+        if (_showCreateGroup)
+        {
+            _newGroupName = "";
+            _newGroupIsPortfolio = false;
+            _focusGroupInput = true;
+        }
+    }
+
+    private async Task ToggleGroupCollapseAsync(Guid groupId)
+    {
+        if (_collapsedGroups.Contains(groupId)) _collapsedGroups.Remove(groupId);
+        else _collapsedGroups.Add(groupId);
+
+        RequestNavResync();
+        try { await NavService.SetListGroupCollapsedAsync(_userId, groupId, _collapsedGroups.Contains(groupId)); }
+        catch (Exception ex) { _error = $"Navigationszustand konnte nicht gespeichert werden: {ex.Message}"; }
+    }
+
+    private async Task HandleCreateGroupKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter")
+            return;
+
+        await CreateGroupAsync();
+    }
+
+    private async Task CreateGroupAsync()
+    {
+        _error = "";
+        var name = (_newGroupName ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _error = L["Err_GroupCreateEmpty"];
+            return;
+        }
+
+        try
+        {
+            await NavService.AddListGroupAsync(_userId, name, _newGroupIsPortfolio);
+            _showCreateGroup = false;
+            _newGroupName = "";
+            _newGroupIsPortfolio = false;
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_GroupCreate"], ex.Message);
+        }
+    }
+
+    private async Task TogglePortfolioAsync(TodoListGroupEntity group)
+    {
+        try
+        {
+            await NavService.SetListGroupPortfolioAsync(_userId, group.Id, !group.IsPortfolio);
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Portfolio-Einstellung konnte nicht gespeichert werden: {ex.Message}";
+        }
+    }
+
+    private void NavigateToPortfolio(Guid groupId) => Navigation.NavigateTo($"/portfolio/{groupId}");
+
+    private async Task HandleCreateListKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter")
+            return;
+
+        await CreateListAsync();
+    }
+
+    private async Task CreateListAsync()
+    {
+        _error = "";
+
+        var listName = (_newList.Name ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(listName))
+        {
+            _error = L["Err_ListCreateEmpty"];
+            return;
+        }
+
+        try
+        {
+            TodoListEntity created;
+
+            if (_selectedTemplateId.HasValue)
+            {
+                created = await ListService.CreateListFromTemplateAsync(_userId, _selectedTemplateId.Value, listName);
+            }
+            else
+            {
+                var listToCreate = new TodoListEntity
+                {
+                    Id = Guid.NewGuid(),
+                    Name = listName
+                };
+                created = await ListService.AddListAsync(_userId, listToCreate);
+            }
+
+            _newList = new TodoListEntity { Name = "" };
+            _selectedTemplateId = null;
+            _showCreateList = false;
+
+            await LoadNavigationAsync();
+
+            Navigation.NavigateTo($"/list/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListCreate"], ex.Message);
+        }
+    }
+
+    private bool CanManageListPlacement(Guid? groupId)
+        => groupId is null || _groups.Any(g => g.Id == groupId.Value && g.CanManage);
+
+    private bool CanAdminList(TodoListEntity list)
+        => string.Equals(list.OwnerId, _userId, StringComparison.OrdinalIgnoreCase)
+           || list.Participants.Any(p => !p.InvitationPending
+               && p.Role == ListRole.Admin
+               && (string.Equals(p.UserId, _userId, StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(p.Email, _userId, StringComparison.OrdinalIgnoreCase)));
+
+    private bool CanChangeListPlacement(TodoListEntity list, Guid? targetGroupId)
+    {
+        if (!CanManageListPlacement(list.NavigationGroupId) || !CanManageListPlacement(targetGroupId))
+            return false;
+
+        var targetGroup = targetGroupId.HasValue
+            ? _groups.FirstOrDefault(g => g.Id == targetGroupId.Value)
+            : null;
+        return targetGroup?.IsPortfolio != true || CanAdminList(list);
+    }
+
+    private void OpenManageGroupLists(Guid groupId)
+    {
+        if (!CanManageListPlacement(groupId)) return;
+        _manageGroupId = groupId;
+        _manageNewListName = "";
+        _manageGroupListsOpen = true;
+    }
+
+    private void CloseManageGroupLists()
+    {
+        _manageGroupListsOpen = false;
+        _manageGroupId = Guid.Empty;
+        _manageNewListName = "";
+    }
+
+    private async Task HandleManageNewListKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await CreateListInManagedGroupAsync();
+    }
+
+    private async Task CreateListInManagedGroupAsync()
+    {
+        var name = (_manageNewListName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name) || _manageGroupId == Guid.Empty || !CanManageListPlacement(_manageGroupId)) return;
+        _manageCreateBusy = true;
+        _error = "";
+        try
+        {
+            var created = await ListService.AddListAsync(_userId, new TodoListEntity { Id = Guid.NewGuid(), Name = name });
+            var targetIds = _lists.Where(x => x.NavigationGroupId == _manageGroupId).OrderBy(x => x.NavigationSortOrder).Select(x => x.Id).Append(created.Id).ToList();
+            await NavService.MoveListAsync(_userId, created.Id, null, _manageGroupId, [], targetIds);
+            _manageNewListName = "";
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex) { _error = $"Liste konnte nicht in der Gruppe erstellt werden: {ex.Message}"; }
+        finally { _manageCreateBusy = false; }
+    }
+
+    private async Task ToggleListInManageGroup(Guid listId, bool putIntoGroup)
+    {
+        _error = "";
+
+        try
+        {
+            var list = _lists.FirstOrDefault(x => x.Id == listId);
+            if (list is null) return;
+
+            var fromGroup = list.NavigationGroupId;
+            var toGroup = putIntoGroup ? _manageGroupId : (Guid?)null;
+
+            if (!CanChangeListPlacement(list, toGroup))
+                return;
+
+            // Nichts zu tun
+            if (fromGroup == toGroup)
+                return;
+
+            // Quell-Reihenfolge (nach dem Entfernen)
+            var fromIds = _lists
+                .Where(x => x.NavigationGroupId == fromGroup && x.Id != listId)
+                .OrderBy(x => x.NavigationSortOrder)
+                .Select(x => x.Id)
+                .ToList();
+
+            // Ziel-Reihenfolge (nach dem Hinzufügen -> ans Ende)
+            var toIds = _lists
+                .Where(x => x.NavigationGroupId == toGroup)
+                .OrderBy(x => x.NavigationSortOrder)
+                .Select(x => x.Id)
+                .ToList();
+
+            toIds.Add(listId);
+
+            await NavService.MoveListAsync(_userId, listId, fromGroup, toGroup, fromIds, toIds);
+
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListMove"], ex.Message);
+        }
+    }
+
+
+    private void OpenRenameGroup(Guid groupId, string currentName)
+    {
+        _renameGroupId = groupId;
+        _renameGroupValue = currentName;
+        _renameGroupOpen = true;
+    }
+
+    private void CloseRenameGroup()
+    {
+        _renameGroupOpen = false;
+        _renameGroupId = Guid.Empty;
+        _renameGroupValue = "";
+    }
+
+    private async Task RenameGroupAsync()
+    {
+        _error = "";
+        var name = (_renameGroupValue ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _error = L["Err_GroupRenameEmpty"];
+            return;
+        }
+
+        try
+        {
+            await NavService.RenameListGroupAsync(_userId, _renameGroupId, name);
+            _renameGroupOpen = false;
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_GroupRename"], ex.Message);
+        }
+    }
+
+    private void OpenUngroupGroup(Guid groupId, string name)
+    {
+        _ungroupGroupId = groupId;
+        _ungroupGroupName = name;
+        _ungroupGroupOpen = true;
+    }
+
+    private void CloseUngroupGroup()
+    {
+        _ungroupGroupOpen = false;
+        _ungroupGroupId = Guid.Empty;
+        _ungroupGroupName = "";
+    }
+
+    private async Task UngroupGroupAsync()
+    {
+        _error = "";
+        try
+        {
+            await NavService.DeleteListGroupAsync(_userId, _ungroupGroupId, ungroupLists: true);
+            _ungroupGroupOpen = false;
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_GroupUngroup"], ex.Message);
+        }
+    }
+
+    /* -------------------- SORTABLE CALLBACKS -------------------- */
+
+    [JSInvokable]
+    public void OnNavDragStarted()
+    {
+        if (_disposed) return;
+        _isDragging = true;
+    }
+
+    [JSInvokable]
+    public void OnNavDragAborted()
+    {
+        if (_disposed) return;
+        _isDragging = false;
+    }
+
+    [JSInvokable]
+    public async Task OnCircuitReconnected()
+    {
+        if (_disposed) return;
+        _navSortableInitialized = false;
+        await LoadNavigationAsync();
+    }
+
+    /// <summary>
+    /// Wird vom JS aufgerufen, wenn Gruppen oder Root-Listen im unified Host
+    /// umsortiert werden. orderedDescriptors enthält "group:&lt;guid&gt;" / "list:&lt;guid&gt;".
+    /// </summary>
+    [JSInvokable]
+    public async Task OnNavMixedReordered(string[] orderedDescriptors)
+    {
+        if (_disposed) return;
+        _error = "";
+        _isDragging = false;
+        _pendingSortOps++;
+        try
+        {
+            var descs = orderedDescriptors ?? Array.Empty<string>();
+
+            // Optimistisches UI-Update: globale Position direkt in die Entitäten schreiben
+            for (int i = 0; i < descs.Length; i++)
+            {
+                var colon = descs[i].IndexOf(':');
+                if (colon < 0) continue;
+                var type = descs[i][..colon];
+                if (!Guid.TryParse(descs[i][(colon + 1)..], out var id)) continue;
+
+                if (type == "group")
+                {
+                    var grp = _groups.FirstOrDefault(x => x.Id == id);
+                    if (grp != null) grp.SortOrder = i;
+                }
+                else if (type == "list")
+                {
+                    var lst = _lists.FirstOrDefault(x => x.Id == id && x.NavigationGroupId == null);
+                    if (lst != null) lst.NavigationSortOrder = i;
+                }
+            }
+
+            // Persistieren
+            await NavService.ReorderMixedNavigationAsync(_userId, descs);
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_GroupsReorder"], ex.Message);
+        }
+        finally
+        {
+            _pendingSortOps--;
+        }
+    }
+
+    // Kompatibilitäts-Stub – wird vom alten JS nicht mehr aufgerufen,
+    // bleibt aber für eventuelle externe Aufrufer erhalten.
+    [JSInvokable]
+    public async Task OnNavGroupsReordered(string[] orderedGroupIds)
+    {
+        var descs = (orderedGroupIds ?? Array.Empty<string>())
+            .Select(id => $"group:{id}")
+            .ToArray();
+        await OnNavMixedReordered(descs);
+    }
+
+
+    [JSInvokable]
+    public async Task OnNavListsReordered(string groupIdOrEmpty, string[] orderedListIds)
+    {
+        if (_disposed) return;
+        _error = "";
+        _isDragging = false;
+        _pendingSortOps++;
+        try
+        {
+            Guid? groupId = null;
+            if (!string.IsNullOrWhiteSpace(groupIdOrEmpty) && Guid.TryParse(groupIdOrEmpty, out var g))
+                groupId = g;
+
+            if (!CanManageListPlacement(groupId))
+                return;
+
+            var ids = new List<Guid>();
+            foreach (var s in orderedListIds ?? Array.Empty<string>())
+                if (Guid.TryParse(s, out var l)) ids.Add(l);
+
+            // ✅ 1) Optimistisch im UI setzen
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var l = _lists.FirstOrDefault(x => x.Id == ids[i]);
+                if (l != null)
+                {
+                    l.NavigationGroupId = groupId;
+                    l.NavigationSortOrder = i;
+                }
+            }
+
+            // ✅ 2) Persistieren
+            await NavService.ReorderNavigationListsAsync(_userId, groupId, ids);
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListsReorder"], ex.Message);
+        }
+        finally
+        {
+            _pendingSortOps--;
+        }
+    }
+
+
+    [JSInvokable]
+    public async Task OnNavListMoved(string listId, string fromGroupIdOrEmpty, string toGroupIdOrEmpty, string[] fromIds, string[] toIds)
+    {
+        if (_disposed) return;
+        _error = "";
+        _isDragging = false;
+        _pendingSortOps++;
+        try
+        {
+            if (!Guid.TryParse(listId, out var lid))
+                return;
+
+            Guid? fromGroup = null;
+            if (!string.IsNullOrWhiteSpace(fromGroupIdOrEmpty) && Guid.TryParse(fromGroupIdOrEmpty, out var fg))
+                fromGroup = fg;
+
+            Guid? toGroup = null;
+            if (!string.IsNullOrWhiteSpace(toGroupIdOrEmpty) && Guid.TryParse(toGroupIdOrEmpty, out var tg))
+                toGroup = tg;
+
+            var movedList = _lists.FirstOrDefault(x => x.Id == lid);
+            if (movedList is null || !CanChangeListPlacement(movedList, toGroup))
+                return;
+
+            var fromList = new List<Guid>();
+            foreach (var s in fromIds ?? Array.Empty<string>())
+                if (Guid.TryParse(s, out var id)) fromList.Add(id);
+
+            var toList = new List<Guid>();
+            foreach (var s in toIds ?? Array.Empty<string>())
+                if (Guid.TryParse(s, out var id)) toList.Add(id);
+
+            // ✅ 1) Optimistisch im UI setzen
+            for (int i = 0; i < fromList.Count; i++)
+            {
+                var l = _lists.FirstOrDefault(x => x.Id == fromList[i]);
+                if (l != null)
+                {
+                    l.NavigationGroupId = fromGroup;
+                    l.NavigationSortOrder = i;
+                }
+            }
+
+            for (int i = 0; i < toList.Count; i++)
+            {
+                var l = _lists.FirstOrDefault(x => x.Id == toList[i]);
+                if (l != null)
+                {
+                    l.NavigationGroupId = toGroup;
+                    l.NavigationSortOrder = i;
+                }
+            }
+
+            // ✅ 2) Persistieren
+            await NavService.MoveListAsync(_userId, lid, fromGroup, toGroup, fromList, toList);
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListMoveReorder"], ex.Message);
+        }
+        finally
+        {
+            _pendingSortOps--;
+        }
+    }
+
+    /// <summary>
+    /// Erweiterte Variante von OnNavListMoved für Moves, die den unified host (Root) betreffen.
+    /// Zusätzlich zu MoveListAsync wird die komplette globale Reihenfolge des unified host
+    /// persistiert, damit ApplyListOrderAsync (das lokale 0,1,2… setzt) die globalen
+    /// Gruppen-Positionen nicht korrumpiert.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnNavListMovedMixed(
+        string listId,
+        string fromGroupIdOrEmpty,
+        string toGroupIdOrEmpty,
+        string[] fromIds,
+        string[] toIds,
+        string[] unifiedDescriptors)
+    {
+        if (_disposed) return;
+        _error = "";
+        _isDragging = false;
+        _pendingSortOps++;
+        try
+        {
+            if (!Guid.TryParse(listId, out var lid))
+                return;
+
+            Guid? fromGroup = null;
+            if (!string.IsNullOrWhiteSpace(fromGroupIdOrEmpty) && Guid.TryParse(fromGroupIdOrEmpty, out var fg))
+                fromGroup = fg;
+
+            Guid? toGroup = null;
+            if (!string.IsNullOrWhiteSpace(toGroupIdOrEmpty) && Guid.TryParse(toGroupIdOrEmpty, out var tg))
+                toGroup = tg;
+
+            var movedList = _lists.FirstOrDefault(x => x.Id == lid);
+            if (movedList is null || !CanChangeListPlacement(movedList, toGroup))
+                return;
+
+            var fromList = new List<Guid>();
+            foreach (var s in fromIds ?? Array.Empty<string>())
+                if (Guid.TryParse(s, out var id)) fromList.Add(id);
+
+            var toList = new List<Guid>();
+            foreach (var s in toIds ?? Array.Empty<string>())
+                if (Guid.TryParse(s, out var id)) toList.Add(id);
+
+            var descs = unifiedDescriptors ?? Array.Empty<string>();
+
+            // ── 1) Optimistisches UI-Update ──────────────────────────────────────
+            // Erst den verschobenen Eintrag in den neuen Container setzen
+            movedList.NavigationGroupId = toGroup;
+
+            // Aus-Container normalisieren
+            for (int i = 0; i < fromList.Count; i++)
+            {
+                var l = _lists.FirstOrDefault(x => x.Id == fromList[i]);
+                if (l is not null) { l.NavigationGroupId = fromGroup; l.NavigationSortOrder = i; }
+            }
+
+            // In-Container normalisieren
+            for (int i = 0; i < toList.Count; i++)
+            {
+                var l = _lists.FirstOrDefault(x => x.Id == toList[i]);
+                if (l is not null) { l.NavigationGroupId = toGroup; l.NavigationSortOrder = i; }
+            }
+
+            // Globale Positionen aus den Unified-Descriptors direkt in die Entitäten schreiben,
+            // damit NavItemsOrdered sofort die richtige Reihenfolge liefert.
+            for (int i = 0; i < descs.Length; i++)
+            {
+                var colon = descs[i].IndexOf(':');
+                if (colon < 0) continue;
+                var type = descs[i][..colon];
+                if (!Guid.TryParse(descs[i][(colon + 1)..], out var id)) continue;
+
+                if (type == "group")
+                {
+                    var grp = _groups.FirstOrDefault(x => x.Id == id);
+                    if (grp is not null) grp.SortOrder = i;
+                }
+                else if (type == "list")
+                {
+                    var lst = _lists.FirstOrDefault(x => x.Id == id && x.NavigationGroupId == null);
+                    if (lst is not null) lst.NavigationSortOrder = i;
+                }
+            }
+
+            // ── 2) Persistieren ──────────────────────────────────────────────────
+            // MoveListAsync: NavigationGroupId und within-container Sort setzen
+            await NavService.MoveListAsync(_userId, lid, fromGroup, toGroup, fromList, toList);
+
+            // ReorderMixedNavigationAsync: globale Positionen reparieren, die
+            // ApplyListOrderAsync (in MoveListAsync) mit lokalen 0,1,2… überschrieben hat.
+            if (descs.Length > 0)
+                await NavService.ReorderMixedNavigationAsync(_userId, descs);
+
+            await LoadNavigationAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_ListMoveReorder"], ex.Message);
+        }
+        finally
+        {
+            _pendingSortOps--;
+        }
+    }
+
+
+    /* -------------------- HUB -------------------- */
+
+    private async Task StartHubAsync()
+    {
+        if (_hubStarted || _disposed) return;
+
+        _hubCts?.Cancel();
+        _hubCts?.Dispose();
+        _hubCts = new CancellationTokenSource();
+
+        _hubConnection = await HubConnectionFactory.CreateAsync(_hubCts.Token);
+        if (_hubConnection is null)
+            return;
+
+        _hubConnection.On(TodoHub.ListsUpdated, async () =>
+        {
+            if (_disposed) return;
+            await InvokeAsync(DebouncedReloadAsync);
+        });
+
+        _hubConnection.On<Guid>(TodoHub.ListsUpdated, async (_) =>
+        {
+            if (_disposed) return;
+            await InvokeAsync(DebouncedReloadAsync);
+        });
+
+        _hubConnection.On(TodoHub.BrowserNotification, async () =>
+        {
+            if (_disposed) return;
+            await InvokeAsync(async () =>
+            {
+                await RefreshNotificationsAsync();
+                StateHasChanged();
+            });
+        });
+
+        _hubConnection.Reconnected += async _ =>
+        {
+            if (_disposed) return;
+
+            try
+            {
+                await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
+                await InvokeAsync(async () =>
+                {
+                    await RefreshNotificationsAsync();
+                    StateHasChanged();
+                });
+            }
+            catch { }
+        };
+
+        try
+        {
+            await _hubConnection.StartAsync(_hubCts.Token);
+            await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId, _hubCts.Token);
+            _hubStarted = true;
+        }
+        catch (OperationCanceledException)
+        {
+            // ok
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_HubStart"], ex.Message);
+        }
+    }
+
+    private CancellationTokenSource? _reloadCts;
+
+    private async Task RefreshNotificationsAsync()
+    {
+        if (_userId == "gast")
+        {
+            _unreadNotifications = 0;
+            _latestNotifications.Clear();
+            return;
+        }
+
+        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
+        _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
+    }
+
+    private async Task ToggleNotificationsPanelAsync()
+    {
+        if (_userId == "gast") return;
+
+        await RefreshNotificationsAsync();
+    }
+
+    private async Task CloseNotificationsPanel()
+    {
+        if (_notificationsDropdown is not null)
+            await _notificationsDropdown.CloseAsync();
+    }
+
+    private async Task MarkNotificationsReadAsync()
+    {
+        await NotificationService.MarkAllReadAsync(_userId);
+        _unreadNotifications = 0;
+        _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
+        StateHasChanged();
+    }
+
+    private async Task DeleteNotificationAsync(Guid notificationId)
+    {
+        await NotificationService.DeleteNotificationAsync(_userId, notificationId);
+        _latestNotifications.RemoveAll(n => n.Id == notificationId);
+        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
+        await RefreshNotificationsDropdownAsync();
+    }
+
+    private async Task DeleteAllNotificationsAsync()
+    {
+        await NotificationService.DeleteAllNotificationsAsync(_userId);
+        _latestNotifications.Clear();
+        _unreadNotifications = 0;
+        await RefreshNotificationsDropdownAsync();
+    }
+
+    private async Task RefreshNotificationsDropdownAsync()
+    {
+        StateHasChanged();
+
+        if (_notificationsDropdown is null)
+            return;
+
+        await _notificationsDropdown.CloseAsync();
+        await InvokeAsync(StateHasChanged);
+        await _notificationsDropdown.OpenAsync();
+    }
+
+    private async Task OpenNotificationAsync(UserNotificationEntity notification)
+    {
+        await CloseNotificationsPanel();
+        if (notification.TaskId.HasValue)
+            Navigation.NavigateTo($"/list/{notification.ListId}?taskId={notification.TaskId.Value}");
+        else
+            Navigation.NavigateTo($"/list/{notification.ListId}");
+        await Task.CompletedTask;
+    }
+
+    private async Task DebouncedReloadAsync()
+    {
+        _reloadCts?.Cancel();
+        _reloadCts?.Dispose();
+        _reloadCts = new CancellationTokenSource();
+
+        var token = _reloadCts.Token;
+
+        try
+        {
+            await Task.Delay(150, token);
+            if (token.IsCancellationRequested) return;
+            if (_disposed) return;
+            // Skip reload while sort operations are in-flight or a drag is active to avoid
+            // overwriting optimistic state or re-rendering the DOM under an active drag.
+            if (_pendingSortOps > 0 || _isDragging) return;
+
+            await LoadNavigationAsync();
+        }
+        catch (TaskCanceledException)
+        {
+            // ok
+        }
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        Navigation.LocationChanged -= OnLocationChanged;
+        NavigationRefresh.RefreshRequested -= OnNavigationRefreshRequestedAsync;
+
+        try { await JS.InvokeVoidAsync("todoUi.disposeNavSortable"); } catch { }
+        if (_manageGroupListsHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "nav-manage-group-lists-dlg"); } catch { }
+        if (_renameGroupHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "nav-rename-group-dlg"); } catch { }
+        if (_ungroupGroupHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "nav-ungroup-group-dlg"); } catch { }
+        _dotNetRef?.Dispose();
+
+        try { _hubCts?.Cancel(); } catch { }
+        _hubCts?.Dispose();
+        _hubCts = null;
+
+        try { _reloadCts?.Cancel(); } catch { }
+        _reloadCts?.Dispose();
+        _reloadCts = null;
+
+        if (_hubConnection is not null)
+        {
+            try { await _hubConnection.StopAsync(); } catch { }
+            await _hubConnection.DisposeAsync();
+            _hubConnection = null;
+        }
+    }
+}

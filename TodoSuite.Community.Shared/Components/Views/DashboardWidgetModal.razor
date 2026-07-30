@@ -1,0 +1,71 @@
+@if (IsOpen)
+{
+    <FluentDialog id="dashboard-widget-dlg" Open="true" Modal="true" Style="width:min(480px,92vw);" TrapFocus="true" HiddenChanged="@(_ => OnClose.InvokeAsync())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between w-full">
+                <div class="font-semibold text-lg">@L["Dashboard_Customize_Widgets"]</div>
+                <button class="text-slate-400 hover:text-slate-700 text-xl leading-none px-1" @onclick="OnClose">✕</button>
+            </div>
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <p class="text-xs text-slate-500 mb-3">@L["Dashboard_Widgets_Help"]</p>
+            <div class="space-y-1">
+                @for (var i = 0; i < FilterDraft.WidgetOrder.Count; i++)
+                {
+                    var widgetId = FilterDraft.WidgetOrder[i];
+                    var idx = i;
+                    var isFirst = idx == 0;
+                    var isLast = idx == FilterDraft.WidgetOrder.Count - 1;
+                    var isTask = widgetId == "tasks";
+                    <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200">
+                        <div class="flex flex-col gap-0.5 shrink-0">
+                            <button class="text-[10px] leading-none px-1 py-0.5 rounded hover:bg-slate-200 disabled:opacity-30"
+                                    @onclick="() => OnMoveUp.InvokeAsync(widgetId)"
+                                    disabled="@isFirst">▲</button>
+                            <button class="text-[10px] leading-none px-1 py-0.5 rounded hover:bg-slate-200 disabled:opacity-30"
+                                    @onclick="() => OnMoveDown.InvokeAsync(widgetId)"
+                                    disabled="@isLast">▼</button>
+                        </div>
+                        <input type="checkbox"
+                               checked="@IsVisible(widgetId)"
+                               disabled="@isTask"
+                               @onchange="e => OnToggleWidget.InvokeAsync((widgetId, IsChecked(e.Value)))" />
+                        <span class="@WidgetLabelCss(isTask)">@WidgetLabel(widgetId)</span>
+                    </div>
+                }
+            </div>
+        </FluentDialogBody>
+    </FluentDialog>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public DashboardFilter FilterDraft { get; set; } = new();
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<(string WidgetId, bool Selected)> OnToggleWidget { get; set; }
+    [Parameter] public EventCallback<string> OnMoveUp { get; set; }
+    [Parameter] public EventCallback<string> OnMoveDown { get; set; }
+
+    private static bool IsChecked(object? v) => v is true || v?.ToString() == "true";
+    private static string WidgetLabelCss(bool isTask) => isTask ? "text-sm text-slate-400" : "text-sm";
+
+    private bool IsVisible(string widgetId) => widgetId switch
+    {
+        "kpi" => FilterDraft.ShowKpiCards,
+        "status" => FilterDraft.ShowStatusChart,
+        "priority" => FilterDraft.ShowPriorityChart,
+        "due" => FilterDraft.ShowDueChart,
+        "tasks" => true,
+        _ => false
+    };
+
+    private string WidgetLabel(string widgetId) => widgetId switch
+    {
+        "kpi" => L["Dashboard_Widget_Kpi"],
+        "status" => L["Dashboard_Widget_Status"],
+        "priority" => L["Dashboard_Widget_Priority"],
+        "due" => L["Dashboard_Widget_Due"],
+        "tasks" => L["Dashboard_Widget_Tasks"],
+        _ => widgetId
+    };
+}

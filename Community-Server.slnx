@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Community/TodoSuite.Community.csproj" />
+  <Project Path="TodoSuite.Community.Shared/TodoSuite.Community.Shared.csproj" />
+</Solution>
+

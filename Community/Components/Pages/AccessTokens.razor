@@ -1,0 +1,269 @@
+@page "/access-tokens"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject IJSRuntime JS
+@inject IConfiguration Configuration
+
+<PageTitle>API-Zugriffstoken</PageTitle>
+
+<div class="flex flex-col h-full min-h-0 overflow-y-auto">
+    <div class="max-w-2xl mx-auto w-full p-6 space-y-6">
+
+        <!-- Header -->
+        <div>
+            <div class="text-xs uppercase text-slate-500">Konto</div>
+            <h1 class="text-2xl font-semibold">API-Zugriffstoken</h1>
+            <p class="text-sm text-slate-600">
+                Persönliche Zugriffstoken ermöglichen den Zugriff auf die API mit denselben Berechtigungen wie dein Konto.
+                Verwende <code class="bg-slate-100 px-1 rounded text-xs">Authorization: Bearer &lt;token&gt;</code> im HTTP-Header.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_statusMessage))
+        {
+            <div class="rounded-xl border @(_isError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm">
+                @_statusMessage
+            </div>
+        }
+
+        @* Neu erstellter Token – einmalige Anzeige *@
+        @if (_newToken is not null)
+        {
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm space-y-3">
+                <div class="font-medium text-amber-900">Token erstellt – jetzt kopieren!</div>
+                <p class="text-sm text-amber-800">
+                    Dieser Token wird nur einmal angezeigt. Kopiere ihn jetzt und bewahre ihn sicher auf.
+                </p>
+                <div class="flex items-center gap-2">
+                    <code class="flex-1 bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs font-mono break-all select-all">
+                        @_newToken
+                    </code>
+                    <button type="button"
+                            class="shrink-0 rounded-xl border border-amber-300 px-3 py-2 text-sm hover:bg-amber-100 text-amber-900"
+                            @onclick="CopyNewTokenAsync">
+                        @(_copied ? "Kopiert!" : "Kopieren")
+                    </button>
+                </div>
+                <button type="button"
+                        class="text-sm text-amber-700 underline"
+                        @onclick="@(() => { _newToken = null; _copied = false; })">
+                    Schließen
+                </button>
+            </div>
+        }
+
+        <!-- Neuen Token anlegen -->
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            <div class="font-medium">Neuen Token erstellen</div>
+            <div class="flex gap-2">
+                <input type="text"
+                       class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Name des Tokens, z.B. „Meine App""
+                       maxlength="200"
+                       @bind="_newTokenName"
+                       @onkeydown="OnInputKeyDown" />
+                <button type="button"
+                        class="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+                        style="background-color:#2563eb;color:#ffffff;"
+                        @onclick="CreateTokenAsync"
+                        disabled="@(_saving || string.IsNullOrWhiteSpace(_newTokenName))">
+                    @(_saving ? "Erstelle…" : "Erstellen")
+                </button>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+                <input type="checkbox" @bind="_newTokenReadOnly" />
+                Nur Lesezugriff erlauben
+            </label>
+        </div>
+
+        <!-- Vorhandene Token -->
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-100 font-medium text-sm">
+                Vorhandene Token (@_tokens.Count)
+            </div>
+
+            @if (_tokens.Count == 0)
+            {
+                <div class="px-5 py-8 text-sm text-slate-500 text-center">
+                    Keine Token vorhanden.
+                </div>
+            }
+            else
+            {
+                <ul class="divide-y divide-slate-100">
+                    @foreach (var token in _tokens)
+                    {
+                        <li class="flex items-center gap-3 px-5 py-3">
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-sm truncate">@token.Name</div>
+                                <div class="text-xs text-slate-500">@(token.ReadOnly ? "Nur Lesen" : "Lesen und Schreiben")</div>
+                                <div class="text-xs text-slate-500">
+                                    Erstellt: @token.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    <span> · Läuft ab: @token.ExpiresAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                    @if (token.LastUsedAtUtc.HasValue)
+                                    {
+                                        <span> · Zuletzt genutzt: @token.LastUsedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                    }
+                                    else
+                                    {
+                                        <span> · Noch nie genutzt</span>
+                                    }
+                                </div>
+                            </div>
+                            <button type="button"
+                                    class="shrink-0 rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                    @onclick="@(() => DeleteTokenAsync(token.Id))"
+                                    disabled="@_saving">
+                                Löschen
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private string? _userId;
+    private string _newTokenName = "";
+    private bool _newTokenReadOnly;
+    private string? _newToken;
+    private bool _copied;
+    private bool _saving;
+    private string _statusMessage = "";
+    private bool _isError;
+
+    private List<TokenItem> _tokens = [];
+
+    private record TokenItem(Guid Id, string Name, bool ReadOnly, DateTime CreatedAtUtc, DateTime ExpiresAtUtc, DateTime? LastUsedAtUtc);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+               ?? authState.User.FindFirst("sub")?.Value;
+
+        await LoadTokensAsync();
+    }
+
+    private async Task LoadTokensAsync()
+    {
+        if (_userId is null) return;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _tokens = await db.PersonalAccessTokens
+            .Where(t => t.UserId == _userId)
+            .OrderByDescending(t => t.CreatedAtUtc)
+            .Select(t => new TokenItem(t.Id, t.Name, !t.AllowWrite, t.CreatedAtUtc, t.ExpiresAtUtc, t.LastUsedAtUtc))
+            .ToListAsync();
+    }
+
+    private async Task CreateTokenAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newTokenName) || _userId is null) return;
+
+        _saving = true;
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var randomBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+            var rawToken = "tsa_" + Convert.ToBase64String(randomBytes)
+                .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+            var hash = TodoSuite.Server.Auth.PersonalAccessTokenAuthHandler.HashToken(rawToken);
+
+            var createdAtUtc = DateTime.UtcNow;
+            var lifetimeDays = Math.Clamp(Configuration.GetValue("PersonalAccessTokens:LifetimeDays", 90), 1, 365);
+            var entity = new PersonalAccessTokenEntity
+            {
+                UserId = _userId,
+                Name = _newTokenName.Trim(),
+                TokenHash = hash,
+                AllowWrite = !_newTokenReadOnly,
+                CreatedAtUtc = createdAtUtc,
+                ExpiresAtUtc = createdAtUtc.AddDays(lifetimeDays)
+            };
+
+            db.PersonalAccessTokens.Add(entity);
+            await db.SaveChangesAsync();
+
+            _newToken = rawToken;
+            _copied = false;
+            _newTokenName = "";
+            _newTokenReadOnly = false;
+            _statusMessage = "";
+
+            await LoadTokensAsync();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Fehler: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteTokenAsync(Guid id)
+    {
+        if (_userId is null) return;
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var token = await db.PersonalAccessTokens
+                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == _userId);
+
+            if (token is not null)
+            {
+                db.PersonalAccessTokens.Remove(token);
+                await db.SaveChangesAsync();
+            }
+
+            await LoadTokensAsync();
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Fehler: {ex.Message}";
+            _isError = true;
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CopyNewTokenAsync()
+    {
+        if (_newToken is null) return;
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newToken);
+        _copied = true;
+        StateHasChanged();
+    }
+
+    private async Task OnInputKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await CreateTokenAsync();
+    }
+}

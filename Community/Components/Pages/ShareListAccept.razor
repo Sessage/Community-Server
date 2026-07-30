@@ -1,0 +1,118 @@
+﻿@page "/share/list/{ListId:guid}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using TodoSuite.Server.Services.Sharing
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IListSharingService SharingService
+
+@attribute [AllowAnonymous]
+
+<PageTitle>Liste hinzufügen</PageTitle>
+
+<div class="mx-auto max-w-xl p-6">
+    <div class="rounded-3xl border border-slate-200 bg-white shadow-sm p-6 space-y-3">
+        <div class="text-lg font-semibold">Liste hinzufügen</div>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <div class="font-semibold">Fehler</div>
+                <div>@_error</div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_info))
+        {
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                <div class="font-semibold">Info</div>
+                <div>@_info</div>
+            </div>
+        }
+
+        @if (_busy)
+        {
+            <div class="text-sm text-slate-600">Bitte warten…</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid ListId { get; set; }
+
+    private string _error = "";
+    private string _info = "";
+    private bool _busy;
+    private bool _handled;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _busy = true;
+        _error = "";
+        _info = "";
+
+        if (_handled) return;
+        _handled = true;
+
+        try
+        {
+            // Token aus Query
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+            var token = query.TryGetValue("token", out var t) ? t.ToString() : "";
+            token = (token ?? "").Trim();
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                _error = "Ungültiger Link: Token fehlt.";
+                return;
+            }
+
+            // User prüfen
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (user?.Identity?.IsAuthenticated != true)
+            {
+                // ✅ nach Login wieder hierher zurück (inkl. token)
+                var returnUrl = Uri.EscapeDataString(Nav.Uri);
+                Nav.NavigateTo($"Account/Login?returnUrl={returnUrl}", forceLoad: true);
+                return;
+            }
+
+            var userId =
+                user.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user.FindFirstValue("sub");
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                _error = "Annahme des Share-Links nicht möglich: Benutzer-ID (Claim) fehlt.";
+                return;
+            }
+
+            var (success, message) = await SharingService.AcceptShareLinkAsync(userId, ListId, token);
+
+            if (!success)
+            {
+                _error = message;
+                return;
+            }
+
+            _info = message;
+
+            // ✅ zur Liste navigieren
+            Nav.NavigateTo($"/list/{ListId}");
+        }
+        catch (Exception ex)
+        {
+            _error = $"Share-Link konnte nicht angenommen werden. Details: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

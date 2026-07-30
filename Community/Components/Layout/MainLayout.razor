@@ -1,0 +1,108 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject NavigationManager Navigation
+
+<FluentDialogProvider />
+<FluentMenuProvider />
+<FloatingLayerHost />
+
+<div class="app-shell h-[100dvh] min-h-0 bg-slate-50 flex text-slate-900 overflow-hidden @MobileShellClass @(_navCollapsed ? "nav-collapsed" : "")">
+    <aside class="app-shell__nav w-72 border-r border-slate-200 bg-white shadow-sm shrink-0 overflow-hidden">
+        <NavMenu />
+    </aside>
+
+    <main class="app-shell__main flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+        @if (ShowMobileListHeader)
+        {
+            <div class="app-shell__mobile-header px-3 py-2 border-b border-slate-200 bg-white">
+                <FluentButton Appearance="Appearance.Stealth" OnClick="ShowMobileNavigation">
+                    <div class="flex flex-row"><FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowLeft())" /> <span class="ml-2">@MobileHeaderLabel</span></div>
+                </FluentButton>
+            </div>
+        }
+
+        <section class="flex-1 min-h-0 overflow-hidden">
+            <ErrorBoundary @ref="_errorBoundary">
+                <ChildContent>
+                    <CascadingValue Name="IsNavCollapsed" Value="_navCollapsed">
+                        <CascadingValue Name="ToggleNavCallback" Value="@_toggleNavCallback">
+                            @Body
+                        </CascadingValue>
+                    </CascadingValue>
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <div class="flex items-center justify-center h-full p-6">
+                        <div class="max-w-lg w-full rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800 shadow-sm space-y-3">
+                            <div class="font-semibold">Ein unerwarteter Fehler ist aufgetreten</div>
+                            <div class="text-sm text-red-700 break-words">@ex.Message</div>
+                            <button class="mt-2 rounded-xl border border-red-300 bg-white px-4 py-2 text-sm hover:bg-red-50"
+                                    @onclick="RecoverFromError">
+                                Erneut versuchen
+                            </button>
+                        </div>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </section>
+    </main>
+</div>
+
+@code {
+    private bool _showMobileNavigation = true;
+    private bool _navCollapsed = false;
+    private Action _toggleNavCallback => ToggleNavCollapse;
+
+    private void ToggleNavCollapse()
+    {
+        _navCollapsed = !_navCollapsed;
+        StateHasChanged();
+    }
+
+    private bool IsListRoute =>
+        Navigation.ToBaseRelativePath(Navigation.Uri)
+                  .StartsWith("list", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsContentRoute(string relativePath) =>
+        relativePath.StartsWith("list", StringComparison.OrdinalIgnoreCase) ||
+        relativePath == "" ||
+        relativePath.StartsWith("calendar", StringComparison.OrdinalIgnoreCase) ||
+        relativePath.StartsWith("trash", StringComparison.OrdinalIgnoreCase);
+
+    private string MobileShellClass =>
+        _showMobileNavigation ? "mobile-nav-visible" : "mobile-content-visible";
+
+    private bool ShowMobileListHeader => !_showMobileNavigation && IsContentRoute(Navigation.ToBaseRelativePath(Navigation.Uri));
+
+    private string MobileHeaderLabel =>
+        IsListRoute ? "Listen" : "Menü";
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += HandleLocationChanged;
+        _showMobileNavigation = !IsContentRoute(Navigation.ToBaseRelativePath(Navigation.Uri));
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var relativePath = Navigation.ToBaseRelativePath(e.Location);
+
+        _showMobileNavigation = !IsContentRoute(relativePath);
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private Task ShowMobileNavigation()
+    {
+        _showMobileNavigation = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private ErrorBoundary? _errorBoundary;
+
+    private void RecoverFromError() => _errorBoundary?.Recover();
+
+    public void Dispose() => Navigation.LocationChanged -= HandleLocationChanged;
+}

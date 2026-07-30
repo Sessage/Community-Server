@@ -1,0 +1,510 @@
+@page "/konto"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using System.Security.Claims
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.WebUtilities
+@using Klassenbibliothek.Data
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject INotificationService NotificationService
+@inject Klassenbibliothek.Features.IProductFeatureCatalog ProductFeatures
+@inject NavigationManager Navigation
+
+<PageTitle>@L["Nav_Account"]</PageTitle>
+
+<div class="flex flex-col h-full min-h-0 overflow-y-auto">
+    <div class="max-w-2xl mx-auto w-full p-6 space-y-6">
+
+        <!-- Header -->
+        <div>
+            <div class="text-xs uppercase text-slate-500">@L["Account_Settings"]</div>
+            <h1 class="text-2xl font-semibold">@L["Nav_Account"]</h1>
+            <p class="text-sm text-slate-600 mt-1">@L["Account_PageSubtitle"]</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_statusMessage))
+        {
+            <div class="rounded-xl border @(_isError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm">
+                @_statusMessage
+            </div>
+        }
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
+            <div>
+                <label for="account-language" class="font-medium">@L["Language_Title"]</label>
+                <div class="text-sm text-slate-500">@L["Language_Hint"]</div>
+            </div>
+            <select id="account-language"
+                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value="@_preferredLanguage"
+                    @onchange="ChangeLanguageAsync"
+                    disabled="@_savingLanguage">
+                @foreach (var option in LanguageOptions)
+                {
+                    <option value="@option.Value">@L[option.ResourceKey]</option>
+                }
+            </select>
+        </div>
+
+        @if (!_hasLocalPassword)
+        {
+            <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                @L["Account_ExternalLoginManaged"]
+            </div>
+        }
+
+        @* ── E-Mail ändern (nur lokale Benutzer) ────────────────────────── *@
+        @if (_hasLocalPassword)
+        {
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                <div class="font-medium">@L["Account_EmailAddress"]</div>
+
+                @if (!_emailConfirmed)
+                {
+                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 flex items-center justify-between gap-3">
+                        <span>@L["Account_EmailUnconfirmed"]</span>
+                        <button type="button"
+                                class="shrink-0 text-sm underline"
+                                @onclick="SendVerificationEmailAsync">
+                            @L["Account_SendConfirmation"]
+                        </button>
+                    </div>
+                }
+
+                <div class="space-y-3">
+                    <div>
+                        <div class="text-xs text-slate-500 mb-1">@L["Account_CurrentEmail"]</div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-mono">@_currentEmail</span>
+                            @if (_emailConfirmed)
+                            {
+                                <span class="text-xs text-green-600 font-medium">✓ @L["Account_EmailConfirmed"]</span>
+                            }
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">@L["Account_NewEmail"]</label>
+                        <input type="email"
+                               class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               @bind="_newEmail" @bind:event="oninput"
+                               placeholder="neue@email.de" />
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="button"
+                                class="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+                                style="background-color:#2563eb;color:#ffffff;"
+                                @onclick="ChangeEmailAsync"
+                                disabled="@(_saving || string.IsNullOrWhiteSpace(_newEmail) || _newEmail == _currentEmail)">
+                            @(_saving && _activeAction == "email" ? L["Account_Saving"] : L["Account_ChangeEmail"])
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @* ── Passwort ändern ─────────────────────────────────────────── *@
+            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                <div class="font-medium">@L["Account_ChangePassword"]</div>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">@L["Account_CurrentPassword"]</label>
+                        <input type="password"
+                               class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               @bind="_oldPassword" @bind:event="oninput"
+                               autocomplete="current-password" />
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">@L["Account_NewPassword"]</label>
+                        <input type="password"
+                               class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               @bind="_newPassword" @bind:event="oninput"
+                               autocomplete="new-password" />
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-500 mb-1 block">@L["Account_ConfirmNewPassword"]</label>
+                        <input type="password"
+                               class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               @bind="_confirmPassword" @bind:event="oninput"
+                               autocomplete="new-password" />
+                        @if (!string.IsNullOrEmpty(_newPassword) && !string.IsNullOrEmpty(_confirmPassword)
+                             && _newPassword != _confirmPassword)
+                        {
+                            <p class="text-xs text-red-600 mt-1">@L["Account_PasswordMismatch"]</p>
+                        }
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="button"
+                                class="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+                                style="background-color:#2563eb;color:#ffffff;"
+                                @onclick="ChangePasswordAsync"
+                                disabled="@(_saving
+                                    || string.IsNullOrEmpty(_oldPassword)
+                                    || string.IsNullOrEmpty(_newPassword)
+                                    || _newPassword != _confirmPassword)">
+                            @(_saving && _activeAction == "password" ? L["Account_Saving"] : L["Account_UpdatePassword"])
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* ── Sicherheit ──────────────────────────────────────────────────── *@
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            <div>
+                <div class="font-medium">@L["Notifications_Title"]</div>
+                <div class="text-sm text-slate-500">@L["Notifications_GlobalHint"]</div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                @foreach (var channel in NotificationChannels)
+                {
+                    <button type="button"
+                            class="@NotificationChannelCss(channel.Value)"
+                            @onclick="() => SetUserNotificationChannelAsync(channel.Value)"
+                            disabled="@_savingNotifications">
+                        @channel.Label
+                    </button>
+                }
+            </div>
+            @if (ProductFeatures.IsEnabled(Klassenbibliothek.Features.ProductFeatureIds.PushNotifications))
+            {
+                <div class="border-t border-slate-100 pt-4 space-y-3">
+                    <label class="inline-flex items-center gap-2 text-sm font-medium">
+                        <input type="checkbox" checked="@((_userNotificationChannel & NotificationDeliveryChannel.Push) != 0)" @onchange="TogglePushChannelAsync" disabled="@_savingNotifications" />
+                        @L["Push_EnableRegisteredApps"]
+                    </label>
+                    <fieldset class="space-y-2" disabled="@((_userNotificationChannel & NotificationDeliveryChannel.Push) == 0 || _savingNotifications)">
+                        <legend class="text-sm font-medium">@L["Push_LockScreenContent"]</legend>
+                        <label class="flex items-start gap-2 text-sm"><input type="radio" name="web-push-content" checked="@(_pushContentMode == PushNotificationContentMode.Anonymous)" @onchange="() => SetPushContentModeAsync(PushNotificationContentMode.Anonymous)" /><span>@L["Push_AnonymousNoTaskContent"]</span></label>
+                        <label class="flex items-start gap-2 text-sm"><input type="radio" name="web-push-content" checked="@(_pushContentMode == PushNotificationContentMode.Detailed)" @onchange="() => SetPushContentModeAsync(PushNotificationContentMode.Detailed)" /><span>@L["Push_DetailedWithText"]</span></label>
+                    </fieldset>
+                    <p class="text-xs text-slate-500">@L["Push_DevicesHint"]</p>
+                </div>
+            }
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-100 font-medium text-sm">@L["Security_Title"]</div>
+            <div class="divide-y divide-slate-100">
+
+                <div class="flex items-center justify-between px-5 py-3">
+                    <div>
+                            <div class="text-sm font-medium">@L["Security_TwoFactor"]</div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            @if (_is2faEnabled)
+                            {
+                                <span class="text-green-600">@L["Status_Enabled"]</span>
+                                @if (_recoveryCodesLeft <= 3)
+                                {
+                                    <span> &middot; @L["Security_RecoveryCodesRemaining", _recoveryCodesLeft]</span>
+                                }
+                            }
+                            else
+                            {
+                                <span>@L["Status_Disabled"]</span>
+                            }
+                        </div>
+                    </div>
+                    <a href="Account/Manage/TwoFactorAuthentication"
+                       data-enhance-nav="false"
+                       class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
+                        @L["Btn_Manage"]
+                    </a>
+                </div>
+
+                <div class="flex items-center justify-between px-5 py-3">
+                    <div>
+                        <div class="text-sm font-medium">Passkeys</div>
+                        <div class="text-xs text-slate-500 mt-0.5">
+                            @(_passkeyCount == 0
+                                ? L["Security_NoPasskey"]
+                                : L["Security_PasskeysStored", _passkeyCount])
+                        </div>
+                    </div>
+                    <a href="Account/Manage/Passkeys"
+                       data-enhance-nav="false"
+                       class="rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50">
+                        @L["Btn_Manage"]
+                    </a>
+                </div>
+
+            </div>
+        </div>
+
+        @* ── Persönliche Daten ───────────────────────────────────────────── *@
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-100 font-medium text-sm">@L["PersonalData_Title"]</div>
+            <div class="px-5 py-4 space-y-3">
+                <p class="text-sm text-slate-600">
+                    @L["PersonalData_WebHint"]
+                </p>
+                <div class="flex gap-2 flex-wrap">
+                    <a href="Account/Manage/PersonalData"
+                       data-enhance-nav="false"
+                       class="rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                        @L["PersonalData_ManageAccount"]
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    private ApplicationUser? _user;
+
+    private bool _hasLocalPassword;
+    private string? _currentEmail;
+    private bool _emailConfirmed;
+    private bool _is2faEnabled;
+    private int _recoveryCodesLeft;
+    private int _passkeyCount;
+
+    private string _newEmail = "";
+    private string _oldPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+
+    private bool _saving;
+    private bool _savingNotifications;
+    private bool _savingLanguage;
+    private string _activeAction = "";
+    private string _statusMessage = "";
+    private bool _isError;
+    private NotificationDeliveryChannel _userNotificationChannel = NotificationDeliveryChannel.Browser;
+    private PushNotificationContentMode _pushContentMode = PushNotificationContentMode.Anonymous;
+    private string _preferredLanguage = string.Empty;
+
+    private static readonly (string Value, string ResourceKey)[] LanguageOptions =
+    [
+        ("", "Language_Automatic"),
+        ("de", "Language_German"),
+        ("en", "Language_English"),
+        ("es", "Language_Spanish"),
+        ("fr", "Language_French"),
+        ("hi", "Language_Hindi"),
+        ("zh-Hans", "Language_ChineseSimplified")
+    ];
+
+    private (NotificationDeliveryChannel Value, string Label)[] NotificationChannels =>
+    [
+        (NotificationDeliveryChannel.Email, L["Notifications_ChannelEmail"]),
+        (NotificationDeliveryChannel.Browser, L["Notifications_ChannelBrowser"]),
+        (NotificationDeliveryChannel.Both, L["Notifications_ChannelBoth"])
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? authState.User.FindFirst("sub")?.Value;
+
+        if (userId is null) return;
+
+        _user = await UserManager.FindByIdAsync(userId);
+        if (_user is null) return;
+
+        _hasLocalPassword   = await UserManager.HasPasswordAsync(_user);
+        _preferredLanguage  = UserLanguagePreferences.Normalize(_user.PreferredLanguage) ?? string.Empty;
+        _currentEmail       = await UserManager.GetEmailAsync(_user);
+        _emailConfirmed     = await UserManager.IsEmailConfirmedAsync(_user);
+        _is2faEnabled       = await UserManager.GetTwoFactorEnabledAsync(_user);
+        _recoveryCodesLeft  = await UserManager.CountRecoveryCodesAsync(_user);
+
+        var passkeys = await UserManager.GetPasskeysAsync(_user);
+        _passkeyCount = passkeys.Count;
+        var notificationPreference = await NotificationService.GetUserPreferenceAsync(_user.Id);
+        _userNotificationChannel = notificationPreference.Channel;
+        _pushContentMode = notificationPreference.PushContentMode;
+    }
+
+    private async Task ChangeLanguageAsync(ChangeEventArgs args)
+    {
+        if (_user is null || _savingLanguage) return;
+        var requestedLanguage = args.Value?.ToString();
+        if (!UserLanguagePreferences.TryNormalize(requestedLanguage, out var preferredLanguage)) return;
+
+        _savingLanguage = true;
+        var previousLanguage = _user.PreferredLanguage;
+        _user.PreferredLanguage = preferredLanguage;
+        var result = await UserManager.UpdateAsync(_user);
+        if (!result.Succeeded)
+        {
+            _user.PreferredLanguage = previousLanguage;
+            _savingLanguage = false;
+            SetError(L["Language_SaveError", string.Join(" ", result.Errors.Select(error => error.Description))]);
+            return;
+        }
+
+        var culture = Uri.EscapeDataString(preferredLanguage ?? "auto");
+        Navigation.NavigateTo($"/Account/ApplyLanguage?culture={culture}&returnUrl=%2Fkonto", forceLoad: true);
+    }
+
+    // ── Passwort ändern ──────────────────────────────────────────────────────
+
+    private async Task SetUserNotificationChannelAsync(NotificationDeliveryChannel channel)
+    {
+        if (_user is null || _savingNotifications) return;
+
+        _savingNotifications = true;
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            if (ProductFeatures.IsEnabled(Klassenbibliothek.Features.ProductFeatureIds.PushNotifications))
+                channel |= _userNotificationChannel & NotificationDeliveryChannel.Push;
+            _userNotificationChannel = channel;
+            await NotificationService.SetUserPreferenceAsync(_user.Id, channel, _pushContentMode);
+            SetSuccess(L["Notifications_SaveSuccess"]);
+        }
+        catch (Exception ex)
+        {
+            SetError(L["Err_Generic", ex.Message]);
+        }
+        finally
+        {
+            _savingNotifications = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TogglePushChannelAsync(ChangeEventArgs args)
+    {
+        if (_user is null || _savingNotifications) return;
+        var previousChannel = _userNotificationChannel;
+        var enabled = args.Value is bool value && value;
+        _userNotificationChannel = enabled
+            ? _userNotificationChannel | NotificationDeliveryChannel.Push
+            : _userNotificationChannel & ~NotificationDeliveryChannel.Push;
+        await SavePushPreferenceAsync(previousChannel, _pushContentMode);
+    }
+
+    private async Task SetPushContentModeAsync(PushNotificationContentMode mode)
+    {
+        var previousMode = _pushContentMode;
+        _pushContentMode = mode;
+        await SavePushPreferenceAsync(_userNotificationChannel, previousMode);
+    }
+
+    private async Task SavePushPreferenceAsync(NotificationDeliveryChannel rollbackChannel, PushNotificationContentMode rollbackMode)
+    {
+        if (_user is null || _savingNotifications) return;
+        _savingNotifications = true;
+        try
+        {
+            await NotificationService.SetUserPreferenceAsync(_user.Id, _userNotificationChannel, _pushContentMode);
+            SetSuccess(L["Push_SaveSuccess"]);
+        }
+        catch (Exception ex)
+        {
+            _userNotificationChannel = rollbackChannel;
+            _pushContentMode = rollbackMode;
+            SetError(L["Settings_SaveError", ex.Message]);
+        }
+        finally { _savingNotifications = false; }
+    }
+
+    private string NotificationChannelCss(NotificationDeliveryChannel channel)
+        => $"rounded-full border px-3 py-1.5 text-sm {(channel == (_userNotificationChannel & NotificationDeliveryChannel.Both) ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50")}";
+
+    private async Task ChangePasswordAsync()
+    {
+        if (_user is null || _saving) return;
+
+        _saving = true;
+        _activeAction = "password";
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var result = await UserManager.ChangePasswordAsync(_user, _oldPassword, _newPassword);
+            if (result.Succeeded)
+            {
+                _user = await UserManager.FindByIdAsync(_user.Id);
+                _oldPassword = _newPassword = _confirmPassword = "";
+                SetSuccess(L["Account_PasswordChanged"]);
+            }
+            else
+            {
+                SetError(string.Join(" ", result.Errors.Select(e => e.Description)));
+            }
+        }
+        finally
+        {
+            _saving = false;
+            _activeAction = "";
+            StateHasChanged();
+        }
+    }
+
+    // ── E-Mail ändern ────────────────────────────────────────────────────────
+
+    private async Task ChangeEmailAsync()
+    {
+        if (_user is null || _saving || string.IsNullOrWhiteSpace(_newEmail)) return;
+
+        _saving = true;
+        _activeAction = "email";
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var userId = await UserManager.GetUserIdAsync(_user);
+            var code   = await UserManager.GenerateChangeEmailTokenAsync(_user, _newEmail);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+            var callbackUrl = Navigation.GetUriWithQueryParameters(
+                Navigation.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
+                new Dictionary<string, object?> { ["userId"] = userId, ["email"] = _newEmail, ["code"] = code });
+
+            await EmailSender.SendConfirmationLinkAsync(_user, _newEmail, callbackUrl);
+
+            _newEmail = "";
+            SetSuccess(L["Account_ConfirmationLinkSent"]);
+        }
+        catch
+        {
+            SetError(L["Account_EmailChangeError"]);
+        }
+        finally
+        {
+            _saving = false;
+            _activeAction = "";
+            StateHasChanged();
+        }
+    }
+
+    private async Task SendVerificationEmailAsync()
+    {
+        if (_user is null || _currentEmail is null) return;
+
+        try
+        {
+            var userId = await UserManager.GetUserIdAsync(_user);
+            var code   = await UserManager.GenerateEmailConfirmationTokenAsync(_user);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+
+            var callbackUrl = Navigation.GetUriWithQueryParameters(
+                Navigation.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+                new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+
+            await EmailSender.SendConfirmationLinkAsync(_user, _currentEmail, callbackUrl);
+            SetSuccess(L["Account_ConfirmationEmailSent"]);
+        }
+        catch
+        {
+            SetError(L["Account_ConfirmationEmailSendError"]);
+        }
+        StateHasChanged();
+    }
+
+    private void SetSuccess(string msg) { _statusMessage = msg; _isError = false; }
+    private void SetError(string msg)   { _statusMessage = msg; _isError = true; }
+}

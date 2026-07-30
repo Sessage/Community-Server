@@ -1,0 +1,81 @@
+@page "/Account/Manage/Disable2fa"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@using System.Security.Claims
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject ILogger<Disable2fa> Logger
+
+<PageTitle>Zwei-Faktor-Authentifizierung (2FA) deaktivieren</PageTitle>
+
+@if (!string.IsNullOrEmpty(_statusMessage))
+{
+    <div class="alert @(_isError ? "alert-danger" : "alert-success") mt-2">@_statusMessage</div>
+}
+
+<h3>Zwei-Faktor-Authentifizierung (2FA) deaktivieren</h3>
+
+<div class="alert alert-warning" role="alert">
+    <p>
+        <strong>Diese Aktion deaktiviert nur die 2FA.</strong>
+    </p>
+    <p>
+        Das Deaktivieren der 2FA ändert die in Authenticator-Apps verwendeten Schlüssel nicht. Wenn Sie den
+        in einer Authenticator-App verwendeten Schlüssel ändern möchten, sollten Sie
+        <a href="Account/Manage/ResetAuthenticator" data-enhance-nav="false">Ihre Authenticator-Schlüssel zurücksetzen.</a>
+    </p>
+</div>
+
+<button class="btn btn-danger" @onclick="OnDisableAsync" disabled="@_loading">
+    @(_loading ? "Wird deaktiviert…" : "2FA deaktivieren")
+</button>
+
+@code {
+    private bool _loading;
+    private string _statusMessage = "";
+    private bool _isError;
+
+    private async Task OnDisableAsync()
+    {
+        _loading = true;
+        _statusMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                      ?? authState.User.FindFirst("sub")?.Value;
+
+            if (userId is null) { Navigation.NavigateTo("/"); return; }
+
+            var user = await UserManager.FindByIdAsync(userId);
+            if (user is null) { Navigation.NavigateTo("/"); return; }
+
+            var result = await UserManager.SetTwoFactorEnabledAsync(user, false);
+            if (!result.Succeeded)
+            {
+                _isError = true;
+                _statusMessage = "Unerwarteter Fehler beim Deaktivieren der 2FA.";
+                _loading = false;
+                StateHasChanged();
+                return;
+            }
+
+            Logger.LogInformation("User with ID '{UserId}' has disabled 2fa.", userId);
+            Navigation.NavigateTo("Account/Manage/TwoFactorAuthentication", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _isError = true;
+            _statusMessage = $"Fehler: {ex.Message}";
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+}

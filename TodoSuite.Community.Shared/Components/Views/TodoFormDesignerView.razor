@@ -1,0 +1,1104 @@
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@implements IAsyncDisposable
+@inject ITodoFormService FormService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<div class="h-full min-h-0 overflow-auto">
+    @if (List is null)
+    {
+        <div class="p-4 text-sm text-slate-500">@L["Common_NoListLoaded"]</div>
+    }
+    else
+    {
+        <div class="mx-auto max-w-[1600px] px-4 pb-6">
+            <div class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 py-3 backdrop-blur">
+                <div class="flex flex-wrap items-center justify-between gap-3 px-3">
+                    <div class="min-w-0">
+                        <div class="text-xs uppercase tracking-wide text-slate-500">@L["FormDesigner_Forms"]</div>
+                        <h2 class="truncate text-xl font-semibold text-slate-900">@List.Name</h2>
+                    </div>
+                    <button type="button"
+                            class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                            disabled="@(_loading || _creating)"
+                            @onclick="CreateFormAsync">
+                        @(_creating ? L["FormDesigner_Creating"] : L["FormDesigner_NewForm"])
+                    </button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">@_message</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">@_error</div>
+            }
+
+            <div class="grid grid-cols-1 gap-4 pt-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+                <aside class="space-y-3">
+                    <div class="rounded-lg border border-slate-200 bg-white">
+                        <div class="border-b border-slate-100 px-3 py-2 text-sm font-semibold">@L["FormDesigner_FormList"]</div>
+                        @if (_loading)
+                        {
+                            <div class="p-3 text-sm text-slate-500">@L["Lbl_Loading"]</div>
+                        }
+                        else if (_forms.Count == 0)
+                        {
+                            <div class="p-3 text-sm text-slate-500">@L["FormDesigner_Empty"]</div>
+                        }
+                        else
+                        {
+                            <div class="divide-y divide-slate-100">
+                                @foreach (var form in _forms)
+                                {
+                                    <button type="button"
+                                            class="@FormListItemCss(form)"
+                                            @onclick="() => SelectFormAsync(form.Id)">
+                                        <span class="truncate font-medium">@form.Name</span>
+                                        <span class="@StatusBadgeCss(form.PublicationStatus)">@StatusLabel(form.PublicationStatus)</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </aside>
+
+                @if (_selectedForm is null)
+                {
+                    <section class="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+                        @L["FormDesigner_SelectOrCreate"]
+                    </section>
+                }
+                else
+                {
+                    <section class="space-y-4">
+                        <div class="space-y-4">
+                            <div class="rounded-lg border border-slate-200 bg-white p-4">
+                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <button type="button" class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700" @onclick="DeleteSelectedAsync">
+                                        @L["Btn_Delete"]
+                                    </button>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700" @onclick="OpenPreview">
+                                            @L["FormDesigner_Preview"]
+                                        </button>
+                                        <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700" @onclick="OpenEmbedModal">
+                                            <FluentIcon Value="@(new Icons.Regular.Size20.Code())" />
+                                            <span>Einbetten</span>
+                                        </button>
+                                        <button type="button" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled="@_saving" @onclick="SaveSelectedAsync">
+                                            @L["Btn_Save"]
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_220px]">
+                                    <label class="space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">@L["Lbl_Name"]</span>
+                                        <input class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" @bind="_selectedForm.Name" />
+                                    </label>
+                                    <label class="space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">@L["Task_Status"]</span>
+                                        <select class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" @bind="_selectedForm.PublicationStatus">
+                                            @foreach (var status in Enum.GetValues<TodoFormPublicationStatus>())
+                                            {
+                                                <option value="@status">@StatusLabel(status)</option>
+                                            }
+                                        </select>
+                                    </label>
+                                </div>
+                                <details class="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Formular anpassen</summary>
+                                    <div class="mt-3 space-y-3">
+                                <div class="grid grid-cols-1 gap-3 lg:grid-cols-[180px_minmax(0,1fr)_150px_150px]">
+                                    <label class="space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">Max. Aufgaben</span>
+                                        <input type="number"
+                                               min="1"
+                                               class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                               @bind="_selectedForm.MaxSubmissions" />
+                                    </label>
+                                    <label class="space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">Hinweis bei voller Kapazität</span>
+                                        <input class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                               placeholder="Dieses Formular nimmt keine weiteren Eingaben mehr an."
+                                               @bind="_selectedForm.CapacityReachedText" />
+                                    </label>
+                                    <label class="space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">Formularfarbe</span>
+                                        <input type="color"
+                                               class="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 py-1"
+                                               value="@ColorValue(_selectedForm.BackgroundColor, "#ffffff")"
+                                               @onchange="e => _selectedForm.BackgroundColor = e.Value?.ToString()" />
+                                    </label>
+                                    <label class="space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">Buttonfarbe</span>
+                                        <input type="color"
+                                               class="h-10 w-full rounded-lg border border-slate-200 bg-white px-2 py-1"
+                                               value="@ColorValue(_selectedForm.ButtonColor, "#2563eb")"
+                                               @onchange="e => _selectedForm.ButtonColor = e.Value?.ToString()" />
+                                    </label>
+                                </div>
+                                <label class="mt-3 block space-y-1">
+                                    <span class="text-xs font-medium text-slate-500">@L["Task_Description"]</span>
+                                    <textarea class="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" @bind="_selectedForm.Description"></textarea>
+                                </label>
+                                @if (HasAttachmentField)
+                                {
+                                    <div class="rounded-lg border border-slate-200 bg-white p-3">
+                                        <div class="text-sm font-medium text-slate-700">Erlaubte Dateitypen für Anhänge</div>
+                                        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                                            @foreach (var type in AttachmentTypeOptions)
+                                            {
+                                                <label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-700">
+                                                    <input type="checkbox"
+                                                           class="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                                                           checked="@_selectedForm.AllowedAttachmentTypes.HasFlag(type.Type)"
+                                                           @onchange="e => ToggleAttachmentType(type.Type, e.Value is bool b && b)" />
+                                                    <span>@type.Label</span>
+                                                </label>
+                                            }
+                                        </div>
+                                        <div class="mt-2 text-xs text-slate-500">
+                                            Wenn keine Gruppe gewählt ist, werden alle Gruppen erlaubt.
+                                        </div>
+                                    </div>
+                                }
+                                <label class="block space-y-1">
+                                    <span class="text-xs font-medium text-slate-500">Abschlussmeldung</span>
+                                    <textarea class="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                                              placeholder='@L["PublicForm_DefaultSuccessMessage"]'
+                                              @bind="_selectedForm.SuccessMessage"></textarea>
+                                </label>
+                                    </div>
+                                </details>
+                                @if (_selectedForm.PublicationStatus == TodoFormPublicationStatus.PasswordProtected)
+                                {
+                                    <label class="mt-3 block space-y-1">
+                                        <span class="text-xs font-medium text-slate-500">@L["FormDesigner_Password"]</span>
+                                        <input type="password" autocomplete="new-password" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" @bind="_passwordDraft" />
+                                    </label>
+                                }
+                                <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                    <span class="rounded-md bg-slate-100 px-2 py-1">Link: @PublicLink(_selectedForm)</span>
+                                    <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700" @onclick="OpenPublicForm">
+                                        @L["FormDesigner_Open"]
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+                                <div class="rounded-lg border border-slate-200 bg-white">
+                                    <div class="border-b border-slate-100 px-3 py-2 text-sm font-semibold">@L["FormDesigner_AvailableFields"]</div>
+                                    <div class="space-y-2 p-3">
+                                        @foreach (var field in AvailableFields)
+                                        {
+                                            <button type="button"
+                                                    class="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:bg-slate-50 disabled:opacity-40"
+                                                    disabled="@IsFieldSelected(field.Key)"
+                                                    @onclick="() => AddField(field)">
+                                                <span class="truncate">@field.Label</span>
+                                                <span class="text-slate-400">+</span>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="min-w-0 rounded-lg border border-slate-200 bg-white">
+                                    <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+                                        <div class="text-sm font-semibold">@L["FormDesigner_Title"]</div>
+                                        <div class="text-xs text-slate-500">@L["FormDesigner_DragSort"]</div>
+                                    </div>
+                                    <div @ref="_designerListRef" @key="_designerHostVersion" class="space-y-3 p-3">
+                                        @foreach (var field in SelectedFields)
+                                        {
+                                            <div data-form-field-id="@field.Id"
+                                                 @key="field.Id"
+                                                 class="rounded-lg border border-slate-200 bg-slate-50 p-3 shadow-sm">
+                                                <div class="flex items-start gap-3">
+                                                    <button type="button" data-form-field-handle class="mt-1 shrink-0 cursor-grab rounded border border-slate-200 bg-white px-2 py-1 text-slate-500" title="@L["FormDesigner_Move"]">
+                                                        ::
+                                                    </button>
+                                                    <div class="min-w-0 flex-1 space-y-2">
+                                                        <div class="grid grid-cols-1 gap-2 lg:grid-cols-[minmax(0,1fr)_170px_150px]">
+                                                            <input class="min-w-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" @bind="field.Label" />
+                                                            <select class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" @bind="field.Layout">
+                                                                @foreach (var layoutOption in Enum.GetValues<TodoFormFieldLayout>())
+                                                                {
+                                                                    <option value="@layoutOption">@LayoutLabel(layoutOption)</option>
+                                                                }
+                                                            </select>
+                                                            <label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                                                                <input type="checkbox" @bind="field.IsRequired" disabled="@(field.StandardField == TodoFormStandardField.Title)" />
+                                                                @L["FormDesigner_Required"]
+                                                            </label>
+                                                        </div>
+                                                    <textarea class="min-h-16 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                                                              placeholder="@L["FormDesigner_HelpText"]"
+                                                              @bind="field.HelpText"></textarea>
+                                                        <details class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                                                            <summary class="cursor-pointer text-sm font-medium text-slate-700">Anzeige und Prüfungen</summary>
+                                                            <div class="mt-3 space-y-3">
+                                                                <label class="block space-y-1">
+                                                                    <span class="text-xs font-medium text-slate-500">Name im veröffentlichten Formular</span>
+                                                        <textarea class="min-h-16 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                                                  placeholder="@field.Label"
+                                                                  @bind="field.PublicLabel"></textarea>
+                                                                </label>
+                                                                <div class="space-y-2">
+                                                                    <div class="flex items-center justify-between gap-2">
+                                                                        <span class="text-xs font-medium text-slate-500">Prüfungen</span>
+                                                                        <button type="button"
+                                                                                class="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700"
+                                                                                @onclick="() => AddValidationRule(field)">
+                                                                            Hinzufügen
+                                                                        </button>
+                                                                    </div>
+                                                                    @if (field.ValidationRules.Count == 0)
+                                                                    {
+                                                                        <div class="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Keine zusätzlichen Prüfungen</div>
+                                                                    }
+                                                                    @foreach (var rule in field.ValidationRules)
+                                                                    {
+                                                                        <div @key="rule.Id" class="grid grid-cols-1 gap-2 rounded-lg bg-slate-50 p-2 lg:grid-cols-[160px_minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+                                                                            <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm" @bind="rule.Type">
+                                                                                @foreach (var type in Enum.GetValues<TodoFormFieldValidationType>())
+                                                                                {
+                                                                                    <option value="@type">@ValidationTypeLabel(type)</option>
+                                                                                }
+                                                                            </select>
+                                                                            <input type="@ValidationValueInputType(rule.Type)"
+                                                                                   class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                                                                                   placeholder="@ValidationValuePlaceholder(rule.Type)"
+                                                                                   @bind="rule.CompareValue" />
+                                                                            <input class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                                                                                   placeholder="Anzeigetext"
+                                                                                   @bind="rule.Message" />
+                                                                            <button type="button"
+                                                                                    class="rounded-lg border border-red-200 px-2 py-1.5 text-sm text-red-700"
+                                                                                    @onclick="() => RemoveValidationRule(field, rule)">
+                                                                                @L["Btn_Remove"]
+                                                                            </button>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        </details>
+                                                        <div class="flex items-center justify-between gap-2 text-xs text-slate-500">
+                                                            <span>@FieldTypeHint(field)</span>
+                                                            <button type="button"
+                                                                    class="rounded-lg border border-red-200 px-2 py-1 text-red-700 disabled:opacity-40"
+                                                                    disabled="@(field.StandardField == TodoFormStandardField.Title)"
+                                                                    @onclick="() => RemoveField(field)">
+                                                                @L["Btn_Remove"]
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </section>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@if (_previewOpen && _selectedForm is not null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 px-4 py-6"
+         role="presentation"
+         @onclick="ClosePreview">
+        <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl"
+             role="dialog"
+             aria-modal="true"
+             aria-label="@L["FormDesigner_PreviewAria"]"
+             @onclick:stopPropagation="true">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-slate-900">@L["FormDesigner_Preview"]</div>
+                    <div class="truncate text-xs text-slate-500">@L["FormDesigner_PreviewHint"]</div>
+                </div>
+                <button type="button"
+                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                        title="@L["Btn_Close"]"
+                        aria-label="@L["Btn_Close"]"
+                        @onclick="ClosePreview">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                </button>
+            </div>
+            <div class="max-h-[calc(90vh-58px)] overflow-auto p-5">
+                <div class="todo-form-preview-shell rounded-lg border border-slate-200 p-6" style="@PreviewSurfaceStyle">
+                    <div class="space-y-1 todo-form-field todo-form-field--full">
+                        <div class="text-lg font-semibold text-slate-900">@_selectedForm.Name</div>
+                        @if (!string.IsNullOrWhiteSpace(_selectedForm.Description))
+                        {
+                            <div class="whitespace-pre-line break-words text-sm text-slate-500">@LinkifiedText.ToMarkupString(_selectedForm.Description)</div>
+                        }
+                    </div>
+                    @foreach (var field in SelectedFields)
+                    {
+                        <div class="@PreviewFieldWrapperCss(field)">
+                            @RenderPreviewInput(field)
+                            @if (!string.IsNullOrWhiteSpace(field.HelpText))
+                            {
+                                <div class="whitespace-pre-line break-words text-xs text-slate-500">@LinkifiedText.ToMarkupString(field.HelpText)</div>
+                            }
+                            @foreach (var rule in field.ValidationRules.Where(r => !string.IsNullOrWhiteSpace(r.Message)))
+                            {
+                                <div class="text-xs text-slate-500">@rule.Message</div>
+                            }
+                        </div>
+                    }
+                    <button type="button" class="w-full rounded-lg px-3 py-2 text-sm font-medium text-white todo-form-field todo-form-field--full" style="@PreviewButtonStyle">
+                        @L["PublicForm_Submit"]
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_embedOpen && _selectedForm is not null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 px-4 py-6"
+         role="presentation"
+         @onclick="CloseEmbedModal">
+        <div class="max-h-[86vh] w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl"
+             role="dialog"
+             aria-modal="true"
+             aria-label="Formular einbetten"
+             @onclick:stopPropagation="true">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+                <div class="min-w-0">
+                    <div class="text-sm font-semibold text-slate-900">Formular einbetten</div>
+                    <div class="truncate text-xs text-slate-500">@PublicLink(_selectedForm)</div>
+                </div>
+                <div class="flex shrink-0 items-center gap-2">
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            @onclick="CopyEmbedSnippetAsync">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.Clipboard())" />
+                        <span>Kopieren</span>
+                    </button>
+                    <button type="button"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                            title="@L["Btn_Close"]"
+                            aria-label="@L["Btn_Close"]"
+                            @onclick="CloseEmbedModal">
+                        <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                    </button>
+                </div>
+            </div>
+            <div class="space-y-3 p-4">
+                <p class="text-sm">
+                    <a class="text-blue-700 underline hover:text-blue-900"
+                       href="@PublicLink(_selectedForm)"
+                       target="_blank"
+                       rel="noopener noreferrer">
+                        Formular als eigene Seite öffnen
+                    </a>
+                </p>
+                @if (!string.IsNullOrWhiteSpace(_embedCopyMessage))
+                {
+                    <div class="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">@_embedCopyMessage</div>
+                }
+                <pre class="max-h-[52vh] overflow-auto rounded-lg border border-slate-200 bg-slate-950 p-4 text-xs leading-5 text-slate-100"><code>@EmbedSnippet</code></pre>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public TodoListEntity? List { get; set; }
+    [Parameter] public string UserId { get; set; } = "";
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public string? PublicFormBaseUrl { get; set; }
+
+    private readonly List<TodoFormEntity> _forms = new();
+    private TodoFormEntity? _selectedForm;
+    private ElementReference _designerListRef;
+    private DotNetObjectReference<TodoFormDesignerView>? _selfRef;
+    private bool _sortableInitialized;
+    private bool _loading;
+    private bool _saving;
+    private bool _creating;
+    private bool _loadingForms;
+    private bool _previewOpen;
+    private bool _embedOpen;
+    private bool _isDraggingFromSortable;
+    private int _designerHostVersion;
+    private Guid? _loadedListId;
+    private string _passwordDraft = "";
+    private string _message = "";
+    private string _error = "";
+    private string _embedCopyMessage = "";
+
+    private List<TodoFormFieldEntity> SelectedFields =>
+        (_selectedForm?.Fields ?? []).OrderBy(f => f.SortOrder).ToList();
+
+    private bool HasAttachmentField =>
+        SelectedFields.Any(formField => formField.StandardField == TodoFormStandardField.Attachments);
+
+    private IEnumerable<AvailableFormField> AvailableFields
+    {
+        get
+        {
+            foreach (var standard in Enum.GetValues<TodoFormStandardField>())
+                yield return new AvailableFormField(StandardKey(standard), StandardLabel(standard), TodoFormFieldSource.Standard, standard, null);
+
+            foreach (var custom in (List?.CustomFields ?? []).OrderBy(f => f.SortOrder).ThenBy(f => f.Name))
+                yield return new AvailableFormField(CustomKey(custom.Id), custom.Name, TodoFormFieldSource.Custom, null, custom.Id);
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (List is null)
+            return;
+
+        if (_loadedListId != List.Id)
+        {
+            _loadedListId = List.Id;
+            _selectedForm = null;
+            await LoadFormsAsync(force: true);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_selectedForm is null)
+            return;
+
+        _selfRef ??= DotNetObjectReference.Create(this);
+        try
+        {
+            await JS.InvokeVoidAsync("todoUi.initFormDesignerSortable", _designerListRef, _selfRef);
+            _sortableInitialized = true;
+        }
+        catch { }
+    }
+
+    protected override bool ShouldRender() => !_isDraggingFromSortable;
+
+    private async Task LoadFormsAsync(bool force = false)
+    {
+        if (List is null) return;
+        if (_loadingForms && !force) return;
+
+        _loadingForms = true;
+        _loading = true;
+        _error = "";
+        try
+        {
+            _forms.Clear();
+            var forms = (await FormService.GetFormsAsync(UserId, List.Id))
+                .GroupBy(f => f.Id)
+                .Select(g => g.First())
+                .OrderBy(f => f.Name)
+                .ToList();
+
+            _forms.AddRange(forms);
+            if (_selectedForm is not null && _forms.All(f => f.Id != _selectedForm.Id))
+                _selectedForm = null;
+            if (_selectedForm is null && _forms.Count > 0)
+                await SelectFormAsync(_forms[0].Id);
+        }
+        catch (Exception ex)
+        {
+            _error = L["FormDesigner_LoadError", ex.Message];
+        }
+        finally
+        {
+            _loading = false;
+            _loadingForms = false;
+        }
+    }
+
+    private async Task SelectFormAsync(Guid formId)
+    {
+        _message = "";
+        _error = "";
+        _passwordDraft = "";
+        _selectedForm = await FormService.GetFormForEditAsync(UserId, formId);
+        _sortableInitialized = false;
+    }
+
+    private async Task CreateFormAsync()
+    {
+        if (List is null) return;
+        if (_creating) return;
+        _creating = true;
+        try
+        {
+            var created = await FormService.CreateFormAsync(UserId, List.Id, L["FormDesigner_NewForm"]);
+            await LoadFormsAsync(force: true);
+            await SelectFormAsync(created.Id);
+            await OnChanged.InvokeAsync();
+            _message = L["FormDesigner_CreateSuccess"];
+        }
+        catch (Exception ex)
+        {
+            _error = L["FormDesigner_CreateError", ex.Message];
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
+
+    private async Task SaveSelectedAsync()
+    {
+        if (_selectedForm is null) return;
+        _saving = true;
+        _error = "";
+        _message = "";
+        try
+        {
+            await SyncFieldOrderFromDomAsync();
+            var saved = await FormService.SaveFormAsync(UserId, _selectedForm, _passwordDraft);
+            if (saved is not null)
+                _selectedForm = saved;
+            _passwordDraft = "";
+            await LoadFormsAsync(force: true);
+            await OnChanged.InvokeAsync();
+            _message = L["FormDesigner_SaveSuccess"];
+        }
+        catch (Exception ex)
+        {
+            _error = L["FormDesigner_SaveError", ex.Message];
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task SyncFieldOrderFromDomAsync()
+    {
+        if (_selectedForm is null)
+            return;
+
+        try
+        {
+            var ids = await JS.InvokeAsync<string[]>("todoUi.getFormDesignerOrder", _designerListRef);
+            ApplyFieldOrder(ids, rebuildHost: false, requestRender: false);
+        }
+        catch { }
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        if (_selectedForm is null) return;
+        try
+        {
+            await FormService.DeleteFormAsync(UserId, _selectedForm.Id);
+            _selectedForm = null;
+            await LoadFormsAsync(force: true);
+            await OnChanged.InvokeAsync();
+            _message = L["FormDesigner_DeleteSuccess"];
+        }
+        catch (Exception ex)
+        {
+            _error = L["FormDesigner_DeleteError", ex.Message];
+        }
+    }
+
+    private void AddField(AvailableFormField field)
+    {
+        if (_selectedForm is null || IsFieldSelected(field.Key)) return;
+
+        _selectedForm.Fields.Add(new TodoFormFieldEntity
+        {
+            Id = Guid.NewGuid(),
+            Source = field.Source,
+            StandardField = field.StandardField,
+            CustomFieldId = field.CustomFieldId,
+            Label = field.Label,
+            IsRequired = field.StandardField == TodoFormStandardField.Title,
+            Layout = TodoFormFieldLayout.Full,
+            ValidationRules = new(),
+            SortOrder = _selectedForm.Fields.Count
+        });
+
+        if (field.StandardField == TodoFormStandardField.Attachments)
+            SetAttachmentsEnabled(true);
+    }
+
+    private void RemoveField(TodoFormFieldEntity field)
+    {
+        if (_selectedForm is null || field.StandardField == TodoFormStandardField.Title) return;
+        _selectedForm.Fields.Remove(field);
+        if (field.StandardField == TodoFormStandardField.Attachments)
+            SetAttachmentsEnabled(false);
+        RenumberFields();
+    }
+
+    private void SetAttachmentsEnabled(bool enabled)
+    {
+        if (_selectedForm is null) return;
+
+        _selectedForm.AllowAttachments = enabled;
+        _selectedForm.AllowedAttachmentTypes = enabled
+            ? NormalizeAttachmentTypes(_selectedForm.AllowedAttachmentTypes)
+            : TodoFormAttachmentType.None;
+    }
+
+    private void ToggleAttachmentType(TodoFormAttachmentType type, bool selected)
+    {
+        if (_selectedForm is null) return;
+
+        if (selected)
+            _selectedForm.AllowedAttachmentTypes |= type;
+        else
+            _selectedForm.AllowedAttachmentTypes &= ~type;
+    }
+
+    private static TodoFormAttachmentType NormalizeAttachmentTypes(TodoFormAttachmentType types)
+    {
+        var normalized = types & TodoFormAttachmentType.All;
+        return normalized == TodoFormAttachmentType.None ? TodoFormAttachmentType.All : normalized;
+    }
+
+    private static void AddValidationRule(TodoFormFieldEntity field)
+        => field.ValidationRules.Add(new TodoFormFieldValidationRule
+        {
+            Id = Guid.NewGuid(),
+            Type = TodoFormFieldValidationType.Email,
+            Message = "Bitte geben Sie einen gueltigen Wert ein."
+        });
+
+    private static void RemoveValidationRule(TodoFormFieldEntity field, TodoFormFieldValidationRule rule)
+        => field.ValidationRules.Remove(rule);
+
+    [JSInvokable]
+    public Task SetFormDesignerDragging(bool dragging)
+    {
+        _isDraggingFromSortable = dragging;
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public async Task OnFormDesignerDragEnded(string[] ids)
+    {
+        _isDraggingFromSortable = false;
+        ApplyFieldOrder(ids, rebuildHost: true, requestRender: false);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task ApplyFieldOrderFromJs(string[] ids)
+    {
+        ApplyFieldOrder(ids, rebuildHost: true, requestRender: false);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void ApplyFieldOrder(string[] ids, bool rebuildHost, bool requestRender)
+    {
+        if (_selectedForm is null) return;
+
+        var fieldsById = _selectedForm.Fields.ToDictionary(f => f.Id);
+        var orderedIds = ids
+            .Select(id => Guid.TryParse(id, out var guid) ? guid : Guid.Empty)
+            .Where(id => id != Guid.Empty && fieldsById.ContainsKey(id))
+            .Distinct()
+            .ToList();
+
+        if (orderedIds.Count == 0)
+            return;
+
+        var orderedFields = orderedIds
+            .Select(id => fieldsById[id])
+            .Concat(_selectedForm.Fields
+                .OrderBy(f => f.SortOrder)
+                .Where(f => !orderedIds.Contains(f.Id)))
+            .ToList();
+
+        for (var i = 0; i < orderedFields.Count; i++)
+            orderedFields[i].SortOrder = i;
+
+        _selectedForm.Fields = orderedFields;
+
+        if (rebuildHost)
+        {
+            _sortableInitialized = false;
+            _designerHostVersion++;
+        }
+
+        if (requestRender)
+            _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void RenumberFields()
+    {
+        if (_selectedForm is null) return;
+        var ordered = _selectedForm.Fields.OrderBy(f => f.SortOrder).ToList();
+        _selectedForm.Fields = ordered.Select((f, index) =>
+        {
+            f.SortOrder = index;
+            return f;
+        }).ToList();
+    }
+
+    private bool IsFieldSelected(string key)
+        => SelectedFields.Any(f => string.Equals(FieldKey(f), key, StringComparison.OrdinalIgnoreCase));
+
+    private async Task OpenPublicForm()
+    {
+        if (_selectedForm is null) return;
+        await JS.InvokeVoidAsync("open", PublicLink(_selectedForm), "_blank", "noopener,noreferrer");
+    }
+
+    private void OpenPreview()
+    {
+        if (_selectedForm is null) return;
+        _previewOpen = true;
+    }
+
+    private void ClosePreview()
+    {
+        _previewOpen = false;
+    }
+
+    private void OpenEmbedModal()
+    {
+        if (_selectedForm is null) return;
+        _embedCopyMessage = "";
+        _embedOpen = true;
+    }
+
+    private void CloseEmbedModal()
+    {
+        _embedOpen = false;
+        _embedCopyMessage = "";
+    }
+
+    private async Task CopyEmbedSnippetAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", EmbedSnippet);
+        _embedCopyMessage = "Snippet wurde in die Zwischenablage kopiert.";
+    }
+
+    private string PublicLink(TodoFormEntity form)
+    {
+        var path = $"/forms/{form.Slug}";
+        return string.IsNullOrWhiteSpace(PublicFormBaseUrl)
+            ? Nav.ToAbsoluteUri(path).ToString()
+            : $"{PublicFormBaseUrl.TrimEnd('/')}{path}";
+    }
+
+    private string EmbedSnippet =>
+        _selectedForm is null
+            ? ""
+            : TodoFormEmbedCode.Build(_selectedForm.Id, _selectedForm.Name, PublicLink(_selectedForm));
+
+    private string FormListItemCss(TodoFormEntity form)
+        => $"flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 {(form.Id == _selectedForm?.Id ? "bg-blue-50 text-blue-700" : "text-slate-700")}";
+
+    private static string StatusBadgeCss(TodoFormPublicationStatus status)
+        => status switch
+        {
+            TodoFormPublicationStatus.Public => "rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700",
+            TodoFormPublicationStatus.Private => "rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700",
+            TodoFormPublicationStatus.PasswordProtected => "rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800",
+            _ => "rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600"
+        };
+
+    private string StatusLabel(TodoFormPublicationStatus status)
+        => status switch
+        {
+            TodoFormPublicationStatus.Public => L["FormDesigner_Status_Public"],
+            TodoFormPublicationStatus.Private => L["FormDesigner_Status_Private"],
+            TodoFormPublicationStatus.PasswordProtected => L["FormDesigner_Status_PasswordProtected"],
+            _ => L["FormDesigner_Status_Draft"]
+        };
+
+    private static readonly IReadOnlyList<AttachmentTypeOption> AttachmentTypeOptions =
+    [
+        new(TodoFormAttachmentType.Documents, "Dokumente"),
+        new(TodoFormAttachmentType.Images, "Bilder"),
+        new(TodoFormAttachmentType.Archives, "Archive"),
+        new(TodoFormAttachmentType.Audio, "Audio"),
+        new(TodoFormAttachmentType.Video, "Video")
+    ];
+
+    private string PreviewAttachmentTypesLabel
+        => _selectedForm is null
+            ? ""
+            : string.Join(", ", AttachmentTypeOptions
+                .Where(option => NormalizeAttachmentTypes(_selectedForm.AllowedAttachmentTypes).HasFlag(option.Type))
+                .Select(option => option.Label));
+
+    private string StandardLabel(TodoFormStandardField field)
+        => field switch
+        {
+            TodoFormStandardField.Title => L["FormDesigner_Field_Title"],
+            TodoFormStandardField.Description => L["Task_Description"],
+            TodoFormStandardField.Column => L["Task_Column"],
+            TodoFormStandardField.StartDate => L["Task_Date_StartDate"],
+            TodoFormStandardField.DueDate => L["Task_Date_DueDate"],
+            TodoFormStandardField.Assignee => L["Task_Assignee"],
+            TodoFormStandardField.IsImportant => L["Page_Important_Badge"],
+            TodoFormStandardField.Labels => L["Task_Labels"],
+            TodoFormStandardField.Attachments => L["Task_Tab_Attachments_Header"],
+            _ => L["CustomField_Type_Text"]
+        };
+
+    private string FieldTypeHint(TodoFormFieldEntity field)
+    {
+        if (field.Source == TodoFormFieldSource.Standard)
+            return L["FormDesigner_FieldType_Standard"];
+
+        var custom = (List?.CustomFields ?? []).FirstOrDefault(f => f.Id == field.CustomFieldId);
+        return custom is null ? L["FormDesigner_FieldType_Custom"] : L["FormDesigner_FieldType_CustomWithType", CustomTypeLabel(custom.Type)];
+    }
+
+    private string CustomTypeLabel(TodoCustomFieldType type)
+        => type switch
+        {
+            TodoCustomFieldType.Number => L["CustomField_Type_Number"],
+            TodoCustomFieldType.Dropdown => L["CustomField_Type_Dropdown"],
+            TodoCustomFieldType.MultiSelect => L["CustomField_Type_MultiSelect"],
+            TodoCustomFieldType.Date => L["CustomField_Type_Date"],
+            TodoCustomFieldType.Checkbox => L["CustomField_Type_Checkbox"],
+            TodoCustomFieldType.TaskTitleSelect => L["CustomField_Type_TaskTitleSelect"],
+            _ => L["CustomField_Type_Text"]
+        };
+
+    private string PreviewSurfaceStyle =>
+        _selectedForm is not null && !string.IsNullOrWhiteSpace(_selectedForm.BackgroundColor)
+            ? $"background-color:{_selectedForm.BackgroundColor};"
+            : "background-color:#ffffff;";
+
+    private string PreviewButtonStyle =>
+        _selectedForm is not null && !string.IsNullOrWhiteSpace(_selectedForm.ButtonColor)
+            ? $"background-color:{_selectedForm.ButtonColor};"
+            : "background-color:#111827;";
+
+    private static string ColorValue(string? value, string fallback)
+        => !string.IsNullOrWhiteSpace(value) && System.Text.RegularExpressions.Regex.IsMatch(value, "^#[0-9a-fA-F]{6}$")
+            ? value
+            : fallback;
+
+    private static string DisplayLabel(TodoFormFieldEntity field)
+        => string.IsNullOrWhiteSpace(field.PublicLabel) ? field.Label : field.PublicLabel.Trim();
+
+    private static string PreviewFieldWrapperCss(TodoFormFieldEntity field)
+        => field.Layout switch
+        {
+            TodoFormFieldLayout.Half => "space-y-1 todo-form-field todo-form-field--half",
+            TodoFormFieldLayout.Wide70 => "space-y-1 todo-form-field todo-form-field--wide",
+            TodoFormFieldLayout.Narrow30 => "space-y-1 todo-form-field todo-form-field--narrow",
+            _ => "space-y-1 todo-form-field todo-form-field--full"
+        };
+
+    private static string LayoutLabel(TodoFormFieldLayout layout)
+        => layout switch
+        {
+            TodoFormFieldLayout.Half => "50%",
+            TodoFormFieldLayout.Wide70 => "70%",
+            TodoFormFieldLayout.Narrow30 => "30%",
+            _ => "Volle Breite"
+        };
+
+    private static string ValidationTypeLabel(TodoFormFieldValidationType type)
+        => type switch
+        {
+            TodoFormFieldValidationType.Number => "Zahl",
+            TodoFormFieldValidationType.Integer => "Ganzzahl",
+            TodoFormFieldValidationType.Email => "E-Mail",
+            TodoFormFieldValidationType.Iban => "IBAN",
+            TodoFormFieldValidationType.DateAfter => "Datum >",
+            TodoFormFieldValidationType.DateBefore => "Datum <",
+            TodoFormFieldValidationType.DateOnOrAfter => "Datum >=",
+            TodoFormFieldValidationType.DateOnOrBefore => "Datum <=",
+            TodoFormFieldValidationType.MinLength => "Mindestlaenge",
+            TodoFormFieldValidationType.MaxLength => "Maximallaenge",
+            TodoFormFieldValidationType.Regex => "Muster",
+            _ => type.ToString()
+        };
+
+    private static string ValidationValuePlaceholder(TodoFormFieldValidationType type)
+        => type switch
+        {
+            TodoFormFieldValidationType.DateAfter or TodoFormFieldValidationType.DateBefore or TodoFormFieldValidationType.DateOnOrAfter or TodoFormFieldValidationType.DateOnOrBefore => "YYYY-MM-DD",
+            TodoFormFieldValidationType.MinLength or TodoFormFieldValidationType.MaxLength => "Anzahl",
+            TodoFormFieldValidationType.Regex => "Regulaerer Ausdruck",
+            _ => "Optional"
+        };
+
+    private static string ValidationValueInputType(TodoFormFieldValidationType type)
+        => type switch
+        {
+            TodoFormFieldValidationType.DateAfter or TodoFormFieldValidationType.DateBefore or TodoFormFieldValidationType.DateOnOrAfter or TodoFormFieldValidationType.DateOnOrBefore => "date",
+            TodoFormFieldValidationType.MinLength or TodoFormFieldValidationType.MaxLength => "number",
+            _ => "text"
+        };
+
+    private RenderFragment RenderPreviewInput(TodoFormFieldEntity field) => builder =>
+    {
+        var seq = 0;
+        var css = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm";
+        var custom = (List?.CustomFields ?? []).FirstOrDefault(f => f.Id == field.CustomFieldId);
+        if (field.StandardField == TodoFormStandardField.Attachments)
+        {
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "break-words text-xs font-medium text-slate-500");
+            AddPreviewFieldLabelContent(builder, ref seq, field);
+            builder.CloseElement();
+            builder.OpenElement(seq++, "input");
+            builder.AddAttribute(seq++, "class", css);
+            builder.AddAttribute(seq++, "type", "file");
+            builder.AddAttribute(seq++, "multiple", true);
+            builder.AddAttribute(seq++, "disabled", true);
+            builder.CloseElement();
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "text-xs text-slate-500");
+            builder.AddContent(seq++, $"Erlaubt: {PreviewAttachmentTypesLabel}");
+            builder.CloseElement();
+            return;
+        }
+
+        if (field.StandardField == TodoFormStandardField.Description)
+        {
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "break-words text-xs font-medium text-slate-500");
+            AddPreviewFieldLabelContent(builder, ref seq, field);
+            builder.CloseElement();
+            builder.OpenElement(seq++, "textarea");
+            builder.AddAttribute(seq++, "class", css);
+            builder.AddAttribute(seq++, "disabled", true);
+            builder.CloseElement();
+            return;
+        }
+
+        if (field.StandardField is TodoFormStandardField.Column or TodoFormStandardField.Labels
+            || custom?.Type is TodoCustomFieldType.Dropdown or TodoCustomFieldType.TaskTitleSelect)
+        {
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "break-words text-xs font-medium text-slate-500");
+            AddPreviewFieldLabelContent(builder, ref seq, field);
+            builder.CloseElement();
+            builder.OpenElement(seq++, "select");
+            builder.AddAttribute(seq++, "class", css);
+            builder.AddAttribute(seq++, "disabled", true);
+            builder.OpenElement(seq++, "option");
+            builder.AddContent(seq++, L["PublicForm_SelectPlaceholder"]);
+            builder.CloseElement();
+            builder.CloseElement();
+            return;
+        }
+
+        if (custom?.Type == TodoCustomFieldType.MultiSelect)
+        {
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "break-words text-xs font-medium text-slate-500");
+            AddPreviewFieldLabelContent(builder, ref seq, field);
+            builder.CloseElement();
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "space-y-1 rounded-lg border border-slate-200 bg-white p-2");
+            foreach (var option in custom.Options.OrderBy(o => o.SortOrder))
+            {
+                builder.OpenElement(seq++, "label");
+                builder.AddAttribute(seq++, "class", "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700");
+                builder.OpenElement(seq++, "input");
+                builder.AddAttribute(seq++, "class", "h-4 w-4 rounded border-slate-300");
+                builder.AddAttribute(seq++, "disabled", true);
+                builder.AddAttribute(seq++, "type", "checkbox");
+                builder.CloseElement();
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", "min-w-0 truncate");
+                builder.AddContent(seq++, option.Value);
+                builder.CloseElement();
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+            return;
+        }
+
+        if (field.StandardField == TodoFormStandardField.IsImportant || custom?.Type == TodoCustomFieldType.Checkbox)
+        {
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "inline-flex items-start gap-2 break-words text-sm font-medium text-slate-700");
+            builder.OpenElement(seq++, "input");
+            builder.AddAttribute(seq++, "class", "mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300");
+            builder.AddAttribute(seq++, "disabled", true);
+            builder.AddAttribute(seq++, "type", "checkbox");
+            builder.CloseElement();
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "min-w-0 leading-5");
+            AddPreviewFieldLabelContent(builder, ref seq, field);
+            builder.CloseElement();
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(seq++, "label");
+        builder.AddAttribute(seq++, "class", "break-words text-xs font-medium text-slate-500");
+        AddPreviewFieldLabelContent(builder, ref seq, field);
+        builder.CloseElement();
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "class", css);
+        builder.AddAttribute(seq++, "disabled", true);
+        builder.AddAttribute(seq++, "type", PreviewInputType(field, custom));
+        builder.CloseElement();
+    };
+
+    private static void AddPreviewFieldLabelContent(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder, ref int seq, TodoFormFieldEntity field)
+    {
+        builder.AddContent(seq++, LinkifiedText.ToMarkupString(DisplayLabel(field)));
+        if (!field.IsRequired)
+            return;
+
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "text-red-600");
+        builder.AddContent(seq++, "*");
+        builder.CloseElement();
+    }
+
+    private static string PreviewInputType(TodoFormFieldEntity field, TodoCustomFieldDefinitionEntity? custom)
+    {
+        if (field.StandardField == TodoFormStandardField.IsImportant || custom?.Type == TodoCustomFieldType.Checkbox)
+            return "checkbox";
+        if (field.ValidationRules.Any(r => r.Type == TodoFormFieldValidationType.Email))
+            return "email";
+        if (custom?.Type == TodoCustomFieldType.Date
+            || field.StandardField is TodoFormStandardField.StartDate or TodoFormStandardField.DueDate
+            || field.ValidationRules.Any(r => r.Type is TodoFormFieldValidationType.DateAfter or TodoFormFieldValidationType.DateBefore or TodoFormFieldValidationType.DateOnOrAfter or TodoFormFieldValidationType.DateOnOrBefore))
+            return "date";
+        if (custom?.Type == TodoCustomFieldType.Number || field.ValidationRules.Any(r => r.Type is TodoFormFieldValidationType.Number or TodoFormFieldValidationType.Integer))
+            return "number";
+        return "text";
+    }
+
+    private static string StandardKey(TodoFormStandardField field) => $"standard:{field}";
+    private static string CustomKey(Guid fieldId) => $"custom:{fieldId:N}";
+    private static string FieldKey(TodoFormFieldEntity field)
+        => field.Source == TodoFormFieldSource.Standard && field.StandardField.HasValue
+            ? StandardKey(field.StandardField.Value)
+            : field.Source == TodoFormFieldSource.Custom && field.CustomFieldId.HasValue
+                ? CustomKey(field.CustomFieldId.Value)
+                : "";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_sortableInitialized)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeFormDesignerSortable", _designerListRef); } catch { }
+        }
+
+        _selfRef?.Dispose();
+    }
+
+    private sealed record AvailableFormField(string Key, string Label, TodoFormFieldSource Source, TodoFormStandardField? StandardField, Guid? CustomFieldId);
+    private sealed record AttachmentTypeOption(TodoFormAttachmentType Type, string Label);
+}

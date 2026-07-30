@@ -1,0 +1,43 @@
+@page "/Account/Lockout"
+@layout BodyOnlyLayout
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+
+<PageTitle>Konto voruebergehend gesperrt</PageTitle>
+
+<div class="row justify-center">
+    <div class="col-lg-6">
+        <section class="rounded-2xl border border-slate-200 bg-white px-6 py-7 shadow-sm">
+            <div class="flex justify-center mb-4">
+                <img class="object-center max-h-16" src="_content/TodoSuite.Community.Shared/img/logo.png" alt="Sessage" />
+            </div>
+
+            <div class="flex items-start gap-4">
+                <div class="mt-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                    <FluentIcon Value="@(new Icons.Regular.Size24.LockClosed())" Color="Color.Warning" />
+                </div>
+
+                <div class="min-w-0">
+                    <h1 class="text-2xl font-semibold text-slate-900 mb-2">Konto vorübergehend gesperrt</h1>
+                    <p class="text-sm leading-6 text-slate-600" role="alert">
+                        Für dieses Konto gab es zu viele fehlgeschlagene Anmeldeversuche. Bitte warte einen Moment und versuche es danach erneut.
+                    </p>
+                    <p class="mt-3 text-sm leading-6 text-slate-600">
+                        Wenn du die Zwei-Faktor-Authentifizierung aktivierst, wird dein Konto bei falschen Passwortversuchen nicht mehr per Benutzer-Lockout gesperrt.
+                    </p>
+
+                    <div class="mt-6 flex flex-wrap gap-2">
+                        <a href="Account/Login"
+                           class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                            Zur Anmeldung
+                        </a>
+                        <a href="/"
+                           class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                            Zur Startseite
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>

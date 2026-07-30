@@ -1,0 +1,386 @@
+@using Klassenbibliothek.Services
+﻿@using Microsoft.FluentUI.AspNetCore.Components
+@using Klassenbibliothek.Data
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@implements IAsyncDisposable
+
+@inject ITodoLabelService LabelService
+@inject ITodoCurrentUserService CurrentUserService
+@inject IJSRuntime JS
+
+<div class="space-y-4">
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+            <div class="font-semibold">@L["Lbl_Error"]</div>
+            <div>@_error</div>
+        </div>
+    }
+
+    <div class="label-manager-heading flex items-start justify-between gap-2">
+        <div class="min-w-0">
+            <div class="font-semibold">@L["Label_Title"]</div>
+            <div class="text-sm text-slate-600">@L["Label_Subtitle"]</div>
+        </div>
+
+        <FluentButton Class="label-manager-new-button" Appearance="Appearance.Accent" OnClick="OpenAdd">
+            @L["Label_NewLabel"]
+        </FluentButton>
+    </div>
+
+    @if (Labels is null || Labels.Count == 0)
+    {
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-600">
+            @L["Label_NoLabels"]
+        </div>
+    }
+    else
+    {
+        <div class="rounded-2xl border border-slate-200 overflow-hidden">
+            <div class="grid grid-cols-12 gap-2 px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                <div class="col-span-6">@L["Lbl_Title"]</div>
+                <div class="col-span-4">@L["Lbl_Color"]</div>
+                <div class="col-span-2 text-right">@L["Lbl_Actions"]</div>
+            </div>
+
+            @foreach (var l in Labels.OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase))
+            {
+                <div class="grid grid-cols-12 gap-2 px-3 py-2 border-t border-slate-100 items-center">
+                    <div class="col-span-6 flex items-center gap-2 min-w-0">
+                        <span class="inline-block w-3 h-3 rounded-full border border-slate-200"
+                              style="background:@(string.IsNullOrWhiteSpace(l.BackgroundColor) ? "#e2e8f0" : l.BackgroundColor)">
+                        </span>
+                        <div class="truncate">@l.Title</div>
+                    </div>
+
+                    <div class="col-span-4 text-sm text-slate-700">
+                        @(string.IsNullOrWhiteSpace(l.BackgroundColor) ? "—" : l.BackgroundColor)
+                    </div>
+
+                    <div class="col-span-2 flex justify-end gap-1">
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      Title="@L["Btn_Edit"]"
+                                      OnClick="@(() => OpenEdit(l))">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Edit())" />
+                        </FluentButton>
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      Title="@L["Btn_Delete"]"
+                                      Style="color: #b91c1c;"
+                                      OnClick="@(() => OpenDelete(l))">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Delete())" />
+                        </FluentButton>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@* =========================
+   ADD DIALOG
+   ========================= *@
+@if (_addOpen)
+{
+    <FluentDialog id="label-manager-add-dlg" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseAdd())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Label_CreateTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAdd">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-4">
+
+                <!-- Preview Bar + Palette wie im Screenshot -->
+                <LabelColorPicker Palette="LabelColorPalette"
+                                  SelectedColor="@_color"
+                                  SelectedColorChanged="@(c => _color = c ?? "")"
+                                  ShowHexValue="false" />
+
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Lbl_Title"]</div>
+                    <input class="w-full rounded-xl border border-slate-200 p-2"
+                           @bind="_title" />
+                </div>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAdd">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateAsync">@L["Btn_Create"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@* =========================
+   EDIT DIALOG
+   ========================= *@
+@if (_editOpen && _editing is not null)
+{
+    <FluentDialog Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Label_EditTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEdit">@L["Btn_Close"]</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-4">
+
+                <!-- Preview Bar + Palette wie im Screenshot -->
+                <LabelColorPicker Palette="LabelColorPalette"
+                                  SelectedColor="@_color"
+                                  SelectedColorChanged="@(c => _color = c ?? "")"
+                                  ShowHexValue="false" />
+
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Lbl_Title"]</div>
+                    <input class="w-full rounded-xl border border-slate-200 p-2"
+                           @bind="_title" />
+                </div>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEdit">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveAsync">@L["Btn_Save"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@* =========================
+   DELETE DIALOG
+   ========================= *@
+@if (_deleteOpen && _deleting is not null)
+{
+    <FluentDialog Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold text-red-700">@L["Label_DeleteTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDelete">@L["Btn_Close"]</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div>@(string.Format(L["Label_DeleteConfirm"].Value, _deleting.Title))</div>
+                <div class="text-sm text-slate-600">
+                    @L["Label_DeleteHint"]
+                </div>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDelete">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteAsync">
+                @L["Label_DeletePermanent"]
+            </FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    [Parameter, EditorRequired] public Guid ListId { get; set; }
+    [Parameter] public IReadOnlyList<TodoLabelEntity> Labels { get; set; } = Array.Empty<TodoLabelEntity>();
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private string _userId = "gast";
+    private string _error = "";
+
+    private bool _addOpen;
+    private bool _addHookActive;
+    private DotNetObjectReference<LabelManagerPanel>? _dotNetRef;
+    private bool _editOpen;
+    private bool _deleteOpen;
+
+    private TodoLabelEntity? _editing;
+    private TodoLabelEntity? _deleting;
+
+    private string _title = "";
+    private string _color = ""; // "#RRGGBB" oder ""
+
+    private static readonly string[] LabelColorPalette =
+    {
+        "#C7F9E5", "#F7EE93", "#FFE6A7", "#FFD7D7", "#EAD7FF",
+        "#51D39B", "#F2D22E", "#FFA500", "#FF6B6B", "#C084FC",
+        "#1F7A54", "#A07800", "#B85C00", "#C0392B", "#8E44AD",
+        "#D6E6FF", "#CFF3FF", "#D7F7B1", "#FFD1EC", "#D9D9D9",
+        "#6EA8FF", "#6FD0F3", "#9ACD32", "#F07AC0", "#8B8E95",
+        "#1E6BD6", "#267C9A", "#5C7D1E", "#A54686", "#5E636B"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await CurrentUserService.GetCurrentUserAsync();
+        _userId = currentUser.UserId;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _addHookActive = await UpdateDialogHookAsync(_addOpen, "label-manager-add-dlg", _addHookActive);
+    }
+
+    private async Task<bool> UpdateDialogHookAsync(bool isOpen, string dialogId, bool hookActive)
+    {
+        if (isOpen && !hookActive)
+        {
+            try
+            {
+                _dotNetRef ??= DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("todoUi.enableDialogOutsideCloseById", dialogId, _dotNetRef, Array.Empty<string>());
+                return true;
+            }
+            catch { }
+        }
+        else if (!isOpen && hookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", dialogId); } catch { }
+            return false;
+        }
+
+        return hookActive;
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        _addOpen = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenAdd()
+    {
+        _error = "";
+        _title = "";
+        _color = "";
+        _addOpen = true;
+    }
+
+    private void CloseAdd() => _addOpen = false;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_addHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "label-manager-add-dlg"); } catch { }
+        _dotNetRef?.Dispose();
+    }
+
+    private void OpenEdit(TodoLabelEntity l)
+    {
+        _error = "";
+        _editing = l;
+        _title = l.Title;
+        _color = l.BackgroundColor ?? "";
+        _editOpen = true;
+    }
+
+    private void CloseEdit()
+    {
+        _editOpen = false;
+        _editing = null;
+    }
+
+    private void OpenDelete(TodoLabelEntity l)
+    {
+        _error = "";
+        _deleting = l;
+        _deleteOpen = true;
+    }
+
+    private void CloseDelete()
+    {
+        _deleteOpen = false;
+        _deleting = null;
+    }
+
+    private async Task CreateAsync()
+    {
+        _error = "";
+
+        var title = (_title ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            _error = L["Err_LabelCreateEmpty"].Value;
+            return;
+        }
+
+        var color = (_color ?? "").Trim();
+
+        // Optional: wenn gesetzt, muss es in Palette sein (statt freie Hex-Eingabe)
+        if (!string.IsNullOrWhiteSpace(color) && !LabelColorPalette.Contains(color, StringComparer.OrdinalIgnoreCase))
+        {
+            _error = string.Format(L["Err_LabelCreateInvalidColor"].Value, color);
+            return;
+        }
+
+        try
+        {
+            await LabelService.AddLabelAsync(_userId, ListId, title, string.IsNullOrWhiteSpace(color) ? null : color);
+            _addOpen = false;
+
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_LabelCreate"].Value, ex.Message);
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _error = "";
+        if (_editing is null) return;
+
+        var title = (_title ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            _error = string.Format(L["Err_LabelSaveEmpty"].Value, _editing.Id);
+            return;
+        }
+
+        var color = (_color ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(color) && !LabelColorPalette.Contains(color, StringComparer.OrdinalIgnoreCase))
+        {
+            _error = string.Format(L["Err_LabelSaveInvalidColor"].Value, color);
+            return;
+        }
+
+        try
+        {
+            await LabelService.UpdateLabelAsync(_userId, ListId, _editing.Id, title, string.IsNullOrWhiteSpace(color) ? null : color);
+            _editOpen = false;
+            _editing = null;
+
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_LabelSave"].Value, ex.Message);
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        _error = "";
+        if (_deleting is null) return;
+
+        try
+        {
+            await LabelService.DeleteLabelAsync(_userId, ListId, _deleting.Id);
+            _deleteOpen = false;
+            _deleting = null;
+
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_LabelDelete"].Value, ex.Message);
+        }
+    }
+}

@@ -1,0 +1,3154 @@
+@using Klassenbibliothek.Services
+﻿@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using Klassenbibliothek.Data
+
+@inject ITodoListService ListService
+@inject ITodoTaskService TaskService
+@inject ITodoStepService StepService
+@inject ITodoCommentService CommentService
+@inject ITodoAttachmentService AttachmentService
+@inject ITodoCurrentUserService CurrentUserService
+@inject ITodoHubConnectionFactory HubConnectionFactory
+@inject IJSRuntime JS
+@inject HttpClient Http
+@implements IAsyncDisposable
+
+@if (_editableTask is not null)
+{
+    <FluentDialog id="@_dialogDomId"
+                  Class="task-edit-dialog"
+                  Modal="true"
+                  TrapFocus="true"
+                  PreventScroll="true"
+                  Style="width:min(1100px, 96vw); max-width:96vw; min-width:min(720px, 96vw); height:min(820px, 92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh); --dialog-display: flex; flex-direction: column;"
+                  Data-testid="task-edit-modal">
+
+        <FluentDialogHeader>
+            <div class="task-edit-modal-header flex items-center justify-between gap-3 w-full">
+                <!-- Left: Done + Title -->
+                <div class="task-edit-title-row flex items-center gap-2 flex-1 min-w-0">
+
+                    <!-- Done Toggle -->
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="task-edit-icon-button"
+                                  Title="@(_editableTask.Done ? L["Task_Done_Title_Undo"] : L["Task_Done_Title_Mark"])"
+                                  OnClick="() => ToggleDoneAsync(_editableTask)">
+                        @if (_editableTask.Done)
+                        {
+                            <FluentIcon Value="@(new Icons.Filled.Size24.CheckmarkCircle())" />
+                        }
+                        else
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size24.Circle())" />
+                        }
+                    </FluentButton>
+
+                    <div class="task-edit-title-field flex flex-1 min-w-0 items-center">
+                        <InputTextArea class="task-edit-title-input w-full text-xl font-semibold border-none outline-none focus:outline-hidden bg-transparent"
+                                       rows="1"
+                                       Value="@_editableTask.Title"
+                                       ValueChanged="@(v => OnTitleChanged(v))"
+                                       ValueExpression="@(() => _editableTask.Title)" />
+                    </div>
+                </div>
+
+                <!-- Right: Add + Important + Actions + Close -->
+                <div class="task-edit-modal-actions flex items-center gap-1 shrink-0">
+
+                    <!-- ✅ + Hinzufügen (Zu Karte hinzufügen) -->
+                    <div class="relative" @onclick:stopPropagation="true">
+                        <FluentButton Appearance="Appearance.Neutral"
+                                      Class="task-edit-add-button"
+                                      Title="@L["Task_AddToCard"]"
+                                      OnClick="ToggleAddMenu">
+                            <span class="inline-flex items-center gap-2">
+                                <FluentIcon Value="@(new Icons.Filled.Size20.Add())" />
+                                <span class="task-edit-add-button-text">@L["Task_AddToCard_Btn"]</span>
+                            </span>
+                        </FluentButton>
+
+                        @if (_addMenuOpen)
+                        {
+                            <div class="fixed inset-0 z-[49]" @onclick="CloseAddMenu" @onclick:stopPropagation="true"></div>
+                            <div class="task-edit-dropdown absolute right-0 mt-2 w-72 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                                 @onclick:stopPropagation="true">
+
+                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between">
+                                    <span>@L["Task_AddToCard"]</span>
+                                    <button type="button" class="text-slate-500 hover:text-slate-800" @onclick="CloseAddMenu">✕</button>
+                                </div>
+
+                                <button type="button"
+                                        class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="ShowLabelsFromMenu">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Tag())" />
+                                    <span class="flex-1">@L["Task_Labels"]</span>
+                                </button>
+
+                                <!-- ✅ Datum getrennt -->
+                                <button type="button"
+                                        class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="ShowDatesFromMenu">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Calendar())" />
+                                    <span class="flex-1">@L["Task_Date"]</span>
+                                </button>
+
+                                <!-- ✅ Erinnerung getrennt -->
+                                <button type="button"
+                                        class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="ShowReminderFromMenu">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Clock())" />
+                                    <span class="flex-1">@L["Task_Reminder"]</span>
+                                </button>
+
+                                <button type="button"
+                                        class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="ShowChecklistFromMenu">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.CheckmarkSquare())" />
+                                    <span class="flex-1">@L["Task_Checklist"]</span>
+                                </button>
+
+                                <button type="button"
+                                        class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="ShowMembersFromMenu">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.People())" />
+                                    <span class="flex-1">@L["Task_Members"]</span>
+                                </button>
+
+                                @if (EnableCustomFields)
+                                {
+                                    <button type="button"
+                                            class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                            @onclick="ShowCustomFieldsFromMenu">
+                                        <span class="inline-flex w-5 justify-center text-slate-500">#</span>
+                                        <span class="flex-1">@L["CustomField_SectionTitle"]</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Watcher -->
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="task-edit-icon-button"
+                                  Title="@(IsWatchingTask ? L["Task_Watch_Stop"] : L["Task_Watch_Start"])"
+                                  OnClick="ToggleTaskWatchingAsync">
+                        @if (IsWatchingTask)
+                        {
+                            <FluentIcon Value="@(new Icons.Filled.Size24.Alert())" />
+                        }
+                        else
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size24.Alert())" />
+                        }
+                    </FluentButton>
+
+                    <!-- Important -->
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="task-edit-icon-button"
+                                  Title="@(_editableTask.IsImportant ? L["Task_Important_Title_Remove"] : L["Task_Important_Title_Mark"])"
+                                  OnClick="() => ToggleImportantAsync(_editableTask)">
+                        @if (_editableTask.IsImportant)
+                        {
+                            <FluentIcon Value="@(new Icons.Filled.Size24.Star())" />
+                        }
+                        else
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size24.Star())" />
+                        }
+                    </FluentButton>
+
+                    
+
+                    <!-- Actions menu -->
+                    <div class="relative">
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      Class="task-edit-icon-button"
+                                      Title="@L["Task_Options"]"
+                                      OnClick="ToggleActions">
+                            <FluentIcon Value="@(new Icons.Filled.Size24.MoreHorizontal())" />
+                        </FluentButton>
+
+                        @if (_actionsOpen)
+                        {
+                            <div class="fixed inset-0 z-[49]" @onclick="() => _actionsOpen = false" @onclick:stopPropagation="true"></div>
+                            <div class="task-edit-dropdown absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                                 @onclick:stopPropagation="true">
+
+                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between">
+                                    <span>@L["Task_Options"]</span>
+                                    <button type="button" class="text-slate-500 hover:text-slate-800" @onclick="ToggleActions">✕</button>
+                                </div>
+
+                                <button class="w-full text-left px-3 py-2"
+                                        @onclick="OpenCardStyleDialog">
+                                    @L["Task_ChangeCardColor"]
+                                </button>
+
+                                <button class="w-full text-left px-3 py-2"
+                                        @onclick="OpenMoveDialog">
+                                    @L["Task_MoveTask"]
+                                </button>
+
+                                <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
+                                        @onclick="DeleteTaskWithConfirmAsync">
+                                    @L["Task_DeleteTask"]
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Close -->
+                    <FluentButton Appearance="Appearance.Stealth" Class="task-edit-icon-button task-edit-close-button" OnClick="OnClose">
+                        <FluentIcon Value="@(new Icons.Filled.Size24.Dismiss())" />
+                    </FluentButton>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                    <div class="font-semibold">@L["Lbl_Error"]</div>
+                    <div>@_error</div>
+                </div>
+            }
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div @ref="_scrollHost" class="task-edit-scroll-host" style="overflow-y:auto; overflow-x:hidden; height: 100%; display: flex; flex-direction: column; min-height: 0;">
+                <div class="task-edit-tabbar flex shrink-0 items-center gap-2 mb-2 px-4 pt-2 pb-1">
+                    <button type="button"
+                            class="@TaskTabButtonClass("details")"
+                            role="tab"
+                            aria-selected="@IsTaskTab("details")"
+                            @onclick="@(() => SelectTaskTab("details"))">
+                        @L["Task_Tab_Details"]
+                    </button>
+                    <button type="button"
+                            class="@TaskTabButtonClass("comments")"
+                            role="tab"
+                            aria-selected="@IsTaskTab("comments")"
+                            @onclick="@(() => SelectTaskTab("comments"))">
+                        @L["Task_Tab_Comments_Header"]
+                    </button>
+                    <button type="button"
+                            class="@TaskTabButtonClass("attachments")"
+                            role="tab"
+                            aria-selected="@IsTaskTab("attachments")"
+                            @onclick="@(() => SelectTaskTab("attachments"))">
+                        @L["Task_Tab_Attachments_Header"]
+                    </button>
+                </div>
+
+                <div class="flex-1 min-h-0">
+                    @if (IsTaskTab("details"))
+                    {
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 min-w-0">
+
+                                <!-- LEFT / MAIN -->
+                                <div class="lg:col-span-2 space-y-4">
+
+                                    <FluentCard Class="rounded-2xl m-1">
+
+                                        <!-- ✅ Labels (nur wenn Inhalt ODER per Menü eingeblendet) -->
+                                        @if (_showLabelsSection || HasLabels)
+                                        {
+                                            <div class="p-4 space-y-3">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Labels"]</div>
+
+                                                    <div class="flex items-center gap-2">
+                                                        <FluentButton Appearance="Appearance.Stealth"
+                                                                      Disabled="@(SelectedLabels.Count == 0)"
+                                                                      Title="@L["Task_Labels_Clear"]"
+                                                                      OnClick="ClearLabels">
+                                                            @L["Btn_Remove"]
+                                                        </FluentButton>
+
+                                                        <div class="relative">
+                                                            <FluentButton Appearance="Appearance.Neutral"
+                                                                          OnClick="ToggleLabelPicker">
+                                                                @L["Task_Labels_Select"]
+                                                            </FluentButton>
+
+                                                            @if (_labelPickerOpen)
+                                                            {
+                                                                <div class="fixed inset-0 z-[49]" @onclick="CloseLabelPicker" @onclick:stopPropagation="true"></div>
+                                                                <div class="task-edit-dropdown absolute right-0 mt-2 w-72 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                                                                     @onclick:stopPropagation="true">
+                                                                    <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                                                                        @L["Task_Labels_Available"]
+                                                                    </div>
+
+                                                                    @if (_labels?.Count > 0)
+                                                                    {
+                                                                        <div class="max-h-72 overflow-auto">
+                                                                            @foreach (var l in _labels.OrderBy(x => x.Title, StringComparer.OrdinalIgnoreCase))
+                                                                            {
+                                                                                var checkedNow = IsLabelSelected(l.Id);
+                                                                                <button type="button"
+                                                                                        class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                                                                        @onclick="() => ToggleLabelSelection(l.Id)">
+                                                                                    <span class="inline-block w-3 h-3 rounded-full border border-slate-200"
+                                                                                          style="background:@(string.IsNullOrWhiteSpace(l.BackgroundColor) ? "#e2e8f0" : l.BackgroundColor)">
+                                                                                    </span>
+
+                                                                                    <span class="flex-1 truncate">@l.Title</span>
+
+                                                                                    @if (checkedNow)
+                                                                                    {
+                                                                                        <FluentIcon Value="@(new Icons.Filled.Size20.Checkmark())" />
+                                                                                    }
+                                                                                </button>
+                                                                            }
+                                                                        </div>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <div class="px-3 py-3 text-sm text-slate-600">
+                                                                            @L["Task_Labels_NoneInList"]
+                                                                        </div>
+                                                                    }
+
+                                                                    <div class="h-px bg-slate-100"></div>
+                                                                    <div class="px-3 py-2 flex justify-end">
+                                                                        <FluentButton Appearance="Appearance.Stealth" OnClick="CloseLabelPicker">
+                                                                            @L["Btn_Close"]
+                                                                        </FluentButton>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                @if (SelectedLabels.Count == 0)
+                                                {
+                                                    <div class="text-sm text-slate-500">@L["Task_Labels_None"]</div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="flex flex-wrap gap-2">
+                                                        @foreach (var chip in SelectedLabels)
+                                                        {
+                                                            <span class="inline-flex items-center gap-2 px-2 py-1 rounded-full text-xs border border-slate-200"
+                                                                  style="@ChipStyle(chip.BackgroundColor)">
+                                                                <span class="truncate max-w-[220px]">@chip.Title</span>
+
+                                                                <button type="button"
+                                                                        class="opacity-80 hover:opacity-100"
+                                                                        title="@L["Task_Labels_Clear"]"
+                                                                        @onclick="() => RemoveLabel(chip.Id)">
+                                                                    ✕
+                                                                </button>
+                                                            </span>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <div class="h-px bg-slate-100"></div>
+                                        }
+
+                                        <!-- ✅ Checkliste (nur wenn Inhalt ODER per Menü eingeblendet) -->
+                                        @if (_showChecklistSection || HasChecklist)
+                                        {
+                                            <div class="p-4 space-y-3">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Checklist"]</div>
+
+                                                    <FluentButton Appearance="Appearance.Stealth"
+                                                                  Disabled="@(_editableTask is null)"
+                                                                  Title="@L["Task_Checklist_Clear"]"
+                                                                  OnClick="ClearChecklistAsync">
+                                                        @L["Btn_Remove"]
+                                                    </FluentButton>
+                                                </div>
+
+                                                @if ((_editableTask?.Steps.Count ?? 0) == 0)
+                                                {
+                                                    <div class="text-sm text-slate-500">@L["Task_Checklist_NoSteps"]</div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="space-y-2">
+                                                        @foreach (var step in (_editableTask?.Steps ?? Enumerable.Empty<TodoStepEntity>()).OrderBy(s => s.CreatedAtUtc))
+                                                        {
+                                                            <div class="flex items-center gap-2">
+                                                                <FluentCheckbox Value="@step.IsCompleted"
+                                                                                ValueChanged="@(v => OnStepCompletedChanged(step, v))" />
+
+                                                                <FluentTextField class="flex-1 outline-none"
+                                                                                 Value="@step.Title"
+                                                                                 ValueChanged="@(v => OnStepTitleChanged(step, v))"
+                                                                                 Immediate="true"
+                                                                                 Placeholder="@L["Task_Checklist_StepPlaceholder"]" />
+
+                                                                <div class="relative">
+                                                                    <FluentButton Appearance="Appearance.Stealth"
+                                                                                  Title="@L["Task_Options"]"
+                                                                                  OnClick="@(() => ToggleStepMenu(step.Id))">
+                                                                        <FluentIcon Value="@(new Icons.Filled.Size20.MoreHorizontal())" />
+                                                                    </FluentButton>
+
+                                                                    @if (_stepMenuOpenFor == step.Id)
+                                                                    {
+                                                                        <div class="task-edit-dropdown absolute right-0 mt-2 w-56 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                                                                             @onclick:stopPropagation="true">
+
+                                                                            <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                                                    @onclick="() => MakeStepTaskAsync(step)">
+                                                                                @L["Task_Checklist_MakeTask"]
+                                                                            </button>
+
+                                                                            <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
+                                                                                    @onclick="() => DeleteStepAsync(step)">
+                                                                                @L["Btn_Delete"]
+                                                                            </button>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+
+                                                <div class="pt-2">
+                                                    @if (!_showAddStep)
+                                                    {
+                                                        <FluentButton Class="outline-none" Appearance="Appearance.Stealth" OnClick="OpenAddStep">
+                                                            @L["Task_Checklist_AddStep"]
+                                                        </FluentButton>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="flex items-center gap-2">
+                                                            <FluentTextField class="flex-1"
+                                                                             @bind-Value="_newStepTitle"
+                                                                             Immediate="true"
+                                                                             Autofocus="true"
+                                                                             Placeholder="@L["Task_Checklist_NewStep"]"
+                                                                             @onkeydown="OnNewStepKeyDown" />
+
+                                                            <FluentButton Appearance="Appearance.Stealth" OnClick="CancelAddStep">
+                                                                @L["Btn_Cancel"]
+                                                            </FluentButton>
+                                                        </div>
+                                                        <div class="text-xs text-slate-500 mt-1">@L["Task_Checklist_EnterHint"]</div>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            <div class="h-px bg-slate-100"></div>
+                                        }
+
+                                        <!-- Beschreibung (immer sichtbar) -->
+                                        <div class="p-4 space-y-2">
+                                            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Description"]</div>
+
+                                            <InputTextArea class="w-full rounded-xl border border-slate-200 p-2 min-h-[140px]"
+                                                           Value="@_editableTask?.Description"
+                                                           ValueChanged="@(v => OnDescriptionChanged(v))"
+                                                           ValueExpression="@(() => _editableTask!.Description)" />
+                                        </div>
+
+                                        @if (EnableCustomFields && (_showCustomFieldsSection || HasCustomFieldValues))
+                                        {
+                                            <div class="h-px bg-slate-100"></div>
+                                            <div class="p-4 space-y-3">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500">@L["CustomField_SectionTitle"]</div>
+                                                    @if ((List?.CustomFields?.Count ?? 0) == 0)
+                                                    {
+                                                        <span class="text-xs text-slate-500">@L["CustomField_NoneDefined"]</span>
+                                                    }
+                                                </div>
+
+                                                @foreach (var field in (List?.CustomFields ?? new()).OrderBy(f => f.SortOrder).ThenBy(f => f.Name))
+                                                {
+                                                    <div class="space-y-1">
+                                                        @if (field.Type == TodoCustomFieldType.Checkbox)
+                                                        {
+                                                            <label class="inline-flex items-start gap-2 text-sm font-medium text-slate-700">
+                                                                <input type="checkbox"
+                                                                       class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-slate-700"
+                                                                       checked="@string.Equals(GetCustomFieldValue(field.Id), "true", StringComparison.OrdinalIgnoreCase)"
+                                                                       @onchange="e => OnCustomFieldChanged(field, e.Value)" />
+                                                                <span class="min-w-0 leading-5">@field.Name</span>
+                                                            </label>
+                                                        }
+                                                        else if (field.Type == TodoCustomFieldType.Dropdown || field.Type == TodoCustomFieldType.TaskTitleSelect)
+                                                        {
+                                                            <label class="text-sm font-medium text-slate-700">@field.Name</label>
+                                                            <select class="w-full rounded-xl border border-slate-200 p-2 text-sm"
+                                                                    value="@GetCustomFieldValue(field.Id)"
+                                                                    @onchange="e => OnCustomFieldChanged(field, e.Value)">
+                                                                <option value=""></option>
+                                                            @foreach (var option in CustomFieldSelectOptions.GetOptions(field, AvailableLists, GetCustomFieldValue(field.Id)))
+                                                                {
+                                                                    <option value="@option.Value">@option.Label</option>
+                                                                }
+                                                            </select>
+                                                        }
+                                                        else if (field.Type == TodoCustomFieldType.MultiSelect)
+                                                        {
+                                                            var selectedValues = GetCustomFieldMultiSelectValues(field.Id);
+                                                            <label class="text-sm font-medium text-slate-700">@field.Name</label>
+                                                            <div class="space-y-1 rounded-xl border border-slate-200 bg-white p-2">
+                                                                @foreach (var option in CustomFieldSelectOptions.GetOptions(field, AvailableLists))
+                                                                {
+                                                                    var isSelected = selectedValues.Contains(option.Value, StringComparer.OrdinalIgnoreCase);
+                                                                    <label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                                                                        <input type="checkbox"
+                                                                               class="h-4 w-4 rounded border-slate-300 accent-blue-600"
+                                                                               checked="@isSelected"
+                                                                               @onchange="e => OnCustomFieldMultiSelectChanged(field, option.Value, e.Value is bool b && b)" />
+                                                                        <span class="min-w-0 truncate">@option.Label</span>
+                                                                    </label>
+                                                                }
+                                                            </div>
+                                                        }
+                                                        else
+                                                        {
+                                                            <label class="text-sm font-medium text-slate-700">@field.Name</label>
+                                                            <input class="w-full rounded-xl border border-slate-200 p-2 text-sm"
+                                                                   type="@CustomFieldInputType(field.Type)"
+                                                                   value="@GetCustomFieldValue(field.Id)"
+                                                                   @onchange="e => OnCustomFieldChanged(field, e.Value)" />
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+
+                                        <div class="h-px bg-slate-100"></div>
+
+                                        <!-- Wiederholung (immer sichtbar) -->
+                                        <div class="p-4 space-y-3">
+                                            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Recurrence"]</div>
+
+                                            <div class="space-y-2">
+                                                <InputSelect TValue="RecurrencePattern"
+                                                             class="w-full rounded-xl border border-slate-200 p-2"
+                                                             Value="@(_editableTask?.Recurrence ?? RecurrencePattern.Keine)"
+                                                             ValueChanged="@( (RecurrencePattern v) => OnRecurrenceChanged(v) )"
+                                                             ValueExpression="@(() => _editableTask!.Recurrence)">
+                                                    <option value="@RecurrencePattern.Keine">@L["Task_Recurrence_None"]</option>
+                                                    <option value="@RecurrencePattern.Taeglich">@L["Task_Recurrence_Daily"]</option>
+                                                    <option value="@RecurrencePattern.Woechentlich">@L["Task_Recurrence_Weekly"]</option>
+@*                                                     <option value="@RecurrencePattern.BestimmteWochentage">@L["Task_Recurrence_SpecificDays"]</option>
+ *@                                                    <option value="@RecurrencePattern.Monatlich">@L["Task_Recurrence_Monthly"]</option>
+                                                    <option value="@RecurrencePattern.Jaehrlich">@L["Task_Recurrence_Yearly"]</option>
+@*                                                     <option value="@RecurrencePattern.Benutzerdefiniert">@L["Task_Recurrence_Custom"]</option>
+ *@                                                </InputSelect>
+                                            </div>
+
+                                            @if (_editableTask?.Recurrence == RecurrencePattern.Benutzerdefiniert)
+                                            {
+                                                <div class="space-y-2">
+                                                    <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Recurrence_CustomLabel"]</label>
+                                                    <InputText class="w-full rounded-xl border border-slate-200 p-2"
+                                                               Value="@_editableTask?.CustomRecurrence"
+                                                               ValueChanged="@(v => OnCustomRecurrenceChanged(v))"
+                                                               ValueExpression="@(() => _editableTask!.CustomRecurrence)" />
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <div class="h-px bg-slate-100"></div>
+
+                                        <!-- ✅ Datum (nur wenn sichtbar ODER gesetzt) -->
+                                        @if (_showDatesSection || HasDateOnly)
+                                        {
+                                            <div class="p-4 space-y-3">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Date"]</div>
+
+                                                    <FluentButton Appearance="Appearance.Stealth"
+                                                                  Disabled="@(!HasDateOnly)"
+                                                                  Title="@L["Task_Date_Clear"]"
+                                                                  OnClick="ClearDateOnly">
+                                                        @L["Btn_Remove"]
+                                                    </FluentButton>
+                                                </div>
+
+                                                <div class="grid grid-cols-1 gap-3">
+                                                    <div class="space-y-2">
+                                                        <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Date_StartDate"]</label>
+                                                        <InputDate TValue="DateTime ?"
+                                                                   class="w-full rounded-xl border border-slate-200 p-2"
+                                                                   Value="@_editableTask?.StartDate"
+                                                                   ValueChanged="@( (DateTime? v) => OnStartDateChanged(v) )"
+                                                                   ValueExpression="@(() => _editableTask!.StartDate)" />
+                                                    </div>
+
+                                                    <div class="space-y-2">
+                                                        <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Date_DueDate"]</label>
+                                                        <InputDate TValue="DateTime ?"
+                                                                   class="w-full rounded-xl border border-slate-200 p-2"
+                                                                   Value="@_editableTask?.DueDate"
+                                                                   ValueChanged="@( (DateTime? v) => OnDueDateChanged(v) )"
+                                                                   ValueExpression="@(() => _editableTask!.DueDate)" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="h-px bg-slate-100"></div>
+                                        }
+
+                                        <!-- ✅ Erinnerung (nur wenn sichtbar ODER gesetzt) -->
+                                        @if (_showReminderSection || HasReminderOnly)
+                                        {
+                                            <div class="p-4 space-y-3">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Reminder"]</div>
+
+                                                    <FluentButton Appearance="Appearance.Stealth"
+                                                                  Disabled="@(!HasReminderOnly)"
+                                                                  Title="@L["Task_Reminder_Clear"]"
+                                                                  OnClick="ClearReminderOnly">
+                                                        @L["Btn_Remove"]
+                                                    </FluentButton>
+                                                </div>
+
+                                                <div class="grid grid-cols-1 gap-3">
+                                                    <div class="space-y-2">
+                                                        <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Reminder_Date"]</label>
+                                                        <InputDate TValue="DateTime ?"
+                                                                   class="w-full rounded-xl border border-slate-200 p-2"
+                                                                   Value="@_reminderLocalDate"
+                                                                   ValueChanged="@( (DateTime? v) => OnReminderDateChanged(v) )"
+                                                                   ValueExpression="@(() => _reminderLocalDate)" />
+                                                    </div>
+
+                                                    <div class="space-y-2">
+                                                        <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Reminder_Time"]</label>
+                                                        <input type="time"
+                                                               class="w-full rounded-xl border border-slate-200 p-2"
+                                                               value="@_reminderLocalTime"
+                                                               @onchange="OnReminderTimeChanged" />
+                                                    </div>
+                                                </div>
+
+                                                @if (_editableTask?.ReminderAtUtc is not null)
+                                                {
+                                                    <div class="text-xs text-slate-500">
+                                                        @(string.Format(L["Task_Reminder_SetFor"].Value, _editableTask.ReminderAtUtc.Value.AddMinutes(_browserUtcOffsetMinutes).ToString("g")))
+                                                    </div>
+                                                }
+
+                                                @if (_editableTask?.Done == true)
+                                                {
+                                                    <div class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                                        @L["Task_Reminder_DoneWarning"]
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="text-xs text-slate-500">
+                                                        @L["Task_Reminder_EmailHint"]
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </FluentCard>
+                                </div>
+
+                                <!-- RIGHT / SIDEBAR -->
+                                <div class="space-y-4">
+
+                                    <FluentCard Class="rounded-2xl m-1 overflow-visible">
+                                        <div class="p-4 space-y-3">
+                                            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Meta"]</div>
+
+                                            <div class="space-y-2">
+                                                <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Assignee"]</label>
+                                                <InputSelect TValue="string"
+                                                             class="w-full rounded-xl border border-slate-200 p-2"
+                                                             Value="@(_editableTask.Assignee ?? "")"
+                                                             ValueChanged="@( (string v) => OnAssigneeUserChanged(v) )"
+                                                             ValueExpression="@(() => _editableTask.Assignee)">
+                                                    <option value="">-</option>
+                                                    @foreach (var u in _assigneeOptions)
+                                                    {
+                                                        <option value="@u.UserId">@u.Display</option>
+                                                    }
+                                                </InputSelect>
+                                            </div>
+
+                                            <!-- ✅ Mitglieder (nur wenn Inhalt ODER per Menü eingeblendet) -->
+                                            @if (_showMembersSection || HasMembers)
+                                            {
+                                                <div class="space-y-2">
+                                                    <div class="flex items-center justify-between gap-2">
+                                                        <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Members"]</label>
+
+                                                        <FluentButton Appearance="Appearance.Stealth"
+                                                                      Disabled="@(SelectedMemberOptions.Count == 0)"
+                                                                      Title="@L["Task_Members_Clear"]"
+                                                                      OnClick="ClearMembers">
+                                                            @L["Btn_Remove"]
+                                                        </FluentButton>
+                                                    </div>
+
+                                                    @* FloatingDropdown renders the panel in the global FloatingLayerHost
+                                                       so it is never clipped by tab content or the dialog's overflow:hidden. *@
+                                                    <FloatingDropdown @ref="_memberPickerDropdown"
+                                                                      MinWidth="320"
+                                                                      MaxHeight="640"
+                                                                      AnchorClass="task-member-picker-anchor"
+                                                                      PanelClass="task-member-picker-panel">
+                                                        <ChildContent>
+                                                            <button type="button"
+                                                                    class="task-member-picker-trigger w-full min-h-11 rounded-xl border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                                                    aria-label="@L["Task_Members_Add"]">
+                                                                <div class="flex-1 min-w-0">
+                                                                    @if (SelectedMemberOptions.Count == 0)
+                                                                    {
+                                                                        <span class="text-sm text-slate-500">@L["Task_Members_Add"]</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <div class="task-member-avatar-list">
+                                                                            @foreach (var m in SelectedMemberOptions)
+                                                                            {
+                                                                                <div title="@m.Display"
+                                                                                     class="relative w-7 h-7 rounded-full border border-white shadow-sm shrink-0">
+                                                                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-slate-200 text-slate-700">
+                                                                                        @MemberAvatarText(m.Display)
+                                                                                    </div>
+                                                                                    <img src="/api/profile-picture/@(Uri.EscapeDataString(m.UserId))"
+                                                                                         class="absolute inset-0 w-7 h-7 rounded-full object-cover"
+                                                                                         alt=""
+                                                                                         onload="this.previousElementSibling.style.display='none'"
+                                                                                         onerror="this.style.display='none'" />
+                                                                                </div>
+                                                                            }
+                                                                        </div>
+                                                                    }
+                                                                </div>
+
+                                                                <span class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm shrink-0">
+                                                                    +
+                                                                </span>
+                                                            </button>
+                                                        </ChildContent>
+                                                        <DropdownContent>
+                                                            <div class="task-member-picker-card rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+
+                                                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between">
+                                                                    <span>@L["Task_Members"]</span>
+                                                                    <button type="button" class="text-slate-500 hover:text-slate-800" @onclick="CloseMemberPicker">✕</button>
+                                                                </div>
+
+                                                                <div class="p-3">
+                                                                    <input class="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-slate-200"
+                                                                           placeholder="@L["Task_Members_SearchPlaceholder"]"
+                                                                           @bind="_memberSearch"
+                                                                           @bind:event="oninput" />
+                                                                </div>
+
+                                                                <div class="task-member-picker-scroll">
+                                                                    @if (SelectedMemberOptions.Count > 0)
+                                                                    {
+                                                                        <div class="px-3 pb-2 text-xs uppercase tracking-wide text-slate-500">
+                                                                            @L["Task_Members_CardMembers"]
+                                                                        </div>
+
+                                                                        <div class="px-2 pb-2 space-y-1">
+                                                                            @foreach (var m in SelectedMemberOptions)
+                                                                            {
+                                                                            <div class="w-full px-2 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2">
+                                                                                <div class="relative w-8 h-8 rounded-full shrink-0">
+                                                                                    <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-semibold">
+                                                                                        @MemberAvatarText(m.Display)
+                                                                                    </div>
+                                                                                    <img src="/api/profile-picture/@(Uri.EscapeDataString(m.UserId))"
+                                                                                         class="absolute inset-0 w-8 h-8 rounded-full object-cover"
+                                                                                         alt=""
+                                                                                         onload="this.previousElementSibling.style.display='none'"
+                                                                                         onerror="this.style.display='none'" />
+                                                                                </div>
+
+                                                                                <div class="flex-1 min-w-0">
+                                                                                    <div class="text-sm truncate">@m.Display</div>
+                                                                                </div>
+
+                                                                                <button type="button"
+                                                                                        class="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
+                                                                                        title="@L["Btn_Remove"]"
+                                                                                        @onclick="() => RemoveMember(m.UserId)">
+                                                                                    ✕
+                                                                                </button>
+                                                                            </div>
+                                                                            }
+                                                                        </div>
+
+                                                                        <div class="h-px bg-slate-100 my-1"></div>
+                                                                    }
+
+                                                                    <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500">
+                                                                        @L["Task_Members_BoardMembers"]
+                                                                    </div>
+
+                                                                    <div class="px-2 pb-2 space-y-1">
+                                                                        @foreach (var u in FilteredMemberOptions)
+                                                                        {
+                                                                        var checkedNow = IsMemberSelected(u.UserId);
+
+                                                                        <button type="button"
+                                                                                class="w-full text-left px-2 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2"
+                                                                                @onclick="() => ToggleMember(u.UserId)">
+                                                                            <div class="relative w-8 h-8 rounded-full shrink-0">
+                                                                                <div class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-semibold">
+                                                                                    @MemberAvatarText(u.Display)
+                                                                                </div>
+                                                                                <img src="/api/profile-picture/@(Uri.EscapeDataString(u.UserId))"
+                                                                                     class="absolute inset-0 w-8 h-8 rounded-full object-cover"
+                                                                                     alt=""
+                                                                                     onload="this.previousElementSibling.style.display='none'"
+                                                                                     onerror="this.style.display='none'" />
+                                                                            </div>
+
+                                                                            <div class="flex-1 min-w-0">
+                                                                                <div class="text-sm truncate">@u.Display</div>
+                                                                            </div>
+
+                                                                            @if (checkedNow)
+                                                                            {
+                                                                                <FluentIcon Value="@(new Icons.Filled.Size20.Checkmark())" />
+                                                                            }
+                                                                        </button>
+                                                                        }
+
+                                                                        @if (FilteredMemberOptions.Count == 0)
+                                                                        {
+                                                                        <div class="px-2 py-3 text-sm text-slate-600">
+                                                                            @L["Task_Members_NoResults"]
+                                                                        </div>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="h-px bg-slate-100"></div>
+                                                                <div class="px-3 py-2 flex justify-end">
+                                                                    <FluentButton Appearance="Appearance.Stealth" OnClick="CloseMemberPicker">
+                                                                        @L["Btn_Close"]
+                                                                    </FluentButton>
+                                                                </div>
+                                                            </div>
+                                                        </DropdownContent>
+                                                    </FloatingDropdown>
+                                                </div>
+
+                                                <div class="h-px bg-slate-100"></div>
+                                            }
+
+                                            <div class="grid grid-cols-1 gap-3">
+                                                <div class="space-y-2">
+                                                    <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Column"]</label>
+                                                    <InputSelect TValue="string"
+                                                                 class="w-full rounded-xl border border-slate-200 p-2"
+                                                                 Value="@_editableTask.Column"
+                                                                 ValueChanged="@( (string v) => OnColumnChanged(v) )"
+                                                                 ValueExpression="@(() => _editableTask.Column)">
+                                                        @foreach (var column in ColumnOptions)
+                                                        {
+                                                            <option value="@column">@column</option>
+                                                        }
+                                                    </InputSelect>
+                                                </div>
+
+                                                @* ✅ Start/Fällig rechts bewusst ausgeblendet *@
+                                            </div>
+                                        </div>
+                                    </FluentCard>
+                                </div>
+                            </div>
+                    }
+                    else if (IsTaskTab("comments"))
+                    {
+                            <div class="comments-root text-sm text-slate-700 min-h-0 min-w-0">
+                                <!-- Nachrichten-Bereich (scrollbar) -->
+                                <div class="comments-scroll flex-1 overflow-y-auto min-h-0">
+                                    @if (_editableTask.Comments.Count == 0)
+                                    {
+                                        <div class="flex items-center justify-center h-full">
+                                            <div class="task-empty-state">
+                                                <FluentIcon Value="@(new Icons.Regular.Size24.Chat())" />
+                                                <span>@L["Task_Comments_None"]</span>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="comments-list">
+                                            @foreach (var dateGroup in _editableTask.Comments.OrderBy(c => c.CreatedAt).GroupBy(c => ToBrowserLocalTime(c.CreatedAt).Date))
+                                            {
+                                                <div class="comment-date-separator">
+                                                    <div></div>
+                                                    <span>@GetCommentDateLabel(dateGroup.Key)</span>
+                                                    <div></div>
+                                                </div>
+                                                @foreach (var comment in dateGroup)
+                                                {
+                                                    var isOwn = IsOwnComment(comment);
+                                                    <div class="comment-row @(isOwn ? "is-own" : "is-other")">
+                                                        <div class="comment-bubble @(isOwn ? "is-own" : "is-other")">
+                                                            @if (!isOwn)
+                                                            {
+                                                                <div class="comment-author">@(comment.Author ?? L["Task_Comments_Anonymous"].Value)</div>
+                                                                <div class="comment-message">@comment.Message</div>
+                                                                <div class="comment-meta">
+                                                                    <span>@ToBrowserLocalTime(comment.CreatedAt).ToString("HH:mm")</span>
+
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="comment-message">@comment.Message</div>
+                                                                <div class="comment-meta">
+                                                                    <span>@ToBrowserLocalTime(comment.CreatedAt).ToString("HH:mm")</span>
+                                                                    <button class="comment-remove-button"
+                                                                            @onclick="@(() => RemoveCommentAsync(comment))"
+                                                                            title="@L["Task_Comments_RemoveTitle"]">✕</button>
+                                                                </div>
+                                                            }
+
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                <!-- Sticky Eingabebereich -->
+                                @if (CanWriteToList())
+                                {
+                                    <div class="comment-composer">
+                                        <div class="flex items-end gap-2">
+                                            <input class="comment-input flex-1 text-sm resize-none focus:outline-none leading-snug"
+                                                      placeholder="@L["Task_Comments_Placeholder"]"
+                                                      rows="2"
+                                                      disabled="@_commentSubmitting"
+                                                      @bind="_newCommentMessage"
+                                                      @bind:event="oninput"
+                                                      @onkeydown="HandleCommentKeyDown"></input>
+                                            <button class="comment-send-button"
+                                                    disabled="@(_commentSubmitting || string.IsNullOrWhiteSpace(_newCommentMessage))"
+                                                    @onclick="AddCommentAsync"
+                                                    title="@L["Task_Comments_Send"]">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 translate-x-0.5">
+                                                    <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="comment-composer">
+                                        <div class="task-empty-state task-empty-state-inline">
+                                            <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Class="flex-shrink-0" />
+                                            <span>@L["Task_Comment_NoPermission"]</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                    }
+                    else if (IsTaskTab("attachments"))
+                    {
+                            <div class="attachments-root">
+
+                                <!-- Upload Bereich -->
+                                @if (CanWriteToList())
+                                {
+                                    <div class="upload-section">
+                                        <label class="upload-dropzone @(_isUploading ? "opacity-60 pointer-events-none" : "")">
+                                            @if (_isUploading)
+                                            {
+                                                <div class="flex justify-center upload-icon">
+                                                    <FluentProgressRing />
+                                                </div>
+                                                <div class="upload-title">@L["Task_Attachment_Uploading"]</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="flex justify-center upload-icon">
+                                                    <FluentIcon Value="@(new Icons.Filled.Size32.CloudArrowUp())" />
+                                                </div>
+
+                                                <div class="upload-title">@L["Task_Attachment_DropFiles"]</div>
+                                                <div class="upload-sub">@L["Task_Attachment_ClickToSelect"]</div>
+
+                                                <div class="upload-hint">@L["Task_Attachment_MultipleAllowed"]</div>
+                                            }
+
+                                            @* InputFile muss immer im DOM bleiben, damit Blazor die Dateireferenz
+                                               (_blazorFilesById) nicht verliert, während der Stream noch gelesen wird. *@
+                                            <InputFile OnChange="OnFilesSelected"
+                                                       multiple
+                                                       disabled="@_isUploading"
+                                                       class="upload-input" />
+                                        </label>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="upload-section">
+                                        <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-xs text-slate-500">
+                                            <FluentIcon Value="@(new Icons.Regular.Size20.LockClosed())" Class="flex-shrink-0" />
+                                            <span>@L["Task_Attachment_NoPermission"]</span>
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (_uploadErrors.Count > 0)
+                                {
+                                    <div class="mt-3 space-y-1">
+                                        @foreach (var uploadErr in _uploadErrors)
+                                        {
+                                            <div class="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                                                @uploadErr
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+
+                                <!-- Attachment Liste -->
+                                @if (_editableTask.Attachments.Count == 0)
+                                {
+                                    <div class="task-empty-state">
+                                        <FluentIcon Value="@(new Icons.Filled.Size24.Document())" />
+                                        <span>@L["Task_Attachment_None"]</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="attachment-list">
+                                        @foreach (var attachment in _editableTask.Attachments)
+                                        {
+                                            <div class="attachment-card">
+
+                                                <div class="file-icon">
+                                                    <FluentIcon Value="@(new Icons.Filled.Size24.Document())" />
+                                                </div>
+
+                                                <div class="file-content">
+                                                    <div class="file-name">
+                                                        <button type="button"
+                                                                class="text-left text-sky-700 hover:text-sky-900 hover:underline"
+                                                                title="@L["Task_Attachment_Download"]"
+                                                                @onclick="(() => DownloadAttachmentAsync(attachment))">
+                                                            @attachment.FileName
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div class="file-actions">
+                                                    <FluentButton Appearance="Appearance.Stealth"
+                                                                  OnClick="@(() => RemoveAttachmentAsync(attachment))">
+                                                        <FluentIcon Value="@(new Icons.Filled.Size20.Delete())" />
+                                                    </FluentButton>
+                                                </div>
+
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                            </div>
+                    }
+                </div>
+            </div>
+        </FluentDialogBody>
+
+        
+    </FluentDialog>
+
+    <!-- Move-Dialog -->
+    @if (_moveDialogOpen)
+    {
+        <FluentDialog id="@MoveDialogDomId"
+                      Open="true"
+                      Modal="true"
+                      TrapFocus="true"
+                      PreventScroll="true"
+                      Style="width:min(560px,92vw);"
+                      HiddenChanged="OnMoveDialogHiddenChanged"
+                      @onclick:stopPropagation="true">
+
+            <FluentDialogHeader>
+                <div class="flex items-center justify-between gap-3 w-full" @onclick:stopPropagation="true">
+                    <div class="font-semibold">@L["Task_Move_Title"]</div>
+
+                    <FluentButton Appearance="Appearance.Stealth" OnClick="CloseMoveDialog">
+                        <FluentIcon Value="@(new Icons.Filled.Size24.Dismiss())" />
+                    </FluentButton>
+                </div>
+            </FluentDialogHeader>
+
+            <FluentDialogBody>
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-xs w-full uppercase tracking-wide text-slate-500">@L["Task_Move_TargetList"]</label>
+
+                        <FloatingDropdown @ref="_moveListDropdown">
+                            <ChildContent>
+                                <button type="button"
+                                        class="inline-flex w-full items-center justify-between gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                                    <span class="min-w-0 truncate">@MoveTargetListLabel</span>
+                                    <span aria-hidden="true">▾</span>
+                                </button>
+                            </ChildContent>
+                            <DropdownContent>
+                                <div class="max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+                                    @if (_listOptions.Count == 0)
+                                    {
+                                        <div class="px-3 py-2 text-sm text-slate-500">@L["Task_Move_NoLists"]</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var l in _listOptions)
+                                        {
+                                            <button class="@MoveDropdownItemCss(l.Id == _moveTargetListId)"
+                                                    @onclick="@(() => SelectMoveTargetListAsync(l.Id))">
+                                                @l.Name
+                                            </button>
+                                        }
+                                    }
+                                </div>
+                            </DropdownContent>
+                        </FloatingDropdown>
+                    </div>
+
+                    @if (IsMoveTargetDifferentList)
+                    {
+                        <div class="space-y-2">
+                            <label class="text-xs  w-full uppercase tracking-wide text-slate-500">@L["Task_Move_TargetColumn"]</label>
+
+                            <FloatingDropdown @ref="_moveColumnDropdown">
+                                <ChildContent>
+                                    <button type="button"
+                                            class="inline-flex w-full items-center justify-between gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                                        <span class="min-w-0 truncate">@MoveTargetColumnLabel</span>
+                                        <span aria-hidden="true">▾</span>
+                                    </button>
+                                </ChildContent>
+                                <DropdownContent>
+                                    <div class="max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-lg">
+                                        @{
+                                            var moveColumns = GetMoveColumnOptions().ToList();
+                                        }
+                                        @if (moveColumns.Count == 0)
+                                        {
+                                            <div class="px-3 py-2 text-sm text-slate-500">@L["Task_Move_NoColumns"]</div>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var c in moveColumns)
+                                            {
+                                                <button class="@MoveDropdownItemCss(string.Equals(c, _moveTargetColumn, StringComparison.OrdinalIgnoreCase))"
+                                                        @onclick="@(() => SelectMoveTargetColumnAsync(c))">
+                                                    @c
+                                                </button>
+                                            }
+                                        }
+                                    </div>
+                                </DropdownContent>
+                            </FloatingDropdown>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+                            @L["Task_Move_SelectDifferentList"]
+                        </div>
+                    }
+
+                    <div class="pt-2 flex justify-end">
+                        <FluentButton Appearance="Appearance.Accent"
+                                      Disabled="@(_editableTask is null || !IsMoveTargetDifferentList)"
+                                      OnClick="MoveTaskAsync">
+                            @L["Task_Move_Btn"]
+                        </FluentButton>
+                    </div>
+                </div>
+            </FluentDialogBody>
+        </FluentDialog>
+    }
+
+    <!-- Karte einfärben Dialog -->
+    @if (_confirmDialogOpen)
+    {
+        <FluentDialog id="@ConfirmDialogDomId"
+                      Open="true"
+                      Modal="true"
+                      TrapFocus="true"
+                      PreventScroll="true"
+                      Style="width:min(460px,92vw);"
+                      HiddenChanged="OnConfirmDialogHiddenChanged"
+                      @onclick:stopPropagation="true">
+            <FluentDialogHeader>
+                <div class="flex items-center justify-between gap-3 w-full">
+                    <div class="font-semibold">@_confirmTitle</div>
+                    <FluentButton Appearance="Appearance.Stealth" OnClick="CancelConfirmDialog">
+                        <FluentIcon Value="@(new Icons.Filled.Size24.Dismiss())" />
+                    </FluentButton>
+                </div>
+            </FluentDialogHeader>
+
+            <FluentDialogBody>
+                <div class="space-y-4">
+                    <p class="text-sm text-slate-600">@_confirmMessage</p>
+                    @if (!string.IsNullOrWhiteSpace(_confirmTaskTitle))
+                    {
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-800">
+                            @_confirmTaskTitle
+                        </div>
+                    }
+
+                    <div class="flex justify-end gap-2 pt-2">
+                        <FluentButton Appearance="Appearance.Neutral" OnClick="CancelConfirmDialog">
+                            Abbrechen
+                        </FluentButton>
+                        <FluentButton Appearance="@_confirmAppearance" OnClick="ConfirmDialogAsync">
+                            @_confirmActionText
+                        </FluentButton>
+                    </div>
+                </div>
+            </FluentDialogBody>
+        </FluentDialog>
+    }
+
+    @if (_cardStyleOpen && _editableTask is not null)
+    {
+        var cardStyleDialogId = $"{_dialogDomId}-cardstyle";
+
+        <FluentDialog id="@cardStyleDialogId" Open="true" Modal="true" Style="width:min(520px,92vw);" TrapFocus="true" HiddenChanged="OnCardStyleDialogHiddenChanged" @onclick:stopPropagation="true"
+                      @onpointerdown:stopPropagation="true">
+            <FluentDialogHeader>
+                <div class="flex items-center justify-between gap-3 w-full">
+                    <div class="font-semibold">@L["Task_CardStyle_Title"]</div>
+                    <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCardStyleDialog">✕</FluentButton>
+                </div>
+            </FluentDialogHeader>
+
+            <FluentDialogBody>
+                <div class="space-y-4">
+                    <div class="text-sm text-slate-600 font-semibold">@L["Task_CardStyle_Size"]</div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button"
+                                class="rounded-2xl border p-3 text-left hover:bg-slate-50 @( _editableTask.CardColorMode == TaskCardColorMode.TopOnly ? "ring-2 ring-blue-500" : "" )"
+                                @onclick="() => SetCardColorMode(TaskCardColorMode.TopOnly)">
+                            <div class="h-3 rounded-lg mb-2"
+                                 style="background:@(string.IsNullOrWhiteSpace(_editableTask.CardColor) ? "#e2e8f0" : _editableTask.CardColor)">
+                            </div>
+                            <div class="text-sm">@L["Task_CardStyle_TopOnly"]</div>
+                        </button>
+
+                        <button type="button"
+                                class="rounded-2xl border p-3 text-left hover:bg-slate-50 @( _editableTask.CardColorMode == TaskCardColorMode.Full ? "ring-2 ring-blue-500" : "" )"
+                                @onclick="() => SetCardColorMode(TaskCardColorMode.Full)">
+                            <div class="h-10 rounded-xl"
+                                 style="background:@(string.IsNullOrWhiteSpace(_editableTask.CardColor) ? "#e2e8f0" : _editableTask.CardColor)">
+                            </div>
+                            <div class="text-sm mt-2">@L["Task_CardStyle_FullCard"]</div>
+                        </button>
+                    </div>
+
+                    <FluentButton Appearance="Appearance.Outline"
+                                  Class="w-full"
+                                  OnClick="@(() => SetCardColor(null))">
+                        Kartenfarbe entfernen
+                    </FluentButton>
+
+                    <div class="text-sm text-slate-600 font-semibold">@L["Task_CardStyle_Colors"]</div>
+
+                    <div class="grid grid-cols-5 gap-2">
+                        @foreach (var c in CardColors)
+                        {
+                            var selected = string.Equals((_editableTask.CardColor ?? "").Trim(), c, StringComparison.OrdinalIgnoreCase);
+                            <button type="button"
+                                    class="h-10 rounded-xl border @(selected ? "ring-2 ring-blue-500" : "border-slate-200")"
+                                    style="background:@c;"
+                                    title="@c"
+                                    @onclick="@(() => SetCardColor(c))">
+                            </button>
+                        }
+                    </div>
+                </div>
+            </FluentDialogBody>
+
+            <FluentDialogFooter>
+                <FluentButton Appearance="Appearance.Accent" OnClick="CloseCardStyleDialog">@L["Btn_Done"]</FluentButton>
+            </FluentDialogFooter>
+        </FluentDialog>
+    }
+}
+
+@code {
+    [Parameter] public TodoTaskEntity? Task { get; set; }
+    [Parameter] public Guid ListId { get; set; }
+    [Parameter] public IReadOnlyList<string> Columns { get; set; } = Array.Empty<string>();
+    [Parameter, EditorRequired] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskUpdated { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskMoved { get; set; }
+    [Parameter] public EventCallback OnListChanged { get; set; }
+    [Parameter] public IReadOnlyList<TodoLabelEntity>? Labels { get; set; }
+    [Parameter] public TodoListEntity? List { get; set; }
+    [Parameter] public IReadOnlyList<TodoListEntity> AvailableLists { get; set; } = [];
+    [Parameter] public bool EnableCustomFields { get; set; }
+    [Parameter] public string? InitialTabId { get; set; }
+    [Parameter] public int InitialTabVersion { get; set; }
+
+    private bool CanWriteToList()
+    {
+        if (List is null) return true;
+
+        var uid = (_userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+
+        if (string.Equals((List.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var p = List.Participants?.FirstOrDefault(x =>
+            (!string.IsNullOrWhiteSpace(x.UserId) && string.Equals(x.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(x.Email) && string.Equals(x.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+
+        if (p is null) return false;
+        return p.Role != ListRole.Observer;
+    }
+
+    private enum PanelTab { Details, Comments, Attachments }
+
+    private PanelTab _activeTab = PanelTab.Details;
+    private TodoTaskEntity? _editableTask;
+    private Guid? _taskId;
+
+    private sealed record AssigneeOption(string UserId, string Display);
+    private List<AssigneeOption> _assigneeOptions = new();
+
+    private sealed record MemberOption(string UserId, string Display);
+    private List<MemberOption> _memberOptions = new();
+
+    /* Schließen bei Klick außerhalb (Backdrop) */
+    private readonly string _dialogDomId = $"task-edit-dialog-{Guid.NewGuid():N}";
+    private string MoveDialogDomId => $"{_dialogDomId}-move";
+    private string CardStyleDialogDomId => $"{_dialogDomId}-cardstyle";
+    private string ConfirmDialogDomId => $"{_dialogDomId}-confirm";
+    private DotNetObjectReference<TaskEditModal>? _selfRef;
+    private bool _outsideClickHookActive;
+
+    private bool IsDialogOpen => _editableTask is not null;
+
+    // Autosave / Concurrency-Schutz
+    private bool _dirty = false;
+    private bool _saveInProgress = false;
+    private int _editRevision = 0;
+
+    // ✅ Add-Menü (Zu Karte hinzufügen)
+    private bool _addMenuOpen = false;
+
+    // ✅ Sichtbarkeit der „aufgeräumten“ Bereiche
+    private bool _showLabelsSection = false;
+    private bool _showChecklistSection = false;
+    private bool _showMembersSection = false;
+    private bool _showCustomFieldsSection = false;
+
+    // ✅ Datum / Erinnerung getrennt
+    private bool _showDatesSection = false;
+    private bool _showReminderSection = false;
+
+    private bool HasLabels => SelectedLabels.Count > 0;
+    private bool HasChecklist => _editableTask?.Steps?.Count > 0;
+    private bool HasMembers => (_editableTask?.MemberUserIds?.Count ?? 0) > 0;
+    private bool HasCustomFieldValues => (_editableTask?.CustomFieldValues?.Any(v => !string.IsNullOrWhiteSpace(v.Value)) ?? false);
+
+    private bool HasDateOnly =>
+        _editableTask?.StartDate is not null
+        || _editableTask?.DueDate is not null;
+
+    private bool HasReminderOnly =>
+        _editableTask?.ReminderAtUtc is not null;
+
+    private void SyncSectionVisibilityFromData()
+    {
+        _showLabelsSection |= HasLabels;
+        _showChecklistSection |= HasChecklist;
+        _showMembersSection |= HasMembers;
+        _showCustomFieldsSection |= EnableCustomFields && HasCustomFieldValues;
+
+        _showDatesSection |= HasDateOnly;
+        _showReminderSection |= HasReminderOnly;
+    }
+
+    private void ToggleAddMenu() => _addMenuOpen = !_addMenuOpen;
+    private void CloseAddMenu() => _addMenuOpen = false;
+
+    private void ShowLabelsFromMenu()
+    {
+        _addMenuOpen = false;
+        _showLabelsSection = true;
+        _labelPickerOpen = true;
+    }
+
+    private void ShowChecklistFromMenu()
+    {
+        _addMenuOpen = false;
+        _showChecklistSection = true;
+        _showAddStep = true;
+    }
+
+    private async Task ShowMembersFromMenu()
+    {
+        _addMenuOpen = false;
+        _showMembersSection = true;
+        if (_memberPickerDropdown is not null)
+            await _memberPickerDropdown.OpenAsync();
+    }
+
+    private void ShowCustomFieldsFromMenu()
+    {
+        _addMenuOpen = false;
+        _showCustomFieldsSection = true;
+    }
+
+    // ✅ Datum per Menü
+    private void ShowDatesFromMenu()
+    {
+        _addMenuOpen = false;
+        _showDatesSection = true;
+
+        if (_editableTask is null) return;
+
+        if (_editableTask.StartDate is null)
+            _editableTask.StartDate = DateTime.Today;
+
+        if (_editableTask.DueDate is null)
+            _editableTask.DueDate = DateTime.Today.AddDays(1);
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    // ✅ Erinnerung per Menü (ohne Start/Due zu setzen)
+    private void ShowReminderFromMenu()
+    {
+        _addMenuOpen = false;
+        _showReminderSection = true;
+
+        if (_editableTask is null) return;
+
+        // Default: heute 09:00 lokal, aber nur wenn noch keine Erinnerung gesetzt ist
+        if (_editableTask.ReminderAtUtc is null)
+        {
+            _reminderLocalDate ??= DateTime.Today;
+            if (string.IsNullOrWhiteSpace(_reminderLocalTime)) _reminderLocalTime = "09:00";
+            ApplyReminderLocalToTask();
+        }
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    // ✅ Entfernen-Buttons / Clear-Handler
+    private void ClearLabels()
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.LabelLinks ??= new List<TodoTaskLabelEntity>();
+        _editableTask.LabelLinks.Clear();
+
+        _labelPickerOpen = false;
+        _showLabelsSection = false;
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private async Task ClearChecklistAsync()
+    {
+        _error = "";
+        if (_editableTask is null) return;
+
+        _editableTask.Steps ??= new List<TodoStepEntity>();
+
+        if (_editableTask.Steps.Count == 0)
+        {
+            _showChecklistSection = false;
+            _showAddStep = false;
+            SyncSectionVisibilityFromData();
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        try
+        {
+            var ok = await JS.InvokeAsync<bool>(
+                "confirm",
+                L["Err_TaskChecklistClearConfirm"].Value.Replace("\\n", "\n"));
+
+            if (!ok) return;
+
+            _stepMenuOpenFor = null;
+
+            var steps = _editableTask.Steps.ToList();
+            foreach (var s in steps)
+            {
+                var removed = await StepService.RemoveStepAsync(_userId, ListId, _editableTask.Id, s.Id);
+                if (!removed)
+                {
+                    _error = string.Format(L["Err_TaskChecklistClearStep"].Value, s.Title, s.Id);
+                    break;
+                }
+            }
+
+            // Lokal leeren (UI)
+            _editableTask.Steps.Clear();
+
+            _showChecklistSection = false;
+            _showAddStep = false;
+
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(_editableTask);
+
+            SyncSectionVisibilityFromData();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_TaskChecklistClear"].Value, ex.Message);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+
+    private async Task ClearMembers()
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.MemberUserIds ??= new List<string>();
+        _editableTask.MemberUserIds.Clear();
+
+        await CloseMemberPicker();
+        _showMembersSection = false;
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private void ClearDateOnly()
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.StartDate = null;
+        _editableTask.DueDate = null;
+
+        _showDatesSection = false;
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private void ClearReminderOnly()
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.ReminderAtUtc = null;
+        _reminderLocalDate = null;
+        _reminderLocalTime = "09:00";
+
+        _showReminderSection = false;
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        if (_isDisposed || !IsDialogOpen) return;
+        if (_isUploading) return;
+
+        if (_cardStyleOpen)
+        {
+            _cardStyleOpen = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (_moveDialogOpen)
+        {
+            _moveDialogOpen = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+
+    private async Task SyncOutsideClickCloseHookAsync()
+    {
+        if (IsDialogOpen)
+        {
+            if (!_outsideClickHookActive)
+            {
+                _selfRef ??= DotNetObjectReference.Create(this);
+
+                try
+                {
+                    await JS.InvokeVoidAsync(
+                        "todoUi.enableDialogOutsideCloseById",
+                        _dialogDomId,
+                        _selfRef,
+                        new[] { MoveDialogDomId, CardStyleDialogDomId, ConfirmDialogDomId });
+                    _outsideClickHookActive = true;
+                }
+                catch { }
+            }
+        }
+        else
+        {
+            if (_outsideClickHookActive)
+            {
+                try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", _dialogDomId); } catch { }
+                _outsideClickHookActive = false;
+            }
+        }
+    }
+
+    // ======= Task tabs =======
+    private string _tabIdBacking = "details";
+
+    private string _tabId
+    {
+        get => _tabIdBacking;
+        set
+        {
+            SetActiveTab(value, scrollToTop: true);
+        }
+    }
+
+    private void SyncActiveTabFromId(string? value)
+    {
+        _activeTab = NormalizeTabId(value) switch
+        {
+            "comments" => PanelTab.Comments,
+            "attachments" => PanelTab.Attachments,
+            _ => PanelTab.Details
+        };
+    }
+
+    private bool IsTaskTab(string tabId)
+        => _activeTab == TabIdToPanelTab(tabId);
+
+    private void SelectTaskTab(string tabId)
+        => SetActiveTab(tabId, scrollToTop: true);
+
+    private string TaskTabButtonClass(string tabId)
+    {
+        const string baseClass = "task-edit-tab-button rounded-full border px-5 py-1.5 text-sm font-medium transition-colors";
+        return IsTaskTab(tabId)
+            ? $"{baseClass} border-blue-500 bg-white text-blue-700 shadow-sm"
+            : $"{baseClass} border-transparent bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900";
+    }
+
+    // Reminder
+    private DateTime? _reminderLocalDate;
+    private string _reminderLocalTime = "09:00";
+    private int _browserUtcOffsetMinutes;
+
+    private string _userId = "gast";
+    private string _currentUserDisplayName = "";
+    private string _error = "";
+    private string? _appliedInitialTabId;
+    private int _appliedInitialTabVersion = -1;
+
+    private HubConnection? _hubConnection;
+
+    /* Schritte */
+    private bool _showAddStep = false;
+    private string _newStepTitle = "";
+    private Guid? _stepMenuOpenFor;
+
+    /* Kommentare */
+    private string _newCommentMessage = "";
+    private bool _commentSubmitting;
+
+    /* Upload */
+    private ElementReference _scrollHost;
+    private const long MaxUploadBytes = 25 * 1024 * 1024;
+    private bool _isUploading = false;
+    private readonly List<string> _uploadErrors = new();
+
+    /* Lifecycle-Schutz */
+    private bool _isDisposed = false;
+
+    // Autosave
+    private CancellationTokenSource? _autosaveCts;
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+    private bool _suppressAutosave = false;
+
+    // Labels UI
+    private bool _labelPickerOpen = false;
+    private IReadOnlyList<TodoLabelEntity>? _labels;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var currentUser = await CurrentUserService.GetCurrentUserAsync();
+            _userId = currentUser.UserId;
+            _currentUserDisplayName = currentUser.DisplayName;
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_TaskUserLoad"].Value, ex.Message);
+        }
+
+        await StartHubAsync();
+    }
+
+    /* Dialog Menu */
+    private bool _actionsOpen = false;
+
+    private void ToggleActions() => _actionsOpen = !_actionsOpen;
+
+    private void CloseActionsIfOpen()
+    {
+        if (_actionsOpen)
+        {
+            _actionsOpen = false;
+            StateHasChanged();
+        }
+    }
+
+    // Move dialog
+    private bool _moveDialogOpen = false;
+    private bool _confirmDialogOpen;
+    private string _confirmTitle = "";
+    private string _confirmMessage = "";
+    private string _confirmTaskTitle = "";
+    private string _confirmActionText = "";
+    private Appearance _confirmAppearance = Appearance.Accent;
+    private TaskCompletionSource<bool>? _confirmTcs;
+
+    private async Task OpenMoveDialog()
+    {
+        _actionsOpen = false;
+        if (_listOptions.Count == 0 || !_listsCache.ContainsKey(ListId))
+            await LoadMoveListOptionsAsync();
+
+        if (_moveTargetListId == Guid.Empty)
+            _moveTargetListId = ListId;
+
+        if (string.IsNullOrWhiteSpace(_moveTargetColumn))
+            _moveTargetColumn = _editableTask?.Column ?? "";
+
+        OnMoveTargetListChanged(_moveTargetListId);
+        _moveDialogOpen = true;
+    }
+
+    private void CloseMoveDialog() => _moveDialogOpen = false;
+
+    private void OnMoveDialogHiddenChanged(bool hidden)
+    {
+        if (hidden)
+            CloseMoveDialog();
+    }
+
+    private void OnConfirmDialogHiddenChanged(bool hidden)
+    {
+        if (hidden)
+            CancelConfirmDialog();
+    }
+
+    private Task<bool> ShowConfirmDialogAsync(string title, string message, string? taskTitle, string actionText, Appearance appearance)
+    {
+        _confirmTitle = title;
+        _confirmMessage = message;
+        _confirmTaskTitle = taskTitle ?? "";
+        _confirmActionText = actionText;
+        _confirmAppearance = appearance;
+        _confirmTcs = new TaskCompletionSource<bool>();
+        _confirmDialogOpen = true;
+        StateHasChanged();
+        return _confirmTcs.Task;
+    }
+
+    private void CancelConfirmDialog()
+    {
+        _confirmDialogOpen = false;
+        _confirmTcs?.TrySetResult(false);
+        _confirmTcs = null;
+    }
+
+    private Task ConfirmDialogAsync()
+    {
+        _confirmDialogOpen = false;
+        _confirmTcs?.TrySetResult(true);
+        _confirmTcs = null;
+        return global::System.Threading.Tasks.Task.CompletedTask;
+    }
+
+    /* Aufgabe zwischen Listen verschieben */
+    private sealed record ListOption(Guid Id, string Name);
+    private List<ListOption> _listOptions = new();
+    private Guid _moveTargetListId;
+    private string _moveTargetColumn = "";
+    private FloatingDropdown? _moveListDropdown;
+    private FloatingDropdown? _moveColumnDropdown;
+
+    private string MoveTargetListLabel
+        => _listOptions.FirstOrDefault(x => x.Id == _moveTargetListId)?.Name ?? "Liste auswählen";
+
+    private string MoveTargetColumnLabel
+        => string.IsNullOrWhiteSpace(_moveTargetColumn) ? "Spalte auswählen" : _moveTargetColumn;
+
+    private bool IsMoveTargetDifferentList
+        => _moveTargetListId != Guid.Empty && _moveTargetListId != ListId;
+
+    private static string MoveDropdownItemCss(bool selected)
+        => $"block w-full px-3 py-2 text-left hover:bg-slate-50 {(selected ? "bg-blue-50 text-blue-700" : "text-slate-700")}";
+
+    private async Task SelectMoveTargetListAsync(Guid id)
+    {
+        OnMoveTargetListChanged(id);
+        if (_moveListDropdown is not null)
+            await _moveListDropdown.CloseAsync();
+    }
+
+    private async Task SelectMoveTargetColumnAsync(string column)
+    {
+        OnMoveTargetColumnChanged(column);
+        if (_moveColumnDropdown is not null)
+            await _moveColumnDropdown.CloseAsync();
+    }
+
+    private void OnMoveTargetListChanged(Guid v)
+    {
+        _moveTargetListId = v;
+
+        var cols = GetMoveColumnOptions().ToList();
+        if (cols.Count == 0)
+            _moveTargetColumn = _editableTask?.Column ?? "";
+        else if (cols.Any(c => c.Equals(_moveTargetColumn ?? "", StringComparison.OrdinalIgnoreCase)))
+            _moveTargetColumn = cols.First(c => c.Equals(_moveTargetColumn ?? "", StringComparison.OrdinalIgnoreCase));
+        else
+            _moveTargetColumn = cols[0];
+
+        StateHasChanged();
+    }
+
+    private void OnMoveTargetColumnChanged(string? v)
+    {
+        _moveTargetColumn = (v ?? "").Trim();
+        StateHasChanged();
+    }
+
+    private IEnumerable<string> GetMoveColumnOptions()
+    {
+        return _listsCache.TryGetValue(_moveTargetListId, out var cols)
+            ? cols
+            : Columns;
+    }
+
+    private readonly Dictionary<Guid, List<string>> _listsCache = new();
+
+    private async Task WarmListsCacheAsync()
+    {
+        try
+        {
+            var lists = await ListService.GetListOptionsAsync(_userId);
+            _listsCache.Clear();
+
+            foreach (var l in lists)
+                _listsCache[l.Id] = (l.Columns ?? new List<string>()).ToList();
+        }
+        catch { }
+    }
+
+    private async Task LoadMoveListOptionsAsync()
+    {
+        var lists = await ListService.GetListOptionsAsync(_userId);
+        _listOptions = lists
+            .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(l => new ListOption(l.Id, l.Name))
+            .ToList();
+
+        _listsCache.Clear();
+        foreach (var l in lists)
+            _listsCache[l.Id] = (l.Columns ?? new List<string>()).ToList();
+    }
+
+    private async Task MoveTaskAsync()
+    {
+        _error = "";
+        if (_editableTask is null) return;
+
+        if (_moveTargetListId == Guid.Empty || _moveTargetListId == ListId)
+            return;
+
+        try
+        {
+            var ok = await ShowConfirmDialogAsync(
+                L["Task_Move_Title"].Value,
+                "Aufgabe wirklich verschieben?",
+                _editableTask.Title,
+                "Verschieben",
+                Appearance.Accent);
+            if (!ok) return;
+
+            if (_dirty)
+                await SaveTaskInternalAsync();
+
+            CancelPendingAutosave();
+            _dirty = false;
+
+            var moved = await TaskService.MoveTaskToListAsync(
+                _userId,
+                fromListId: ListId,
+                toListId: _moveTargetListId,
+                taskId: _editableTask.Id,
+                desiredTargetColumn: _moveTargetColumn);
+
+            if (moved is null)
+            {
+                _error = L["Err_TaskDeleteNotFound"].Value;
+                return;
+            }
+
+            moved.ListId = _moveTargetListId;
+            if (!string.IsNullOrWhiteSpace(_moveTargetColumn))
+                moved.Column = _moveTargetColumn;
+
+            if (OnTaskMoved.HasDelegate)
+                await OnTaskMoved.InvokeAsync(moved);
+            else if (OnListChanged.HasDelegate)
+                await OnListChanged.InvokeAsync();
+
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_TaskMove"].Value, ex.Message);
+        }
+    }
+
+    /* Member-Picker UI – rendered via FloatingDropdown (portal pattern) */
+    private FloatingDropdown? _memberPickerDropdown;
+    private string _memberSearch = "";
+
+    private async Task CloseMemberPicker()
+    {
+        _memberSearch = "";
+        if (_memberPickerDropdown is not null)
+            await _memberPickerDropdown.CloseAsync();
+    }
+
+    private List<MemberOption> SelectedMemberOptions
+    {
+        get
+        {
+            if (_editableTask is null) return new();
+            var ids = (_editableTask.MemberUserIds ?? new List<string>())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return _memberOptions
+                .Where(o => ids.Contains(o.UserId))
+                .OrderBy(o => o.Display, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+    }
+
+    private List<MemberOption> FilteredMemberOptions
+    {
+        get
+        {
+            var q = (_memberSearch ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(q))
+                return _memberOptions.OrderBy(x => x.Display, StringComparer.OrdinalIgnoreCase).ToList();
+
+            return _memberOptions
+                .Where(x =>
+                    (x.Display ?? "").Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                    (x.UserId ?? "").Contains(q, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => x.Display, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+    }
+
+    private static string MemberAvatarText(string? display)
+    {
+        var s = (display ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(s)) return "?";
+
+        var parts = s.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant();
+
+        return s.Substring(0, 1).ToUpperInvariant();
+    }
+
+    private void RemoveMember(string userId)
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.MemberUserIds ??= new List<string>();
+        var existing = _editableTask.MemberUserIds
+            .FirstOrDefault(x => string.Equals(x, userId, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+            _editableTask.MemberUserIds.Remove(existing);
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _labels = Labels;
+
+        if (Task is null)
+        {
+            _editableTask = null;
+            _taskId = null;
+            _labelPickerOpen = false;
+            _addMenuOpen = false;
+            _appliedInitialTabId = null;
+            _appliedInitialTabVersion = -1;
+            return;
+        }
+
+        // Reminder UI aus Task ziehen
+        SyncReminderFieldsFromUtc(Task.ReminderAtUtc);
+
+        if (_taskId != Task.Id || _editableTask is null)
+        {
+            _suppressAutosave = true;
+            _editableTask = CloneTask(Task);
+
+            _editableTask.MemberUserIds ??= new List<string>();
+            _editableTask.MemberUserIds = _editableTask.MemberUserIds
+                .Select(x => (x ?? "").Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => !LooksLikeEmail(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            _taskId = Task.Id;
+            _appliedInitialTabId = null;
+            _appliedInitialTabVersion = -1;
+            ApplyRequestedTab();
+            _labelPickerOpen = false;
+            _addMenuOpen = false;
+
+            // Sichtbarkeit initial anhand der Daten
+            _showLabelsSection = false;
+            _showChecklistSection = false;
+            _showMembersSection = false;
+            _showCustomFieldsSection = false;
+
+            _showDatesSection = false;
+            _showReminderSection = false;
+
+            SyncSectionVisibilityFromData();
+
+            _moveTargetListId = ListId;
+            _moveTargetColumn = _editableTask.Column;
+
+            _suppressAutosave = false;
+
+            _ = InvokeAsync(LoadAssigneeOptionsAsync);
+        }
+        else
+        {
+            ApplyRequestedTab();
+            SyncSectionVisibilityFromData();
+        }
+    }
+
+    private void ApplyRequestedTab()
+    {
+        var target = NormalizeTabId(InitialTabId);
+        if (_appliedInitialTabVersion == InitialTabVersion
+            && string.Equals(_appliedInitialTabId, target, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _appliedInitialTabId = target;
+        _appliedInitialTabVersion = InitialTabVersion;
+        SetActiveTab(target, scrollToTop: false);
+    }
+
+    private static string NormalizeTabId(string? tabId)
+        => tabId?.Trim().ToLowerInvariant() switch
+        {
+            "comments" or "tab-2" => "comments",
+            "attachments" or "tab-3" => "attachments",
+            _ => "details"
+        };
+
+    private static PanelTab TabIdToPanelTab(string? tabId)
+        => NormalizeTabId(tabId) switch
+        {
+            "comments" => PanelTab.Comments,
+            "attachments" => PanelTab.Attachments,
+            _ => PanelTab.Details
+        };
+
+    private void SetActiveTab(string? tabId, bool scrollToTop)
+    {
+        var normalized = NormalizeTabId(tabId);
+        _tabIdBacking = normalized;
+        _activeTab = TabIdToPanelTab(normalized);
+
+        if (scrollToTop)
+            _ = InvokeAsync(ScrollContentToTopAsync);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try { await SyncOutsideClickCloseHookAsync(); } catch { }
+
+        if (firstRender)
+        {
+            try
+            {
+                _browserUtcOffsetMinutes = await JS.InvokeAsync<int>("getBrowserUtcOffsetMinutes");
+
+                // Reminder-Felder nach dem Laden des korrekten Offsets neu synchronisieren
+                if (_editableTask?.ReminderAtUtc is not null)
+                {
+                    SyncReminderFieldsFromUtc(_editableTask.ReminderAtUtc);
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch { /* JS nicht verfügbar (z.B. Prerender) – Offset bleibt 0 */ }
+        }
+    }
+
+    /* Karte Einfärben */
+    private bool _cardStyleOpen;
+
+    private static readonly string[] CardColors =
+    {
+        "#46d39a", "#f2d324", "#f59e0b", "#fb7185", "#c084fc",
+        "#60a5fa", "#67e8f9", "#a3e635", "#f472b6", "#9ca3af"
+    };
+
+    private void OpenCardStyleDialog()
+    {
+        _actionsOpen = false;
+        _cardStyleOpen = true;
+    }
+    private void CloseCardStyleDialog() => _cardStyleOpen = false;
+
+    private void OnCardStyleDialogHiddenChanged(bool hidden)
+    {
+        if (hidden)
+            CloseCardStyleDialog();
+    }
+
+    private void SetCardColor(string? hex)
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.CardColor = hex;
+        if (!string.IsNullOrWhiteSpace(hex) && _editableTask.CardColorMode == 0)
+            _editableTask.CardColorMode = TaskCardColorMode.TopOnly;
+
+        ScheduleAutosave(200);
+    }
+
+    private void SetCardColorMode(TaskCardColorMode mode)
+    {
+        if (_editableTask is null) return;
+        _editableTask.CardColorMode = mode;
+        ScheduleAutosave(200);
+    }
+
+    private bool IsWatchingTask =>
+        _editableTask?.Watchers?.Any(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase)) == true;
+
+    private async Task ToggleTaskWatchingAsync()
+    {
+        if (_editableTask is null) return;
+
+        var watch = !IsWatchingTask;
+        if (await TaskService.SetTaskWatchingAsync(_userId, ListId, _editableTask.Id, watch))
+        {
+            _editableTask.Watchers ??= new List<TodoTaskWatcherEntity>();
+            var existing = _editableTask.Watchers.FirstOrDefault(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase));
+            if (watch && existing is null)
+                _editableTask.Watchers.Add(new TodoTaskWatcherEntity { TaskId = _editableTask.Id, UserId = _userId });
+            else if (!watch && existing is not null)
+                _editableTask.Watchers.Remove(existing);
+
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(_editableTask);
+        }
+    }
+
+    private async Task LoadAssigneeOptionsAsync()
+    {
+        try
+        {
+            var list = List?.Id == ListId
+                ? List
+                : await ListService.GetListAsync(_userId, ListId);
+
+            var assigneeOptions = new List<AssigneeOption>();
+            var memberOptions = new List<MemberOption>();
+
+            if (list is not null)
+            {
+                var candidates = new List<ListParticipantEntity>();
+                if (list.Participants is not null)
+                    candidates.AddRange(list.Participants);
+
+                var normalized = candidates
+                    .Where(p => !string.IsNullOrWhiteSpace(p.UserId) && !LooksLikeEmail(p.UserId))
+                    .GroupBy(p => p.UserId!, StringComparer.OrdinalIgnoreCase)
+                    .Select(g =>
+                    {
+                        var p = g.First();
+                        var label = !string.IsNullOrWhiteSpace(p.DisplayName) ? p.DisplayName : (p.Email ?? p.UserId!);
+                        return (UserId: p.UserId!, Display: label);
+                    })
+                    .OrderBy(x => x.Display, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                assigneeOptions = normalized.Select(x => new AssigneeOption(x.UserId, x.Display)).ToList();
+                memberOptions = normalized.Select(x => new MemberOption(x.UserId, x.Display)).ToList();
+            }
+
+            _assigneeOptions = assigneeOptions;
+            _memberOptions = memberOptions;
+
+            if (_editableTask is not null &&
+                !string.IsNullOrWhiteSpace(_editableTask.Assignee) &&
+                LooksLikeEmail(_editableTask.Assignee))
+            {
+                _editableTask.Assignee = null;
+            }
+
+            if (_editableTask is not null)
+            {
+                _editableTask.MemberUserIds ??= new List<string>();
+                var allowed = _memberOptions
+                    .Select(x => x.UserId)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                _editableTask.MemberUserIds = _editableTask.MemberUserIds
+                    .Select(x => (x ?? "").Trim())
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Where(x => !LooksLikeEmail(x))
+                    .Where(x => allowed.Contains(x))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            SyncSectionVisibilityFromData();
+
+            await InvokeAsync(StateHasChanged);
+
+            var listsAll = await ListService.GetListOptionsAsync(_userId);
+
+            _listOptions = listsAll
+                .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(l => new ListOption(l.Id, l.Name))
+                .ToList();
+        }
+        catch
+        {
+            // bewusst still
+        }
+    }
+
+    private static bool LooksLikeEmail(string? s)
+        => !string.IsNullOrWhiteSpace(s) && s.Contains('@');
+
+    private IEnumerable<string> ColumnOptions =>
+        Columns.Count > 0 ? Columns
+        : _editableTask is null ? Array.Empty<string>()
+        : new[] { _editableTask.Column };
+
+    private async Task ScrollContentToTopAsync()
+    {
+        try { await JS.InvokeVoidAsync("todoUi.scrollToTop", _scrollHost); }
+        catch { }
+    }
+
+    private void ScheduleAutosave(int debounceMs = 500)
+    {
+        if (_editableTask is null) return;
+        if (_suppressAutosave) return;
+
+        _dirty = true;
+        _editRevision++;
+
+        _autosaveCts?.Cancel();
+        _autosaveCts?.Dispose();
+        _autosaveCts = new CancellationTokenSource();
+        var token = _autosaveCts.Token;
+
+        var revisionAtSchedule = _editRevision;
+
+        _ = global::System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                await global::System.Threading.Tasks.Task.Delay(debounceMs, token);
+                if (token.IsCancellationRequested) return;
+                if (_isDisposed) return;
+
+                if (revisionAtSchedule != _editRevision) return;
+
+                await InvokeAsync(SaveTaskInternalAsync);
+            }
+            catch (global::System.Threading.Tasks.TaskCanceledException) { }
+            catch (ObjectDisposedException) { }
+        });
+    }
+
+    private void CancelPendingAutosave()
+    {
+        _autosaveCts?.Cancel();
+        _autosaveCts?.Dispose();
+        _autosaveCts = null;
+    }
+
+    private async Task SaveTaskInternalAsync()
+    {
+        if (_editableTask is null) return;
+        if (!_dirty) return;
+        if (_isDisposed) return;
+
+        var gateEntered = false;
+
+        try
+        {
+            await _saveGate.WaitAsync();
+            gateEntered = true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        _saveInProgress = true;
+
+        try
+        {
+            _error = "";
+
+            var saveRevision = _editRevision;
+            var snapshot = CloneTask(_editableTask);
+
+            snapshot.MemberUserIds ??= new List<string>();
+            snapshot.MemberUserIds = snapshot.MemberUserIds
+                .Select(x => (x ?? "").Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => !LooksLikeEmail(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var updated = await TaskService.UpdateTaskAsync(_userId, ListId, snapshot);
+
+            if (updated is not null && saveRevision == _editRevision)
+            {
+                _suppressAutosave = true;
+                _editableTask = CloneTask(updated);
+                // Some service implementations update task members separately and can return
+                // a response whose navigation collection still reflects the pre-save state.
+                // The successfully submitted snapshot is authoritative for this edit revision.
+                _editableTask.MemberUserIds = snapshot.MemberUserIds.ToList();
+                _suppressAutosave = false;
+
+                _dirty = false;
+
+                SyncSectionVisibilityFromData();
+
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(updated);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_TaskSave"].Value, ex.Message);
+        }
+        finally
+        {
+            _saveInProgress = false;
+            if (gateEntered)
+                _saveGate.Release();
+        }
+    }
+
+    // Field handlers
+    private void OnTitleChanged(string? v) { if (_editableTask is null) return; _editableTask.Title = v ?? ""; ScheduleAutosave(); }
+    private void OnDescriptionChanged(string? v) { if (_editableTask is null) return; _editableTask.Description = v; ScheduleAutosave(); }
+    private void OnColumnChanged(string? v) { if (_editableTask is null) return; _editableTask.Column = v ?? _editableTask.Column; ScheduleAutosave(200); }
+
+    private void OnStartDateChanged(DateTime? v) { if (_editableTask is null) return; _editableTask.StartDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
+    private void OnDueDateChanged(DateTime? v) { if (_editableTask is null) return; _editableTask.DueDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
+
+    private void OnAssigneeUserChanged(string? userId)
+    {
+        if (_editableTask is null) return;
+
+        var trimmed = (userId ?? "").Trim();
+        _editableTask.Assignee = string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+
+        ScheduleAutosave(200);
+    }
+
+    private void OnRecurrenceChanged(RecurrencePattern v) { if (_editableTask is null) return; _editableTask.Recurrence = v; ScheduleAutosave(200); }
+    private void OnCustomRecurrenceChanged(string? v) { if (_editableTask is null) return; _editableTask.CustomRecurrence = v; ScheduleAutosave(); }
+
+    // Members
+    private bool IsMemberSelected(string userId)
+        => _editableTask?.MemberUserIds?
+            .Any(x => string.Equals(x, userId, StringComparison.OrdinalIgnoreCase)) == true;
+
+    private void ToggleMember(string userId)
+    {
+        if (_editableTask is null) return;
+
+        var trimmed = (userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(trimmed) || LooksLikeEmail(trimmed)) return;
+
+        _editableTask.MemberUserIds ??= new List<string>();
+
+        var existing = _editableTask.MemberUserIds
+            .FirstOrDefault(x => string.Equals(x, trimmed, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is not null)
+            _editableTask.MemberUserIds.Remove(existing);
+        else
+            _editableTask.MemberUserIds.Add(trimmed);
+
+        _editableTask.MemberUserIds = _editableTask.MemberUserIds
+            .Select(x => (x ?? "").Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Where(x => !LooksLikeEmail(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    // Labels
+    private void ToggleLabelPicker()
+    {
+        _labelPickerOpen = !_labelPickerOpen;
+        _showLabelsSection = true;
+    }
+
+    private void CloseLabelPicker() => _labelPickerOpen = false;
+
+    private bool IsLabelSelected(Guid labelId)
+        => _editableTask?.LabelLinks?.Any(x => x.LabelId == labelId) == true;
+
+    private void ToggleLabelSelection(Guid labelId)
+    {
+        if (_editableTask is null) return;
+
+        _editableTask.LabelLinks ??= new List<TodoTaskLabelEntity>();
+
+        var existing = _editableTask.LabelLinks.FirstOrDefault(x => x.LabelId == labelId);
+        if (existing is not null)
+            _editableTask.LabelLinks.Remove(existing);
+        else
+            _editableTask.LabelLinks.Add(new TodoTaskLabelEntity { TaskId = _editableTask.Id, LabelId = labelId });
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private void RemoveLabel(Guid labelId)
+    {
+        if (_editableTask is null) return;
+        var existing = _editableTask.LabelLinks.FirstOrDefault(x => x.LabelId == labelId);
+        if (existing is null) return;
+
+        _editableTask.LabelLinks.Remove(existing);
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private List<TodoLabelEntity> SelectedLabels
+    {
+        get
+        {
+            if (_editableTask is null) return new();
+            if (_labels is null || _labels.Count == 0) return new();
+
+            var ids = _editableTask.LabelLinks?.Select(x => x.LabelId).ToHashSet() ?? new HashSet<Guid>();
+            return _labels.Where(l => ids.Contains(l.Id)).ToList();
+        }
+    }
+
+    private string ChipStyle(string? bg)
+    {
+        var background = string.IsNullOrWhiteSpace(bg) ? "#e2e8f0" : bg.Trim();
+        var foreground = GetContrastingTextColor(background);
+
+        return $"background:{background}; color:{foreground};";
+    }
+
+    private static string GetContrastingTextColor(string hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex) || !hex.StartsWith("#") || hex.Length != 7)
+            return "#0f172a";
+
+        try
+        {
+            var r = Convert.ToInt32(hex.Substring(1, 2), 16);
+            var g = Convert.ToInt32(hex.Substring(3, 2), 16);
+            var b = Convert.ToInt32(hex.Substring(5, 2), 16);
+
+            var luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0;
+            return luminance < 0.55 ? "#ffffff" : "#0f172a";
+        }
+        catch
+        {
+            return "#0f172a";
+        }
+    }
+
+    // Schritte
+    private void OpenAddStep()
+    {
+        _showChecklistSection = true;
+        _showAddStep = true;
+        _newStepTitle = "";
+    }
+
+    private void CancelAddStep() { _showAddStep = false; _newStepTitle = ""; }
+    private void ToggleStepMenu(Guid stepId) => _stepMenuOpenFor = _stepMenuOpenFor == stepId ? null : stepId;
+
+    private void OnStepTitleChanged(TodoStepEntity step, string? value) { step.Title = value ?? ""; ScheduleAutosave(); }
+    private void OnStepCompletedChanged(TodoStepEntity step, bool v) { step.IsCompleted = v; ScheduleAutosave(200); }
+
+    private async Task OnNewStepKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || e.ShiftKey) return;
+
+        var title = (_newStepTitle ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(title) || _editableTask is null) return;
+
+        try
+        {
+            _newStepTitle = "";
+            _showAddStep = false;
+
+            var added = await StepService.AddStepAsync(_userId, ListId, _editableTask.Id, title);
+            if (added is not null)
+            {
+                _editableTask.Steps.Add(added);
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(_editableTask);
+
+                SyncSectionVisibilityFromData();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_StepSave"].Value, ex.Message);
+            _showAddStep = true;
+            _newStepTitle = title;
+        }
+    }
+
+    private async Task DeleteStepAsync(TodoStepEntity step)
+    {
+        _stepMenuOpenFor = null;
+        if (_editableTask is null) return;
+
+        try
+        {
+            var ok = await StepService.RemoveStepAsync(_userId, ListId, _editableTask.Id, step.Id);
+            if (ok)
+            {
+                _editableTask.Steps.Remove(step);
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(_editableTask);
+
+                SyncSectionVisibilityFromData();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_StepDelete"].Value, ex.Message);
+        }
+    }
+
+    private async Task MakeStepTaskAsync(TodoStepEntity step)
+    {
+        _stepMenuOpenFor = null;
+        if (_editableTask is null) return;
+
+        var title = (step.Title ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            _error = L["Err_StepMakeTaskEmpty"].Value;
+            return;
+        }
+
+        try
+        {
+            var newTask = new TodoTaskEntity
+            {
+                Id = Guid.NewGuid(),
+                Title = title,
+                Column = _editableTask.Column,
+                // StartDate = DateTime.Today,
+                // DueDate = DateTime.Today.AddDays(1),
+                ListSortOrder = 0
+            };
+
+            await TaskService.AddTaskAsync(_userId, ListId, newTask);
+
+            var ok = await StepService.RemoveStepAsync(_userId, ListId, _editableTask.Id, step.Id);
+            if (ok) _editableTask.Steps.Remove(step);
+
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(_editableTask);
+
+            if (OnListChanged.HasDelegate)
+                await OnListChanged.InvokeAsync();
+
+            SyncSectionVisibilityFromData();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_StepMakeTask"].Value, ex.Message);
+        }
+    }
+
+    /* Erinnerung */
+    private void OnReminderDateChanged(DateTime? date)
+    {
+        if (_editableTask is null) return;
+        _reminderLocalDate = date;
+        ApplyReminderLocalToTask();
+    }
+
+    private void OnReminderTimeChanged(ChangeEventArgs e)
+    {
+        if (_editableTask is null) return;
+        _reminderLocalTime = (e?.Value?.ToString() ?? "09:00").Trim();
+        ApplyReminderLocalToTask();
+    }
+
+    private void ApplyReminderLocalToTask()
+    {
+        if (_editableTask is null) return;
+
+        _showReminderSection = true;
+
+        if (_reminderLocalDate is null)
+        {
+            _editableTask.ReminderAtUtc = null;
+            ScheduleAutosave(200);
+            SyncSectionVisibilityFromData();
+            return;
+        }
+
+        if (!TimeSpan.TryParse(_reminderLocalTime, out var t))
+            t = new TimeSpan(9, 0, 0);
+
+        var local = _reminderLocalDate.Value.Date.Add(t);
+        _editableTask.ReminderAtUtc = DateTime.SpecifyKind(local.AddMinutes(-_browserUtcOffsetMinutes), DateTimeKind.Utc);
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private void SyncReminderFieldsFromUtc(DateTime? reminderAtUtc)
+    {
+        if (reminderAtUtc is null)
+        {
+            _reminderLocalDate = null;
+            _reminderLocalTime = "09:00";
+            return;
+        }
+
+        var local = reminderAtUtc.Value.AddMinutes(_browserUtcOffsetMinutes);
+        _reminderLocalDate = local.Date;
+        _reminderLocalTime = local.ToString("HH:mm");
+    }
+
+    // Kommentare
+    private string GetCommentDateLabel(DateTime localDate)
+    {
+        var today = DateTime.UtcNow.AddMinutes(_browserUtcOffsetMinutes).Date;
+        if (localDate == today) return "Heute";
+        if (localDate == today.AddDays(-1)) return "Gestern";
+
+        var culture = new System.Globalization.CultureInfo("de-DE");
+        string dayAbbr = culture.DateTimeFormat.GetAbbreviatedDayName(localDate.DayOfWeek);
+        string month = culture.DateTimeFormat.GetMonthName(localDate.Month);
+        return $"{dayAbbr}. {localDate.Day}. {month} {localDate.Year}";
+    }
+
+    private DateTime ToBrowserLocalTime(DateTime utcOrLocal)
+    {
+        var utc = utcOrLocal.Kind == DateTimeKind.Local
+            ? utcOrLocal.ToUniversalTime()
+            : DateTime.SpecifyKind(utcOrLocal, DateTimeKind.Utc);
+
+        return utc.AddMinutes(_browserUtcOffsetMinutes);
+    }
+
+    private bool IsOwnComment(TodoCommentEntity comment)
+    {
+        var author = (comment.Author ?? "").Trim();
+        return !string.IsNullOrWhiteSpace(author)
+               && (EqualsUserKey(author, _currentUserDisplayName)
+                   || EqualsUserKey(author, _userId));
+    }
+
+    private static bool EqualsUserKey(string? left, string? right)
+        => !string.IsNullOrWhiteSpace(left)
+           && !string.IsNullOrWhiteSpace(right)
+           && string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private async Task HandleCommentKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !_commentSubmitting)
+            await AddCommentAsync();
+    }
+
+    private async Task AddCommentAsync()
+    {
+        _error = "";
+        if (_commentSubmitting || _editableTask is null || string.IsNullOrWhiteSpace(_newCommentMessage)) return;
+
+        try
+        {
+            _commentSubmitting = true;
+            var message = _newCommentMessage.Trim();
+            var added = await CommentService.AddCommentAsync(_userId, ListId, _editableTask.Id, message);
+            _newCommentMessage = "";
+
+            if (added is not null)
+            {
+                _editableTask.Comments.Add(added);
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(_editableTask);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_CommentSave"].Value, ex.Message);
+        }
+        finally
+        {
+            _commentSubmitting = false;
+        }
+    }
+
+    private async Task RemoveCommentAsync(TodoCommentEntity comment)
+    {
+        _error = "";
+        if (_editableTask is null) return;
+
+        try
+        {
+            var ok = await CommentService.RemoveCommentAsync(_userId, ListId, _editableTask.Id, comment.Id);
+            if (ok)
+            {
+                _editableTask.Comments.Remove(comment);
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(_editableTask);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_CommentDelete"].Value, ex.Message);
+        }
+    }
+
+    // Anhänge
+    private async Task OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        _error = "";
+        _uploadErrors.Clear();
+        if (_editableTask is null) return;
+
+        IReadOnlyList<IBrowserFile> files;
+        try
+        {
+            files = e.GetMultipleFiles(100);
+        }
+        catch (InvalidOperationException)
+        {
+            _error = L["Err_TooManyFiles"].Value;
+            return;
+        }
+
+        if (files.Count == 0) return;
+
+        _isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var file in files)
+            {
+                if (_isDisposed) break;
+                var fileError = await UploadOneAsync(file);
+                if (fileError is not null)
+                    _uploadErrors.Add(fileError);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_Upload"].Value, ex.Message);
+        }
+        finally
+        {
+            _isUploading = false;
+            if (!_isDisposed)
+                StateHasChanged();
+        }
+    }
+
+    private async Task<string?> UploadOneAsync(IBrowserFile file)
+    {
+        if (_editableTask is null) return null;
+
+        try
+        {
+            await using var stream = file.OpenReadStream(MaxUploadBytes);
+
+            var added = await AttachmentService.AddAttachmentAsync(
+                _userId,
+                ListId,
+                _editableTask.Id,
+                file.Name,
+                stream);
+
+            if (added is not null)
+            {
+                _editableTask.Attachments.Add(added);
+
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(_editableTask);
+            }
+
+            return null;
+        }
+        catch (IOException)
+        {
+            return string.Format(L["Err_UploadFileTooLarge"].Value, file.Name, MaxUploadBytes / 1024 / 1024);
+        }
+        catch (Exception ex)
+        {
+            return string.Format(L["Err_UploadFileFailed"].Value, file.Name, ex.Message);
+        }
+    }
+
+    private async Task RemoveAttachmentAsync(TodoAttachmentEntity attachment)
+    {
+        _error = "";
+        if (_editableTask is null) return;
+
+        try
+        {
+            var ok = await AttachmentService.RemoveAttachmentAsync(_userId, ListId, _editableTask.Id, attachment.Id);
+            if (ok)
+            {
+                _editableTask.Attachments.Remove(attachment);
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(_editableTask);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_AttachmentRemove"].Value, ex.Message);
+        }
+    }
+
+    private async Task DownloadAttachmentAsync(TodoAttachmentEntity attachment)
+    {
+        _error = "";
+        if (_editableTask is null) return;
+
+        try
+        {
+            var result = await AttachmentService.GetAttachmentStreamAsync(_userId, ListId, attachment.Id);
+            if (result is null)
+            {
+                _error = L["Err_DownloadNotFound"].Value;
+                return;
+            }
+
+            await using var stream = result.Value.Stream;
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            await JS.InvokeVoidAsync("todoUi.downloadFileFromBase64", result.Value.FileName, "application/octet-stream", base64);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_Download"].Value, ex.Message);
+        }
+    }
+
+    // Hub
+    private async Task StartHubAsync()
+    {
+        try
+        {
+            _hubConnection = await HubConnectionFactory.CreateAsync();
+            if (_hubConnection is null) return;
+
+            _hubConnection.On<Guid, Guid>(TodoHub.TaskCommentsUpdated, async (listId, taskId) =>
+            {
+                if (_isDisposed) return;
+                if (listId != ListId || _taskId != taskId) return;
+                if (_saveInProgress || _dirty) return;
+                try { await InvokeAsync(RefreshTaskAsync); } catch { }
+            });
+
+            _hubConnection.On<Guid, Guid>(TodoHub.TaskAttachmentsUpdated, async (listId, taskId) =>
+            {
+                if (_isDisposed) return;
+                if (listId != ListId || _taskId != taskId) return;
+                if (_saveInProgress || _dirty) return;
+                try { await InvokeAsync(RefreshTaskAsync); } catch { }
+            });
+
+            await _hubConnection.StartAsync();
+            await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
+            await _hubConnection.SendAsync(TodoHub.SubscribeToList, ListId);
+        }
+        catch
+        {
+            // Hub-Verbindung ist optional – App funktioniert auch ohne Echtzeit-Updates
+        }
+    }
+
+    private async Task RefreshTaskAsync()
+    {
+        if (_taskId is null) return;
+        if (_saveInProgress || _dirty) return;
+
+        var list = await ListService.GetListAsync(_userId, ListId);
+        var updated = list?.Tasks.FirstOrDefault(t => t.Id == _taskId);
+
+        if (updated is not null)
+        {
+            _suppressAutosave = true;
+            _editableTask = CloneTask(updated);
+
+            _editableTask.MemberUserIds ??= new List<string>();
+            _editableTask.MemberUserIds = _editableTask.MemberUserIds
+                .Select(x => (x ?? "").Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Where(x => !LooksLikeEmail(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            // Reminder UI aktualisieren
+            SyncReminderFieldsFromUtc(_editableTask.ReminderAtUtc);
+
+            _suppressAutosave = false;
+
+            SyncSectionVisibilityFromData();
+
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(updated);
+
+            StateHasChanged();
+        }
+    }
+
+    private static TodoTaskEntity CloneTask(TodoTaskEntity task)
+    {
+        return new TodoTaskEntity
+        {
+            Id = task.Id,
+            SyncToken = task.SyncToken,
+            SyncVersion = task.SyncVersion,
+            Title = task.Title,
+            Description = task.Description,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+
+            ReminderAtUtc = task.ReminderAtUtc,
+            ReminderSentAtUtc = task.ReminderSentAtUtc,
+
+            Done = task.Done,
+            IsImportant = task.IsImportant,
+            Assignee = task.Assignee,
+            Recurrence = task.Recurrence,
+            CustomRecurrence = task.CustomRecurrence,
+            Column = task.Column,
+
+            CardColor = task.CardColor,
+            CardColorMode = task.CardColorMode,
+
+            ListSortOrder = task.ListSortOrder,
+            KanbanSortOrder = task.KanbanSortOrder,
+
+            MemberUserIds = (task.MemberUserIds ?? new List<string>())
+                .Select(x => (x ?? "").Trim())
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+
+            Watchers = (task.Watchers ?? new List<TodoTaskWatcherEntity>())
+                .Select(w => new TodoTaskWatcherEntity { Id = w.Id, TaskId = task.Id, UserId = w.UserId, CreatedAtUtc = w.CreatedAtUtc })
+                .ToList(),
+
+            LabelLinks = (task.LabelLinks ?? new List<TodoTaskLabelEntity>())
+                .Select(x => new TodoTaskLabelEntity { TaskId = task.Id, LabelId = x.LabelId })
+                .ToList(),
+
+            Attachments = task.Attachments.Select(a => new TodoAttachmentEntity { Id = a.Id, FileName = a.FileName, Url = a.Url }).ToList(),
+            Steps = (task.Steps ?? new List<TodoStepEntity>())
+            .Select(s => new TodoStepEntity { Id = s.Id, Title = s.Title, IsCompleted = s.IsCompleted })
+            .ToList(),
+            Comments = task.Comments.Select(c => new TodoCommentEntity { Id = c.Id, Message = c.Message, Author = c.Author, CreatedAt = c.CreatedAt }).ToList()
+            ,
+            CustomFieldValues = (task.CustomFieldValues ?? new List<TodoTaskCustomFieldValueEntity>())
+                .Select(v => new TodoTaskCustomFieldValueEntity { Id = v.Id, TaskId = task.Id, FieldId = v.FieldId, Value = v.Value })
+                .ToList()
+        };
+    }
+
+    private string GetCustomFieldValue(Guid fieldId)
+        => _editableTask?.CustomFieldValues?.FirstOrDefault(v => v.FieldId == fieldId)?.Value ?? "";
+
+    private IReadOnlyList<string> GetCustomFieldMultiSelectValues(Guid fieldId)
+        => CustomFieldMultiSelectValues.Parse(GetCustomFieldValue(fieldId));
+
+    private void OnCustomFieldChanged(TodoCustomFieldDefinitionEntity field, object? rawValue)
+    {
+        if (_editableTask is null) return;
+        _editableTask.CustomFieldValues ??= new List<TodoTaskCustomFieldValueEntity>();
+
+        var value = field.Type == TodoCustomFieldType.Checkbox
+            ? ((rawValue is bool b && b) ? "true" : "false")
+            : rawValue?.ToString();
+
+        var existing = _editableTask.CustomFieldValues.FirstOrDefault(v => v.FieldId == field.Id);
+        if (existing is null)
+        {
+            _editableTask.CustomFieldValues.Add(new TodoTaskCustomFieldValueEntity
+            {
+                Id = Guid.Empty,
+                TaskId = _editableTask.Id,
+                FieldId = field.Id,
+                Value = value
+            });
+        }
+        else
+        {
+            existing.Value = value;
+        }
+
+        ScheduleAutosave(200);
+        SyncSectionVisibilityFromData();
+    }
+
+    private void OnCustomFieldMultiSelectChanged(TodoCustomFieldDefinitionEntity field, string option, bool selected)
+        => OnCustomFieldChanged(field, CustomFieldMultiSelectValues.Toggle(GetCustomFieldValue(field.Id), option, selected));
+
+    private static string CustomFieldInputType(TodoCustomFieldType type) => type switch
+    {
+        TodoCustomFieldType.Number => "number",
+        TodoCustomFieldType.Date => "date",
+        _ => "text"
+    };
+
+    private async Task DeleteTaskWithConfirmAsync()
+    {
+        _error = "";
+        if (_editableTask is null) return;
+
+        try
+        {
+            var ok = await ShowConfirmDialogAsync(
+                L["Task_DeleteTask"].Value,
+                "Aufgabe wirklich löschen?",
+                _editableTask.Title,
+                "Löschen",
+                Appearance.Accent);
+            if (!ok) return;
+
+            CancelPendingAutosave();
+            _dirty = false;
+
+            var deleted = await TaskService.DeleteTaskAsync(_userId, ListId, _editableTask.Id);
+            if (!deleted)
+            {
+                _error = L["Err_TaskDeleteNotFound"].Value;
+                return;
+            }
+
+            if (OnListChanged.HasDelegate)
+                await OnListChanged.InvokeAsync();
+
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_TaskDelete"].Value, ex.Message);
+        }
+    }
+
+    private async Task ToggleDoneAsync(TodoTaskEntity t)
+    {
+        _error = "";
+        t.Done = !t.Done;
+        _dirty = true;
+        await SaveTaskInternalAsync();
+    }
+
+    private async Task ToggleImportantAsync(TodoTaskEntity t)
+    {
+        _error = "";
+        t.IsImportant = !t.IsImportant;
+        _dirty = true;
+        await SaveTaskInternalAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _isDisposed = true;
+
+        try
+        {
+            _autosaveCts?.Cancel();
+            _autosaveCts?.Dispose();
+        }
+        catch { }
+
+        if (_outsideClickHookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", _dialogDomId); } catch { }
+            _outsideClickHookActive = false;
+        }
+
+        if (_hubConnection is not null)
+        {
+            try { await _hubConnection.DisposeAsync(); } catch { }
+        }
+
+        try { _selfRef?.Dispose(); } catch { }
+    }
+}

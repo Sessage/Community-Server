@@ -1,0 +1,216 @@
+@implements IAsyncDisposable
+@inject FloatingLayerService FloatingLayer
+@inject IJSRuntime JS
+
+@* Wrapper component that renders ChildContent as a trigger and DropdownContent
+   through the global FloatingLayerHost, avoiding overflow:hidden clipping. *@
+<span @ref="_anchorRef" class="@AnchorCss" @onclick="ToggleAsync" @onclick:stopPropagation="true">
+    @ChildContent
+</span>
+
+@if (_usingLocalOverlay)
+{
+    <div class="@PanelCss" style="@_panelStyle" @onclick="CloseAfterContentClickAsync">
+        @DropdownContent
+    </div>
+}
+
+@code {
+    /// <summary>The trigger element (button, avatar, etc.).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The dropdown panel content rendered in the global floating layer.</summary>
+    [Parameter] public RenderFragment? DropdownContent { get; set; }
+
+    /// <summary>Minimum pixel width of the dropdown panel. Defaults to 240.</summary>
+    [Parameter] public double MinWidth { get; set; } = 240;
+
+    /// <summary>Optional maximum panel height in pixels. The value is also clamped to the available viewport space.</summary>
+    [Parameter] public double? MaxHeight { get; set; }
+
+    /// <summary>Additional CSS class for the trigger wrapper.</summary>
+    [Parameter] public string? AnchorClass { get; set; }
+
+    /// <summary>Additional CSS class for the floating panel.</summary>
+    [Parameter] public string? PanelClass { get; set; }
+
+    /// <summary>When true, the dropdown always opens upwards regardless of available space.</summary>
+    [Parameter] public bool AlwaysAbove { get; set; } = false;
+
+    /// <summary>When true, the dropdown aligns its right edge with the trigger's right edge.</summary>
+    [Parameter] public bool AlignEnd { get; set; } = false;
+
+    /// <summary>When true, the dropdown closes after a click inside the content panel.</summary>
+    [Parameter] public bool CloseOnContentClick { get; set; } = false;
+
+    private ElementReference _anchorRef;
+    private Guid? _overlayId;
+    private DotNetObjectReference<FloatingDropdown>? _dotNetRef;
+    private bool _usingLocalOverlay;
+    private string _panelStyle = "";
+    private string? _closeHandlerId;
+
+    private string AnchorCss => $"floating-dropdown-anchor {AnchorClass}".Trim();
+    private string PanelCss => $"floating-dropdown-panel {PanelClass}".Trim();
+
+    public bool IsOpen => _overlayId.HasValue || _usingLocalOverlay;
+
+    /// <summary>Opens the dropdown programmatically.</summary>
+    public async Task OpenAsync()
+    {
+        if (!IsOpen)
+            await ShowOverlayAsync();
+    }
+
+    /// <summary>Closes the dropdown programmatically.</summary>
+    public async Task CloseAsync()
+    {
+        if (IsOpen)
+            await HideOverlayAsync();
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (IsOpen)
+            await HideOverlayAsync();
+        else
+            await ShowOverlayAsync();
+    }
+
+    private async Task CloseAfterContentClickAsync()
+    {
+        if (CloseOnContentClick)
+            await CloseAsync();
+    }
+
+    private async Task ShowOverlayAsync()
+    {
+        BoundingRect? rect = null;
+        try
+        {
+            rect = await JS.InvokeAsync<BoundingRect>("floatingDropdown.getPosition", _anchorRef);
+        }
+        catch
+        {
+            // JSRuntime not available during prerender.
+            return;
+        }
+
+        if (rect is null) return;
+
+        var viewportHeight = rect.ViewportHeight > 0 ? rect.ViewportHeight : 800;
+        var viewportWidth = rect.ViewportWidth > 0 ? rect.ViewportWidth : 1280;
+        const double viewportPadding = 8;
+        const double panelGap = 4;
+        var spaceBelow = Math.Max(0, viewportHeight - rect.Bottom - panelGap - viewportPadding);
+        var spaceAbove = Math.Max(0, rect.Top - panelGap - viewportPadding);
+        var desiredHeight = MaxHeight.HasValue
+            ? Math.Min(MaxHeight.Value, Math.Max(spaceAbove, spaceBelow))
+            : 220;
+        var preferAbove = AlwaysAbove || (spaceBelow < desiredHeight && spaceAbove > spaceBelow);
+
+        var top = preferAbove ? rect.Top : rect.Bottom + panelGap;
+        var availableWidth = Math.Max(0, viewportWidth - (viewportPadding * 2));
+        var minW = Math.Min(Math.Max(rect.Width, MinWidth), availableWidth);
+        var preferredLeft = AlignEnd ? rect.Right - minW : rect.Left;
+        var maxLeft = Math.Max(viewportPadding, viewportWidth - minW - viewportPadding);
+        var left = Math.Min(Math.Max(preferredLeft, viewportPadding), maxLeft);
+        var availableHeight = preferAbove ? spaceAbove : spaceBelow;
+        var maxHeight = MaxHeight.HasValue
+            ? Math.Min(MaxHeight.Value, availableHeight)
+            : (double?)null;
+
+        _panelStyle =
+            "position:fixed;z-index:10000;" +
+            $"top:{top.ToString(System.Globalization.CultureInfo.InvariantCulture)}px;" +
+            $"left:{left.ToString(System.Globalization.CultureInfo.InvariantCulture)}px;" +
+            $"min-width:{minW.ToString(System.Globalization.CultureInfo.InvariantCulture)}px;" +
+            (maxHeight.HasValue
+                ? $"max-height:{maxHeight.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}px;"
+                : "") +
+            (preferAbove ? $"transform:translateY(-100%) translateY(-{panelGap.ToString(System.Globalization.CultureInfo.InvariantCulture)}px);" : "");
+
+        if (FloatingLayer.HasHost)
+        {
+            RenderFragment overlay = builder =>
+            {
+                builder.OpenElement(0, "div");
+                builder.AddAttribute(1, "class", PanelCss);
+                builder.AddAttribute(2, "style", _panelStyle);
+                builder.AddAttribute(3, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, CloseAfterContentClickAsync));
+                builder.AddContent(4, DropdownContent);
+                builder.CloseElement();
+            };
+
+            _overlayId = FloatingLayer.Show(overlay);
+        }
+        else
+        {
+            _usingLocalOverlay = true;
+            await InvokeAsync(StateHasChanged);
+        }
+
+        _dotNetRef = DotNetObjectReference.Create(this);
+        _closeHandlerId = _overlayId?.ToString() ?? Guid.NewGuid().ToString();
+        try
+        {
+            await JS.InvokeVoidAsync("floatingDropdown.registerCloseHandlers",
+                _closeHandlerId, _dotNetRef, _anchorRef);
+        }
+        catch { /* ignore prerender */ }
+    }
+
+    private async Task HideOverlayAsync()
+    {
+        if (!IsOpen) return;
+
+        var id = _overlayId;
+        _overlayId = null;
+        _usingLocalOverlay = false;
+
+        try
+        {
+            await JS.InvokeVoidAsync("floatingDropdown.unregisterCloseHandlers",
+                _closeHandlerId ?? id?.ToString() ?? string.Empty);
+        }
+        catch { /* ignore */ }
+
+        if (id.HasValue)
+            FloatingLayer.Hide(id.Value);
+
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+        _closeHandlerId = null;
+    }
+
+    [JSInvokable]
+    public async Task OnOutsideClick()
+    {
+        await HideOverlayAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnEscapeKey()
+    {
+        await HideOverlayAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await HideOverlayAsync();
+    }
+
+    private sealed class BoundingRect
+    {
+        public double Top { get; set; }
+        public double Bottom { get; set; }
+        public double Left { get; set; }
+        public double Right { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
+        public double ViewportHeight { get; set; }
+        public double ViewportWidth { get; set; }
+    }
+}

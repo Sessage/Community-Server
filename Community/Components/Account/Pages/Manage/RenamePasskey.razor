@@ -1,0 +1,95 @@
+@page "/Account/Manage/RenamePasskey/{Id}"
+
+@using Klassenbibliothek.Data
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using System.Buffers.Text
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+
+<EditForm Model="Input" OnValidSubmit="Rename" FormName="rename-passkey" method="post">
+    <DataAnnotationsValidator />
+    @if (passkey?.Name is { } name)
+    {
+        <h4>Neuen Namen für Ihren „@name"-Passkey eingeben</h4>
+    }
+    else
+    {
+        <h4>Namen für Ihren Passkey eingeben</h4>
+    }
+    <hr />
+    <ValidationSummary class="text-danger" role="alert" />
+    <div class="form-floating mb-3">
+        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="Mein Passkey" />
+        <label for="Input.Name" class="form-label">Passkey-Name</label>
+        <ValidationMessage For="() => Input.Name" class="text-danger" />
+    </div>
+    <div>
+        <button type="submit" class="w-100 btn btn-lg btn-primary">Weiter</button>
+    </div>
+</EditForm>
+
+@code {
+    private ApplicationUser? user;
+    private UserPasskeyInfo? passkey;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [Parameter]
+    public string? Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        user = (await UserManager.GetUserAsync(HttpContext.User))!;
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        byte[] credentialId;
+        try
+        {
+            credentialId = Base64Url.DecodeFromChars(Id);
+        }
+        catch (FormatException)
+        {
+            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Fehler: Die angegebene Passkey-ID hat ein ungültiges Format.", HttpContext);
+            return;
+        }
+
+        passkey = await UserManager.GetPasskeyAsync(user, credentialId);
+        if (passkey is null)
+        {
+            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Fehler: Der angegebene Passkey wurde nicht gefunden.", HttpContext);
+            return;
+        }
+    }
+
+    private async Task Rename()
+    {
+        passkey!.Name = Input.Name;
+        var result = await UserManager.AddOrUpdatePasskeyAsync(user!, passkey);
+        if (!result.Succeeded)
+        {
+            RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Fehler: Der Passkey konnte nicht aktualisiert werden.", HttpContext);
+            return;
+        }
+
+        RedirectManager.RedirectToWithStatus("Account/Manage/Passkeys", "Passkey erfolgreich aktualisiert.", HttpContext);
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [StringLength(200, ErrorMessage = "Passkey-Namen dürfen maximal {1} Zeichen lang sein.")]
+        public string Name { get; set; } = "";
+    }
+}

@@ -1,0 +1,50 @@
+@page "/important"
+@inject ITodoListService ListService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="space-y-4">
+    <div>
+        <div class="text-xs uppercase text-slate-500">@L["Page_Important_Section"]</div>
+        <h1 class="text-3xl font-semibold">@L["Page_Important_Title"]</h1>
+        <p class="text-sm text-slate-600">@L["Page_Important_Description"]</p>
+    </div>
+
+    @if (_tasks.Count == 0)
+    {
+        <div class="text-slate-500">@L["Page_Important_Empty"]</div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            @foreach (var task in _tasks)
+            {
+                <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <div class="text-lg font-semibold">@task.Title</div>
+                        <span class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">@L["Page_Important_Badge"]</span>
+                    </div>
+                    <div class="text-sm text-slate-600">@task.Description</div>
+                    <div class="text-xs text-slate-500">@L["Page_Important_List"] @task.ListName</div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private record TaskView(string ListName, string Title, string? Description);
+    private List<TaskView> _tasks = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = auth.User?.Identity?.Name ?? "gast";
+        var lists = await ListService.GetListsAsync(userId);
+
+        _tasks = lists
+            .SelectMany(l => l.Tasks
+                .Where(t => t.IsImportant)
+                .Select(t => new TaskView(l.Name, t.Title, t.Description)))
+            .ToList();
+    }
+}

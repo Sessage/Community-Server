@@ -1,0 +1,89 @@
+@page "/mein-tag"
+@using Klassenbibliothek.Components.Views
+@using Klassenbibliothek.Data
+@using System.Security.Claims;
+@inject ITodoListService ListService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="space-y-4">
+    <div>
+        <div class="text-xs uppercase text-slate-500">@L["Page_MyDay_Section"]</div>
+        <h1 class="text-3xl font-semibold">@L["Page_MyDay_Title"]</h1>
+        <p class="text-sm text-slate-600">@L["Page_MyDay_Description"]</p>
+    </div>
+
+    @if (_lists.Count == 0)
+    {
+        <div class="text-slate-500">@L["Page_MyDay_Empty"]</div>
+    }
+    else
+    {
+        <div class="space-y-6">
+            @foreach (var list in _lists)
+            {
+                <section class="space-y-3">
+                    <div class="text-sm font-semibold text-slate-600">@list.Name</div>
+                    <div class="h-[60vh]">
+                        <ToDoListView List="list"
+                                      SortMode="ListSortMode.DueDate"
+                                      OnChanged="ReloadAsync" />
+                    </div>
+                </section>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<TodoListEntity> _lists = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMyDayAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadMyDayAsync();
+    }
+
+    private async Task LoadMyDayAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        // ✅ so wie in deiner Board-Komponente
+        var userId =
+            user.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? user.FindFirstValue("sub")
+            ?? "gast";
+
+        var lists = await ListService.GetListsAsync(userId);
+        var today = DateTime.Today;
+
+        _lists = lists
+            .Select(list => new TodoListEntity
+            {
+                Id = list.Id,
+                OwnerId = list.OwnerId,
+                Name = list.Name,
+                Columns = list.Columns,
+                Labels = list.Labels,
+                DefaultView = list.DefaultView,
+                Participants = list.Participants,
+                NavigationGroupId = list.NavigationGroupId,
+                NavigationGroup = list.NavigationGroup,
+                NavigationSortOrder = list.NavigationSortOrder,
+
+                Tasks = list.Tasks
+                    .Where(t => !t.Done)
+                    .Where(t => t.DueDate.HasValue && t.DueDate.Value.Date <= today)
+                    // ✅ Assignee ist UserId (GUID) -> passt jetzt
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Assignee)
+                                && string.Equals(t.Assignee.Trim(), userId, StringComparison.OrdinalIgnoreCase))
+                    .ToList()
+            })
+            .Where(l => l.Tasks.Count > 0)
+            .ToList();
+    }
+}

@@ -1,0 +1,20 @@
+.nav-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    color: #0f172a;
+    text-decoration: none;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.nav-pill:hover {
+    background-color: #e2e8f0;
+}
+
+.nav-pill.active {
+    background-color: #0f172a;
+    color: #ffffff;
+}

@@ -1,0 +1,1611 @@
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.todo-form-page-shell {
+    width: min(100%, 860px);
+    margin-inline: auto;
+}
+
+.todo-form-preview-shell {
+    width: min(100%, 812px);
+    margin-inline: auto;
+}
+
+.todo-form-surface,
+.todo-form-preview-shell {
+    box-sizing: border-box;
+}
+
+.todo-form-layout-grid,
+.todo-form-preview-shell {
+    display: grid;
+    width: min(100%, 812px);
+    margin-inline: auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.todo-form-field {
+    min-width: 0;
+    grid-column: 1 / -1;
+}
+
+/* Öffentliche Formulare laufen ohne .app-shell. Der Tastaturfokus muss dort
+   deshalb unabhängig von den App-Shell-Regeln klar sichtbar bleiben. */
+.todo-form-surface :where(button, a, input, textarea, select, [tabindex]):focus-visible {
+    outline: 3px solid #0b5fcc;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px #fff;
+}
+
+.todo-form-surface :where(input, textarea, select, fieldset)[aria-invalid="true"] {
+    border-color: #b91c1c;
+}
+
+@media (min-width: 768px) {
+    .todo-form-layout-grid,
+    .todo-form-preview-shell {
+        grid-template-columns: repeat(10, minmax(0, 1fr));
+    }
+
+    .todo-form-field--narrow {
+        grid-column: span 3 / span 3;
+    }
+
+    .todo-form-field--half {
+        grid-column: span 5 / span 5;
+    }
+
+    .todo-form-field--wide {
+        grid-column: span 7 / span 7;
+    }
+
+    .todo-form-field--full {
+        grid-column: 1 / -1;
+    }
+}
+
+html, body {
+    height: 100%;
+    /*overflow-x: hidden;*/
+}
+
+a, .btn-link {
+    color: #006bb7;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+}
+
+.content {
+    padding-top: 1.1rem;
+}
+
+h1:focus {
+    outline: none;
+}
+
+/* Fluent UI verwendet "outline" als Appearance-Klasse. Tailwind verwendet
+   denselben Klassennamen fuer einen 3px-CSS-Rahmen. Ohne diese Abgrenzung
+   erhalten Fluent-Eingaben und Outline-Buttons ungewollte schwarze bzw. rote
+   Rahmen. Die eigentlichen 1px-Rahmen und Fokusindikatoren im Shadow-DOM
+   bleiben dabei erhalten. */
+:where(fluent-button,
+       fluent-text-field,
+       fluent-text-area,
+       fluent-select,
+       fluent-combobox,
+       fluent-number-field,
+       fluent-search,
+       fluent-date-picker).outline {
+    outline: none;
+}
+
+/* Browser und WebView duerfen fuer native Bedienelemente keinen gelben oder
+   schwarzen Systemrahmen zeichnen. Tastaturbedienung bleibt durch einen
+   einheitlichen, dezenten blauen Fokusindikator sichtbar. */
+.app-shell :where(button, a, input, textarea, select):focus {
+    outline: none;
+}
+
+.app-shell :where(button, a, input, textarea, select):focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.55);
+    outline-offset: 2px;
+}
+
+/* Textfelder erhalten einen leicht gerundeten Fokusrahmen. Ein box-shadow
+   folgt dem border-radius zuverlaessiger als der native Browser-Outline und
+   behaelt den sichtbaren Tastaturfokus bei. Spezifische Komponenten-Styles
+   (z. B. rounded-full oder Eingabegruppen) koennen den Radius weiterhin
+   ueberschreiben, weil :where bewusst keine zusaetzliche Spezifitaet erzeugt. */
+:where(.app-shell) :where(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"], [type="file"], [type="image"], [type="hidden"]), textarea, select) {
+    border-radius: 0.5rem;
+}
+
+.app-shell :where(input:not([type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="range"], [type="color"], [type="file"], [type="image"], [type="hidden"]), textarea, select):focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
+}
+
+:where(.app-shell) :where(fluent-text-field,
+                          fluent-text-area,
+                          fluent-select,
+                          fluent-combobox,
+                          fluent-number-field,
+                          fluent-search,
+                          fluent-date-picker)::part(root),
+:where(.app-shell) :where(fluent-text-field,
+                          fluent-text-area,
+                          fluent-select,
+                          fluent-combobox,
+                          fluent-number-field,
+                          fluent-search,
+                          fluent-date-picker)::part(control) {
+    border-radius: 0.5rem;
+}
+
+/* Das geoeffnete Kontomenue ist selbst bereits ein eindeutiger Zustandsmarker.
+   Der Trigger nutzt deshalb eine ruhige Flaeche statt eines umlaufenden Rings. */
+.app-account-menu-trigger:focus,
+.app-account-menu-trigger:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+    background-color: #f1f5f9;
+}
+
+/* Die aktive Freigabeart ist bereits als erhabene Auswahlflaeche markiert. */
+.share-mode-tab:focus,
+.share-mode-tab:focus-visible {
+    outline: none !important;
+}
+
+/* Scrollbare Freigabedialoge brauchen innerhalb ihrer Clipping-Kante Platz
+   fuer den Fokus-Ring. Rechts bleibt etwas mehr Abstand fuer die Scrollbar. */
+.share-dialog-scroll-content {
+    box-sizing: border-box;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+}
+
+.valid.modified:not([type=checkbox]) {
+    outline: 1px solid #26b050;
+}
+
+.invalid {
+    outline: 1px solid #e50000;
+}
+
+.validation-message {
+    color: #e50000;
+}
+
+.blazor-error-boundary {
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
+    padding: 1rem 1rem 1rem 3.7rem;
+    color: white;
+}
+
+    .blazor-error-boundary::after {
+        content: "An error has occurred."
+    }
+
+.darker-border-checkbox.form-check-input {
+    border-color: #929292;
+}
+
+.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+    color: var(--bs-secondary-color);
+    text-align: end;
+}
+
+.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+    text-align: start;
+}
+
+
+/* Add Task Textfield */
+.todo-addbar {
+    /* Zentriert zur max-w-7xl Seite */
+    left: max(1rem, calc((100vw - 80rem) / 2));
+    right: max(1rem, calc((100vw - 80rem) / 2));
+}
+
+@media (max-width: 1280px) {
+    .todo-addbar {
+        left: 1rem;
+        right: 1rem;
+    }
+}
+
+/* Ende Add Task */
+
+/* Scrollbar */
+/* Schlanke Scrollbar – Chrome/Edge/Safari */
+.thin-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.thin-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.35); /* slate-ish */
+    border-radius: 9999px;
+    border: 2px solid transparent; /* macht sie optisch “schmaler” */
+    background-clip: content-box;
+}
+
+    .thin-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(100, 116, 139, 0.55);
+    }
+
+/* Firefox */
+.thin-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+}
+
+
+/* Ende Scrollbar */
+
+/* Sortable */
+.sortable-ghost {
+    opacity: 0.35;
+}
+
+.sortable-chosen {
+    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}
+
+.sortable-drag {
+    box-shadow: 0 14px 40px rgba(0,0,0,0.18);
+}
+
+.thin-scrollbar,
+.todo-list-card,
+.kanban-task-card,
+.kanban-column {
+    -webkit-overflow-scrolling: touch;
+}
+
+.todo-list-card {
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.todo-list-title-wrap {
+    overflow: visible;
+}
+
+.todo-list-title {
+    display: block;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: normal;
+}
+
+@media (hover: none), (pointer: coarse) {
+    .todo-list-card,
+    .todo-list-card:hover,
+    .todo-list-card:active {
+        box-shadow: none !important;
+        transition: none !important;
+    }
+
+    .todo-list-card {
+        border-radius: 0.875rem !important;
+        padding: 0.875rem 0.75rem !important;
+    }
+
+    .todo-list-title-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .todo-list-title {
+        display: block;
+        max-width: 100%;
+        overflow: visible;
+        font-size: 1rem;
+        line-height: 1.45;
+        text-wrap: pretty;
+    }
+
+    .todo-list-meta {
+        margin-top: 0.125rem;
+        min-height: 1rem;
+    }
+}
+
+.kanban-task-card {
+    touch-action: pan-x pan-y;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.kanban-card-top-band {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 0.5rem;
+    pointer-events: none;
+}
+
+.kanban-card-selection-label {
+    position: relative;
+    z-index: 1;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 0.625rem;
+    background: rgba(255, 255, 255, 0.94);
+    color: #334155;
+    padding: 0.25rem 0.5rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.bulk-apply-button,
+.bulk-apply-button * {
+    color: #ffffff !important;
+}
+
+.bulk-apply-icon,
+.bulk-apply-icon svg {
+    color: #ffffff !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+}
+
+.todo-list-card *,
+.kanban-task-card * {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/*
+ * Sortable Fallback (forceFallback=true):
+ * Task-Cards haben i.d.R. Tailwind "transition". Diese Transition animiert
+ * auch Positions-Updates des Drag-Elements und erzeugt einen sichtbaren
+ * "Nachzieheffekt" hinter dem Mauszeiger in WebView2/Browser.
+ *
+ * Während des Drags deshalb alle Transition/Animation auf den Sortable-
+ * Zustandsklassen deaktivieren.
+ */
+.sortable-fallback,
+.sortable-chosen,
+.sortable-drag {
+    transition: none !important;
+    animation: none !important;
+}
+
+/*
+ * Touch handling:
+ * Handles keep touch-action:none because their whole purpose is drag.
+ * Task cards themselves must allow native panning, otherwise WKWebView cannot
+ * scroll when the finger starts on a card. SortableJS is guarded in JS so a
+ * long press can still start drag on the entire card.
+ */
+
+/* Navigation: Handles für Listen und Gruppen */
+
+.nav-list-handle,
+.nav-group-handle,
+.nav-drag-handle,
+.drag-handle,
+.kanban-column-handle {
+    cursor: grab;
+}
+
+.nav-list-handle:active,
+.nav-group-handle:active,
+.nav-drag-handle:active,
+.drag-handle:active,
+.kanban-column-handle:active {
+    cursor: grabbing;
+}
+.nav-list-handle,
+.nav-group-handle,
+.nav-drag-handle {
+    touch-action: none;
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+    border-radius: 0.375rem;
+    flex-shrink: 0;
+}
+
+.nav-list-handle:hover,
+.nav-group-handle:hover,
+.nav-drag-handle:hover {
+    background: rgba(148, 163, 184, 0.18);
+}
+
+/* ListView: Drag-Handle (nur der Griff, nicht die ganze Karte) */
+.drag-handle {
+    touch-action: none;
+}
+
+/* ListView: ganze Aufgabenkarte ist draggable. In WKWebView verhindert das
+   Textauswahl/Copy-Menü beim langen Halten vor dem Sortable-Drag. */
+[data-list-sortable-host="true"] > [data-taskid],
+[data-list-sortable-host="true"] > [data-taskid] *,
+.kanban-sortable [data-taskid],
+.kanban-sortable [data-taskid] * {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+[data-list-sortable-host="true"] > [data-taskid] {
+    touch-action: pan-y;
+}
+
+/* KanbanView: Spalten-Handle */
+.kanban-column-handle {
+    touch-action: none;
+}
+
+/* KanbanView: Karten sind vollständig draggable (kein separater Handle) */
+.kanban-sortable [data-taskid] {
+    touch-action: pan-x pan-y;
+}
+
+/* Sortable Optik */
+.sortable-ghost {
+    opacity: 0.35;
+}
+
+.sortable-chosen {
+    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+}
+
+.sortable-drag {
+    box-shadow: 0 14px 40px rgba(0,0,0,0.18);
+}
+
+.todo-list-card.sortable-chosen,
+.kanban-task-card.sortable-chosen {
+    cursor: grabbing !important;
+    opacity: 1;
+    outline: none !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(37, 99, 235, 0.52),
+        inset 0 0 0 6px rgba(37, 99, 235, 0.10),
+        0 12px 28px rgba(15, 23, 42, 0.14) !important;
+    filter: saturate(1.04);
+}
+
+.todo-list-card.sortable-ghost,
+.kanban-task-card.sortable-ghost {
+    opacity: 0.48;
+    background-color: rgba(37, 99, 235, 0.06) !important;
+    box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+
+/* Zielspalte highlight */
+.kanban-drop-target {
+    outline: 2px solid rgba(59,130,246,0.8); /* blue-500 */
+    box-shadow: 0 10px 20px rgba(59,130,246,0.12);
+}
+.sortable-ghost { opacity: 0.35; }
+.sortable-chosen { box-shadow: 0 12px 30px rgba(0,0,0,0.12); }
+.sortable-drag { box-shadow: 0 14px 40px rgba(0,0,0,0.18); }
+
+.kanban-drop-target {
+  outline: 2px solid rgba(59,130,246,0.8);
+  box-shadow: 0 10px 20px rgba(59,130,246,0.12);
+}
+
+/* FluentDialogHeader erzeugt einen programmatisch fokussierten Wrapper, damit
+   der Fokus beim Öffnen im Dialog bleibt. Der Wrapper ist selbst jedoch kein
+   Bedienelement und soll deshalb keinen Browser-Standardrahmen zeichnen. */
+.fluent-dialog-header > [tabindex="0"]:focus,
+.fluent-dialog-header > [tabindex="0"]:focus-visible {
+    outline: none;
+}
+
+/* Fokusrahmen im Task-Dialog komplett entfernen */
+.task-edit-dialog :focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Kommentar-Tab: fluent-tabs füllt den verfügbaren Platz im Flex-Container,
+   damit die interne Grid-Zeile (1fr) eine definite Höhe bekommt und
+   height:100% im Kommentar-Tab auflösen kann → Eingabezeile bleibt unten. */
+.task-edit-dialog fluent-tabs {
+    flex: 1;
+    min-height: 0;
+}
+
+/* Fluent UI Web Components: Button/Controls liegen im Shadow-DOM -> ::part */
+.task-edit-dialog fluent-button::part(control):focus-visible,
+.task-edit-dialog fluent-checkbox::part(control):focus-visible,
+.task-edit-dialog fluent-text-field::part(control):focus-visible,
+.task-edit-dialog fluent-text-area::part(control):focus-visible,
+.task-edit-dialog fluent-select::part(control):focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+/* Calendar fallback (ohne externe CDN-Abhängigkeit) */
+.task-edit-dialog::part(control) {
+    border-radius: 16px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.task-edit-dialog fluent-dialog-header::part(control) {
+    padding: 0.875rem 1rem 0.625rem;
+}
+
+.task-edit-modal-header {
+    min-height: 44px;
+}
+
+.task-edit-title-input {
+    min-height: 44px;
+    max-height: 9.5rem;
+    field-sizing: content;
+    resize: none;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    padding: 0.5rem 0.375rem;
+    line-height: 1.3;
+}
+
+.task-edit-modal-actions {
+    min-height: 44px;
+}
+
+.kanban-column-dialog fluent-text-field::part(control),
+.kanban-column-dialog fluent-text-field::part(root) {
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+.kanban-column-dialog fluent-text-field:focus,
+.kanban-column-dialog fluent-text-field:focus-visible,
+.kanban-column-dialog fluent-text-field:focus-within {
+    outline: none !important;
+}
+
+.kanban-column-dialog fluent-text-field:focus-within::part(control),
+.kanban-column-dialog fluent-text-field:focus-within::part(root) {
+    border-color: #2563eb !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14) !important;
+    outline: none !important;
+}
+
+.task-edit-icon-button::part(control) {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+}
+
+.task-edit-add-button::part(control) {
+    min-height: 44px;
+    border-radius: 12px;
+    padding-inline: 0.875rem;
+}
+
+.task-edit-tabbar {
+    min-height: 48px;
+}
+
+.task-edit-tab-button {
+    min-height: 40px;
+    border-radius: 12px;
+}
+
+@media (pointer: coarse) {
+    .task-edit-tab-button {
+        min-height: 44px;
+        padding-inline: 1.125rem;
+    }
+}
+
+.todo-calendar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.todo-calendar__header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.todo-calendar__controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.todo-calendar__btn {
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #0f172a;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.875rem;
+}
+
+.todo-calendar__btn:hover {
+    background: #f8fafc;
+}
+
+.todo-calendar__title {
+    margin: 0;
+    font-size: 1.1rem;
+    text-transform: capitalize;
+}
+
+.todo-calendar__weekdays,
+.todo-calendar__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.todo-calendar__weekdays > div {
+    font-size: 0.8rem;
+    color: #64748b;
+    text-align: center;
+    padding: 0.4rem 0;
+}
+
+.todo-calendar__day {
+    min-height: 7.5rem;
+    border: 1px solid #e2e8f0;
+    border-right: none;
+    border-bottom: none;
+    padding: 0.35rem;
+    background: #fff;
+    overflow: hidden;
+}
+
+.todo-calendar__grid > .todo-calendar__day:nth-child(7n) {
+    border-right: 1px solid #e2e8f0;
+}
+
+.todo-calendar__grid > .todo-calendar__day:nth-last-child(-n+7) {
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.todo-calendar__day.is-outside {
+    background: #f8fafc;
+    color: #94a3b8;
+}
+
+.todo-calendar__day.is-today .todo-calendar__day-number {
+    color: #fff;
+    background: #2563eb;
+}
+
+.todo-calendar__day-number {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    display: grid;
+    place-items: center;
+    font-size: 0.8rem;
+    margin-bottom: 0.3rem;
+}
+
+.todo-calendar__event {
+    --todo-calendar-card-color: transparent;
+    background: #dbeafe;
+    color: #1e3a8a;
+    border-radius: 0.35rem;
+    border: 1px solid #bfdbfe;
+    border-top: 3px solid var(--todo-calendar-card-color);
+    padding: 0.15rem 0.3rem;
+    font-size: 0.72rem;
+    min-height: 1.55rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    margin-bottom: 0.2rem;
+}
+
+.todo-calendar__event.is-full-color {
+    border-top-width: 1px;
+}
+
+.todo-calendar__event-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.todo-calendar__avatar {
+    position: relative;
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75);
+}
+
+.todo-calendar__avatar-fallback,
+.todo-calendar__avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+}
+
+.todo-calendar__avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.todo-calendar__avatar img {
+    object-fit: cover;
+}
+
+.todo-calendar__more {
+    font-size: 0.72rem;
+    color: #475569;
+}
+
+/* Kommentare TaskEditModal */
+/* sorgt dafür, dass Tab-Content die verfügbare Höhe nutzen kann */
+.task-edit-dialog .fluent-tabs,
+.task-edit-dialog .fluent-tabs-content,
+.task-edit-dialog fluent-tab-panel,
+.task-edit-dialog .fluent-tab-panel {
+    height: 100%;
+    min-height: 0;
+}
+
+/* wichtig: DialogBody darf nicht “auto” scrollen, sondern muss flexen */
+.task-edit-dialog fluent-dialog-body,
+.task-edit-dialog .fluent-dialog-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* deine Kommentare-Root-Box soll die Höhe ausfüllen */
+.task-edit-dialog .comments-root {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f7f8fb;
+}
+
+.task-edit-dialog .comments-scroll {
+    padding: 1rem;
+    background: #f7f8fb;
+}
+
+.task-edit-dialog .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.task-edit-dialog .comment-date-separator {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin: 0.75rem 0;
+}
+
+.task-edit-dialog .comment-date-separator > div {
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.task-edit-dialog .comment-date-separator > span {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.task-edit-dialog .comment-row {
+    display: flex;
+    padding-inline: 0.25rem;
+}
+
+.task-edit-dialog .comment-row.is-own {
+    justify-content: flex-end;
+}
+
+.task-edit-dialog .comment-row.is-other {
+    justify-content: flex-start;
+}
+
+.task-edit-dialog .comment-bubble {
+    position: relative;
+    max-width: min(78%, 46rem);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    padding: 0.625rem 0.75rem 0.5rem;
+    overflow-wrap: anywhere;
+}
+
+.task-edit-dialog .comment-bubble.is-other {
+    color: #1e293b;
+    background: #ffffff;
+    border-radius: 6px 14px 14px 14px;
+}
+
+.task-edit-dialog .comment-bubble.is-own {
+    color: #ffffff;
+    background: #2563eb;
+    border-color: #2563eb;
+    border-radius: 14px 6px 14px 14px;
+}
+
+.task-edit-dialog .comment-author {
+    margin-bottom: 0.125rem;
+    color: #0f766e;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.task-edit-dialog .comment-message {
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding-right: 2rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.task-edit-dialog .comment-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.375rem;
+    min-height: 1rem;
+    margin-top: 0.125rem;
+    color: #94a3b8;
+    font-size: 0.6875rem;
+    white-space: nowrap;
+}
+
+.task-edit-dialog .comment-bubble.is-own .comment-meta {
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.task-edit-dialog .comment-remove-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.86);
+    background: transparent;
+    line-height: 1;
+}
+
+.task-edit-dialog .comment-remove-button:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+/* der Composer bleibt unten kleben */
+.task-edit-dialog .comment-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 0.75rem;
+}
+
+.task-edit-dialog .comment-input,
+.task-quick-add-input {
+    box-sizing: border-box;
+    min-height: 44px;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 0.625rem 0.875rem;
+    background: #ffffff;
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.task-edit-dialog .comment-input:focus,
+.task-quick-add-input:focus,
+.task-quick-add-input:focus-visible {
+    outline: none;
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
+}
+
+.task-edit-dialog .comment-send-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9999px;
+    color: #ffffff;
+    background: #14b8a6;
+    transition: background-color 150ms ease, opacity 150ms ease;
+}
+
+.task-edit-dialog .comment-send-button:hover {
+    background: #0d9488;
+}
+
+.task-edit-dialog .comment-send-button:active {
+    background: #0f766e;
+}
+
+.task-edit-dialog .comment-send-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+}
+
+.task-empty-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    max-width: 32rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.78);
+    color: #64748b;
+    padding: 0.875rem 1rem;
+    font-size: 0.875rem;
+    text-align: center;
+}
+
+.task-empty-state-inline {
+    width: 100%;
+    justify-content: flex-start;
+}
+/* Ende Kommtare TaskEditModal */
+
+/* Attachments */
+/* Root Layout */
+.attachments-root {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.75rem 0.5rem;
+}
+
+
+/* ---------------- UPLOAD ---------------- */
+
+.upload-dropzone {
+    display: block;
+    position: relative;
+    border: 2px dashed #3b82f6;
+    background: #f8fafc;
+    border-radius: 14px;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 44px;
+}
+
+    .upload-dropzone:hover {
+        background: #eff6ff;
+        border-color: #2563eb;
+    }
+
+.upload-icon {
+    color: #2563eb;
+    margin-bottom: 0.75rem;
+}
+
+.upload-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #0f172a;
+}
+
+.upload-sub {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.upload-hint {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.upload-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+
+/* ---------------- EMPTY STATE ---------------- */
+
+.empty-state {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+
+/* ---------------- ATTACHMENT LIST ---------------- */
+
+.attachment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.attachment-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: white;
+    border-radius: 14px;
+    padding: 0.75rem 1rem;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    transition: all 0.2s ease;
+}
+
+    .attachment-card:hover {
+        box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+    }
+
+.file-icon {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-radius: 12px;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.file-content {
+    flex: 1;
+}
+
+.file-name a {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #0f172a;
+    text-decoration: none;
+}
+
+    .file-name a:hover {
+        text-decoration: underline;
+    }
+
+.file-actions {
+    display: flex;
+    align-items: center;
+}
+
+.file-actions fluent-button::part(control) {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+}
+/* Ende Attachments */
+
+/* Nav collapse toggle button – only visible on desktop (≥901px) */
+.nav-collapse-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.nav-collapse-btn:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+@media (min-width: 901px) {
+    .nav-collapse-btn {
+        display: flex;
+    }
+}
+
+/* ============================================================
+ * Floating Layer – global overlay system (portal pattern)
+ * Dropdowns rendered here are never clipped by overflow:hidden
+ * containers such as FluentTabs or FluentDialog.
+ * ============================================================ */
+
+/* Fixed full-viewport root – pointer events are off by default
+   so it doesn't block interaction with the page beneath. */
+.floating-root {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+/* Each individual layer wrapper re-enables pointer events. */
+.floating-layer {
+    position: absolute;
+    pointer-events: auto;
+}
+
+/* Positioned panel rendered inside .floating-layer.
+   Absolute coordinates are set via inline style from FloatingDropdown.razor. */
+.floating-dropdown-panel {
+    position: absolute;
+    pointer-events: auto;
+    animation: floating-dropdown-fadein 0.12s ease;
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
+}
+
+@keyframes floating-dropdown-fadein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Anchor span wrapper – display inline so it doesn't break layout. */
+.floating-dropdown-anchor {
+    display: inline-flex;
+    cursor: pointer;
+}
+
+.task-member-picker-anchor {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+}
+
+.task-member-picker-trigger {
+    height: auto;
+}
+
+.task-member-avatar-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.task-member-picker-panel {
+    overflow: hidden;
+}
+
+.task-member-picker-card {
+    display: flex;
+    flex-direction: column;
+    max-height: inherit;
+    min-height: 0;
+}
+
+.task-member-picker-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+}
+
+@media (max-width: 640px) {
+    .task-member-picker-panel {
+        width: calc(100vw - 16px);
+        min-width: 0 !important;
+    }
+}
+
+/* ============================================================ */
+
+@media (min-width: 901px) {
+    .task-edit-dialog::part(control) {
+        width: min(1100px, calc(100vw - 32px)) !important;
+        max-width: calc(100vw - 32px) !important;
+        min-width: min(720px, calc(100vw - 32px)) !important;
+        box-sizing: border-box;
+    }
+}
+
+@supports (width: 100dvw) {
+    @media (min-width: 901px) {
+        .task-edit-dialog::part(control) {
+            width: min(1100px, calc(100dvw - 32px)) !important;
+            max-width: calc(100dvw - 32px) !important;
+            min-width: min(720px, calc(100dvw - 32px)) !important;
+        }
+    }
+}
+
+@media (max-width: 900px) {
+    .task-edit-dialog {
+        --dialog-width: 100dvw !important;
+        --dialog-height: 100dvh !important;
+        border-radius: 0 !important;
+        inset: 0 !important;
+        width: 100dvw !important;
+        height: 100dvh !important;
+        min-width: 0 !important;
+        max-width: 100dvw !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    .task-edit-dialog::part(control) {
+        border-radius: 0 !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin: 0 !important;
+        max-width: 100dvw !important;
+        min-width: 0 !important;
+        width: 100dvw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        padding-top: env(safe-area-inset-top, 0px) !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+        transform: none !important;
+    }
+
+    .task-edit-dialog fluent-dialog-header,
+    .task-edit-dialog::part(header) {
+        flex: 0 0 auto;
+        min-width: 0;
+    }
+
+    .task-edit-dialog fluent-dialog-header::part(control) {
+        padding: 0.5rem 0.75rem 0.375rem !important;
+    }
+
+    .task-edit-modal-header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.5rem;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    .task-edit-title-row {
+        order: 2;
+        width: 100%;
+        min-height: 0;
+        min-width: 0;
+        align-items: flex-start !important;
+    }
+
+    .task-edit-title-input {
+        min-height: 5.6rem;
+        max-height: 11rem;
+        font-size: 1.05rem !important;
+        line-height: 1.35;
+        padding: 0.35rem 0.25rem;
+    }
+
+    .task-edit-modal-actions {
+        order: 1;
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        overflow-x: visible;
+        scrollbar-width: none;
+        max-width: 100%;
+        width: 100%;
+        padding-bottom: 0.125rem;
+    }
+
+    .task-edit-modal-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .task-edit-add-button::part(control) {
+        width: 44px;
+        min-width: 44px;
+        padding-inline: 0 !important;
+    }
+
+    .task-edit-add-button-text {
+        display: none;
+    }
+
+    .task-edit-icon-button::part(control) {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+    }
+
+    .task-edit-close-button {
+        margin-left: auto;
+    }
+
+    .task-edit-dropdown {
+        position: fixed !important;
+        left: 50% !important;
+        right: auto !important;
+        top: calc(env(safe-area-inset-top, 0px) + 7rem) !important;
+        width: min(22rem, calc(100dvw - 2rem)) !important;
+        max-width: calc(100dvw - 2rem) !important;
+        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 8rem) !important;
+        overflow: auto !important;
+        transform: translateX(-50%) !important;
+        box-sizing: border-box;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .task-edit-modal-actions .task-edit-dropdown {
+        top: calc(env(safe-area-inset-top, 0px) + 3.25rem) !important;
+    }
+
+    .task-edit-dialog fluent-dialog-body,
+    .task-edit-dialog .fluent-dialog-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .task-edit-dialog fluent-dialog-body::part(control) {
+        padding: 0 !important;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .task-edit-scroll-host {
+        height: 100% !important;
+        min-height: 0;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .task-edit-tabbar {
+        margin: 0;
+        padding: 0.5rem 0.75rem 0.375rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+        max-width: 100%;
+    }
+
+    .task-edit-tabbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .task-edit-tab-button {
+        flex: 0 0 auto;
+        min-width: 8.25rem;
+        padding-inline: 1rem;
+        white-space: nowrap;
+    }
+
+    .task-edit-dialog fluent-card {
+        border-radius: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+    }
+
+    .task-edit-dialog .grid,
+    .task-edit-dialog .space-y-4,
+    .task-edit-dialog fluent-card,
+    .task-edit-dialog fluent-card::part(control) {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    .task-edit-dialog .p-4 {
+        padding: 0.875rem !important;
+    }
+
+    .task-edit-dialog .flex.items-center.justify-between {
+        min-width: 0;
+    }
+
+    .task-edit-dialog .flex.items-center.justify-between > .flex.items-center {
+        min-width: 0;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .task-edit-dialog input,
+    .task-edit-dialog textarea,
+    .task-edit-dialog select {
+        box-sizing: border-box;
+        max-width: 100%;
+        outline: none !important;
+    }
+
+    .task-edit-dialog fluent-text-field::part(control),
+    .task-edit-dialog fluent-text-area::part(control),
+    .task-edit-dialog fluent-select::part(control) {
+        border-color: #cbd5e1 !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    .task-edit-dialog input:focus,
+    .task-edit-dialog textarea:focus,
+    .task-edit-dialog select:focus,
+    .task-edit-dialog fluent-text-field:focus-within::part(control),
+    .task-edit-dialog fluent-text-area:focus-within::part(control),
+    .task-edit-dialog fluent-select:focus-within::part(control) {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14) !important;
+    }
+
+    .task-edit-dialog .grid {
+        min-width: 0;
+    }
+}
+
+.label-manager-heading {
+    min-width: 0;
+}
+
+.label-manager-new-button {
+    flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+    .label-manager-heading {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .label-manager-new-button {
+        align-self: flex-start;
+        max-width: 100%;
+    }
+
+    .label-manager-new-button::part(control) {
+        max-width: 100%;
+        min-height: 44px;
+        white-space: normal;
+    }
+}
+
+/* Benachrichtigungen-Modal: Dialog bleibt im Viewport, Inhalt scrollt intern. */
+.notifications-dialog {
+    --dialog-width: min(1040px, calc(100vw - 32px));
+    --dialog-height: min(920px, calc(100dvh - 32px));
+}
+
+.notifications-dialog::part(control) {
+    box-sizing: border-box;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 32px);
+    height: var(--dialog-height);
+    overflow: hidden;
+}
+
+.notifications-dialog fluent-dialog-body,
+.notifications-dialog .fluent-dialog-body {
+    min-width: 0;
+    min-height: 0;
+}
+
+.notifications-dialog fluent-dialog-body::part(control) {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.notifications-modal-scroll {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
+}
+
+.notifications-modal-content {
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+}
+
+.notifications-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    box-sizing: border-box;
+}
+
+@media (min-width: 1200px) {
+    .notifications-dialog::part(control) {
+        max-height: calc(100dvh - 24px);
+    }
+}
+
+@media (max-width: 900px) {
+    .notifications-dialog {
+        --dialog-width: calc(100vw - 16px) !important;
+        --dialog-height: calc(100dvh - 16px) !important;
+    }
+
+    .notifications-dialog::part(control) {
+        width: calc(100vw - 16px) !important;
+        max-width: calc(100vw - 16px) !important;
+        height: calc(100dvh - 16px) !important;
+        max-height: calc(100dvh - 16px) !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .notifications-dialog fluent-dialog-body::part(control) {
+        padding: 0.75rem !important;
+        overflow: hidden !important;
+    }
+
+    .notifications-modal-scroll {
+        height: 100%;
+    }
+
+    .notifications-table-wrap {
+        min-height: 0;
+    }
+}

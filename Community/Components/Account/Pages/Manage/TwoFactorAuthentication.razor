@@ -1,0 +1,127 @@
+@page "/Account/Manage/TwoFactorAuthentication"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Http.Features
+@using Microsoft.AspNetCore.Identity
+@using Klassenbibliothek.Data
+@using System.Security.Claims
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Zwei-Faktor-Authentifizierung (2FA)</PageTitle>
+
+@if (!string.IsNullOrEmpty(_statusMessage))
+{
+    <div class="alert alert-success mt-2">@_statusMessage</div>
+}
+
+<h3>Zwei-Faktor-Authentifizierung (2FA)</h3>
+
+@if (_loading)
+{
+    <p>Wird geladen…</p>
+}
+else if (canTrack)
+{
+    if (is2faEnabled)
+    {
+        if (recoveryCodesLeft == 0)
+        {
+            <div class="alert alert-danger">
+                <strong>Sie haben keine Wiederherstellungscodes mehr.</strong>
+                <p>Sie müssen <a href="Account/Manage/GenerateRecoveryCodes" data-enhance-nav="false">einen neuen Satz Wiederherstellungscodes generieren</a>, bevor Sie sich mit einem Wiederherstellungscode anmelden können.</p>
+            </div>
+        }
+        else if (recoveryCodesLeft == 1)
+        {
+            <div class="alert alert-danger">
+                <strong>Sie haben noch 1 Wiederherstellungscode.</strong>
+                <p>Sie können <a href="Account/Manage/GenerateRecoveryCodes" data-enhance-nav="false">einen neuen Satz Wiederherstellungscodes generieren</a>.</p>
+            </div>
+        }
+        else if (recoveryCodesLeft <= 3)
+        {
+            <div class="alert alert-warning">
+                <strong>Sie haben noch @recoveryCodesLeft Wiederherstellungscodes.</strong>
+                <p>Sie sollten <a href="Account/Manage/GenerateRecoveryCodes" data-enhance-nav="false">einen neuen Satz Wiederherstellungscodes generieren</a>.</p>
+            </div>
+        }
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            @if (isMachineRemembered)
+            {
+                <a href="/Account/Manage/ForgetBrowserAction" class="btn btn-primary" data-enhance-nav="false">Diesen Browser vergessen</a>
+            }
+            <a href="Account/Manage/Disable2fa" class="btn btn-primary" data-enhance-nav="false">2FA deaktivieren</a>
+            <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary" data-enhance-nav="false">Wiederherstellungscodes zurücksetzen</a>
+        </div>
+    }
+
+    <h4>Authenticator-App</h4>
+    <div class="d-flex flex-wrap gap-2 mt-2">
+        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary" data-enhance-nav="false">
+            @(hasAuthenticator ? "Authenticator-App einrichten" : "Authenticator-App hinzufügen")
+        </a>
+        @if (hasAuthenticator && is2faEnabled)
+        {
+            <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary" data-enhance-nav="false">Authenticator-App zurücksetzen</a>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-danger">
+        <strong>Die Datenschutz- und Cookie-Richtlinie wurde nicht akzeptiert.</strong>
+        <p>Sie müssen die Richtlinie akzeptieren, bevor Sie die Zwei-Faktor-Authentifizierung aktivieren können.</p>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private string _statusMessage = "";
+    private bool canTrack = true;
+    private bool hasAuthenticator;
+    private int recoveryCodesLeft;
+    private bool is2faEnabled;
+    private bool isMachineRemembered;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                  ?? authState.User.FindFirst("sub")?.Value;
+
+        if (userId is null) return;
+
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user is null) return;
+
+        var httpContext = HttpContextAccessor.HttpContext;
+        canTrack = httpContext?.Features.Get<ITrackingConsentFeature>()?.CanTrack ?? true;
+        hasAuthenticator = await UserManager.GetAuthenticatorKeyAsync(user) is not null;
+        is2faEnabled = await UserManager.GetTwoFactorEnabledAsync(user);
+        recoveryCodesLeft = await UserManager.CountRecoveryCodesAsync(user);
+
+        if (httpContext is not null)
+        {
+            try
+            {
+                isMachineRemembered = await SignInManager.IsTwoFactorClientRememberedAsync(user);
+            }
+            catch (InvalidOperationException)
+            {
+                // During Blazor prerender the HTTP response is already streaming,
+                // so the cookie handler's sliding-expiration renewal cannot register
+                // OnStarting. Default to showing the button — clicking it is harmless
+                // even if the browser is not currently remembered.
+                isMachineRemembered = true;
+            }
+        }
+
+        _loading = false;
+    }
+}

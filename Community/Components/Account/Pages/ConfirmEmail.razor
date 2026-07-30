@@ -1,0 +1,69 @@
+@page "/Account/ConfirmEmail"
+@layout BodyOnlyLayout
+
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Klassenbibliothek.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IdentityRedirectManager RedirectManager
+@inject NavigationManager NavigationManager
+
+<PageTitle>E-Mail bestätigen</PageTitle>
+
+<div class="row justify-center">
+    <div class="col-lg-6">
+        <div class="flex justify-center mb-3">
+            <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
+        </div>
+        <h1 class="h1">E-Mail bestätigen</h1>
+        <StatusMessage Message="@statusMessage" />
+        <p class="mt-3">
+            <a href="@LoginUrl">Zur Anmeldung</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private string? statusMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Code { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string LoginUrl => NavigationManager.GetUriWithQueryParameters(
+        "Account/Login",
+        new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl });
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserId is null || Code is null)
+        {
+            RedirectManager.RedirectTo("");
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(UserId);
+        if (user is null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+            statusMessage = $"Fehler: Benutzer mit ID {UserId} wurde nicht gefunden.";
+            return;
+        }
+
+        var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        var result = await UserManager.ConfirmEmailAsync(user, code);
+        statusMessage = result.Succeeded
+            ? "Deine E-Mail-Adresse wurde bestätigt. Du kannst dich jetzt anmelden."
+            : $"Fehler: E-Mail-Adresse konnte nicht bestätigt werden. {string.Join(" ", result.Errors.Select(e => e.Description))}";
+    }
+}

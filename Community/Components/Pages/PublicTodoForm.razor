@@ -1,0 +1,1019 @@
+@page "/forms/{Slug}"
+@layout TodoSuite.Server.Components.Layout.BodyOnlyLayout
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Rendering
+@using System.Security.Claims
+@using System.Security.Cryptography
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@inject ITodoFormService FormService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>@(_form?.Name ?? L["FormDesigner_Forms"])</PageTitle>
+
+<div class="min-h-0 overflow-auto">
+    <div class="todo-form-page-shell px-4 py-6">
+        @if (_loading)
+        {
+            <div class="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">@L["PublicForm_Loading"]</div>
+        }
+        else if (_form is null)
+        {
+            <div class="rounded-lg border border-slate-200 bg-white p-6">
+                <h1 class="text-xl font-semibold text-slate-900">@L["PublicForm_NotAvailableTitle"]</h1>
+                <p class="mt-2 text-sm text-slate-500">@L["PublicForm_NotAvailableMessage"]</p>
+            </div>
+        }
+        else if (_submitted)
+        {
+            <div class="todo-form-surface rounded-lg border border-green-200 bg-green-50 p-6 text-green-800" role="status" aria-live="polite">
+                <h1 id="public-form-result" class="text-xl font-semibold" tabindex="-1">@L["PublicForm_Thanks"]</h1>
+                <p class="mt-2 whitespace-pre-line break-words text-sm">@LinkifiedText.ToMarkupString(_message)</p>
+            </div>
+        }
+        else if (IsAtCapacity)
+        {
+            <div class="todo-form-surface rounded-lg border border-slate-200 p-6 shadow-sm" style="@FormSurfaceStyle">
+                <div class="text-xs uppercase tracking-wide text-slate-500">@_form.List?.Name</div>
+                <h1 id="public-form-capacity" class="mt-1 text-2xl font-semibold text-slate-900" tabindex="-1">@_form.Name</h1>
+                <p class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">@CapacityReachedMessage</p>
+            </div>
+        }
+        else if (RequiresPassword && !_passwordVerified)
+        {
+            <form class="todo-form-surface rounded-lg border border-slate-200 p-6 shadow-sm" style="@FormSurfaceStyle" aria-labelledby="public-form-heading" @onsubmit="VerifyPasswordAsync" @onsubmit:preventDefault="true">
+                <div class="mb-5">
+                    <div class="text-xs uppercase tracking-wide text-slate-500">@_form.List?.Name</div>
+                    <h1 id="public-form-heading" class="mt-1 text-2xl font-semibold text-slate-900" tabindex="-1">@_form.Name</h1>
+                </div>
+
+                <label class="block space-y-1" for="public-form-password">
+                    <span class="text-sm font-medium text-slate-700">@L["FormDesigner_Password"]</span>
+                    <input type="password"
+                           id="public-form-password"
+                           autocomplete="current-password"
+                           class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                           required
+                           aria-required="true"
+                           aria-invalid="@(!string.IsNullOrWhiteSpace(_error) ? "true" : "false")"
+                           aria-describedby="@(!string.IsNullOrWhiteSpace(_error) ? "public-form-password-error" : null)"
+                           @bind="_password"
+                           @bind:event="oninput" />
+                </label>
+
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <div id="public-form-password-error" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">@_error</div>
+                }
+
+                <button type="submit"
+                        class="mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                        style="@SubmitButtonStyle"
+                        disabled="@_checkingPassword">
+                    @(_checkingPassword ? L["PublicForm_CheckingPassword"] : L["PublicForm_Open"])
+                </button>
+            </form>
+        }
+        else
+        {
+            <form class="todo-form-surface rounded-lg border border-slate-200 p-6 shadow-sm" style="@FormSurfaceStyle" aria-labelledby="public-form-heading" novalidate @onsubmit="SubmitAsync" @onsubmit:preventDefault="true">
+                <div class="mb-5">
+                    <div class="text-xs uppercase tracking-wide text-slate-500">@_form.List?.Name</div>
+                    <h1 id="public-form-heading" class="mt-1 text-2xl font-semibold text-slate-900" tabindex="-1">@_form.Name</h1>
+                    @if (!string.IsNullOrWhiteSpace(_form.Description))
+                    {
+                        <p class="mt-2 whitespace-pre-line break-words text-sm text-slate-600">@LinkifiedText.ToMarkupString(_form.Description)</p>
+                    }
+                    @if (OrderedFields.Any(field => field.IsRequired))
+                    {
+                        <p class="mt-2 text-sm text-slate-600"><span class="font-semibold text-red-700" aria-hidden="true">*</span> @L["FormDesigner_Required"]</p>
+                    }
+                </div>
+
+                <input class="hidden" tabindex="-1" autocomplete="off" @bind="_honeypot" aria-hidden="true" />
+
+                <div class="todo-form-layout-grid">
+                    @foreach (var field in OrderedFields)
+                    {
+                        <div class="@PublicFieldWrapperCss(field)">
+                            @if (!IsCheckboxField(field) && !IsMultiSelectField(field))
+                            {
+                                <label class="break-words text-sm font-medium text-slate-700" for="@FieldInputId(field)">
+                                    @DisplayLabel(field)
+                                    @if (field.IsRequired)
+                                    {
+                                        <span class="text-red-700" aria-hidden="true">*</span>
+                                        <span class="sr-only"> (@L["FormDesigner_Required"])</span>
+                                    }
+                                </label>
+                            }
+                            @RenderInput(field)
+                            @if (!string.IsNullOrWhiteSpace(field.HelpText))
+                            {
+                                <div id="@FieldHelpId(field)" class="whitespace-pre-line break-words text-xs text-slate-600">@LinkifiedText.ToMarkupString(field.HelpText)</div>
+                            }
+                            @if (_fieldErrors.TryGetValue(FieldKey(field), out var fieldError))
+                            {
+                                <div id="@FieldErrorId(field)" class="text-xs font-medium text-red-700" role="alert">@fieldError</div>
+                            }
+                            else
+                            {
+                                <div id="@FieldRulesId(field)" class="space-y-1">
+                                @foreach (var rule in field.ValidationRules.Where(r => !string.IsNullOrWhiteSpace(r.Message)))
+                                {
+                                    <div class="text-xs text-slate-600">@rule.Message</div>
+                                }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <div id="public-form-error" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert" tabindex="-1">@_error</div>
+                }
+
+                <button type="submit"
+                        class="mt-5 w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                        style="@SubmitButtonStyle"
+                        disabled="@_submitting">
+                    @(_submitting ? L["PublicForm_Submitting"] : L["PublicForm_Submit"])
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private TodoFormEntity? _form;
+    private const int MaxAttachmentCount = 10;
+    private const long MaxAttachmentSizeBytes = 25L * 1024 * 1024;
+    private readonly Dictionary<string, string> _values = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _fieldErrors = new(StringComparer.OrdinalIgnoreCase);
+    private bool _loading = true;
+    private bool _submitting;
+    private bool _submitted;
+    private bool _checkingPassword;
+    private bool _passwordVerified;
+    private string _message = "";
+    private string _error = "";
+    private string _attachmentError = "";
+    private string _password = "";
+    private string _honeypot = "";
+    private string _submissionKey = "";
+    private string? _pendingFocusId;
+    private DateTime _issuedAtUtc;
+    private string? _userId;
+    private readonly List<IBrowserFile> _attachments = new();
+
+    private IEnumerable<TodoFormFieldEntity> OrderedFields =>
+        (_form?.Fields ?? []).OrderBy(f => f.SortOrder);
+
+    private bool RequiresPassword =>
+        _form?.PublicationStatus == TodoFormPublicationStatus.PasswordProtected;
+
+    private bool IsAtCapacity =>
+        _form?.MaxSubmissions is > 0 && _form.SubmissionCount >= _form.MaxSubmissions.Value;
+
+    private string CapacityReachedMessage =>
+        string.IsNullOrWhiteSpace(_form?.CapacityReachedText)
+            ? "Dieses Formular nimmt keine weiteren Eingaben mehr an."
+            : _form.CapacityReachedText.Trim();
+
+    private string FormSurfaceStyle =>
+        !string.IsNullOrWhiteSpace(_form?.BackgroundColor) ? $"background-color:{_form.BackgroundColor};" : "background-color:#ffffff;";
+
+    private string SubmitButtonStyle =>
+        !string.IsNullOrWhiteSpace(_form?.ButtonColor) ? $"background-color:{_form.ButtonColor};" : "background-color:#2563eb;";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _issuedAtUtc = DateTime.UtcNow;
+        _submissionKey = RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
+
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? auth.User.FindFirstValue(ClaimTypes.Email);
+
+        _form = await FormService.GetFormForSubmissionAsync(Slug, _userId);
+        if (_form is not null)
+        {
+            foreach (var field in OrderedFields)
+                _values.TryAdd(FieldKey(field), "");
+        }
+
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.publicFormAccessibility.initialize"); }
+            catch { }
+        }
+
+        if (string.IsNullOrWhiteSpace(_pendingFocusId))
+            return;
+
+        var focusId = _pendingFocusId;
+        _pendingFocusId = null;
+        try { await JS.InvokeVoidAsync("todoUi.publicFormAccessibility.focusElementById", focusId); }
+        catch { }
+    }
+
+    private async Task VerifyPasswordAsync()
+    {
+        if (_form is null || _checkingPassword)
+            return;
+
+        _checkingPassword = true;
+        _error = "";
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_password))
+            {
+                _error = L["PublicForm_PasswordRequired"];
+                await FocusElementAsync("public-form-password");
+                return;
+            }
+
+            if (!await FormService.VerifySubmissionPasswordAsync(
+                    _form.Id,
+                    _userId,
+                    _password,
+                    HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString()))
+            {
+                _error = L["PublicForm_PasswordInvalid"];
+                await FocusElementAsync("public-form-password");
+                return;
+            }
+
+            _passwordVerified = true;
+            _issuedAtUtc = DateTime.UtcNow;
+            _submissionKey = RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
+            await FocusElementAsync("public-form-heading");
+        }
+        catch (Exception ex)
+        {
+            _error = L["PublicForm_PasswordCheckError", ex.Message];
+            await FocusElementAsync("public-form-password");
+        }
+        finally
+        {
+            _checkingPassword = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_form is null || _submitting)
+            return;
+
+        _submitting = true;
+        _error = "";
+        _attachmentError = "";
+
+        try
+        {
+            var attachmentsValid = ValidateAttachments();
+            var fieldsValid = ValidateAllFields();
+            if (!attachmentsValid || !fieldsValid)
+            {
+                await FocusFirstInvalidFieldAsync();
+                return;
+            }
+
+            var request = new TodoFormSubmitRequest(
+                _form.Id,
+                _values.Select(kvp => new TodoFormSubmitValue(kvp.Key, kvp.Value)).ToList(),
+                BuildAttachmentRequests(),
+                _submissionKey,
+                _issuedAtUtc,
+                _honeypot,
+                _password,
+                HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString());
+
+            var result = await FormService.SubmitAsync(request, _userId);
+            if (result.Success)
+            {
+                _submitted = true;
+                _message = string.IsNullOrWhiteSpace(result.Message)
+                    ? L["PublicForm_DefaultSuccessMessage"].Value
+                    : result.Message;
+                await FocusElementAsync("public-form-result");
+                return;
+            }
+
+            _error = result.Message;
+            if (_form.MaxSubmissions is > 0 && string.Equals(result.Message, CapacityReachedMessage, StringComparison.Ordinal))
+            {
+                _form.SubmissionCount = _form.MaxSubmissions.Value;
+                await FocusElementAsync("public-form-capacity");
+            }
+            else
+            {
+                await FocusElementAsync("public-form-error");
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = L["PublicForm_SubmitError", ex.Message];
+            await FocusElementAsync("public-form-error");
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private RenderFragment RenderInput(TodoFormFieldEntity field) => builder =>
+    {
+        var seq = 0;
+        var key = FieldKey(field);
+        var id = FieldInputId(field);
+        var css = "w-full rounded-lg border border-slate-200 px-3 py-2 text-sm";
+
+        if (field.StandardField == TodoFormStandardField.Attachments)
+        {
+            builder.OpenComponent<InputFile>(seq++);
+            builder.AddAttribute(seq++, "id", id);
+            builder.AddAttribute(seq++, "class", "block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm");
+            builder.AddAttribute(seq++, "multiple", true);
+            builder.AddAttribute(seq++, "accept", AttachmentAccept);
+            AddAccessibilityAttributes(builder, ref seq, field);
+            builder.AddAttribute(seq++, "OnChange", EventCallback.Factory.Create<InputFileChangeEventArgs>(this, OnAttachmentsChanged));
+            builder.CloseComponent();
+
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "id", AttachmentHintId(field));
+            builder.AddAttribute(seq++, "class", "text-xs text-slate-500");
+            builder.AddContent(seq++, $"Erlaubt: {AttachmentTypesLabel}. Maximal 10 Dateien, je 25 MB.");
+            builder.CloseElement();
+
+            if (!string.IsNullOrWhiteSpace(_attachmentError))
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "id", AttachmentErrorId(field));
+                builder.AddAttribute(seq++, "class", "text-xs font-medium text-red-700");
+                builder.AddAttribute(seq++, "role", "alert");
+                builder.AddContent(seq++, _attachmentError);
+                builder.CloseElement();
+            }
+
+            if (_attachments.Count > 0)
+            {
+                builder.OpenElement(seq++, "div");
+                builder.AddAttribute(seq++, "class", "mt-2 space-y-1");
+                foreach (var file in _attachments)
+                {
+                    builder.OpenElement(seq++, "div");
+                    builder.AddAttribute(seq++, "class", "flex items-center justify-between gap-3 rounded-md bg-slate-50 px-2 py-1 text-xs text-slate-700");
+                    builder.OpenElement(seq++, "span");
+                    builder.AddAttribute(seq++, "class", "min-w-0 truncate");
+                    builder.AddContent(seq++, file.Name);
+                    builder.CloseElement();
+                    builder.OpenElement(seq++, "span");
+                    builder.AddAttribute(seq++, "class", "shrink-0 text-slate-500");
+                    builder.AddContent(seq++, FormatFileSize(file.Size));
+                    builder.CloseElement();
+                    builder.CloseElement();
+                }
+                builder.CloseElement();
+            }
+
+            return;
+        }
+
+        if (field.StandardField == TodoFormStandardField.Description)
+        {
+            builder.OpenElement(seq++, "textarea");
+            builder.AddAttribute(seq++, "id", id);
+            builder.AddAttribute(seq++, "class", css);
+            AddValidationAttributes(builder, ref seq, field);
+            AddAccessibilityAttributes(builder, ref seq, field);
+            builder.AddAttribute(seq++, "value", GetValue(key));
+            builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => SetValueAndValidate(field, key, e.Value?.ToString())));
+            builder.AddAttribute(seq++, "onblur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => ValidateField(field)));
+            builder.CloseElement();
+            return;
+        }
+
+        if (field.StandardField == TodoFormStandardField.Column)
+        {
+            RenderSelect(builder, ref seq, id, css, field, key, (_form?.List?.Columns ?? []).Select(x => (x, x)));
+            return;
+        }
+
+        if (field.StandardField == TodoFormStandardField.Labels)
+        {
+            RenderSelect(builder, ref seq, id, css, field, key, (_form?.List?.Labels ?? []).Select(x => (x.Id.ToString(), x.Title)));
+            return;
+        }
+
+        var custom = (_form?.List?.CustomFields ?? []).FirstOrDefault(f => f.Id == field.CustomFieldId);
+        if (custom?.Type == TodoCustomFieldType.Dropdown)
+        {
+            RenderSelect(builder, ref seq, id, css, field, key, custom.Options.OrderBy(o => o.SortOrder).Select(o => (o.Value, o.Value)));
+            return;
+        }
+
+        if (custom?.Type == TodoCustomFieldType.TaskTitleSelect)
+        {
+            RenderSelect(builder, ref seq, id, css, field, key, CustomFieldSelectOptions.GetOptions(custom));
+            return;
+        }
+
+        if (custom?.Type == TodoCustomFieldType.MultiSelect)
+        {
+            RenderMultiSelect(builder, ref seq, id, key, field, custom);
+            return;
+        }
+
+        if (IsCheckboxField(field, custom))
+        {
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "inline-flex items-start gap-2 break-words text-sm font-medium text-slate-700");
+            builder.AddAttribute(seq++, "for", id);
+            builder.OpenElement(seq++, "input");
+            builder.AddAttribute(seq++, "id", id);
+            builder.AddAttribute(seq++, "class", "mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300");
+            builder.AddAttribute(seq++, "type", "checkbox");
+            AddValidationAttributes(builder, ref seq, field);
+            AddAccessibilityAttributes(builder, ref seq, field);
+            builder.AddAttribute(seq++, "checked", IsTruthy(GetValue(key)));
+            builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => SetValueAndValidate(field, key, e.Value?.ToString())));
+            builder.AddAttribute(seq++, "onblur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => ValidateField(field)));
+            builder.CloseElement();
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "min-w-0 leading-5");
+            builder.AddContent(seq++, DisplayLabel(field));
+            if (field.IsRequired)
+            {
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", "text-red-700");
+                builder.AddAttribute(seq++, "aria-hidden", "true");
+                builder.AddContent(seq++, "*");
+                builder.CloseElement();
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", "sr-only");
+                builder.AddContent(seq++, $" ({L["FormDesigner_Required"]})");
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "id", id);
+        builder.AddAttribute(seq++, "class", css);
+        builder.AddAttribute(seq++, "type", InputType(field, custom));
+        AddValidationAttributes(builder, ref seq, field);
+        AddAccessibilityAttributes(builder, ref seq, field);
+        builder.AddAttribute(seq++, "value", GetValue(key));
+        builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => SetValueAndValidate(field, key, e.Value?.ToString())));
+        builder.AddAttribute(seq++, "onblur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => ValidateField(field)));
+        builder.CloseElement();
+    };
+
+    private void RenderSelect(RenderTreeBuilder builder, ref int seq, string id, string css, TodoFormFieldEntity field, string key, IEnumerable<(string Value, string Label)> options)
+    {
+        builder.OpenElement(seq++, "select");
+        builder.AddAttribute(seq++, "id", id);
+        builder.AddAttribute(seq++, "class", css);
+        AddValidationAttributes(builder, ref seq, field);
+        AddAccessibilityAttributes(builder, ref seq, field);
+        builder.AddAttribute(seq++, "value", GetValue(key));
+        builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => SetValueAndValidate(FieldByKey(key), key, e.Value?.ToString())));
+        builder.AddAttribute(seq++, "onblur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => ValidateField(field)));
+        builder.OpenElement(seq++, "option");
+        builder.AddAttribute(seq++, "value", "");
+        builder.AddContent(seq++, L["PublicForm_SelectPlaceholder"]);
+        builder.CloseElement();
+        foreach (var option in options)
+        {
+            builder.OpenElement(seq++, "option");
+            builder.AddAttribute(seq++, "value", option.Value);
+            builder.AddContent(seq++, option.Label);
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    }
+
+    private void RenderMultiSelect(RenderTreeBuilder builder, ref int seq, string id, string key, TodoFormFieldEntity field, TodoCustomFieldDefinitionEntity custom)
+    {
+        var selected = CustomFieldMultiSelectValues.Parse(GetValue(key));
+        var options = CustomFieldSelectOptions.GetOptions(custom).ToList();
+
+        builder.OpenElement(seq++, "fieldset");
+        builder.AddAttribute(seq++, "id", id);
+        builder.AddAttribute(seq++, "class", "space-y-1 rounded-lg border border-slate-200 bg-white p-2");
+        builder.AddAttribute(seq++, "aria-required", field.IsRequired ? "true" : "false");
+        builder.AddAttribute(seq++, "aria-invalid", HasFieldError(field) ? "true" : "false");
+        builder.AddAttribute(seq++, "aria-describedby", FieldDescribedBy(field));
+        if (options.Count == 0)
+            builder.AddAttribute(seq++, "tabindex", "-1");
+
+        builder.OpenElement(seq++, "legend");
+        builder.AddAttribute(seq++, "class", "px-1 text-sm font-medium text-slate-700");
+        builder.AddContent(seq++, DisplayLabel(field));
+        if (field.IsRequired)
+        {
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "text-red-700");
+            builder.AddAttribute(seq++, "aria-hidden", "true");
+            builder.AddContent(seq++, "*");
+            builder.CloseElement();
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "sr-only");
+            builder.AddContent(seq++, $" ({L["FormDesigner_Required"]})");
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        foreach (var item in options.Select((option, index) => new { option, index }))
+        {
+            var option = item.option;
+            var optionId = MultiSelectOptionId(field, item.index);
+            var checkedNow = selected.Contains(option.Value, StringComparer.OrdinalIgnoreCase);
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50");
+            builder.AddAttribute(seq++, "for", optionId);
+
+            builder.OpenElement(seq++, "input");
+            builder.AddAttribute(seq++, "id", optionId);
+            builder.AddAttribute(seq++, "type", "checkbox");
+            builder.AddAttribute(seq++, "class", "h-4 w-4 rounded border-slate-300 accent-blue-600");
+            builder.AddAttribute(seq++, "checked", checkedNow);
+            builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(
+                this,
+                e => ToggleMultiSelectValue(field, key, option.Value, e.Value is bool b && b)));
+            builder.AddAttribute(seq++, "onblur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => ValidateField(field)));
+            builder.CloseElement();
+
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "min-w-0 truncate");
+            builder.AddContent(seq++, option.Label);
+            builder.CloseElement();
+
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    }
+
+    private static string InputType(TodoFormFieldEntity field, TodoCustomFieldDefinitionEntity? custom)
+    {
+        if (field.ValidationRules.Any(r => r.Type == TodoFormFieldValidationType.Email))
+            return "email";
+        if (field.StandardField is TodoFormStandardField.StartDate or TodoFormStandardField.DueDate
+            || custom?.Type == TodoCustomFieldType.Date
+            || field.ValidationRules.Any(r => r.Type is TodoFormFieldValidationType.DateAfter or TodoFormFieldValidationType.DateBefore or TodoFormFieldValidationType.DateOnOrAfter or TodoFormFieldValidationType.DateOnOrBefore))
+            return "date";
+        if (field.StandardField == TodoFormStandardField.IsImportant || custom?.Type == TodoCustomFieldType.Checkbox)
+            return "checkbox";
+        if (custom?.Type == TodoCustomFieldType.Number || field.ValidationRules.Any(r => r.Type is TodoFormFieldValidationType.Number or TodoFormFieldValidationType.Integer))
+            return "number";
+        return "text";
+    }
+
+    private bool IsCheckboxField(TodoFormFieldEntity field)
+        => IsCheckboxField(field, (_form?.List?.CustomFields ?? []).FirstOrDefault(f => f.Id == field.CustomFieldId));
+
+    private static bool IsCheckboxField(TodoFormFieldEntity field, TodoCustomFieldDefinitionEntity? custom)
+        => field.StandardField == TodoFormStandardField.IsImportant || custom?.Type == TodoCustomFieldType.Checkbox;
+
+    private bool IsMultiSelectField(TodoFormFieldEntity field)
+        => (_form?.List?.CustomFields ?? []).FirstOrDefault(custom => custom.Id == field.CustomFieldId)?.Type == TodoCustomFieldType.MultiSelect;
+
+    private static void AddValidationAttributes(RenderTreeBuilder builder, ref int seq, TodoFormFieldEntity field)
+    {
+        foreach (var rule in field.ValidationRules)
+        {
+            switch (rule.Type)
+            {
+                case TodoFormFieldValidationType.Integer:
+                    builder.AddAttribute(seq++, "step", "1");
+                    break;
+                case TodoFormFieldValidationType.DateAfter:
+                case TodoFormFieldValidationType.DateOnOrAfter:
+                    builder.AddAttribute(seq++, "min", rule.CompareValue);
+                    break;
+                case TodoFormFieldValidationType.DateBefore:
+                case TodoFormFieldValidationType.DateOnOrBefore:
+                    builder.AddAttribute(seq++, "max", rule.CompareValue);
+                    break;
+                case TodoFormFieldValidationType.MinLength:
+                    builder.AddAttribute(seq++, "minlength", rule.CompareValue);
+                    break;
+                case TodoFormFieldValidationType.MaxLength:
+                    builder.AddAttribute(seq++, "maxlength", rule.CompareValue);
+                    break;
+                case TodoFormFieldValidationType.Regex:
+                    builder.AddAttribute(seq++, "pattern", rule.CompareValue);
+                    break;
+            }
+        }
+    }
+
+    private void AddAccessibilityAttributes(RenderTreeBuilder builder, ref int seq, TodoFormFieldEntity field)
+    {
+        if (field.IsRequired)
+            builder.AddAttribute(seq++, "required", true);
+
+        builder.AddAttribute(seq++, "aria-required", field.IsRequired ? "true" : "false");
+        builder.AddAttribute(seq++, "aria-invalid", HasFieldError(field) ? "true" : "false");
+
+        var describedBy = FieldDescribedBy(field);
+        if (!string.IsNullOrWhiteSpace(describedBy))
+            builder.AddAttribute(seq++, "aria-describedby", describedBy);
+    }
+
+    private bool HasFieldError(TodoFormFieldEntity field)
+        => _fieldErrors.ContainsKey(FieldKey(field))
+            || field.StandardField == TodoFormStandardField.Attachments && !string.IsNullOrWhiteSpace(_attachmentError);
+
+    private string? FieldDescribedBy(TodoFormFieldEntity field)
+    {
+        var ids = new List<string>();
+        if (!string.IsNullOrWhiteSpace(field.HelpText))
+            ids.Add(FieldHelpId(field));
+
+        if (_fieldErrors.ContainsKey(FieldKey(field)))
+            ids.Add(FieldErrorId(field));
+        else if (field.ValidationRules.Any(rule => !string.IsNullOrWhiteSpace(rule.Message)))
+            ids.Add(FieldRulesId(field));
+
+        if (field.StandardField == TodoFormStandardField.Attachments)
+        {
+            ids.Add(AttachmentHintId(field));
+            if (!string.IsNullOrWhiteSpace(_attachmentError))
+                ids.Add(AttachmentErrorId(field));
+        }
+
+        return ids.Count == 0 ? null : string.Join(" ", ids.Distinct(StringComparer.Ordinal));
+    }
+
+    private string GetValue(string key) => _values.TryGetValue(key, out var value) ? value : "";
+
+    private void SetValue(string key, string? value) => _values[key] = value ?? "";
+
+    private void SetValueAndValidate(TodoFormFieldEntity? field, string key, string? value)
+    {
+        _values[key] = value ?? "";
+        if (field is not null)
+            ValidateField(field);
+    }
+
+    private void ToggleMultiSelectValue(TodoFormFieldEntity field, string key, string option, bool selected)
+        => SetValueAndValidate(field, key, CustomFieldMultiSelectValues.Toggle(GetValue(key), option, selected));
+
+    private void OnAttachmentsChanged(InputFileChangeEventArgs e)
+    {
+        _attachments.Clear();
+        _attachmentError = "";
+
+        if (_form?.AllowAttachments != true)
+            return;
+
+        var files = e.GetMultipleFiles(MaxAttachmentCount + 1);
+        if (files.Count > MaxAttachmentCount)
+        {
+            _attachmentError = $"Bitte laden Sie maximal {MaxAttachmentCount} Dateien hoch.";
+            return;
+        }
+
+        _attachments.AddRange(files);
+        if (AttachmentField is { } field)
+            ValidateField(field);
+        else
+            ValidateAttachments();
+    }
+
+    private IReadOnlyList<TodoFormSubmitAttachment> BuildAttachmentRequests()
+        => _attachments
+            .Select(file => new TodoFormSubmitAttachment(
+                file.Name,
+                file.ContentType,
+                file.Size,
+                ct => file.OpenReadStream(MaxAttachmentSizeBytes, ct)))
+            .ToList();
+
+    private bool ValidateAttachments()
+    {
+        if (_form?.AllowAttachments != true)
+        {
+            _attachments.Clear();
+            return true;
+        }
+
+        if (_attachments.Count > MaxAttachmentCount)
+        {
+            _attachmentError = $"Bitte laden Sie maximal {MaxAttachmentCount} Dateien hoch.";
+            return false;
+        }
+
+        foreach (var file in _attachments)
+        {
+            if (file.Size <= 0)
+            {
+                _attachmentError = $"Die Datei \"{file.Name}\" ist leer.";
+                return false;
+            }
+
+            if (file.Size > MaxAttachmentSizeBytes)
+            {
+                _attachmentError = $"Die Datei \"{file.Name}\" ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.";
+                return false;
+            }
+
+            if (!IsAllowedAttachment(file.Name, file.ContentType, _form.AllowedAttachmentTypes))
+            {
+                _attachmentError = $"Der Dateityp von \"{file.Name}\" ist fuer dieses Formular nicht erlaubt.";
+                return false;
+            }
+        }
+
+        _attachmentError = "";
+        return true;
+    }
+
+    private bool ValidateAllFields()
+    {
+        var isValid = true;
+        foreach (var field in OrderedFields)
+            isValid &= ValidateField(field);
+
+        return isValid;
+    }
+
+    private bool ValidateField(TodoFormFieldEntity field)
+    {
+        var key = FieldKey(field);
+        if (string.IsNullOrWhiteSpace(key))
+            return true;
+
+        if (field.StandardField == TodoFormStandardField.Attachments)
+        {
+            string? attachmentMessage = null;
+            if (field.IsRequired && _attachments.Count == 0)
+                attachmentMessage = $"Bitte fuellen Sie das Feld \"{DisplayLabel(field)}\" aus.";
+
+            if (string.IsNullOrWhiteSpace(attachmentMessage))
+            {
+                _fieldErrors.Remove(key);
+                ValidateAttachments();
+            }
+            else
+            {
+                _fieldErrors[key] = attachmentMessage;
+            }
+
+            return string.IsNullOrWhiteSpace(attachmentMessage) && string.IsNullOrWhiteSpace(_attachmentError);
+        }
+
+        var value = GetValue(key).Trim();
+        var message = ValidateFieldValue(field, value);
+        if (string.IsNullOrWhiteSpace(message))
+            _fieldErrors.Remove(key);
+        else
+            _fieldErrors[key] = message;
+
+        return string.IsNullOrWhiteSpace(message);
+    }
+
+    private string? ValidateFieldValue(TodoFormFieldEntity field, string value)
+    {
+        if (field.IsRequired && IsMissingRequiredValue(field, value))
+            return $"Bitte fuellen Sie das Feld \"{DisplayLabel(field)}\" aus.";
+
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        foreach (var rule in field.ValidationRules)
+        {
+            if (!IsRuleSatisfied(rule, value))
+                return string.IsNullOrWhiteSpace(rule.Message)
+                    ? $"Bitte pruefen Sie das Feld \"{DisplayLabel(field)}\"."
+                    : rule.Message.Trim();
+        }
+
+        return null;
+    }
+
+    private static bool IsRuleSatisfied(TodoFormFieldValidationRule rule, string value)
+        => rule.Type switch
+        {
+            TodoFormFieldValidationType.Number => decimal.TryParse(value, out _),
+            TodoFormFieldValidationType.Integer => long.TryParse(value, out _),
+            TodoFormFieldValidationType.Email => System.Text.RegularExpressions.Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"),
+            TodoFormFieldValidationType.Iban => IsValidIban(value),
+            TodoFormFieldValidationType.DateAfter => DateCompare(value, rule.CompareValue, (input, limit) => input > limit),
+            TodoFormFieldValidationType.DateBefore => DateCompare(value, rule.CompareValue, (input, limit) => input < limit),
+            TodoFormFieldValidationType.DateOnOrAfter => DateCompare(value, rule.CompareValue, (input, limit) => input >= limit),
+            TodoFormFieldValidationType.DateOnOrBefore => DateCompare(value, rule.CompareValue, (input, limit) => input <= limit),
+            TodoFormFieldValidationType.MinLength => int.TryParse(rule.CompareValue, out var min) && value.Length >= min,
+            TodoFormFieldValidationType.MaxLength => int.TryParse(rule.CompareValue, out var max) && value.Length <= max,
+            TodoFormFieldValidationType.Regex => !string.IsNullOrWhiteSpace(rule.CompareValue) && System.Text.RegularExpressions.Regex.IsMatch(value, rule.CompareValue),
+            _ => true
+        };
+
+    private static bool DateCompare(string value, string? compareValue, Func<DateTime, DateTime, bool> predicate)
+        => DateTime.TryParse(value, out var input)
+            && DateTime.TryParse(compareValue, out var limit)
+            && predicate(input.Date, limit.Date);
+
+    private static bool IsValidIban(string value)
+    {
+        var iban = System.Text.RegularExpressions.Regex.Replace(value.ToUpperInvariant(), @"\s+", "");
+        if (iban.Length < 15 || iban.Length > 34 || !System.Text.RegularExpressions.Regex.IsMatch(iban, @"^[A-Z]{2}[0-9]{2}[A-Z0-9]+$"))
+            return false;
+
+        var rearranged = iban[4..] + iban[..4];
+        var remainder = 0;
+        foreach (var ch in rearranged)
+        {
+            var digits = char.IsLetter(ch) ? ((int)ch - 55).ToString() : ch.ToString();
+            foreach (var digit in digits)
+                remainder = (remainder * 10 + (digit - '0')) % 97;
+        }
+
+        return remainder == 1;
+    }
+
+    private TodoFormFieldEntity? FieldByKey(string key)
+        => OrderedFields.FirstOrDefault(field => string.Equals(FieldKey(field), key, StringComparison.OrdinalIgnoreCase));
+
+    private bool IsMissingRequiredValue(TodoFormFieldEntity field, string value)
+    {
+        var custom = (_form?.List?.CustomFields ?? []).FirstOrDefault(f => f.Id == field.CustomFieldId);
+        return custom?.Type == TodoCustomFieldType.MultiSelect
+            ? CustomFieldMultiSelectValues.Parse(value).Count == 0
+            : string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool IsTruthy(string? value)
+        => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "on", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "1", StringComparison.OrdinalIgnoreCase);
+
+    private static string FieldInputId(TodoFormFieldEntity field) => $"field-{field.Id:N}";
+    private static string FieldHelpId(TodoFormFieldEntity field) => $"{FieldInputId(field)}-help";
+    private static string FieldErrorId(TodoFormFieldEntity field) => $"{FieldInputId(field)}-error";
+    private static string FieldRulesId(TodoFormFieldEntity field) => $"{FieldInputId(field)}-rules";
+    private static string AttachmentHintId(TodoFormFieldEntity field) => $"{FieldInputId(field)}-attachment-hint";
+    private static string AttachmentErrorId(TodoFormFieldEntity field) => $"{FieldInputId(field)}-attachment-error";
+    private static string MultiSelectOptionId(TodoFormFieldEntity field, int index) => $"{FieldInputId(field)}-option-{index}";
+
+    private string FieldFocusTargetId(TodoFormFieldEntity field)
+    {
+        if (!IsMultiSelectField(field))
+            return FieldInputId(field);
+
+        var custom = (_form?.List?.CustomFields ?? []).FirstOrDefault(item => item.Id == field.CustomFieldId);
+        return custom is not null && CustomFieldSelectOptions.GetOptions(custom).Any()
+            ? MultiSelectOptionId(field, 0)
+            : FieldInputId(field);
+    }
+
+    private async Task FocusFirstInvalidFieldAsync()
+    {
+        var invalidField = OrderedFields.FirstOrDefault(HasFieldError);
+        await FocusElementAsync(invalidField is null ? "public-form-error" : FieldFocusTargetId(invalidField));
+    }
+
+    private async Task FocusElementAsync(string id)
+    {
+        _pendingFocusId = id;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string DisplayLabel(TodoFormFieldEntity field)
+        => string.IsNullOrWhiteSpace(field.PublicLabel) ? field.Label : field.PublicLabel.Trim();
+
+    private static string PublicFieldWrapperCss(TodoFormFieldEntity field)
+        => field.Layout switch
+        {
+            TodoFormFieldLayout.Half => "space-y-1 todo-form-field todo-form-field--half",
+            TodoFormFieldLayout.Wide70 => "space-y-1 todo-form-field todo-form-field--wide",
+            TodoFormFieldLayout.Narrow30 => "space-y-1 todo-form-field todo-form-field--narrow",
+            _ => "space-y-1 todo-form-field todo-form-field--full"
+        };
+
+    private string AttachmentAccept
+        => string.Join(",", AttachmentExtensions(AllowedAttachmentTypes).Select(ext => $".{ext}"));
+
+    private string AttachmentTypesLabel
+        => string.Join(", ", AttachmentTypeLabels(AllowedAttachmentTypes));
+
+    private TodoFormFieldEntity? AttachmentField
+        => OrderedFields.FirstOrDefault(formField => formField.StandardField == TodoFormStandardField.Attachments);
+
+    private TodoFormAttachmentType AllowedAttachmentTypes
+        => NormalizeAttachmentTypes(_form?.AllowedAttachmentTypes ?? TodoFormAttachmentType.None);
+
+    private static TodoFormAttachmentType NormalizeAttachmentTypes(TodoFormAttachmentType types)
+    {
+        var normalized = types & TodoFormAttachmentType.All;
+        return normalized == TodoFormAttachmentType.None ? TodoFormAttachmentType.All : normalized;
+    }
+
+    private static bool IsAllowedAttachment(string fileName, string? contentType, TodoFormAttachmentType allowedTypes)
+    {
+        var ext = System.IO.Path.GetExtension(fileName ?? "").TrimStart('.').ToLowerInvariant();
+        var content = (contentType ?? "").Trim().ToLowerInvariant();
+
+        return allowedTypes.HasFlag(TodoFormAttachmentType.Images)
+                && (content.StartsWith("image/", StringComparison.Ordinal) || ImageExtensions.Contains(ext))
+            || allowedTypes.HasFlag(TodoFormAttachmentType.Documents) && DocumentExtensions.Contains(ext)
+            || allowedTypes.HasFlag(TodoFormAttachmentType.Archives) && ArchiveExtensions.Contains(ext)
+            || allowedTypes.HasFlag(TodoFormAttachmentType.Audio)
+                && (content.StartsWith("audio/", StringComparison.Ordinal) || AudioExtensions.Contains(ext))
+            || allowedTypes.HasFlag(TodoFormAttachmentType.Video)
+                && (content.StartsWith("video/", StringComparison.Ordinal) || VideoExtensions.Contains(ext));
+    }
+
+    private static IEnumerable<string> AttachmentExtensions(TodoFormAttachmentType allowedTypes)
+    {
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Documents))
+            foreach (var ext in DocumentExtensions) yield return ext;
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Images))
+            foreach (var ext in ImageExtensions) yield return ext;
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Archives))
+            foreach (var ext in ArchiveExtensions) yield return ext;
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Audio))
+            foreach (var ext in AudioExtensions) yield return ext;
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Video))
+            foreach (var ext in VideoExtensions) yield return ext;
+    }
+
+    private static IEnumerable<string> AttachmentTypeLabels(TodoFormAttachmentType allowedTypes)
+    {
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Documents)) yield return "Dokumente";
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Images)) yield return "Bilder";
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Archives)) yield return "Archive";
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Audio)) yield return "Audio";
+        if (allowedTypes.HasFlag(TodoFormAttachmentType.Video)) yield return "Video";
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes >= 1024 * 1024)
+            return $"{bytes / 1024d / 1024d:0.#} MB";
+        if (bytes >= 1024)
+            return $"{bytes / 1024d:0.#} KB";
+        return $"{bytes} B";
+    }
+
+    private static readonly HashSet<string> DocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv", "odt", "ods", "odp"
+    };
+
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "tif", "tiff", "heic"
+    };
+
+    private static readonly HashSet<string> ArchiveExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "zip", "rar", "7z", "tar", "gz"
+    };
+
+    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mp3", "wav", "ogg", "m4a", "flac", "aac"
+    };
+
+    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mp4", "mov", "avi", "mkv", "webm", "mpeg", "mpg"
+    };
+
+    private static string StandardKey(TodoFormStandardField field) => $"standard:{field}";
+    private static string CustomKey(Guid fieldId) => $"custom:{fieldId:N}";
+    private static string FieldKey(TodoFormFieldEntity field)
+        => field.Source == TodoFormFieldSource.Standard && field.StandardField.HasValue
+            ? StandardKey(field.StandardField.Value)
+            : field.Source == TodoFormFieldSource.Custom && field.CustomFieldId.HasValue
+                ? CustomKey(field.CustomFieldId.Value)
+                : "";
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("todoUi.publicFormAccessibility.dispose"); }
+        catch { }
+    }
+
+}

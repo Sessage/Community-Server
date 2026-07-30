@@ -1,0 +1,82 @@
+@if (IsOpen && ActiveDashboard is not null)
+{
+    <FluentDialog id="dashboard-settings-dlg" Open="true" Modal="true" Style="width:min(680px,92vw);" TrapFocus="true" HiddenChanged="@(_ => OnClose.InvokeAsync())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between w-full">
+                <div class="font-semibold text-lg">@L["Dashboard_Settings"]</div>
+                <button class="text-slate-400 hover:text-slate-700 text-xl leading-none px-1" @onclick="OnClose">✕</button>
+            </div>
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <div class="grid lg:grid-cols-2 gap-4">
+                <div>
+                    <label class="font-semibold">@L["Dashboard_Name"]</label>
+                    <p class="text-xs text-slate-500 mb-1">@L["Dashboard_Name_Help"]</p>
+                    <input class="rounded-xl border border-slate-200 p-2 w-full"
+                           value="@ActiveDashboard.Name"
+                           @oninput="e => OnNameInput.InvokeAsync(e)" />
+                </div>
+
+                <div>
+                    <label class="font-semibold">@L["Dashboard_GroupBy"]</label>
+                    <p class="text-xs text-slate-500 mb-1">@L["Dashboard_GroupBy_Help"]</p>
+                    <select class="rounded-xl border border-slate-200 p-2 w-full"
+                            value="@ActiveDashboard.GroupBy"
+                            @onchange="e => OnGroupByChanged.InvokeAsync(e)">
+                        @foreach (var group in Enum.GetValues<DashboardGroupBy>())
+                        {
+                            <option value="@group">@GroupByLabel(group)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="lg:col-span-2">
+                    <div class="font-semibold">@L["Dashboard_ListSelection"]</div>
+                    <p class="text-xs text-slate-500 mb-2">@L["Dashboard_ListSelection_Help"]</p>
+                    <div class="flex flex-col gap-1 max-h-40 overflow-auto border rounded-xl p-2 border-slate-200">
+                        @foreach (var list in Lists)
+                        {
+                            var listId = list.Id;
+                            var selected = ActiveDashboard.SelectedListIds.Contains(listId);
+                            <label class="text-sm">
+                                <input type="checkbox" checked="@selected"
+                                       @onchange="e => OnListToggled.InvokeAsync((listId, IsChecked(e.Value)))" />
+                                @list.Name
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+
+        </FluentDialogBody>
+        @if (AllowDelete)
+        {
+            <FluentDialogFooter>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="OnDelete">@L["Dashboard_Delete"]</FluentButton>
+            </FluentDialogFooter>
+        }
+    </FluentDialog>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public DashboardEntity? ActiveDashboard { get; set; }
+    [Parameter] public IReadOnlyList<TodoListEntity> Lists { get; set; } = [];
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnNameInput { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnGroupByChanged { get; set; }
+    [Parameter] public EventCallback<(Guid ListId, bool Selected)> OnListToggled { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public bool AllowDelete { get; set; } = true;
+
+    private static bool IsChecked(object? v) => v is true || v?.ToString() == "true";
+
+    private string GroupByLabel(DashboardGroupBy mode) => mode switch
+    {
+        DashboardGroupBy.None => L["Dashboard_GroupBy_None"],
+        DashboardGroupBy.List => L["Dashboard_GroupBy_List"],
+        DashboardGroupBy.Status => L["Dashboard_GroupBy_Status"],
+        DashboardGroupBy.DueDate => L["Dashboard_GroupBy_DueDate"],
+        _ => mode.ToString()
+    };
+}

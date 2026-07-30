@@ -1,0 +1,33 @@
+@implements IDisposable
+@inject FloatingLayerService FloatingLayer
+
+@* Global container for floating overlays (dropdowns, popovers).
+   Rendered at the end of MainLayout so it sits above all layout containers.
+   position:fixed + inset:0 ensures content is never clipped by overflow:hidden parents. *@
+<div class="floating-root" aria-hidden="true">
+    @foreach (var item in FloatingLayer.Items)
+    {
+        <div class="floating-layer" @key="item.Id">
+            @item.Content
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        FloatingLayer.RegisterHost();
+        FloatingLayer.OnChanged += HandleLayerChanged;
+    }
+
+    private void HandleLayerChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        FloatingLayer.OnChanged -= HandleLayerChanged;
+        FloatingLayer.UnregisterHost();
+    }
+}

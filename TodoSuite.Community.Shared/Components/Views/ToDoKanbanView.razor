@@ -1,0 +1,1974 @@
+@using Klassenbibliothek.Services
+﻿@using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@inject ITodoColumnService ColumnService
+@inject ITodoTaskService TaskService
+@inject ITodoCurrentUserService CurrentUserService
+@inject IJSRuntime JS
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using Klassenbibliothek.Data
+@using System.Security.Cryptography
+@using System.Text
+
+<div class="mx-3 flex flex-col h-full min-h-0 gap-3">
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 shrink-0">
+            <div class="font-semibold">@L["Lbl_Error"]</div>
+            <div>@_error</div>
+        </div>
+    }
+
+    @if (_selectedTaskIds.Count > 0)
+    {
+        <div class="flex flex-wrap items-center justify-center gap-2 shrink-0">
+            <BulkTaskActionBar List="List"
+                               SelectedTaskIds="_selectedTaskIds"
+                               OnChanged="HandleBulkChangedAsync"
+                               OnSelectionCleared="ClearSelectionAsync" />
+        </div>
+    }
+
+    @if (List.Columns is null || List.Columns.Count == 0)
+    {
+        <!-- Empty-State -->
+        <div class="flex-1 min-h-0 flex items-center justify-center">
+            <div class="max-w-md w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+                <div class="text-lg font-semibold">@L["Kanban_NoColumns"]</div>
+                <div class="text-sm text-slate-600">
+                    @L["Kanban_NoColumnsHint"]
+                </div>
+
+                <div class="flex gap-2">
+                    <FluentButton Appearance="Appearance.Accent" OnClick="@(() => OpenAddFirstColumnDialog(true))">
+                        @L["Kanban_AddFirstColumn"]
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Outline" OnClick="CreateDefaultColumnsAsync">
+                        @L["Kanban_DefaultColumns"]
+                    </FluentButton>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Board -->
+        <div class="flex-1 min-h-0 h-full overflow-x-auto overflow-y-hidden thin-scrollbar"
+             id="@_boardScrollId"
+             @onclick="CloseColumnActions">
+
+            <!-- Columns host -->
+            <div class="p-2 flex gap-4 h-full min-h-0 items-stretch pr-2"
+                 id="@_columnsHostId"
+                 @key="_kanbanHostVersion">
+
+                @foreach (var col in List.Columns)
+                {
+                    // ✅ Kollisionsfreier DOM-Key (nur fürs DOM / Scroll IDs)
+                    var colKey = GetColumnDomKey(col);
+
+                    var cards = GetCardsForColumn(col);
+
+                    <div class="w-80 shrink-0 rounded-3xl border border-slate-200 bg-white p-3 flex flex-col h-full min-h-0 kanban-column"
+                         data-col="@col"
+                         data-colkey="@colKey">
+
+                        <div class="flex items-center justify-between shrink-0 select-none">
+                            <!-- Drag-Handle bleibt nur links (damit Menü klickbar bleibt) -->
+                            <div class="font-semibold kanban-column-handle cursor-grab flex items-center gap-1">
+                                @col
+                                @if (IsDoneColumn(col))
+                                {
+                                    <FluentIcon Value="@(new Icons.Filled.Size16.CheckmarkCircle())"
+                                                Title="@L["Kanban_DoneColumn"]"
+                                                Style="color: #16a34a;" />
+                                }
+                            </div>
+
+                            <div class="flex items-center gap-2 relative" @onclick:stopPropagation="true">
+                                <span class="text-xs text-slate-500">@cards.Count</span>
+
+                                <FluentButton Appearance="Appearance.Stealth"
+                                              Title="@L["Kanban_ColumnOptions"]"
+                                              @onclick="() => ToggleColumnActions(col)">
+                                    ⋯
+                                </FluentButton>
+                                
+                                @if (_columnActionsFor == col)
+                                {
+                                    <div class="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg z-50 overflow-hidden"
+                                         @onclick:stopPropagation="true">
+
+                                        <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                                            @(string.Format(L["Kanban_ColumnPrefix"].Value, col))
+                                        </div>
+
+                                        <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                @onclick="() => OpenAddColumnDialog(col, insertRight: false)">
+                                            @L["Kanban_AddColumnLeft"]
+                                        </button>
+
+                                        <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                @onclick="() => OpenAddColumnDialog(col, insertRight: true)">
+                                            @L["Kanban_AddColumnRight"]
+                                        </button>
+
+                                        <div class="h-px bg-slate-100 my-1"></div>
+
+                                        @if (IsDoneColumn(col))
+                                        {
+                                            <button class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                                    @onclick="() => ToggleDoneColumnAsync(col)">
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" />
+                                                @L["Kanban_UnsetDoneColumn"]
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2"
+                                                    @onclick="() => ToggleDoneColumnAsync(col)">
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" />
+                                                @L["Kanban_SetDoneColumn"]
+                                            </button>
+                                        }
+
+                                        <div class="h-px bg-slate-100 my-1"></div>
+
+                                        <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                @onclick="() => OpenRenameColumnDialog(col)">
+                                            @L["Kanban_RenameColumn"]
+                                        </button>
+
+                                        <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
+                                                @onclick="() => OpenDeleteColumnDialog(col)">
+                                            @L["Kanban_DeleteColumn"]
+                                        </button>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mt-3 flex-1 min-h-0 overflow-y-auto thin-scrollbar pr-1"
+                             id="@GetColumnScrollDomId(colKey)">
+
+                            <!-- ✅ Host: hat data-col (echter Spaltenname) + data-colkey (nur DOM) -->
+                            <div class="space-y-3 pb-3 kanban-sortable min-h-[40px]"
+                                 id="@GetColumnHostDomId(colKey)"
+                                 data-col="@col"
+                                 data-colkey="@colKey">
+
+                                @foreach (var t in cards)
+                                {
+                                    
+                                        var style = GetCardStyle(t);
+                                        var topBand = GetCardTopBandColor(t);
+                                        var isUrgent = IsDueSoon(t);
+                                    
+
+                                    <div @key="t.Id"
+                                         class="kanban-task-card relative rounded-2xl border border-slate-200 p-3 shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden"
+                                         style="@style"
+                                         role="button"
+                                         data-taskid="@t.Id"
+                                         data-col="@col"
+                                         @onpointerdown="(e) => OnCardPointerDown(t.Id, e)"
+                                         @onpointermove="OnCardPointerMove"
+                                         @onpointerup="(e) => OnCardPointerUpAsync(t, e)"
+                                          @onpointercancel="OnCardPointerCancel">
+
+                                        @if (!string.IsNullOrWhiteSpace(topBand))
+                                        {
+                                            <div class="kanban-card-top-band"
+                                                 style="background-color:@topBand;">
+                                            </div>
+                                        }
+
+                                        @if (SelectionMode)
+                                        {
+                                            <label class="kanban-card-selection-label mb-2 flex items-center gap-2 text-xs font-medium" data-nodrag="true" @onclick:stopPropagation="true">
+                                                <input type="checkbox"
+                                                       class="h-4 w-4 rounded border-slate-300"
+                                                       checked="@IsTaskSelected(t.Id)"
+                                                       @onchange="e => ToggleTaskSelection(t.Id, e)" />
+                                                <span>@L["Bulk_Select"]</span>
+                                            </label>
+                                        }
+
+                                        <div class="flex items-start justify-between gap-2">
+                                            <div class="min-w-0 flex-1">
+
+                                                <!-- ✅ Labels oben -->
+                                                @if (t.LabelLinks is not null && t.LabelLinks.Count > 0 && List.Labels is not null && List.Labels.Count > 0)
+                                                {
+                                                    var labels = t.LabelLinks
+                                                    .Select(ll => List.Labels.FirstOrDefault(l => l.Id == ll.LabelId))
+                                                    .Where(l => l is not null)
+                                                    .Cast<TodoLabelEntity>()
+                                                    .ToList();
+
+                                                    if (labels.Count > 0)
+                                                    {
+                                                        <div class="flex flex-wrap gap-1 mb-1">
+                                                            @foreach (var lab in labels)
+                                                            {
+                                                                var bg = NormalizeHexColor(lab.BackgroundColor) ?? "#e2e8f0";
+                                                                var fg = GetReadableTextColor(bg);
+
+                                                                <span class="text-[11px] px-2 py-0.5 rounded-full border border-slate-200"
+                                                                      style="background-color:@bg; color:@fg;"
+                                                                      title="@lab.Title">
+                                                                    @lab.Title
+                                                                </span>
+
+                                                            }
+                                                        </div>
+                                                    }
+                                                }
+                                                
+                                                <!-- Titel -->
+                                                <div class="flex items-center text-sm font-semibold truncate" title="@t.Title">
+                                                    
+                                                    @if (t.Done)
+                                                {
+                                                    <div class="mr-1">
+                                                        <FluentIcon Value="@(new Icons.Filled.Size24.CheckmarkCircle())" />
+                                                    </div>
+                                                }
+                                                    
+                                                    <div>@t.Title </div>
+                                                </div>
+
+                                                <!-- Meta -->
+                                                <div class="text-xs text-slate-500" style="@(isUrgent ? "color:rgba(255,255,255,0.85);" : "")">
+                                                    @(t.DueDate?.ToString("d") )
+                                                </div>
+                                            </div>
+
+                                            @if (t.IsImportant)
+                                            {
+                                                <FluentIcon Value="@(new Icons.Filled.Size24.Star())" />
+                                            }
+                                        </div>
+
+                                        <!-- Trello-style Karten-Footer -->
+                                        @{
+                                            var _attCnt = t.Attachments?.Count ?? 0;
+                                            var _comCnt = t.Comments?.Count ?? 0;
+                                            var _steCnt = t.Steps?.Count ?? 0;
+                                            var _steDone = t.Steps?.Count(s => s.IsCompleted) ?? 0;
+                                            var _hasAss = !string.IsNullOrWhiteSpace(t.Assignee);
+                                            var _showFooter = _attCnt > 0 || _comCnt > 0 || _steCnt > 0 || _hasAss;
+                                        }
+                                        @if (_showFooter)
+                                        {
+                                            <div class="flex items-center justify-between mt-2 gap-2">
+                                                <!-- Badges: Anhänge, Kommentare, Checkliste -->
+                                                <div class="flex items-center gap-2 text-slate-400" style="font-size:11px; @(isUrgent ? "color:rgba(255,255,255,0.75);" : "")">
+                                                    @if (_attCnt > 0)
+                                                    {
+                                                        <span class="flex items-center gap-0.5" title="@(string.Format(L["Kanban_AttachmentCount"].Value, _attCnt))">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                                            <span>@_attCnt</span>
+                                                        </span>
+                                                    }
+                                                    @if (_comCnt > 0)
+                                                    {
+                                                        <span class="flex items-center gap-0.5" title="@(string.Format(L["Kanban_CommentCount"].Value, _comCnt))">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                            <span>@_comCnt</span>
+                                                        </span>
+                                                    }
+                                                    @if (_steCnt > 0)
+                                                    {
+                                                        <span class="flex items-center gap-0.5" title="@(string.Format(L["Kanban_ChecklistTitle"].Value, _steDone, _steCnt))"
+                                                              style="@(_steDone == _steCnt ? "color:#22c55e;" : "")">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                                            <span>@_steDone/@_steCnt</span>
+                                                        </span>
+                                                    }
+                                                </div>
+                                                <!-- Bearbeiter-Avatar -->
+                                                @if (_hasAss)
+                                                {
+                                                    var _initials = GetAssigneeInitials(t.Assignee!);
+                                                    var _avatarBg = GetAssigneeAvatarColor(t.Assignee!);
+                                                    var _displayName = GetAssigneeDisplayName(t.Assignee!);
+                                                    <div class="relative w-6 h-6 shrink-0" title="@_displayName">
+                                                        <div class="w-6 h-6 rounded-full flex items-center justify-center text-white font-semibold select-none"
+                                                             style="font-size:9px;background-color:@_avatarBg;">
+                                                            @_initials
+                                                        </div>
+                                                        <img src="/api/profile-picture/@(Uri.EscapeDataString(t.Assignee!))"
+                                                             class="absolute inset-0 w-6 h-6 rounded-full object-cover"
+                                                             alt=""
+                                                             onload="this.previousElementSibling.style.display='none'"
+                                                             onerror="this.style.display='none'" />
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Add card (Fluent UI) -->
+                        <div class="pt-2 shrink-0">
+                            <div class="p-2">
+                                @if (CanWriteToList())
+                                {
+                                    <FluentTextField class="w-full outline-none text-base"
+                                                     @key="NewTitleInputKey(col)"
+                                                     Value="@NewTitleFor(col)"
+                                                     ValueChanged="(string v) => SetNewTitleFor(col, v)"
+                                                     Immediate="true"
+                                                     Placeholder="@L["Kanban_AddCard"]"
+                                                     @onkeydown="(e) => OnNewCardKeyDown(col, e)" />
+                                }
+                                else
+                                {
+                                    <div class="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-500">
+                                        <FluentIcon Value="@(new Icons.Regular.Size16.LockClosed())" Class="flex-shrink-0" />
+                                        <span>@L["Kanban_NoWritePermission"]</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+
+            </div>
+        </div>
+    
+    }
+</div>
+
+<!-- Add Column Dialog -->
+@if (_addColumnOpen)
+{
+    <FluentDialog id="kanban-add-column-dlg" Class="kanban-column-dialog" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseAddColumnDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">
+                    @(_addColumnInsertRight ? L["Kanban_AddColumnDialogRight"] : L["Kanban_AddColumnDialogLeft"])
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAddColumnDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div class="text-sm text-slate-600">@L["Lbl_Name"]</div>
+                <FluentTextField @ref="_addColumnTextField"
+                                 Class="w-full outline-none"
+                                 @bind-Value="_addColumnValue"
+                                 Immediate="true"
+                                 Placeholder="z.B. Review"
+                                 @onkeydown="OnAddColumnKeyDown" />
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAddColumnDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="AddColumnAsync">@L["Btn_Add"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+<!-- Rename Column Dialog -->
+@if (_renameColumnOpen)
+{
+    <FluentDialog id="kanban-rename-column-dlg" Class="kanban-column-dialog" Open="true" Modal="true" Style="width:min(560px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseRenameColumnDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Kanban_RenameColumnTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameColumnDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-2">
+                <div class="text-sm text-slate-600">@(string.Format(L["Kanban_NewNameFor"].Value, _renameColumnOld))</div>
+                <FluentTextField @ref="_renameColumnTextField"
+                                 Class="w-full outline-none"
+                                 @bind-Value="_renameColumnValue"
+                                 Immediate="true"
+                                 @onkeydown="OnRenameColumnKeyDown" />
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameColumnDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="RenameColumnAsync">@L["Btn_Save"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+<!-- Delete Column Dialog -->
+@if (_deleteColumnOpen)
+{
+    <FluentDialog id="kanban-delete-column-dlg" Open="true" Modal="true" Style="--dialog-width: min(1100px, 96vw);" TrapFocus="true" HiddenChanged="@(_ => CloseDeleteColumnDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold text-red-700">@L["Kanban_DeleteColumnTitle"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteColumnDialog">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            <div class="space-y-3">
+                <div>
+                    @(string.Format(L["Kanban_DeleteColumnConfirm"].Value, _deleteColumnName))
+                </div>
+
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                    <div class="font-semibold text-sm">@L["Kanban_DeleteColumnQuestion"]</div>
+
+                    <FluentRadioGroup Name="delmode" @bind-Value="_deleteMode">
+                        <FluentRadio Value="@DeleteModeMove">@L["Kanban_DeleteModeMove"]</FluentRadio>
+                        <FluentRadio Value="@DeleteModeDelete">@L["Kanban_DeleteModeDelete"]</FluentRadio>
+                    </FluentRadioGroup>
+
+                    @if (_deleteMode == DeleteModeMove)
+                    {
+                        <div class="pt-2 space-y-1">
+                            <div class="text-sm text-slate-600">@L["Kanban_TargetColumn"]</div>
+
+                            <FluentSelect TOption="string" @bind-Value="_deleteMoveTo">
+                                <FluentOption TOption="string" Value="">@L["Kanban_TargetColumnAuto"]</FluentOption>
+                                @foreach (var c in (List.Columns ?? new List<string>())
+                                                        .Where(c => !c.Equals(_deleteColumnName, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <FluentOption TOption="string" Value="@c">@c</FluentOption>
+                                }
+                            </FluentSelect>
+                        </div>
+                    }
+                </div>
+            </div>
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteColumnDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteColumnAsync">@L["Kanban_DeletePermanent"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    [Parameter, EditorRequired] public TodoListEntity List { get; set; } = default!;
+    [Parameter, EditorRequired] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskSelected { get; set; }
+    [Parameter] public EventCallback<bool> OnDraggingChanged { get; set; }
+    [Parameter] public bool SelectionMode { get; set; }
+    [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
+
+    [Parameter] public ListSortMode SortMode { get; set; } = ListSortMode.Custom;
+    private ListSortMode _lastSortMode = ListSortMode.Custom;
+    private Guid _lastListId = Guid.Empty;
+
+    /// <summary>
+    /// Pass the current online state from the parent so that the Kanban view can skip the
+    /// fire-and-forget parent reload when offline (the optimistic in-memory state is already
+    /// correct, and a cache-read reload could race with or mask the optimistic update).
+    /// </summary>
+    [Parameter] public bool IsOnline { get; set; } = true;
+
+    /// <summary>
+    /// Incremented by the parent whenever the app comes back online and a fresh server reload
+    /// has completed. Causes the Kanban view to reinitialise SortableJS so that the DOM
+    /// (updated by Blazor with synced server data) and SortableJS internal state are in sync.
+    /// </summary>
+    [Parameter] public int OnlineReloadVersion { get; set; }
+    private int _lastOnlineReloadVersion = -1;
+
+    private string _userId = "gast";
+    private string _error = "";
+    private bool _lastSelectionMode;
+    private readonly HashSet<Guid> _selectedTaskIds = new();
+
+    private readonly Dictionary<string, string> _newTitles = new();
+    private readonly Dictionary<string, int> _newTitleInputVersions = new(StringComparer.Ordinal);
+
+    private readonly string _boardScrollId = "kanban-board-scroll";
+    private readonly string _columnsHostId = "kanban-columns-host";
+    private DotNetObjectReference<ToDoKanbanView>? _dotNetRef;
+    private bool _addColumnHookActive;
+    private bool _renameColumnHookActive;
+    private bool _deleteColumnHookActive;
+
+    private bool _initialized;
+    private string _lastColumnsSignature = "";
+
+    // Column menus/dialogs
+    private string? _columnActionsFor;
+
+    private bool _addColumnOpen;
+    private string _addColumnValue = "";
+    private string? _addColumnAnchor;
+    private bool _addColumnInsertRight;
+    private FluentTextField? _addColumnTextField;
+    private bool _focusAddColumnTextField;
+
+    private bool _renameColumnOpen;
+    private string _renameColumnOld = "";
+    private string _renameColumnValue = "";
+    private FluentTextField? _renameColumnTextField;
+    private bool _focusRenameColumnTextField;
+
+    private bool _deleteColumnOpen;
+    private string _deleteColumnName = "";
+    private string _deleteMoveTo = "";
+    private string _deleteMode = DeleteModeMove; // move | delete
+
+    private const string DeleteModeMove = "move";
+    private const string DeleteModeDelete = "delete";
+
+    // Click vs Drag
+    private bool _isDraggingFromSortable;
+    private int _pendingDropPersistenceCount;
+    public bool IsDraggingFromSortable => _isDraggingFromSortable || _pendingDropPersistenceCount > 0;
+    private DateTime _dragStartedUtc = DateTime.MinValue; // Zeitstempel des letzten SetDragging(true)
+    private Guid? _pointerDownTaskId;
+    private double _pointerDownX;
+    private double _pointerDownY;
+    private DateTime _pointerDownUtc;
+    private bool _pointerMoved;
+    private DateTime _lastDragEndUtc = DateTime.MinValue;
+    private long _latestDragToken;
+
+    // C#-Watchdog: Setzt einen hängengebliebenen Drag-State nach DRAG_WATCHDOG_TIMEOUT
+    // zurück, falls JS-seitige Mechanismen (visibilitychange, circuit-reconnect) nicht
+    // greifen – z.B. in Edge-Cases des MAUI WebView2.
+    private System.Threading.Timer? _dragWatchdogTimer;
+    // Watchdog bewusst deaktiviert: ein fixer Timeout bricht legitime lange Drag-Gesten ab.
+    // Hängende Drags werden stattdessen über JS-Events (onEnd/onCancel/onUnchoose),
+    // visibilitychange und dispose/reset behandelt.
+    private const bool EnableDragWatchdog = false;
+    private static readonly TimeSpan DragWatchdogTimeout = TimeSpan.FromSeconds(25);
+
+    // Verhindert Callbacks auf bereits entsorgten Komponenten in Fire-and-forget Tasks.
+    private bool _disposed;
+
+    private const double ClickMoveThresholdPx = 6;
+    private const int ClickMinMs = 30;
+    private const int ClickBlockAfterDragMs = 250;
+    private static readonly TimeSpan IgnoreLateDragStartWindow = TimeSpan.FromMilliseconds(600);
+
+    // Speichert die vom letzten Drop resultierende Kartenreihenfolge pro Spalte.
+    // Wird in OnParametersSet auf das neue List-Objekt übertragen, damit der
+    // optimistische UI-Stand nach einem Parent-Reload nicht kurz zurückspringt.
+    private Dictionary<string, string[]>? _pendingColOrder;
+
+    private bool IsTaskSelected(Guid taskId) => _selectedTaskIds.Contains(taskId);
+
+    private void ToggleTaskSelection(Guid taskId, ChangeEventArgs e)
+    {
+        if (e.Value is bool selected && selected)
+            _selectedTaskIds.Add(taskId);
+        else
+            _selectedTaskIds.Remove(taskId);
+    }
+
+    private async Task ClearSelectionAsync()
+    {
+        _selectedTaskIds.Clear();
+        await SelectionModeChanged.InvokeAsync(false);
+        RequestKanbanResync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleBulkChangedAsync()
+    {
+        await OnChanged.InvokeAsync();
+        RequestKanbanResync();
+    }
+
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        var currentUser = await CurrentUserService.GetCurrentUserAsync();
+        _userId = currentUser.UserId;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusAddColumnTextField && _addColumnOpen && _addColumnTextField is not null)
+        {
+            _focusAddColumnTextField = false;
+            try { _addColumnTextField.FocusAsync(); } catch { }
+        }
+
+        if (_focusRenameColumnTextField && _renameColumnOpen && _renameColumnTextField is not null)
+        {
+            _focusRenameColumnTextField = false;
+            try { _renameColumnTextField.FocusAsync(); } catch { }
+        }
+
+        if (FilterActive || SelectionMode)
+        {
+            // damit Drag/Drop sicher aus ist
+            try { await JS.InvokeVoidAsync("todoUi.disposeKanban"); } catch { }
+            _initialized = false;
+            return;
+        }
+
+        var sig = BuildColumnsSignature();
+
+        if (List.Columns is null || List.Columns.Count == 0)
+        {
+            _lastColumnsSignature = sig;
+            return;
+        }
+
+        if (!_initialized || sig != _lastColumnsSignature)
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+
+            try { await JS.InvokeVoidAsync("todoUi.disposeKanban"); } catch { }
+
+            await JS.InvokeVoidAsync(
+                "todoUi.initKanban",
+                _boardScrollId,
+                _columnsHostId,
+                _dotNetRef,
+                SortMode.ToString());
+
+            _initialized = true;
+            _lastColumnsSignature = sig;
+        }
+
+        _addColumnHookActive = await UpdateDialogHookAsync(_addColumnOpen, "kanban-add-column-dlg", _addColumnHookActive);
+        _renameColumnHookActive = await UpdateDialogHookAsync(_renameColumnOpen, "kanban-rename-column-dlg", _renameColumnHookActive);
+        _deleteColumnHookActive = await UpdateDialogHookAsync(_deleteColumnOpen, "kanban-delete-column-dlg", _deleteColumnHookActive);
+    }
+
+    private async Task<bool> UpdateDialogHookAsync(bool isOpen, string dialogId, bool hookActive)
+    {
+        if (isOpen && !hookActive)
+        {
+            try
+            {
+                _dotNetRef ??= DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("todoUi.enableDialogOutsideCloseById", dialogId, _dotNetRef, Array.Empty<string>());
+                return true;
+            }
+            catch { }
+        }
+        else if (!isOpen && hookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", dialogId); } catch { }
+            return false;
+        }
+
+        return hookActive;
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        _addColumnOpen = false;
+        _renameColumnOpen = false;
+        _deleteColumnOpen = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+
+    // Blazor-Re-Renders während eines aktiven Drags unterdrücken.
+    // Sonst reconciliert Blazor den DOM und verschiebt die physisch von SortableJS
+    // bewegte Karte zurück in die alte Spalte → "hängt in der Luft"-Effekt.
+    protected override bool ShouldRender() => !_isDraggingFromSortable;
+
+    protected override void OnParametersSet()
+    {
+        if (_lastSelectionMode && !SelectionMode)
+        {
+            _selectedTaskIds.Clear();
+            RequestKanbanResync();
+        }
+        _lastSelectionMode = SelectionMode;
+
+        // Listenwechsel: Drag-State sofort zurücksetzen, damit ShouldRender() wieder
+        // true liefert. Ohne diesen Reset würde der Component nie neu rendern →
+        // OnAfterRenderAsync würde disposeKanban() nie aufrufen → Ghost bleibt hängen.
+        if (_lastListId != List.Id)
+        {
+            _isDraggingFromSortable = false;
+            _pointerDownTaskId = null;
+            _pointerMoved = false;
+            _lastListId = List.Id;
+            _pendingColOrder = null; // gehört zur alten Liste, nicht übertragen
+        }
+
+        // Optimistischen Drop-Stand auf das frisch geladene List-Objekt übertragen,
+        // bevor Blazor rendert – verhindert das kurze Zurückspringen in die alte Reihenfolge.
+        if (_pendingColOrder is not null && List?.Tasks is not null)
+        {
+            foreach (var (col, ids) in _pendingColOrder)
+            {
+                for (int i = 0; i < ids.Length; i++)
+                {
+                    if (Guid.TryParse(ids[i], out var g))
+                    {
+                        var task = List.Tasks.FirstOrDefault(x => x.Id == g);
+                        if (task is not null)
+                        {
+                            task.Column = col;
+                            task.KanbanSortOrder = i;
+                        }
+                    }
+                }
+            }
+            _pendingColOrder = null;
+        }
+
+        // SortMode-Wechsel MUSS vor dem Render verarbeitet werden,
+        // damit @key (_kanbanHostVersion) im nächsten Render wirklich greift.
+        if (_lastSortMode != SortMode)
+        {
+            _isDraggingFromSortable = false;
+
+            _lastSortMode = SortMode;
+            RequestKanbanResync(); // erhöht _kanbanHostVersion + setzt _initialized=false
+        }
+
+        // Nach Reconnect: SortableJS neu initialisieren, damit die von Blazor aktualisierten
+        // DOM-Elemente (neue Serverreihenfolge) mit dem internen SortableJS-Zustand übereinstimmen.
+        if (_lastOnlineReloadVersion != OnlineReloadVersion)
+        {
+            _lastOnlineReloadVersion = OnlineReloadVersion;
+            if (OnlineReloadVersion > 0)
+                RequestKanbanResync();
+        }
+    }
+
+
+    private int _kanbanHostVersion = 0;
+
+    private void RequestKanbanResync()
+    {
+        _kanbanHostVersion++;
+        _initialized = false; // erzwingt initKanban beim nächsten Render
+    }
+    private string BuildColumnsSignature()
+    {
+        if (List.Columns is null) return "";
+
+        // Nur Spaltenstruktur + Done-Spalten: JS-Reinit ist nur bei strukturellen Änderungen
+        // (Spalte hinzufügen/löschen/umbenennen/umsortieren) nötig – nicht bei Card-Moves.
+        // Card-Moves werden durch Blazors Diff-Algorithmus (@key="t.Id") korrekt in den DOM
+        // übernommen, ohne SortableJS neu zu initialisieren.
+        var doneCols = List.DoneColumns is not null ? string.Join("|", List.DoneColumns.OrderBy(c => c)) : "";
+        return string.Join("|", List.Columns) + "||done:" + doneCols;
+    }
+
+    private List<TodoTaskEntity> GetCardsForColumn(string col)
+    {
+        var q = List.Tasks.Where(t => t.Column == col)
+                  .Where(t => MatchesFilter(t));
+
+        return SortMode switch
+        {
+            ListSortMode.Custom => q
+                .OrderBy(t => t.KanbanSortOrder)
+                .ThenBy(t => t.CreatedAtUtc)
+                .ToList(),
+
+            ListSortMode.Importance => q
+                .OrderByDescending(t => t.IsImportant)
+                .ThenBy(t => t.DueDate ?? DateTime.MaxValue)
+                .ThenBy(t => t.KanbanSortOrder)
+                .ToList(),
+
+            ListSortMode.DueDate => q
+                .OrderBy(t => t.DueDate ?? DateTime.MaxValue)
+                .ThenByDescending(t => t.IsImportant)
+                .ThenBy(t => t.KanbanSortOrder)
+                .ToList(),
+
+            ListSortMode.Alphabetical => q
+                .OrderBy(t => t.Title)
+                .ThenBy(t => t.KanbanSortOrder)
+                .ToList(),
+
+            ListSortMode.CreatedAt => q
+                .OrderByDescending(t => t.CreatedAtUtc)
+                .ThenBy(t => t.KanbanSortOrder)
+                .ToList(),
+
+            _ => q.OrderBy(t => t.KanbanSortOrder).ToList()
+        };
+    }
+
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        StopDragWatchdog();
+        try { await JS.InvokeVoidAsync("todoUi.disposeKanban"); } catch { }
+        if (_addColumnHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "kanban-add-column-dlg"); } catch { }
+        if (_renameColumnHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "kanban-rename-column-dlg"); } catch { }
+        if (_deleteColumnHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "kanban-delete-column-dlg"); } catch { }
+        _dotNetRef?.Dispose();
+    }
+
+    /* Helfer für die Label-Farbe */
+    private static string? NormalizeHexColor(string? input)
+    {
+        // akzeptiert z.B. "#FF6B6B", "FF6B6B", "#F00", "F00"
+        if (string.IsNullOrWhiteSpace(input))
+            return null;
+
+        var s = input.Trim();
+
+        if (s.StartsWith("#"))
+            s = s.Substring(1);
+
+        // 3-stellig -> 6-stellig erweitern
+        if (s.Length == 3)
+            s = string.Concat(s[0], s[0], s[1], s[1], s[2], s[2]);
+
+        if (s.Length != 6)
+            return null;
+
+        // Hex validieren
+        for (int i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            var isHex =
+                (c >= '0' && c <= '9') ||
+                (c >= 'a' && c <= 'f') ||
+                (c >= 'A' && c <= 'F');
+
+            if (!isHex) return null;
+        }
+
+        return "#" + s.ToLowerInvariant();
+    }
+
+    private static string GetReadableTextColor(string hexBg)
+    {
+        // erwartet "#rrggbb"
+        try
+        {
+            var s = hexBg.Trim();
+            if (s.StartsWith("#")) s = s.Substring(1);
+            if (s.Length != 6) return "#0f172a"; // slate-900 fallback
+
+            var r = Convert.ToInt32(s.Substring(0, 2), 16);
+            var g = Convert.ToInt32(s.Substring(2, 2), 16);
+            var b = Convert.ToInt32(s.Substring(4, 2), 16);
+
+            // Relative Luminanz (W3C-ish)
+            // Schwelle: bei dunklem Hintergrund -> weiß, sonst dunkel
+            var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255.0;
+
+            return luminance < 0.55 ? "#ffffff" : "#0f172a"; // white vs slate-900
+        }
+        catch
+        {
+            return "#0f172a";
+        }
+    }
+
+    /* Ende Helfer Label*/
+
+    /* ---------- Column actions ---------- */
+
+    private void ToggleColumnActions(string col)
+        => _columnActionsFor = _columnActionsFor == col ? null : col;
+
+    private void CloseColumnActions()
+        => _columnActionsFor = null;
+
+    private bool IsDoneColumn(string col)
+        => List.DoneColumns is not null
+           && List.DoneColumns.Any(c => c.Equals(col, StringComparison.OrdinalIgnoreCase));
+
+    private async Task ToggleDoneColumnAsync(string col)
+    {
+        CloseColumnActions();
+        _error = "";
+
+        var isDone = IsDoneColumn(col);
+
+        try
+        {
+            await ColumnService.SetDoneColumnAsync(_userId, List.Id, col, !isDone);
+
+            // Lokales Modell sofort synchronisieren
+            List.DoneColumns ??= new List<string>();
+            if (!isDone)
+            {
+                List.DoneColumns.Add(col);
+
+                // Alle bestehenden Aufgaben in dieser Spalte als erledigt markieren
+                var tasksInColumn = List.Tasks?
+                    .Where(t => t.Column.Equals(col, StringComparison.OrdinalIgnoreCase) && !t.Done)
+                    .ToList() ?? new List<TodoTaskEntity>();
+
+                foreach (var task in tasksInColumn)
+                {
+                    task.Done = true;
+                    task.ReminderAtUtc = null;
+                    try
+                    {
+                        await TaskService.UpdateTaskAsync(_userId, List.Id, task);
+                    }
+                    catch
+                    {
+                        // Einzelne Fehler ignorieren – UI-Stand bleibt optimistisch
+                    }
+                }
+            }
+            else
+            {
+                List.DoneColumns.RemoveAll(c => c.Equals(col, StringComparison.OrdinalIgnoreCase));
+            }
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanDoneColumn"].Value, col, ex.Message);
+        }
+    }
+
+    private void OpenAddColumnDialog(string anchorColumn, bool insertRight)
+    {
+        CloseColumnActions();
+        _addColumnAnchor = anchorColumn;
+        _addColumnInsertRight = insertRight;
+
+        _addColumnValue = "";
+        _addColumnOpen = true;
+        _focusAddColumnTextField = true;
+    }
+
+    private void CloseAddColumnDialog()
+    {
+        _addColumnOpen = false;
+        _addColumnAnchor = null;
+        _focusAddColumnTextField = false;
+    }
+
+    private async Task OnAddColumnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await AddColumnAsync();
+    }
+
+    private async Task AddColumnAsync()
+    {
+        _error = "";
+        var name = (_addColumnValue ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _error = string.Format(L["Err_KanbanColumnCreateEmpty"].Value, List.Name);
+            _addColumnOpen = false;
+            _addColumnAnchor = null;
+            return;
+        }
+
+        try
+        {
+            await ColumnService.AddColumnAsync(_userId, List.Id, name);
+
+            var current = (List.Columns ?? new List<string>()).ToList();
+            if (!current.Contains(name, StringComparer.OrdinalIgnoreCase))
+                current.Add(name);
+
+            if (!string.IsNullOrWhiteSpace(_addColumnAnchor))
+            {
+                current.RemoveAll(c => c.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+                var anchorIndex = current.FindIndex(c => c.Equals(_addColumnAnchor, StringComparison.OrdinalIgnoreCase));
+                if (anchorIndex < 0) anchorIndex = current.Count - 1;
+
+                var insertIndex = _addColumnInsertRight ? anchorIndex + 1 : anchorIndex;
+                insertIndex = Math.Clamp(insertIndex, 0, current.Count);
+
+                current.Insert(insertIndex, name);
+
+                await ColumnService.ReorderColumnsAsync(_userId, List.Id, current);
+            }
+
+            _addColumnOpen = false;
+            _addColumnAnchor = null;
+
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanColumnCreate"].Value, List.Name, name, ex.Message);
+            _addColumnOpen = false;
+            _addColumnAnchor = null;
+        }
+    }
+
+    private void OpenAddFirstColumnDialog(bool insertRight = true)
+    {
+        CloseColumnActions();
+        _addColumnAnchor = null;
+        _addColumnInsertRight = insertRight;
+
+        _addColumnValue = "";
+        _addColumnOpen = true;
+        _focusAddColumnTextField = true;
+    }
+
+    private async Task CreateDefaultColumnsAsync()
+    {
+        _error = "";
+        try
+        {
+            if (List.Columns is null || List.Columns.Count == 0)
+            {
+                await ColumnService.AddColumnAsync(_userId, List.Id, "Backlog");
+                await ColumnService.AddColumnAsync(_userId, List.Id, "In Arbeit");
+                await ColumnService.AddColumnAsync(_userId, List.Id, "Erledigt");
+                await OnChanged.InvokeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanDefaultColumns"].Value, List.Name, ex.Message);
+        }
+    }
+
+    private void OpenRenameColumnDialog(string col)
+    {
+        CloseColumnActions();
+        _renameColumnOld = col;
+        _renameColumnValue = col;
+        _renameColumnOpen = true;
+        _focusRenameColumnTextField = true;
+    }
+
+    private void CloseRenameColumnDialog()
+    {
+        _renameColumnOpen = false;
+        _focusRenameColumnTextField = false;
+    }
+
+    private async Task OnRenameColumnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RenameColumnAsync();
+    }
+
+    private async Task RenameColumnAsync()
+    {
+        _error = "";
+        var oldName = (_renameColumnOld ?? "").Trim();
+        var newName = (_renameColumnValue ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(oldName))
+        {
+            _error = string.Format(L["Err_KanbanColumnRenameOldEmpty"].Value, List.Name);
+            _renameColumnOpen = false;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            _error = string.Format(L["Err_KanbanColumnRenameNewEmpty"].Value, oldName, List.Name);
+            _renameColumnOpen = false;
+            return;
+        }
+
+        try
+        {
+            await ColumnService.RenameColumnAsync(_userId, List.Id, oldName, newName);
+            _renameColumnOpen = false;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanColumnRename"].Value, oldName, newName, List.Name, ex.Message);
+            _renameColumnOpen = false;
+        }
+    }
+
+    private void OpenDeleteColumnDialog(string col)
+    {
+        CloseColumnActions();
+        _deleteColumnName = col;
+        _deleteMoveTo = "";
+        _deleteMode = DeleteModeMove;
+        _deleteColumnOpen = true;
+    }
+
+    private void CloseDeleteColumnDialog() => _deleteColumnOpen = false;
+
+    private async Task DeleteColumnAsync()
+    {
+        _error = "";
+
+        var col = (_deleteColumnName ?? "").Trim();
+        var moveTo = (_deleteMoveTo ?? "").Trim();
+        var deleteTasks = _deleteMode == DeleteModeDelete;
+
+        if (string.IsNullOrWhiteSpace(col))
+        {
+            _error = string.Format(L["Err_KanbanColumnDeleteEmpty"].Value, List.Name);
+            _deleteColumnOpen = false;
+            return;
+        }
+
+        try
+        {
+            await ColumnService.DeleteColumnAsync(
+                _userId,
+                List.Id,
+                col,
+                deleteTasksInColumn: deleteTasks,
+                moveTasksToColumn: (deleteTasks || string.IsNullOrWhiteSpace(moveTo)) ? null : moveTo);
+
+            _deleteColumnOpen = false;
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanColumnDelete"].Value, col, List.Name, ex.Message);
+            _deleteColumnOpen = false;
+        }
+    }
+
+    /* ---------- JS -> Blazor ---------- */
+
+    [JSInvokable]
+    public Task SetDragging(bool dragging)
+        => ApplyDraggingStateAsync(dragging);
+
+    [JSInvokable]
+    public Task SetDraggingWithToken(bool dragging, long token)
+    {
+        if (token < _latestDragToken) return Task.CompletedTask;
+        _latestDragToken = token;
+        // Ein frischer Token belegt einen echten neuen Drag-Start. Das IgnoreLateDragStartWindow
+        // darf diesen nicht blockieren (der Token-Check hat bereits veraltete Callbacks gefiltert).
+        if (dragging) _lastDragEndUtc = DateTime.MinValue;
+        return ApplyDraggingStateAsync(dragging);
+    }
+
+    private async Task ApplyDraggingStateAsync(bool dragging)
+    {
+        if (dragging
+            && _lastDragEndUtc != DateTime.MinValue
+            && (DateTime.UtcNow - _lastDragEndUtc) < IgnoreLateDragStartWindow)
+        {
+            // Ignore delayed "start" callbacks that arrive after a finished drag.
+            return;
+        }
+
+        _isDraggingFromSortable = dragging;
+        if (dragging)
+        {
+            _pointerDownTaskId = null;
+            _pointerMoved = true;
+            _dragStartedUtc = DateTime.UtcNow;
+            StartDragWatchdog();
+        }
+        else
+        {
+            _lastDragEndUtc = DateTime.UtcNow;
+            _dragStartedUtc = DateTime.MinValue;
+            StopDragWatchdog();
+        }
+
+        if (OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(dragging || _pendingDropPersistenceCount > 0);
+    }
+
+    private void BeginDropPersistence()
+    {
+        _pendingDropPersistenceCount++;
+        if (_pendingDropPersistenceCount == 1 && OnDraggingChanged.HasDelegate)
+            _ = OnDraggingChanged.InvokeAsync(true);
+    }
+
+    private async Task EndDropPersistenceAsync()
+    {
+        if (_pendingDropPersistenceCount > 0)
+            _pendingDropPersistenceCount--;
+
+        if (_pendingDropPersistenceCount == 0 && !_isDraggingFromSortable && OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(false);
+    }
+
+    private void StartDragWatchdog()
+    {
+        if (!EnableDragWatchdog) return;
+        // deprecated: Unreachable while EnableDragWatchdog is intentionally disabled.
+        // _dragWatchdogTimer?.Dispose();
+        // _dragWatchdogTimer = new System.Threading.Timer(
+        //     _ => OnDragWatchdogFired(),
+        //     null,
+        //     DragWatchdogTimeout,
+        //     System.Threading.Timeout.InfiniteTimeSpan);
+    }
+
+    private void StopDragWatchdog()
+    {
+        _dragWatchdogTimer?.Dispose();
+        _dragWatchdogTimer = null;
+    }
+
+    private void OnDragWatchdogFired()
+    {
+        // Wird auf einem Thread-Pool-Thread aufgerufen. Prüfen ob der Drag
+        // noch hängt (könnte inzwischen regulär beendet worden sein).
+        if (!_isDraggingFromSortable) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            _isDraggingFromSortable = false;
+            _dragStartedUtc = DateTime.MinValue;
+            _pointerDownTaskId = null;
+            _pointerMoved = false;
+            _initialized = false; // Kanban beim nächsten Render neu initialisieren
+            StopDragWatchdog();
+            if (OnDraggingChanged.HasDelegate)
+                await OnDraggingChanged.InvokeAsync(false);
+            StateHasChanged();
+
+            // JS-Seite ebenfalls aufräumen (Geister-Elemente, Drag-Highlighting)
+            try { await JS.InvokeVoidAsync("todoUi.disposeKanban"); } catch { }
+        });
+    }
+
+    /// <summary>
+    /// Wird vom JavaScript-Reconnect-Handler aufgerufen, wenn der Blazor-Circuit
+    /// nach einer Offline-Phase wieder verbunden ist.
+    /// Stellt sicher, dass ein hängengebliebener Drag-State (_isDraggingFromSortable = true)
+    /// zurückgesetzt wird, damit ShouldRender() wieder true liefert und die UI
+    /// nicht eingefroren bleibt.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnCircuitReconnected()
+    {
+        _isDraggingFromSortable = false;
+        _dragStartedUtc = DateTime.MinValue;
+        _pointerDownTaskId = null;
+        _pointerMoved = false;
+        _initialized = false; // Kanban beim nächsten Render neu initialisieren
+        StopDragWatchdog();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnKanbanColumnsReordered(string[] orderedColumns)
+    {
+        _error = "";
+        if (orderedColumns is null || orderedColumns.Length == 0)
+            return;
+
+        try
+        {
+            await ColumnService.ReorderColumnsAsync(_userId, List.Id, orderedColumns);
+            await OnChanged.InvokeAsync();
+            RequestKanbanResync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanColumnsReorder"].Value, List.Name, ex.Message);
+            await OnChanged.InvokeAsync();
+            RequestKanbanResync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // ✅ WICHTIG: fromCol / toCol sind jetzt echte Spaltennamen, keine IDs mehr!
+    [JSInvokable]
+    public Task OnKanbanDropped(string taskId, string fromCol, string toCol, string[] fromIds, string[] toIds)
+    {
+        _error = "";
+
+        if (!Guid.TryParse(taskId, out var movedId))
+            return Task.CompletedTask;
+
+        var moved = List.Tasks.FirstOrDefault(t => t.Id == movedId);
+        if (moved is null)
+            return Task.CompletedTask;
+
+        fromCol = (fromCol ?? "").Trim();
+        toCol = (toCol ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(fromCol) || string.IsNullOrWhiteSpace(toCol))
+            return Task.CompletedTask;
+
+        // Harte Validierung (verhindert Drops in "Geisterspalten")
+        if (List.Columns is null
+            || !List.Columns.Contains(fromCol)
+            || !List.Columns.Contains(toCol))
+        {
+            _error = string.Format(L["Err_KanbanDropInvalid"].Value, fromCol, toCol, List.Name);
+            _ = OnChanged.InvokeAsync();
+            return Task.CompletedTask;
+        }
+
+        // Spalte im UI sofort setzen
+        moved.Column = toCol;
+
+        // Erledigt-Status basierend auf Ziel- und Quellspalte setzen
+        var movingIntoDone = IsDoneColumn(toCol) && !IsDoneColumn(fromCol);
+        var movingOutOfDone = IsDoneColumn(fromCol) && !IsDoneColumn(toCol);
+
+        if (movingIntoDone)
+        {
+            moved.Done = true;
+            moved.ReminderAtUtc = null;
+        }
+        else if (movingOutOfDone)
+        {
+            moved.Done = false;
+        }
+
+        // ==============================
+        // ✅ CUSTOM: Reihenfolge ist User-Driven -> persistieren
+        // ==============================
+        if (SortMode == ListSortMode.Custom)
+        {
+            ApplyKanbanOrdersStrict(toCol, toIds);
+
+            if (!string.Equals(fromCol, toCol, StringComparison.Ordinal))
+                ApplyKanbanOrdersStrict(fromCol, fromIds);
+
+            // Reihenfolge merken, damit OnParametersSet sie nach dem Parent-Reload
+            // auf das neue List-Objekt übertragen kann (verhindert Zurückspringen).
+            _pendingColOrder = new Dictionary<string, string[]>(StringComparer.Ordinal)
+            {
+                [toCol] = toIds
+            };
+            if (!string.Equals(fromCol, toCol, StringComparison.Ordinal))
+                _pendingColOrder[fromCol] = fromIds;
+
+            // ✅ Optimistisches UI-Update sofort anzeigen – JS-Callback kehrt JETZT zurück.
+            // Persistence (HTTP + SQLite) läuft im Hintergrund und blockiert weder den
+            // JS-Thread noch die nächste Benutzerinteraktion. Besonders wichtig in der
+            // MAUI-App: die mobilen Services versuchen HTTP zuerst (1-3 s Latenz) und
+            // fallen dann auf SQLite zurück. Würden wir hier awaiten, hinge die UI für
+            // genau diese Zeit ein.
+            StateHasChanged();
+            BeginDropPersistence();
+            _ = PersistKanbanDropAsync(moved, fromCol, toCol, fromIds, toIds);
+            return Task.CompletedTask;
+        }
+
+        // ==============================
+        // ✅ NICHT-CUSTOM: Reihenfolge ergibt sich aus SortMode -> KEIN Reorder persistieren
+        //    (sonst Chaos, weil UI nach DueDate/Importance/etc. wieder anders rendert)
+        // ==============================
+
+        // Für späteres Zurückschalten auf Custom: ans Ende der Zielspalte hängen
+        var max = List.Tasks
+            .Where(t => string.Equals(t.Column, toCol, StringComparison.Ordinal) && t.Id != moved.Id)
+            .Max(t => (int?)t.KanbanSortOrder) ?? -1;
+
+        moved.KanbanSortOrder = max + 1;
+
+        StateHasChanged();
+        BeginDropPersistence();
+        _ = PersistKanbanMoveAsync(moved, fromCol, toCol);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Persistiert einen Kanban-Drop (Custom-Modus) im Hintergrund.
+    /// Wird nach dem optimistischen UI-Update fire-and-forget aufgerufen,
+    /// damit der JS-Callback sofort zurückkehren kann.
+    /// </summary>
+    private async Task PersistKanbanDropAsync(TodoTaskEntity moved, string fromCol, string toCol, string[] fromIds, string[] toIds)
+    {
+        try
+        {
+            // Jede Operation bekommt ein eigenes Timeout, damit ein langsamer UpdateTask-Aufruf
+            // nicht das Timeout der nachfolgenden Reorder-Aufrufe aufbraucht. Die mobilen Services
+            // haben außerdem einen eigenen Fallback (MarkServerUnreachable + SQLite-Queue), der
+            // unabhängig vom hier übergebenen Token arbeitet.
+            using var ctsUpdate = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await TaskService.UpdateTaskAsync(_userId, List.Id, moved, ctsUpdate.Token);
+
+            using var ctsReorderTo = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await TaskService.ReorderKanbanColumnAsync(_userId, List.Id, toCol, ParseGuids(toIds), ctsReorderTo.Token);
+            if (!string.Equals(fromCol, toCol, StringComparison.Ordinal))
+            {
+                using var ctsReorderFrom = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await TaskService.ReorderKanbanColumnAsync(_userId, List.Id, fromCol, ParseGuids(fromIds), ctsReorderFrom.Token);
+            }
+
+            // Ab jetzt ist der vollständige Drop auf dem Server gespeichert. Der folgende
+            // Reload darf deshalb den finalen Automatisierungszustand übernehmen, etwa wenn
+            // eine Regel die Karte anschließend in eine weitere Spalte verschoben hat.
+            _pendingColOrder = null;
+
+            // Nur wenn online: Parent holt frische Serverdaten.
+            if (IsOnline)
+                await OnChanged.InvokeAsync();
+
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            if (_disposed) return;
+
+            _error = IsLikelyTimeoutOrOffline(ex)
+                ? string.Format(L["Err_KanbanDropOffline"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message)
+                : string.Format(L["Err_KanbanDropFailed"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message);
+
+            // Bei Timeout/Offline den optimistischen UI-Stand nicht durch Resync zurückspringen lassen.
+            if (!IsLikelyTimeoutOrOffline(ex))
+            {
+                _pendingColOrder = null;
+                await OnChanged.InvokeAsync();
+                RequestKanbanResync();
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            if (!_disposed)
+                await EndDropPersistenceAsync();
+        }
+    }
+
+    /// <summary>
+    /// Persistiert eine Spalten-Verschiebung (nicht-Custom-Modus) im Hintergrund.
+    /// </summary>
+    private async Task PersistKanbanMoveAsync(TodoTaskEntity moved, string fromCol, string toCol)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await TaskService.UpdateTaskAsync(_userId, List.Id, moved, cts.Token);
+
+            if (IsOnline)
+                await OnChanged.InvokeAsync();
+
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            if (_disposed) return;
+
+            _error = IsLikelyTimeoutOrOffline(ex)
+                ? string.Format(L["Err_KanbanMoveOffline"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message)
+                : string.Format(L["Err_KanbanMoveFailed"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message);
+
+            if (!IsLikelyTimeoutOrOffline(ex))
+            {
+                await OnChanged.InvokeAsync();
+                RequestKanbanResync();
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            if (!_disposed)
+                await EndDropPersistenceAsync();
+        }
+    }
+
+    private static bool IsLikelyTimeoutOrOffline(Exception ex)
+    {
+        // OperationCanceledException covers both TaskCanceledException (HTTP timeout / user CT)
+        // and plain OperationCanceledException (e.g., SQLite cancelled by a CancellationToken).
+        if (ex is OperationCanceledException || ex is TimeoutException || ex is HttpRequestException)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("HttpClient.Timeout", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("The request was canceled", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("network", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("offline", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("connection", StringComparison.OrdinalIgnoreCase);
+    }
+
+
+    /* ---------- Card click handling ---------- */
+
+    private void OnCardPointerDown(Guid taskId, PointerEventArgs e)
+    {
+        _pointerDownTaskId = taskId;
+        _pointerDownX = e.ClientX;
+        _pointerDownY = e.ClientY;
+        _pointerDownUtc = DateTime.UtcNow;
+        _pointerMoved = false;
+    }
+
+    private void OnCardPointerMove(PointerEventArgs e)
+    {
+        if (_pointerDownTaskId is null) return;
+
+        var dx = Math.Abs(e.ClientX - _pointerDownX);
+        var dy = Math.Abs(e.ClientY - _pointerDownY);
+
+        if (dx > ClickMoveThresholdPx || dy > ClickMoveThresholdPx)
+            _pointerMoved = true;
+    }
+
+    private async Task OnCardPointerUpAsync(TodoTaskEntity t, PointerEventArgs e)
+    {
+        try
+        {
+            if ((DateTime.UtcNow - _lastDragEndUtc).TotalMilliseconds < ClickBlockAfterDragMs)
+                return;
+
+            if (_isDraggingFromSortable)
+                return;
+
+            if (_pointerDownTaskId != t.Id)
+                return;
+
+            if ((DateTime.UtcNow - _pointerDownUtc).TotalMilliseconds < ClickMinMs)
+                return;
+
+            if (_pointerMoved)
+                return;
+
+            // ✅ wie ToDoListView: Auswahl an Workspace melden -> TaskEditModal öffnet rechts
+            if (SelectionMode)
+            {
+                if (!_selectedTaskIds.Add(t.Id))
+                    _selectedTaskIds.Remove(t.Id);
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            if (OnTaskSelected.HasDelegate)
+                await OnTaskSelected.InvokeAsync(t);
+        }
+        finally
+        {
+            _pointerDownTaskId = null;
+            _pointerMoved = false;
+        }
+    }
+
+    private void OnCardPointerCancel(PointerEventArgs _)
+    {
+        _pointerDownTaskId = null;
+        _pointerMoved = false;
+    }
+
+
+    /* ---------- Add card ---------- */
+
+    private string NewTitleFor(string col)
+        => _newTitles.TryGetValue(col, out var v) ? v : "";
+
+    private void SetNewTitleFor(string col, string v)
+        => _newTitles[col] = v ?? "";
+
+    private string NewTitleInputKey(string col)
+        => $"{col}:{(_newTitleInputVersions.TryGetValue(col, out var version) ? version : 0)}";
+
+    private void ResetNewTitleInput(string col)
+    {
+        _newTitles[col] = "";
+        _newTitleInputVersions[col] = _newTitleInputVersions.TryGetValue(col, out var version)
+            ? version + 1
+            : 1;
+    }
+
+    private void RestoreNewTitleInput(string col, string? value)
+    {
+        _newTitles[col] = value ?? "";
+        _newTitleInputVersions[col] = _newTitleInputVersions.TryGetValue(col, out var version)
+            ? version + 1
+            : 1;
+    }
+
+    private readonly HashSet<string> _creatingCardColumns = new(StringComparer.Ordinal);
+
+    private async Task OnNewCardKeyDown(string col, KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        await CreateCardAsync(col);
+    }
+
+    private async Task CreateCardAsync(string col)
+    {
+        _error = "";
+
+        if (!_creatingCardColumns.Add(col))
+            return;
+
+        var raw = NewTitleFor(col);
+        var title = (raw ?? "").Trim();
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            _error = string.Format(L["Err_KanbanCardCreateEmpty"].Value, col);
+            _creatingCardColumns.Remove(col);
+            return;
+        }
+
+        var max = List.Tasks.Where(t => t.Column == col)
+                            .Max(t => (int?)t.KanbanSortOrder) ?? -1;
+
+        var createInDoneColumn = IsDoneColumn(col);
+
+        var task = new TodoTaskEntity
+        {
+            Id = Guid.NewGuid(),
+            Title = title,
+            Column = col,
+            KanbanSortOrder = max + 1,
+            Done = createInDoneColumn,
+            // StartDate = DateTime.Today,
+            // DueDate = DateTime.Today.AddDays(1)
+        };
+
+        try
+        {
+            ResetNewTitleInput(col);
+            await InvokeAsync(StateHasChanged);
+            await TaskService.AddTaskAsync(_userId, List.Id, task);
+            await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_KanbanCardCreate"].Value, col, title, ex.Message);
+            RestoreNewTitleInput(col, raw);
+        }
+        finally
+        {
+            _creatingCardColumns.Remove(col);
+        }
+    }
+
+    private bool CanWriteToList()
+    {
+        if (List is null) return true;
+
+        var uid = (_userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+
+        if (string.Equals((List.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var p = List.Participants?.FirstOrDefault(x =>
+            (!string.IsNullOrWhiteSpace(x.UserId) && string.Equals(x.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(x.Email) && string.Equals(x.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+
+        if (p is null) return false;
+        return p.Role != ListRole.Observer;
+    }
+
+    /* ---------- helpers ---------- */
+
+    private void ApplyKanbanOrdersStrict(string col, string[] ids)
+    {
+        // ids = neue Reihenfolge (Top -> Bottom) aus dem DOM
+        var index = new Dictionary<Guid, int>(ids.Length);
+
+        for (int i = 0; i < ids.Length; i++)
+        {
+            if (Guid.TryParse(ids[i], out var g))
+                index[g] = i;
+        }
+
+        // 1) SortOrder + Column setzen (für alle, die in ids vorkommen)
+        foreach (var kv in index)
+        {
+            var t = List.Tasks.FirstOrDefault(x => x.Id == kv.Key);
+            if (t is null) continue;
+
+            t.Column = col;
+            t.KanbanSortOrder = kv.Value;
+        }
+
+        // 2) Tasks, die in der Spalte sind aber NICHT in ids vorkommen (sollte selten sein),
+        //    ans Ende hängen (damit nichts „hochspringt")
+        var max = index.Count;
+        foreach (var t in List.Tasks.Where(t => t.Column == col))
+        {
+            if (!index.ContainsKey(t.Id))
+                t.KanbanSortOrder = max++;
+        }
+
+        // 3) Zusätzlich: In-Memory Reihenfolge der List.Tasks so umsortieren,
+        //    dass Blazor DOM exakt nach ids rendert (unabhängig von stable sort / Diffing)
+        var inColOrdered = List.Tasks
+            .Where(t => t.Column == col)
+            .OrderBy(t => t.KanbanSortOrder)
+            .ToList();
+
+        var other = List.Tasks
+            .Where(t => t.Column != col)
+            .ToList();
+
+        List.Tasks.Clear();
+        List.Tasks.AddRange(other);
+        List.Tasks.AddRange(inColOrdered);
+    }
+
+
+    private static List<Guid> ParseGuids(string[] ids)
+    {
+        var result = new List<Guid>(ids.Length);
+        foreach (var s in ids)
+            if (Guid.TryParse(s, out var g))
+                result.Add(g);
+        return result;
+    }
+
+    // ✅ Nur noch DOM-Key (kollisionsarm) – NICHT für Business-Logik verwenden
+    private static string GetColumnDomKey(string col)
+    {
+        col ??= "";
+        var bytes = Encoding.UTF8.GetBytes(col);
+        var hash = SHA256.HashData(bytes);
+        // 10 hex chars reichen locker
+        var hex = Convert.ToHexString(hash).ToLowerInvariant();
+        return "c" + hex.Substring(0, 10);
+    }
+
+    private static string GetColumnScrollDomId(string colKey) => $"kanban-col-scroll-{colKey}";
+    private static string GetColumnHostDomId(string colKey) => $"kanban-col-host-{colKey}";
+
+    /* Karten einfärben */
+    private static bool IsDueSoon(TodoTaskEntity t, int days = 2)
+    {
+        if (t.Done) return false;
+        if (t.DueDate is null) return false;
+
+        var due = t.DueDate.Value.Date;
+        var today = DateTime.Today;
+        // Überfällige Karten (Vergangenheit) UND bald fällige Karten sind beide „urgent"
+        return due <= today.AddDays(days);
+    }
+
+    private static string? NormalizeHex(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+        var s = input.Trim();
+        if (!s.StartsWith("#")) s = "#" + s;
+
+        // optional: #RGB -> #RRGGBB
+        if (s.Length == 4)
+            s = "#" + string.Concat(s[1], s[1], s[2], s[2], s[3], s[3]);
+
+        if (s.Length != 7) return null;
+
+        for (int i = 1; i < 7; i++)
+        {
+            var c = s[i];
+            var isHex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+            if (!isHex) return null;
+        }
+
+        return s.ToLowerInvariant();
+    }
+
+    private string GetCardStyle(TodoTaskEntity t)
+    {
+        var manual = NormalizeHex(t.CardColor);
+        var dueSoon = IsDueSoon(t);
+
+        // Basis
+        var border = dueSoon ? "border-color: lightcoral;" : "";
+
+        if (dueSoon)
+        {
+            return $"background-color: lightcoral;{border}";
+        }
+
+        if (manual is null)
+        {
+            return $"{border}";
+        }
+
+        // Manuelle Farbe vorhanden:
+        if (t.CardColorMode == TaskCardColorMode.Full)
+        {
+            return $"background-color: {manual};{border}";
+        }
+
+        // TopOnly: wir färben NICHT den ganzen Body, sondern nutzen ein Top-Band (via inline CSS Variable)
+        // -> Style liefert nur Border, das Band kommt im Markup.
+        return $"{border}";
+    }
+
+    private string? GetCardTopBandColor(TodoTaskEntity t)
+    {
+        var manual = NormalizeHex(t.CardColor);
+        if (manual is null) return null;
+        if (IsDueSoon(t)) return null;
+
+        return t.CardColorMode == TaskCardColorMode.TopOnly ? manual : null;
+    }
+
+    /* Ende Karten einfärben */
+
+    /* Filter */
+    [Parameter] public TodoTaskFilter? Filter { get; set; }
+    private bool FilterActive => Filter?.IsActive() == true;
+
+    private bool MatchesFilter(TodoTaskEntity t)
+    {
+        var f = Filter;
+        if (f is null || !f.IsActive())
+            return true;
+
+        // ==========================
+        // Query
+        // ==========================
+        if (!string.IsNullOrWhiteSpace(f.Query))
+        {
+            var q = f.Query.Trim().ToLowerInvariant();
+            var hay = $"{t.Title} {t.Description}".ToLowerInvariant();
+            if (!hay.Contains(q))
+                return false;
+        }
+
+        // ==========================
+        // Done
+        // ==========================
+        if (f.Done is not null && t.Done != f.Done.Value)
+            return false;
+
+        // ==========================
+        // Due buckets
+        // ==========================
+        if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
+        {
+            var today = DateTime.Today;
+            var due = t.DueDate?.Date;
+
+            var match =
+                (f.NoDueDate && due is null) ||
+                (f.Overdue && due is not null && due.Value < today) ||
+                (f.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1)) ||
+                (f.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7)) ||
+                (f.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
+
+            if (!match)
+                return false;
+        }
+
+        // ==========================
+        // Labels
+        // ==========================
+        if (f.LabelIds.Count > 0)
+        {
+            if (t.LabelLinks is null || t.LabelLinks.Count == 0)
+                return false;
+
+            if (!t.LabelLinks.Any(l => f.LabelIds.Contains(l.LabelId)))
+                return false;
+        }
+
+        // ==========================
+        // 🔹 ASSIGNEE (Bearbeiter)
+        // ==========================
+        var assignee = (t.Assignee ?? "").Trim();
+        var me = (_userId ?? "").Trim();
+
+        // ❌ Kein Bearbeiter
+        if (f.NoAssignee)
+        {
+            if (!string.IsNullOrWhiteSpace(assignee))
+                return false;
+        }
+
+        // 👤 Mir zugewiesen
+        if (f.AssignedToMe)
+        {
+            if (string.IsNullOrWhiteSpace(me))
+                return false;
+
+            if (!string.Equals(assignee, me, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+
+        // ==========================
+        // 👀 MEMBERS = Beobachter
+        // ==========================
+        var members = t.MemberUserIds ?? new List<string>();
+
+        // Konkrete Beobachter ausgewählt
+        if (f.MemberUserIds.Count > 0)
+        {
+            if (members.Count == 0)
+                return false;
+
+            if (!members.Any(m => f.MemberUserIds.Contains(m)))
+                return false;
+        }
+
+        // Keine Beobachter
+        if (f.NoMembers)
+        {
+            if (members.Count > 0)
+                return false;
+        }
+
+        return true;
+    }
+
+
+
+
+
+    /* Ende Filter */
+
+    /* ---------- Bearbeiter-Avatar ---------- */
+
+    private string GetAssigneeInitials(string userId)
+    {
+        var p = FindParticipant(userId);
+        if (p is not null && !string.IsNullOrWhiteSpace(p.DisplayName))
+        {
+            var parts = p.DisplayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+                return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+            if (parts[0].Length > 0)
+                return parts[0][0].ToString().ToUpperInvariant();
+        }
+        return userId.Length > 0 ? userId[0].ToString().ToUpperInvariant() : "?";
+    }
+
+    private string GetAssigneeDisplayName(string userId)
+    {
+        var p = FindParticipant(userId);
+        return (p is not null && !string.IsNullOrWhiteSpace(p.DisplayName)) ? p.DisplayName : userId;
+    }
+
+    private ListParticipantEntity? FindParticipant(string userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || List.Participants is null)
+            return null;
+
+        var uid = userId.Trim();
+        return List.Participants.FirstOrDefault(x =>
+            (!string.IsNullOrWhiteSpace(x.UserId) && string.Equals(x.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(x.Email) && string.Equals(x.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string GetAssigneeAvatarColor(string userId)
+    {
+        var colors = new[] { "#0079bf", "#d29034", "#519839", "#b04632", "#89609e", "#cd5a91", "#4bbf6b", "#00aecc", "#838c91" };
+        var hash = 0;
+        foreach (var c in userId)
+            hash = unchecked(hash * 31 + c);
+        return colors[Math.Abs(hash) % colors.Length];
+    }
+
+    /* Ende Bearbeiter-Avatar */
+}

@@ -1,0 +1,25 @@
+<div class="grid md:grid-cols-4 gap-3">
+    <div class="rounded-2xl border p-3 bg-white">
+        <div class="text-xs text-slate-500">@L["Dashboard_Kpi_Total"]</div>
+        <div class="text-2xl font-semibold">@Total</div>
+    </div>
+    <div class="rounded-2xl border p-3 bg-white">
+        <div class="text-xs text-slate-500">@L["Dashboard_Kpi_Open"]</div>
+        <div class="text-2xl font-semibold">@Open</div>
+    </div>
+    <div class="rounded-2xl border p-3 bg-white">
+        <div class="text-xs text-slate-500">@L["Dashboard_Kpi_Done"]</div>
+        <div class="text-2xl font-semibold">@Done</div>
+    </div>
+    <div class="rounded-2xl border p-3 bg-white">
+        <div class="text-xs text-slate-500">@L["Dashboard_Kpi_Completion"]</div>
+        <div class="text-2xl font-semibold">@CompletionPercent%</div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int Open { get; set; }
+    [Parameter] public int Done { get; set; }
+    [Parameter] public int CompletionPercent { get; set; }
+}

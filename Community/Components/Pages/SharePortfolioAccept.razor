@@ -1,0 +1,35 @@
+@page "/share/portfolio/{PortfolioId:guid}"
+@attribute [Authorize]
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Authorization
+@inject IPortfolioSharingService SharingService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@inject NavigationRefreshNotifier NavigationRefresh
+
+<PageTitle>Portfolio-Einladung</PageTitle>
+<div class="mx-auto max-w-xl p-6">
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+        <h1 class="text-xl font-semibold">Portfolio-Einladung</h1>
+        @if (_busy) { <p>Einladung wird geprüft …</p> }
+        else { <p class="text-sm @(_success ? "text-emerald-700" : "text-red-700")">@_message</p> }
+        @if (_success) { <FluentButton Appearance="Appearance.Accent" OnClick="OpenPortfolio">Portfolio öffnen</FluentButton> }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid PortfolioId { get; set; }
+    [SupplyParameterFromQuery(Name = "token")] public string? Token { get; set; }
+    private bool _busy = true; private bool _success; private string _message = "";
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? state.User.FindFirst("sub")?.Value;
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(Token)) { _message = "Einladung ist unvollständig."; _busy = false; return; }
+        (_success, _message) = await SharingService.AcceptAsync(userId, PortfolioId, Token);
+        if (_success)
+            await NavigationRefresh.RequestRefreshAsync();
+        _busy = false;
+    }
+    private void OpenPortfolio() => Navigation.NavigateTo($"/portfolio/{PortfolioId}");
+}

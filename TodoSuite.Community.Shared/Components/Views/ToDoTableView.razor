@@ -1,0 +1,1692 @@
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@using Microsoft.AspNetCore.Components.Rendering
+@using Microsoft.AspNetCore.Components.Web
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@inject IJSRuntime JS
+@inject ITodoTaskService TaskService
+@inject ITodoCurrentUserService CurrentUserService
+@inject ITodoTableColumnOrderService TableColumnOrderService
+@implements IAsyncDisposable
+
+@if (List is null)
+{
+    <div class="p-4 text-slate-500">@L["Common_NoListLoaded"]</div>
+}
+else
+{
+    <div class="h-full min-h-0 flex flex-col overflow-hidden px-3 pb-3">
+        <div class="mb-2 flex items-center justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+                <div class="text-sm text-slate-600 rounded-md px-2 py-1" style="background-color: var(--neutral-fill-stealth-rest); color: var(--neutral-foreground-rest);">@L["Table_TaskCount", VisibleTasks.Count]</div>
+                @if (!string.IsNullOrWhiteSpace(_sortColumn))
+                {
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm shadow-sm hover:bg-slate-50"
+                            @onclick="ResetSort">
+                        <FluentIcon Value="@(new Icons.Regular.Size16.ArrowCounterclockwise())" />
+                        @L["Table_ResetSort"]
+                    </button>
+                }
+            </div>
+            @if (_selectedTaskIds.Count > 0)
+            {
+                <BulkTaskActionBar List="List"
+                                   SelectedTaskIds="_selectedTaskIds"
+                                   OnChanged="HandleBulkChangedAsync"
+                                   OnSelectionCleared="ClearSelectionAsync" />
+            }
+            @if (CanAdminCurrentList())
+            {
+            <div id="todo-table-column-picker" class="relative">
+                <button type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm shadow-sm hover:bg-slate-50"
+                        @onclick="() => _columnPickerOpen = !_columnPickerOpen">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" />
+                    @L["Table_Columns"]
+                </button>
+                @if (_columnPickerOpen)
+                {
+                    <div class="absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lg z-30"
+                         @onclick:stopPropagation="true">
+                        @foreach (var column in HideableColumns)
+                        {
+                            <label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
+                                <input type="checkbox" checked="@(!_hiddenColumns.Contains(column.Key))" @onchange="e => ToggleColumnAsync(column.Key, e)" />
+                                <span class="truncate">@column.Title</span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_addError))
+        {
+            <div class="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                @_addError
+            </div>
+        }
+
+        <div class="flex-1 min-h-0 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div class="min-w-max" @key="_tableRenderVersion">
+                <div class="todo-table-row sticky top-0 z-20 border-b border-slate-200 bg-slate-50"
+                     style="@GridStyle"
+                     @ref="_headerHost">
+                    @foreach (var column in VisibleColumns)
+                    {
+                        <div class="@CellClass(column, header: true)"
+                             @key="column.Key"
+                             data-column-key="@column.Key"
+                             data-sortable-column="@CanReorderColumn(column).ToString().ToLowerInvariant()">
+                            @if (CanReorderColumn(column))
+                            {
+                                <span class="table-column-drag-handle cursor-grab text-slate-400" title="@L["Table_MoveColumn"]">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.ArrowMove())" />
+                                </span>
+                            }
+                            else if (!IsCenteredIconColumn(column.Key))
+                            {
+                                <span class="w-5 shrink-0"></span>
+                            }
+                            @if (column.Key == "attachments")
+                            {
+                                <span class="inline-flex items-center justify-center text-slate-600" title="@L["Task_Tab_Attachments_Header"]">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Attach())" />
+                                </span>
+                            }
+                            else if (column.Key == "comments")
+                            {
+                                <span class="inline-flex items-center justify-center text-slate-600" title="@L["Task_Tab_Comments_Header"]">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Chat())" />
+                                </span>
+                            }
+                            else if (column.Key == "open")
+                            {
+                                <span class="inline-flex items-center justify-center text-slate-600" title="@L["Table_Open"]">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Eye())" />
+                                </span>
+                            }
+                            else if (column.Key == "notify")
+                            {
+                                <span class="inline-flex items-center justify-center text-slate-600" title="@L["Table_Notify"]">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Alert())" />
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="truncate font-medium">@column.Title</span>
+                            }
+                            @if (IsColumnActive(column.Key))
+                            {
+                                <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-700">
+                                    @if (IsSortedColumn(column.Key))
+                                    {
+                                        <span class="rounded bg-sky-100 px-1" title="@SortTitle">@L["Table_SortShort"]</span>
+                                    }
+                                    @if (IsFilteredColumn(column.Key))
+                                    {
+                                        <span class="rounded bg-sky-100 px-1" title="@L["Page_Workspace_FilterActive"]">@L["Table_FilterShort"]</span>
+                                    }
+                                </span>
+                            }
+                            @if (column.Sortable || column.Hideable)
+                            {
+                                <div class="ml-auto" data-nodrag="true">
+                                    <FloatingDropdown MinWidth="224" AlignEnd="true">
+                                        <ChildContent>
+                                            <button type="button"
+                                                    class="@ColumnOptionsButtonClass(column.Key)"
+                                                    title="@L["Table_ColumnOptions"]"
+                                                    data-nodrag="true">
+                                                <FluentIcon Value="@(new Icons.Filled.Size20.MoreHorizontal())" />
+                                            </button>
+                                        </ChildContent>
+                                        <DropdownContent>
+                                            <div class="w-56 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+                                                 data-nodrag="true"
+                                                 @onclick:stopPropagation="true">
+                                                @if (column.Sortable)
+                                                {
+                                                    <button type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50" @onclick="() => SetSort(column.Key, true)">@L["Table_SortAscending"]</button>
+                                                    <button type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50" @onclick="() => SetSort(column.Key, false)">@L["Table_SortDescending"]</button>
+                                                    <div class="border-t border-slate-100"></div>
+                                                    <div class="p-2">
+                                                        <input class="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                                                               placeholder="@L["Table_FilterPlaceholder"]"
+                                                               value="@GetFilter(column.Key)"
+                                                               @oninput="e => SetFilter(column.Key, e.Value?.ToString())" />
+                                                    </div>
+                                                }
+                                                @if (CanHideColumn(column))
+                                                {
+                                                    <button type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50" @onclick="() => HideColumnAsync(column.Key)">@L["Table_HideColumn"]</button>
+                                                }
+                                            </div>
+                                        </DropdownContent>
+                                    </FloatingDropdown>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div @ref="_taskRowsHost" @key="_taskRowsRenderVersion">
+                    @foreach (var item in VisibleTasks.Select((task, index) => new { task, index }))
+                    {
+                        <div class="todo-table-row border-b border-slate-100 hover:bg-slate-50"
+                             @key="item.task.Id"
+                             style="@GridStyle"
+                             data-taskid="@item.task.Id"
+                             data-task-reorderable="@CanReorderTask(item.task).ToString().ToLowerInvariant()">
+                            @foreach (var column in VisibleColumns)
+                            {
+                                <div class="@CellClass(column)" @key="column.Key">
+                                    @if (column.Key == "open")
+                                    {
+                                        <span class="todo-table-action-slot">
+                                            <button type="button"
+                                                    class="@ActionButtonClass(active: false, visibleWhenInactive: AlwaysShowActions, showOnHover: true)"
+                                                    title="@L["Table_OpenTask"]"
+                                                    @onclick:stopPropagation="true"
+                                                    @onclick="() => OpenTaskDetailsAsync(item.task)">
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.Eye())" />
+                                            </button>
+                                        </span>
+                                    }
+                                    else if (column.Key == "attachments")
+                                    {
+                                        var hasAttachments = (item.task.Attachments?.Count ?? 0) > 0;
+                                        <span class="todo-table-action-slot">
+                                            <button type="button"
+                                                    class="@ActionButtonClass(hasAttachments, visibleWhenInactive: AlwaysShowActions, showOnHover: true)"
+                                                    title="@L["Table_OpenAttachments"]"
+                                                    @onclick:stopPropagation="true"
+                                                    @onclick="() => OpenTaskAttachmentsAsync(item.task)">
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.Attach())" />
+                                            </button>
+                                        </span>
+                                    }
+                                    else if (column.Key == "comments")
+                                    {
+                                        var hasComments = (item.task.Comments?.Count ?? 0) > 0;
+                                        <span class="todo-table-action-slot">
+                                            <button type="button"
+                                                    class="@ActionButtonClass(hasComments, visibleWhenInactive: AlwaysShowActions, showOnHover: true)"
+                                                    title="@L["Table_OpenComments"]"
+                                                    @onclick:stopPropagation="true"
+                                                    @onclick="() => OpenTaskCommentsAsync(item.task)">
+                                                <FluentIcon Value="@(new Icons.Regular.Size16.Chat())" />
+                                            </button>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        @RenderCell(column, item.task, item.index)
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (CanWriteToList())
+                {
+                    <div class="todo-table-row todo-table-add-row border-b border-slate-100 bg-white"
+                         style="@GridStyle">
+                        @foreach (var column in VisibleColumns)
+                        {
+                            <div class="@CellClass(column)">
+                                @if (column.Key == "#")
+                                {
+                                    <span class="inline-flex items-center justify-center text-sky-600" title="@L["Table_NewTask"]">
+                                        <FluentIcon Value="@(new Icons.Regular.Size16.Add())" />
+                                    </span>
+                                }
+                                else if (IsAddInputColumn(column))
+                                {
+                                    <input class="todo-table-input todo-table-add-input"
+                                           placeholder="@L["Table_NewTask"]"
+                                           value="@_newTitle"
+                                           @oninput="OnNewTitleInput"
+                                           @onkeydown="OnNewTitleKeyDown" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public TodoListEntity? List { get; set; }
+    [Parameter] public TodoTaskFilter? Filter { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskSelected { get; set; }
+    [Parameter] public EventCallback<TodoTaskOpenRequest> OnTaskOpenRequested { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskDetailsRequested { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskAttachmentsRequested { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskCommentsRequested { get; set; }
+    [Parameter] public IReadOnlyList<TodoListEntity> AvailableLists { get; set; } = [];
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskUpdated { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public bool AlwaysShowActions { get; set; }
+    [Parameter] public bool EnableCustomFields { get; set; }
+    [Parameter] public bool SelectionMode { get; set; }
+    [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
+
+    private readonly HashSet<string> _hiddenColumns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _filters = new(StringComparer.OrdinalIgnoreCase);
+    private List<string> _columnOrder = new();
+    private string? _sortColumn;
+    private bool _sortAscending = true;
+    private bool _columnPickerOpen;
+    private bool _columnPickerHookActive;
+    private ElementReference _headerHost;
+    private ElementReference _taskRowsHost;
+    private DotNetObjectReference<ToDoTableView>? _dotNetRef;
+    private bool _sortableInitialized;
+    private bool _taskSortableInitialized;
+    private int _tableRenderVersion;
+    private int _taskRowsRenderVersion;
+    private bool _lastSelectionMode;
+    private Guid? _columnOrderListId;
+    private string _userId = "gast";
+    private string _newTitle = "";
+    private string _addError = "";
+    private bool _isAdding;
+    private bool _disposed;
+    private readonly HashSet<Guid> _selectedTaskIds = new();
+    private readonly SemaphoreSlim _addPersistLock = new(1, 1);
+    private List<Guid>? _pendingTaskOrder;
+    private Dictionary<Guid, int>? _pendingTaskOrderIndex;
+
+    private IReadOnlyList<TableColumn> BaseColumns
+    {
+        get
+        {
+            var columns = new List<TableColumn>
+            {
+                new("#", "#", false, false, false, t => ""),
+                new("open", "", false, false, false, t => ""),
+                new("attachments", T("Task_Tab_Attachments_Header"), false, false, false, t => (t.Attachments?.Count ?? 0).ToString()),
+                new("comments", T("Task_Tab_Comments_Header"), false, false, false, t => (t.Comments?.Count ?? 0).ToString()),
+                new("notify", T("Table_Notify"), false, false, false, t => IsWatchingTask(t) ? T("Table_Yes") : T("Table_No")),
+                new("title", T("FormDesigner_Field_Title"), true, true, true, t => t.Title),
+                new("done", T("Btn_Done"), true, true, true, t => t.Done ? T("Table_Yes") : T("Table_No")),
+                new("column", T("Task_Column"), true, true, true, t => t.Column),
+                new("labels", T("Task_Labels"), true, true, true, GetLabelSearchValue),
+                new("assignee", T("Task_Assignee"), true, true, true, t => GetAssigneeEmail(t.Assignee)),
+                new("start", T("Task_Date_StartDate"), true, true, true, t => t.StartDate?.ToString("dd.MM.yyyy") ?? ""),
+                new("due", T("Task_Date_DueDate"), true, true, true, t => t.DueDate?.ToString("dd.MM.yyyy") ?? ""),
+                new("important", T("Page_Important_Badge"), true, true, true, t => t.IsImportant ? T("Table_Yes") : T("Table_No")),
+                new("created", T("Table_Created"), true, true, true, t => t.CreatedAtUtc.ToString("dd.MM.yyyy"))
+            };
+
+            if (EnableCustomFields)
+            {
+                columns.AddRange((List?.CustomFields ?? new())
+                    .OrderBy(f => f.SortOrder)
+                    .Select(f => new TableColumn(CustomKey(f.Id), f.Name, true, true, true, t => GetCustomDisplayValue(t, f), f)));
+            }
+
+            return columns;
+        }
+    }
+
+    private IReadOnlyList<TableColumn> VisibleColumns => OrderedColumns.Where(c => !_hiddenColumns.Contains(c.Key)).ToList();
+    private IReadOnlyList<TableColumn> HideableColumns => OrderedColumns.Where(c => c.Hideable).ToList();
+
+    private IReadOnlyList<TableColumn> OrderedColumns
+    {
+        get
+        {
+            EnsureColumnOrder();
+            var map = BaseColumns.ToDictionary(c => c.Key, StringComparer.OrdinalIgnoreCase);
+            return _columnOrder.Where(map.ContainsKey).Select(key => map[key])
+                .Concat(BaseColumns.Where(c => !_columnOrder.Contains(c.Key, StringComparer.OrdinalIgnoreCase)))
+                .ToList();
+        }
+    }
+
+    private string GridStyle => $"grid-template-columns: {string.Join(" ", VisibleColumns.Select(ColumnWidth))};";
+
+    private List<TodoTaskEntity> VisibleTasks
+    {
+        get
+        {
+            var tasks = (List?.Tasks ?? new()).Where(t => t.DeletedAt == null).Where(MatchesFilter).Where(MatchesColumnFilters);
+            if (!string.IsNullOrWhiteSpace(_sortColumn))
+            {
+                var column = BaseColumns.FirstOrDefault(c => c.Key == _sortColumn);
+                if (column is not null)
+                {
+                    tasks = _sortAscending
+                        ? tasks.OrderBy(t => column.Value(t), StringComparer.OrdinalIgnoreCase).ThenBy(t => t.ListSortOrder)
+                        : tasks.OrderByDescending(t => column.Value(t), StringComparer.OrdinalIgnoreCase).ThenBy(t => t.ListSortOrder);
+                }
+            }
+            else
+            {
+                tasks = tasks.OrderBy(t => t.Done).ThenBy(GetEffectiveCustomOrder).ThenBy(t => t.CreatedAtUtc);
+            }
+
+            return tasks.ToList();
+        }
+    }
+
+    private TableColumn? AddInputColumn
+        => VisibleColumns.FirstOrDefault(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase))
+           ?? VisibleColumns.FirstOrDefault(c => !IsCenteredIconColumn(c.Key))
+           ?? VisibleColumns.FirstOrDefault();
+
+    private bool IsAddInputColumn(TableColumn column)
+        => AddInputColumn is { } addColumn && string.Equals(column.Key, addColumn.Key, StringComparison.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _userId = (await CurrentUserService.GetCurrentUserAsync()).UserId; } catch { }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (List is null) return;
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        await SyncColumnPickerOutsideCloseAsync();
+
+        var canReorder = CanAdminCurrentList();
+
+        if (_sortableInitialized && !canReorder)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableColumns", _headerHost); } catch { }
+            _sortableInitialized = false;
+        }
+
+        if (!_sortableInitialized && canReorder)
+        {
+            await JS.InvokeVoidAsync("todoUi.initSortableTableColumns", _headerHost, _dotNetRef);
+            _sortableInitialized = true;
+        }
+
+        var canReorderTasks = CanReorderTasks;
+        if (_taskSortableInitialized && !canReorderTasks)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableTasks", _taskRowsHost); } catch { }
+            _taskSortableInitialized = false;
+        }
+
+        if (!_taskSortableInitialized && canReorderTasks)
+        {
+            await JS.InvokeVoidAsync("todoUi.initSortableTableTasks", _taskRowsHost, _dotNetRef);
+            _taskSortableInitialized = true;
+        }
+    }
+
+    private async Task SyncColumnPickerOutsideCloseAsync()
+    {
+        const string pickerId = "todo-table-column-picker";
+
+        if (_columnPickerOpen && !_columnPickerHookActive)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("todoUi.enableDialogOutsideCloseById", pickerId, _dotNetRef, Array.Empty<string>());
+                _columnPickerHookActive = true;
+            }
+            catch { }
+        }
+        else if (!_columnPickerOpen && _columnPickerHookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", pickerId); } catch { }
+            _columnPickerHookActive = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        _columnPickerOpen = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_lastSelectionMode && !SelectionMode)
+        {
+            _selectedTaskIds.Clear();
+            _taskRowsRenderVersion++;
+        }
+        _lastSelectionMode = SelectionMode;
+
+        if (_columnOrderListId != List?.Id)
+        {
+            _columnOrderListId = List?.Id;
+            _sortableInitialized = false;
+            _columnOrder = List?.TableColumnOrder?.ToList() ?? new();
+            LoadHiddenColumnsFromList();
+        }
+        else if (List?.TableColumnOrder is { Count: > 0 } persistedOrder
+                 && !persistedOrder.SequenceEqual(_columnOrder, StringComparer.OrdinalIgnoreCase))
+        {
+            _columnOrder = persistedOrder.ToList();
+        }
+        else if (List is not null && !HiddenColumnsMatchList())
+        {
+            LoadHiddenColumnsFromList();
+        }
+
+        EnsureColumnOrder();
+        SyncPendingTaskOrderWithIncomingList();
+    }
+
+    private void SetPendingTaskOrder(List<Guid>? ids)
+    {
+        _pendingTaskOrder = ids;
+        _pendingTaskOrderIndex = ids is { Count: > 0 }
+            ? ids.Select((id, index) => new { id, index }).ToDictionary(x => x.id, x => x.index)
+            : null;
+    }
+
+    private int GetEffectiveCustomOrder(TodoTaskEntity task)
+        => _pendingTaskOrderIndex is not null && _pendingTaskOrderIndex.TryGetValue(task.Id, out var index)
+            ? index
+            : task.ListSortOrder;
+
+    private void SyncPendingTaskOrderWithIncomingList()
+    {
+        if (_pendingTaskOrder is null || List?.Tasks is null)
+            return;
+
+        var incomingOrder = List.Tasks
+            .Where(t => t.DeletedAt == null && !t.Done)
+            .OrderBy(t => t.ListSortOrder)
+            .ThenBy(t => t.CreatedAtUtc)
+            .Select(t => t.Id)
+            .ToList();
+
+        if (incomingOrder.SequenceEqual(_pendingTaskOrder))
+            SetPendingTaskOrder(null);
+    }
+
+    private void RequestTaskSortableResync()
+    {
+        _taskRowsRenderVersion++;
+        _taskSortableInitialized = false;
+    }
+
+    private void EnsureColumnOrder()
+    {
+        var keys = BaseColumns.Select(c => c.Key).ToList();
+        _columnOrder = _columnOrder.Where(k => keys.Contains(k, StringComparer.OrdinalIgnoreCase)).ToList();
+        foreach (var key in keys.Where(k => !_columnOrder.Contains(k, StringComparer.OrdinalIgnoreCase)))
+        {
+            if (string.Equals(key, "notify", StringComparison.OrdinalIgnoreCase))
+            {
+                var commentsIndex = _columnOrder.FindIndex(k => string.Equals(k, "comments", StringComparison.OrdinalIgnoreCase));
+                if (commentsIndex >= 0)
+                {
+                    _columnOrder.Insert(commentsIndex + 1, key);
+                    continue;
+                }
+            }
+
+            _columnOrder.Add(key);
+        }
+    }
+
+    private void ApplyColumnOrder(IEnumerable<string> orderedKeys)
+    {
+        var baseColumns = BaseColumns;
+        var valid = baseColumns.Select(c => c.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var fixedKeys = baseColumns.Where(c => !c.Reorderable).Select(c => c.Key).ToList();
+        var movableKeys = orderedKeys
+            .Where(valid.Contains)
+            .Where(k => baseColumns.First(c => string.Equals(c.Key, k, StringComparison.OrdinalIgnoreCase)).Reorderable)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        movableKeys.AddRange(_columnOrder
+            .Where(valid.Contains)
+            .Where(k => baseColumns.First(c => string.Equals(c.Key, k, StringComparison.OrdinalIgnoreCase)).Reorderable)
+            .Where(k => !movableKeys.Contains(k, StringComparer.OrdinalIgnoreCase)));
+
+        movableKeys.AddRange(baseColumns
+            .Where(c => c.Reorderable && !movableKeys.Contains(c.Key, StringComparer.OrdinalIgnoreCase))
+            .Select(c => c.Key));
+
+        _columnOrder = fixedKeys.Concat(movableKeys).ToList();
+    }
+
+    [JSInvokable]
+    public async Task OnTableColumnsReordered(string[] orderedKeys)
+    {
+        if (List is null || !CanAdminCurrentList())
+            return;
+
+        ApplyColumnOrder(orderedKeys);
+
+        try
+        {
+            var savedOrder = await TableColumnOrderService.SetTableColumnOrderAsync(_userId, List.Id, _columnOrder);
+            List.TableColumnOrder = savedOrder.ToList();
+            ApplyColumnOrder(savedOrder);
+        }
+        catch
+        {
+            _columnOrder = List.TableColumnOrder?.ToList() ?? new();
+            EnsureColumnOrder();
+        }
+
+        if (_sortableInitialized)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableColumns", _headerHost); } catch { }
+            _sortableInitialized = false;
+        }
+
+        _tableRenderVersion++;
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnTableTasksReordered(string[] orderedTaskIds)
+    {
+        if (List is null || !CanReorderTasks)
+            return;
+
+        var ids = orderedTaskIds
+            .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .ToList();
+
+        if (ids.Count == 0)
+            return;
+
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var task = List.Tasks.FirstOrDefault(t => t.Id == ids[i]);
+            if (task is not null)
+                task.ListSortOrder = i;
+        }
+
+        SetPendingTaskOrder(ids);
+        await InvokeAsync(StateHasChanged);
+        _ = PersistTableTaskReorderAsync(ids);
+    }
+
+    private async Task PersistTableTaskReorderAsync(List<Guid> ids)
+    {
+        try
+        {
+            if (List is null)
+                return;
+
+            await TaskService.ReorderListAsync(_userId, List.Id, ids);
+            await OnChanged.InvokeAsync();
+            if (_disposed)
+                return;
+
+            RequestTaskSortableResync();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            if (_disposed)
+                return;
+
+            _addError = ex.Message;
+            SetPendingTaskOrder(null);
+            await OnChanged.InvokeAsync();
+            RequestTaskSortableResync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private RenderFragment RenderCell(TableColumn column, TodoTaskEntity task, int index) => builder =>
+    {
+        var seq = 0;
+        if (column.Key == "#")
+        {
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "flex items-center justify-center gap-1");
+            if (SelectionMode)
+            {
+                builder.OpenElement(seq++, "input");
+                builder.AddAttribute(seq++, "type", "checkbox");
+                builder.AddAttribute(seq++, "class", "h-4 w-4 rounded border-slate-300");
+                builder.AddAttribute(seq++, "checked", IsTaskSelected(task.Id));
+                builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+                builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => ToggleTaskSelection(task.Id, e)));
+                builder.CloseElement();
+            }
+            else if (CanReorderTask(task))
+            {
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", "table-task-drag-handle inline-flex w-5 cursor-grab select-none items-center justify-center text-slate-300 hover:text-slate-500");
+                builder.AddAttribute(seq++, "title", L["Table_MoveTask"]);
+                builder.AddContent(seq++, "⋮⋮");
+                builder.CloseElement();
+            }
+            else
+            {
+                builder.AddContent(seq++, index + 1);
+            }
+            builder.CloseElement();
+            return;
+        }
+
+        if (column.Key == "open")
+        {
+            RenderActionIcon(builder, ref seq, new Icons.Regular.Size16.Eye(), "Aufgabe öffnen", () => OpenTaskDetailsAsync(task), visibleWhenInactive: AlwaysShowActions);
+            return;
+        }
+
+        if (column.Key == "attachments")
+        {
+            RenderActionIcon(builder, ref seq, new Icons.Regular.Size16.Attach(), "Anhänge öffnen", () => OpenTaskAttachmentsAsync(task), (task.Attachments?.Count ?? 0) > 0, visibleWhenInactive: AlwaysShowActions, showOnHover: true);
+            return;
+        }
+
+        if (column.Key == "comments")
+        {
+            RenderActionIcon(builder, ref seq, new Icons.Regular.Size16.Chat(), "Kommentare öffnen", () => OpenTaskCommentsAsync(task), (task.Comments?.Count ?? 0) > 0, visibleWhenInactive: AlwaysShowActions, showOnHover: true);
+            return;
+        }
+
+        if (column.Key == "notify")
+        {
+            var watching = IsWatchingTask(task);
+            RenderActionIcon(builder, ref seq, watching ? new Icons.Filled.Size16.Alert() : new Icons.Regular.Size16.Alert(), watching ? "Benachrichtigung ausschalten" : "Benachrichtigung einschalten", () => ToggleTaskWatchingAsync(task), watching, visibleWhenInactive: AlwaysShowActions, showOnHover: true);
+            return;
+        }
+
+        if (column.Key == "done")
+        {
+            builder.OpenElement(seq++, "input");
+            builder.AddAttribute(seq++, "type", "checkbox");
+            builder.AddAttribute(seq++, "class", "todo-table-done-checkbox");
+            builder.AddAttribute(seq++, "checked", task.Done);
+            builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+            builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => UpdateTaskFieldAsync(task, t => t.Done = e.Value is bool b && b)));
+            builder.CloseElement();
+            return;
+        }
+
+        if (column.Key == "labels")
+        {
+            RenderLabels(builder, ref seq, task);
+            return;
+        }
+
+        if (RenderTaskField(builder, ref seq, column.Key, task))
+            return;
+
+        if (column.CustomField is not null)
+        {
+            RenderCustomField(builder, ref seq, task, column.CustomField);
+            return;
+        }
+
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "truncate");
+        builder.AddContent(seq++, column.Value(task));
+        builder.CloseElement();
+    };
+
+    private bool RenderTaskField(RenderTreeBuilder builder, ref int seq, string key, TodoTaskEntity task)
+    {
+        switch (key)
+        {
+            case "title":
+                RenderTextInput(builder, ref seq, task.Title, e => UpdateTaskFieldAsync(task, t => t.Title = e.Value?.ToString() ?? ""));
+                return true;
+            case "column":
+                builder.OpenElement(seq++, "select");
+                builder.AddAttribute(seq++, "class", "todo-table-input");
+                builder.AddAttribute(seq++, "value", task.Column);
+                builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+                builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => UpdateTaskFieldAsync(task, t => t.Column = e.Value?.ToString() ?? "")));
+                foreach (var column in (List?.Columns ?? new()).OrderBy(c => c))
+                {
+                    builder.OpenElement(seq++, "option");
+                    builder.AddAttribute(seq++, "value", column);
+                    builder.AddContent(seq++, column);
+                    builder.CloseElement();
+                }
+                builder.CloseElement();
+                return true;
+            case "assignee":
+                RenderAssigneeSelect(builder, ref seq, task);
+                return true;
+            case "start":
+                RenderDateInput(builder, ref seq, task.StartDate, e => UpdateTaskFieldAsync(task, t => t.StartDate = ParseDate(e.Value?.ToString())));
+                return true;
+            case "due":
+                RenderDateInput(builder, ref seq, task.DueDate, e => UpdateTaskFieldAsync(task, t => t.DueDate = ParseDate(e.Value?.ToString())));
+                return true;
+            case "important":
+                builder.OpenElement(seq++, "input");
+                builder.AddAttribute(seq++, "type", "checkbox");
+                builder.AddAttribute(seq++, "checked", task.IsImportant);
+                builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+                builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => UpdateTaskFieldAsync(task, t => t.IsImportant = e.Value is bool b && b)));
+                builder.CloseElement();
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void RenderTextInput(RenderTreeBuilder builder, ref int seq, string value, Func<ChangeEventArgs, Task> callback)
+    {
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "class", "todo-table-input");
+        builder.AddAttribute(seq++, "value", value);
+        builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+        builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, callback));
+        builder.CloseElement();
+    }
+
+    private void RenderLabels(RenderTreeBuilder builder, ref int seq, TodoTaskEntity task)
+    {
+        var labels = GetTaskLabels(task);
+        if (labels.Count == 0)
+            return;
+
+        builder.OpenElement(seq++, "div");
+        builder.AddAttribute(seq++, "class", "flex min-w-0 flex-wrap gap-1");
+
+        foreach (var label in labels)
+        {
+            var background = NormalizeHexColor(label.BackgroundColor) ?? "#e2e8f0";
+            var foreground = GetReadableTextColor(background);
+
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "max-w-full rounded-full border border-slate-200 px-2 py-0.5 text-[11px] leading-4");
+            builder.AddAttribute(seq++, "style", $"background-color:{background};color:{foreground};");
+            builder.AddAttribute(seq++, "title", label.Title);
+            builder.AddContent(seq++, label.Title);
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    }
+
+    private void RenderDateInput(RenderTreeBuilder builder, ref int seq, DateTime? value, Func<ChangeEventArgs, Task> callback)
+    {
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "type", "date");
+        builder.AddAttribute(seq++, "class", "todo-table-input");
+        builder.AddAttribute(seq++, "value", value?.ToString("yyyy-MM-dd") ?? "");
+        builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+        builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, callback));
+        builder.CloseElement();
+    }
+
+    private void RenderAssigneeSelect(RenderTreeBuilder builder, ref int seq, TodoTaskEntity task)
+    {
+        var options = AssigneeOptions;
+        var value = task.Assignee ?? "";
+
+        builder.OpenElement(seq++, "select");
+        builder.AddAttribute(seq++, "class", "todo-table-input");
+        builder.AddAttribute(seq++, "value", value);
+        builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+        builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => UpdateTaskFieldAsync(task, t =>
+        {
+            var selected = e.Value?.ToString()?.Trim();
+            t.Assignee = string.IsNullOrWhiteSpace(selected) ? null : selected;
+        })));
+
+        builder.OpenElement(seq++, "option");
+        builder.AddAttribute(seq++, "value", "");
+        builder.AddContent(seq++, "-");
+        builder.CloseElement();
+
+        foreach (var option in options)
+        {
+            builder.OpenElement(seq++, "option");
+            builder.AddAttribute(seq++, "value", option.UserId);
+            builder.AddContent(seq++, option.Email);
+            builder.CloseElement();
+        }
+
+        if (!string.IsNullOrWhiteSpace(value) && !options.Any(o => string.Equals(o.UserId, value, StringComparison.OrdinalIgnoreCase)))
+        {
+            builder.OpenElement(seq++, "option");
+            builder.AddAttribute(seq++, "value", value);
+            builder.AddContent(seq++, GetAssigneeEmail(value));
+            builder.CloseElement();
+        }
+
+        builder.CloseElement();
+    }
+
+    private static DateTime? ParseDate(string? value)
+        => DateTime.TryParse(value, out var parsed) ? parsed.Date : null;
+
+    private void RenderActionIcon(
+        RenderTreeBuilder builder,
+        ref int seq,
+        Microsoft.FluentUI.AspNetCore.Components.Icon icon,
+        string title,
+        Func<Task> action,
+        bool active = false,
+        bool visibleWhenInactive = true,
+        bool showOnHover = true)
+    {
+        if (!active && !visibleWhenInactive && !showOnHover)
+        {
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "todo-table-action-slot");
+            builder.CloseElement();
+            return;
+        }
+
+        var css = active || visibleWhenInactive
+            ? "todo-table-action-button todo-table-action-button-active"
+            : "todo-table-action-button";
+
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "todo-table-action-slot");
+        builder.OpenElement(seq++, "button");
+        builder.AddAttribute(seq++, "type", "button");
+        builder.AddAttribute(seq++, "class", css);
+        builder.AddAttribute(seq++, "title", title);
+        builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, async _ => await action()));
+        builder.OpenComponent<FluentIcon<Microsoft.FluentUI.AspNetCore.Components.Icon>>(seq++);
+        builder.AddAttribute(seq++, "Value", icon);
+        builder.CloseComponent();
+        builder.CloseElement();
+        builder.CloseElement();
+    }
+
+    private void OnNewTitleInput(ChangeEventArgs e)
+        => _newTitle = e.Value?.ToString() ?? "";
+
+    private async Task OnNewTitleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        if (List is null || !CanWriteToList()) return;
+
+        var title = _newTitle.Trim();
+        if (string.IsNullOrWhiteSpace(title)) return;
+        if (_isAdding) return;
+
+        _isAdding = true;
+        _addError = "";
+
+        var targetColumn = List.Columns.FirstOrDefault() ?? "Backlog";
+        var maxListOrder = List.Tasks.Where(t => t.DeletedAt == null && !t.Done).Max(t => (int?)t.ListSortOrder) ?? -1;
+        var maxKanbanOrder = List.Tasks.Where(t => t.DeletedAt == null && !t.Done && t.Column == targetColumn).Max(t => (int?)t.KanbanSortOrder) ?? -1;
+
+        var task = new TodoTaskEntity
+        {
+            Id = Guid.NewGuid(),
+            ListId = List.Id,
+            Title = title,
+            Column = targetColumn,
+            Done = false,
+            ListSortOrder = maxListOrder + 1,
+            KanbanSortOrder = maxKanbanOrder + 1,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        _newTitle = "";
+        List.Tasks.Add(task);
+        _isAdding = false;
+
+        await InvokeAsync(StateHasChanged);
+        _ = PersistNewTaskAsync(task, title);
+    }
+
+    private async Task PersistNewTaskAsync(TodoTaskEntity localTask, string originalTitle)
+    {
+        await Task.Yield();
+
+        try
+        {
+            TodoTaskEntity? saved;
+            await _addPersistLock.WaitAsync();
+            try
+            {
+                saved = await TaskService.AddTaskAsync(_userId, List!.Id, localTask);
+            }
+            finally
+            {
+                _addPersistLock.Release();
+            }
+
+            if (saved is null)
+                throw new InvalidOperationException($"Aufgabe konnte nicht angelegt werden (Liste='{List?.Name}').");
+
+            if (_disposed) return;
+
+            await InvokeAsync(async () =>
+            {
+                var index = List!.Tasks.FindIndex(x => x.Id == localTask.Id);
+                if (index >= 0)
+                    List.Tasks[index] = saved;
+
+                if (OnTaskUpdated.HasDelegate)
+                    await OnTaskUpdated.InvokeAsync(saved);
+
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            if (_disposed) return;
+
+            await InvokeAsync(() =>
+            {
+                if (List is not null)
+                    List.Tasks.RemoveAll(x => x.Id == localTask.Id);
+
+                if (string.IsNullOrWhiteSpace(_newTitle))
+                    _newTitle = originalTitle;
+
+                _addError = ex.Message;
+                StateHasChanged();
+            });
+        }
+    }
+
+    private static string ActionButtonClass(bool active, bool visibleWhenInactive, bool showOnHover)
+        => active || visibleWhenInactive
+            ? "todo-table-action-button todo-table-action-button-active"
+            : "todo-table-action-button";
+
+    private async Task OpenTaskDetailsAsync(TodoTaskEntity task)
+    {
+        if (OnTaskDetailsRequested.HasDelegate)
+            await OnTaskDetailsRequested.InvokeAsync(task);
+        else
+            await OpenTaskAsync(task, "details");
+    }
+
+    private async Task OpenTaskAttachmentsAsync(TodoTaskEntity task)
+    {
+        if (OnTaskAttachmentsRequested.HasDelegate)
+            await OnTaskAttachmentsRequested.InvokeAsync(task);
+        else
+            await OpenTaskAsync(task, "attachments");
+    }
+
+    private async Task OpenTaskCommentsAsync(TodoTaskEntity task)
+    {
+        if (OnTaskCommentsRequested.HasDelegate)
+            await OnTaskCommentsRequested.InvokeAsync(task);
+        else
+            await OpenTaskAsync(task, "comments");
+    }
+
+    private async Task OpenTaskAsync(TodoTaskEntity task, string tabId)
+    {
+        var targetTabId = NormalizeOpenTabId(tabId);
+        if (OnTaskOpenRequested.HasDelegate)
+            await OnTaskOpenRequested.InvokeAsync(new TodoTaskOpenRequest(task, targetTabId));
+        else
+            await OnTaskSelected.InvokeAsync(task);
+    }
+
+    private static string NormalizeOpenTabId(string? tabId)
+        => tabId?.Trim().ToLowerInvariant() switch
+        {
+            "attachments" or "tab-3" => "attachments",
+            "comments" or "tab-2" => "comments",
+            _ => "details"
+        };
+
+    private bool IsWatchingTask(TodoTaskEntity task)
+        => task.Watchers?.Any(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase)) == true;
+
+    private async Task ToggleTaskWatchingAsync(TodoTaskEntity task)
+    {
+        var watch = !IsWatchingTask(task);
+        if (await TaskService.SetTaskWatchingAsync(_userId, List!.Id, task.Id, watch))
+        {
+            task.Watchers ??= new();
+            var existing = task.Watchers.FirstOrDefault(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase));
+            if (watch && existing is null)
+                task.Watchers.Add(new TodoTaskWatcherEntity { TaskId = task.Id, UserId = _userId, CreatedAtUtc = DateTime.UtcNow });
+            else if (!watch && existing is not null)
+                task.Watchers.Remove(existing);
+
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(task);
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+    }
+
+    private void RenderCustomField(RenderTreeBuilder builder, ref int seq, TodoTaskEntity task, TodoCustomFieldDefinitionEntity field)
+    {
+        var value = GetCustomValue(task, field.Id);
+        var callback = EventCallback.Factory.Create<ChangeEventArgs>(this, e => UpdateCustomFieldAsync(task, field, e.Value));
+
+        if (field.Type == TodoCustomFieldType.Dropdown || field.Type == TodoCustomFieldType.TaskTitleSelect)
+        {
+            builder.OpenElement(seq++, "select");
+            builder.AddAttribute(seq++, "class", "todo-table-input");
+            builder.AddAttribute(seq++, "value", value);
+            builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+            builder.AddAttribute(seq++, "onchange", callback);
+            builder.OpenElement(seq++, "option");
+            builder.AddAttribute(seq++, "value", "");
+            builder.AddContent(seq++, "");
+            builder.CloseElement();
+            foreach (var option in CustomFieldSelectOptions.GetOptions(field, AvailableLists, value))
+            {
+                builder.OpenElement(seq++, "option");
+                builder.AddAttribute(seq++, "value", option.Value);
+                builder.AddContent(seq++, option.Label);
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+            return;
+        }
+
+        if (field.Type == TodoCustomFieldType.MultiSelect)
+        {
+            RenderCustomMultiSelectField(builder, ref seq, task, field, value);
+            return;
+        }
+
+        builder.OpenElement(seq++, "input");
+        builder.AddAttribute(seq++, "class", "todo-table-input");
+        builder.AddAttribute(seq++, "value", value);
+        builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+        builder.AddAttribute(seq++, "onchange", callback);
+        builder.AddAttribute(seq++, "type", field.Type switch
+        {
+            TodoCustomFieldType.Number => "number",
+            TodoCustomFieldType.Date => "date",
+            TodoCustomFieldType.Checkbox => "checkbox",
+            _ => "text"
+        });
+        if (field.Type == TodoCustomFieldType.Checkbox)
+            builder.AddAttribute(seq++, "checked", string.Equals(value, "true", StringComparison.OrdinalIgnoreCase));
+        builder.CloseElement();
+    }
+
+    private async Task UpdateTaskFieldAsync(TodoTaskEntity task, Action<TodoTaskEntity> update)
+    {
+        update(task);
+        var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task);
+        if (updated is not null && OnTaskUpdated.HasDelegate)
+            await OnTaskUpdated.InvokeAsync(updated);
+        if (OnChanged.HasDelegate)
+            await OnChanged.InvokeAsync();
+    }
+
+    private async Task UpdateCustomFieldAsync(TodoTaskEntity task, TodoCustomFieldDefinitionEntity field, object? raw)
+    {
+        var value = field.Type == TodoCustomFieldType.Checkbox
+            ? ((raw is bool b && b) ? "true" : "false")
+            : raw?.ToString();
+
+        task.CustomFieldValues ??= new();
+        var existing = task.CustomFieldValues.FirstOrDefault(v => v.FieldId == field.Id);
+        if (existing is null)
+            task.CustomFieldValues.Add(new TodoTaskCustomFieldValueEntity { Id = Guid.Empty, TaskId = task.Id, FieldId = field.Id, Value = value });
+        else
+            existing.Value = value;
+
+        var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task);
+        if (updated is not null && OnTaskUpdated.HasDelegate)
+            await OnTaskUpdated.InvokeAsync(updated);
+        if (OnChanged.HasDelegate)
+            await OnChanged.InvokeAsync();
+    }
+
+    private void RenderCustomMultiSelectField(RenderTreeBuilder builder, ref int seq, TodoTaskEntity task, TodoCustomFieldDefinitionEntity field, string value)
+    {
+        var selected = CustomFieldMultiSelectValues.Parse(value);
+
+        builder.OpenComponent<FloatingDropdown>(seq++);
+        builder.AddAttribute(seq++, "MinWidth", 260d);
+        builder.AddAttribute(seq++, "ChildContent", (RenderFragment)(triggerBuilder =>
+        {
+            var triggerSeq = 0;
+            triggerBuilder.OpenElement(triggerSeq++, "button");
+            triggerBuilder.AddAttribute(triggerSeq++, "type", "button");
+            triggerBuilder.AddAttribute(triggerSeq++, "class", "todo-table-multiselect-trigger");
+            triggerBuilder.AddAttribute(triggerSeq++, "data-nodrag", "true");
+
+            if (selected.Count == 0)
+            {
+                triggerBuilder.OpenElement(triggerSeq++, "span");
+                triggerBuilder.AddAttribute(triggerSeq++, "class", "todo-table-multiselect-placeholder");
+                triggerBuilder.AddContent(triggerSeq++, L["Bulk_Select"]);
+                triggerBuilder.CloseElement();
+            }
+            else
+            {
+                foreach (var option in selected)
+                    RenderCustomFieldBadge(triggerBuilder, ref triggerSeq, option);
+            }
+
+            triggerBuilder.CloseElement();
+        }));
+        builder.AddAttribute(seq++, "DropdownContent", (RenderFragment)(dropdownBuilder =>
+        {
+            var dropdownSeq = 0;
+            dropdownBuilder.OpenElement(dropdownSeq++, "div");
+            dropdownBuilder.AddAttribute(dropdownSeq++, "class", "w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lg");
+            dropdownBuilder.AddAttribute(dropdownSeq++, "data-nodrag", "true");
+            dropdownBuilder.AddEventStopPropagationAttribute(dropdownSeq++, "onclick", true);
+
+            foreach (var option in CustomFieldSelectOptions.GetOptions(field, AvailableLists))
+            {
+                var selectedNow = selected.Contains(option.Value, StringComparer.OrdinalIgnoreCase);
+                dropdownBuilder.OpenElement(dropdownSeq++, "label");
+                dropdownBuilder.AddAttribute(dropdownSeq++, "class", "flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50");
+
+                dropdownBuilder.OpenElement(dropdownSeq++, "input");
+                dropdownBuilder.AddAttribute(dropdownSeq++, "type", "checkbox");
+                dropdownBuilder.AddAttribute(dropdownSeq++, "class", "h-4 w-4 rounded border-slate-300 accent-blue-600");
+                dropdownBuilder.AddAttribute(dropdownSeq++, "checked", selectedNow);
+                dropdownBuilder.AddAttribute(dropdownSeq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(
+                    this,
+                    e => ToggleCustomMultiSelectOptionAsync(task, field, option.Value, e.Value is bool b && b)));
+                dropdownBuilder.CloseElement();
+
+                dropdownBuilder.OpenElement(dropdownSeq++, "span");
+                dropdownBuilder.AddAttribute(dropdownSeq++, "class", "min-w-0 flex-1 truncate");
+                dropdownBuilder.AddContent(dropdownSeq++, option.Label);
+                dropdownBuilder.CloseElement();
+
+                dropdownBuilder.CloseElement();
+            }
+
+            dropdownBuilder.CloseElement();
+        }));
+        builder.CloseComponent();
+    }
+
+    private async Task ToggleCustomMultiSelectOptionAsync(TodoTaskEntity task, TodoCustomFieldDefinitionEntity field, string option, bool selected)
+    {
+        var current = GetCustomValue(task, field.Id);
+        await UpdateCustomFieldAsync(task, field, CustomFieldMultiSelectValues.Toggle(current, option, selected));
+    }
+
+    private static void RenderCustomFieldBadge(RenderTreeBuilder builder, ref int seq, string option)
+    {
+        builder.OpenElement(seq++, "span");
+        builder.AddAttribute(seq++, "class", "todo-table-custom-badge");
+        builder.AddAttribute(seq++, "style", CustomFieldBadgeStyle(option));
+        builder.AddContent(seq++, option);
+        builder.CloseElement();
+    }
+
+    private bool MatchesColumnFilters(TodoTaskEntity task)
+        => _filters.Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .All(kv => BaseColumns.FirstOrDefault(c => c.Key == kv.Key)?.Value(task).Contains(kv.Value, StringComparison.OrdinalIgnoreCase) == true);
+
+    private bool MatchesFilter(TodoTaskEntity t)
+    {
+        var f = Filter;
+        if (f is null || !f.IsActive()) return true;
+        if (!string.IsNullOrWhiteSpace(f.Query) && !$"{t.Title} {t.Description}".Contains(f.Query.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+        if (f.Done is not null && t.Done != f.Done.Value) return false;
+        if (f.LabelIds.Count > 0 && (t.LabelLinks is null || !t.LabelLinks.Any(l => f.LabelIds.Contains(l.LabelId)))) return false;
+        if (f.NoAssignee && !string.IsNullOrWhiteSpace(t.Assignee)) return false;
+        if (f.AssignedToMe && !string.Equals(t.Assignee?.Trim(), _userId, StringComparison.OrdinalIgnoreCase)) return false;
+        var members = t.MemberUserIds ?? new List<string>();
+        if (f.MemberUserIds.Count > 0 && !members.Any(m => f.MemberUserIds.Contains(m))) return false;
+        if (f.NoMembers && members.Count > 0) return false;
+
+        if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
+        {
+            var today = DateTime.Today;
+            var due = t.DueDate?.Date;
+            return (f.NoDueDate && due is null)
+                   || (f.Overdue && due is not null && due.Value < today)
+                   || (f.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1))
+                   || (f.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7))
+                   || (f.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
+        }
+
+        return true;
+    }
+
+    private bool FilterActive => Filter?.IsActive() == true;
+
+    private string GetFilter(string key) => _filters.TryGetValue(key, out var value) ? value : "";
+    private void SetFilter(string key, string? value) => _filters[key] = value ?? "";
+    private void SetSort(string key, bool ascending) { _sortColumn = key; _sortAscending = ascending; }
+    private void ResetSort() { _sortColumn = null; _sortAscending = true; }
+
+    private bool CanReorderTasks => List is not null && string.IsNullOrWhiteSpace(_sortColumn) && !FilterActive && !SelectionMode && CanWriteToList();
+    private bool CanReorderTask(TodoTaskEntity task) => CanReorderTasks && !task.Done && task.DeletedAt == null;
+
+    private bool IsTaskSelected(Guid taskId) => _selectedTaskIds.Contains(taskId);
+
+    private void ToggleTaskSelection(Guid taskId, ChangeEventArgs e)
+    {
+        if (e.Value is bool selected && selected)
+            _selectedTaskIds.Add(taskId);
+        else
+            _selectedTaskIds.Remove(taskId);
+    }
+
+    private async Task ClearSelectionAsync()
+    {
+        _selectedTaskIds.Clear();
+        await SelectionModeChanged.InvokeAsync(false);
+        _taskRowsRenderVersion++;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleBulkChangedAsync()
+    {
+        await OnChanged.InvokeAsync();
+        _taskRowsRenderVersion++;
+    }
+
+    private async Task HideColumnAsync(string key)
+    {
+        if (!CanAdminCurrentList())
+            return;
+
+        _hiddenColumns.Add(key);
+        await SaveHiddenColumnsAsync();
+    }
+
+    private async Task ToggleColumnAsync(string key, ChangeEventArgs e)
+    {
+        if (!CanAdminCurrentList())
+            return;
+
+        if (e.Value is bool b && b)
+            _hiddenColumns.Remove(key);
+        else
+            _hiddenColumns.Add(key);
+
+        await SaveHiddenColumnsAsync();
+    }
+
+    private async Task SaveHiddenColumnsAsync()
+    {
+        if (List is null)
+            return;
+
+        try
+        {
+            var saved = await TableColumnOrderService.SetTableHiddenColumnsAsync(_userId, List.Id, _hiddenColumns.ToList());
+            List.TableHiddenColumns = saved.ToList();
+            LoadHiddenColumnsFromList();
+        }
+        catch
+        {
+            LoadHiddenColumnsFromList();
+        }
+    }
+
+    private void LoadHiddenColumnsFromList()
+    {
+        _hiddenColumns.Clear();
+        foreach (var key in List?.TableHiddenColumns ?? new())
+            if (!string.IsNullOrWhiteSpace(key))
+                _hiddenColumns.Add(key.Trim());
+    }
+
+    private bool HiddenColumnsMatchList()
+    {
+        var persisted = (List?.TableHiddenColumns ?? new())
+            .Where(k => !string.IsNullOrWhiteSpace(k))
+            .Select(k => k.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return persisted.SetEquals(_hiddenColumns);
+    }
+
+    private bool IsSortedColumn(string key) => string.Equals(_sortColumn, key, StringComparison.OrdinalIgnoreCase);
+    private bool IsFilteredColumn(string key) => !string.IsNullOrWhiteSpace(GetFilter(key));
+    private bool IsColumnActive(string key) => IsSortedColumn(key) || IsFilteredColumn(key);
+    private string SortTitle => _sortAscending ? L["Table_SortedAscending"] : L["Table_SortedDescending"];
+    private string T(string key) => L[key].Value;
+    private string ColumnOptionsButtonClass(string key)
+        => IsColumnActive(key)
+            ? "rounded-md bg-sky-100 px-1.5 py-0.5 text-sky-700 hover:bg-sky-200"
+            : "rounded-md px-1.5 py-0.5 text-slate-500 hover:bg-slate-200";
+
+    private static bool IsCenteredIconColumn(string key) => key is "#" or "open" or "attachments" or "comments" or "notify" or "done" or "important";
+    private static string CellClass(TableColumn column, bool header = false)
+    {
+        var classes = header ? "todo-table-cell todo-table-header-cell" : "todo-table-cell";
+        return IsCenteredIconColumn(column.Key) ? $"{classes} todo-table-cell-center" : classes;
+    }
+
+    private bool CanReorderColumn(TableColumn column) => column.Reorderable && CanAdminCurrentList();
+    private bool CanHideColumn(TableColumn column) => column.Hideable && CanAdminCurrentList();
+    private bool CanAdminCurrentList()
+    {
+        if (List is null || string.IsNullOrWhiteSpace(_userId))
+            return false;
+
+        if (string.Equals(List.OwnerId, _userId, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return (List.Participants ?? new()).Any(p =>
+            p.Role == ListRole.Admin
+            && !p.InvitationPending
+            && (string.Equals(p.UserId, _userId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(p.Email, _userId, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private bool CanWriteToList()
+    {
+        var uid = (_userId ?? "").Trim();
+        if (List is null || string.IsNullOrWhiteSpace(uid)) return false;
+
+        if (string.Equals((List.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var participant = List.Participants?.FirstOrDefault(p =>
+            (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(p.Email) && string.Equals(p.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+
+        return participant is not null && participant.Role != ListRole.Observer && !participant.InvitationPending;
+    }
+
+    private IReadOnlyList<AssigneeOption> AssigneeOptions => (List?.Participants ?? new())
+        .Where(p => !string.IsNullOrWhiteSpace(p.UserId))
+        .GroupBy(p => p.UserId!.Trim(), StringComparer.OrdinalIgnoreCase)
+        .Select(g =>
+        {
+            var participant = g.First();
+            var email = string.IsNullOrWhiteSpace(participant.Email)
+                ? participant.UserId!.Trim()
+                : participant.Email.Trim();
+            return new AssigneeOption(g.Key, email);
+        })
+        .OrderBy(x => x.Email, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private string GetAssigneeEmail(string? assignee)
+    {
+        var key = assignee?.Trim();
+        if (string.IsNullOrWhiteSpace(key))
+            return "";
+
+        return AssigneeOptions.FirstOrDefault(o => string.Equals(o.UserId, key, StringComparison.OrdinalIgnoreCase))?.Email
+            ?? key;
+    }
+
+    private IReadOnlyList<TodoLabelEntity> GetTaskLabels(TodoTaskEntity task)
+    {
+        var labelIds = (task.LabelLinks ?? [])
+            .Select(link => link.LabelId)
+            .ToHashSet();
+
+        if (labelIds.Count == 0)
+            return [];
+
+        return (List?.Labels ?? [])
+            .Where(label => labelIds.Contains(label.Id))
+            .OrderBy(label => label.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private string GetLabelSearchValue(TodoTaskEntity task)
+        => string.Join(", ", GetTaskLabels(task).Select(label => label.Title));
+
+    private static string? NormalizeHexColor(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return null;
+
+        var value = input.Trim().TrimStart('#');
+        if (value.Length == 3)
+            value = string.Concat(value.Select(character => $"{character}{character}"));
+
+        return value.Length == 6 && value.All(Uri.IsHexDigit)
+            ? $"#{value.ToLowerInvariant()}"
+            : null;
+    }
+
+    private static string GetReadableTextColor(string background)
+    {
+        try
+        {
+            var value = background.TrimStart('#');
+            if (value.Length != 6)
+                return "#0f172a";
+
+            var red = Convert.ToInt32(value[..2], 16);
+            var green = Convert.ToInt32(value.Substring(2, 2), 16);
+            var blue = Convert.ToInt32(value.Substring(4, 2), 16);
+            var luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255.0;
+            return luminance < 0.55 ? "#ffffff" : "#0f172a";
+        }
+        catch
+        {
+            return "#0f172a";
+        }
+    }
+
+    private static string CustomKey(Guid id) => $"custom:{id:N}";
+    private static string GetCustomValue(TodoTaskEntity task, Guid fieldId) => task.CustomFieldValues?.FirstOrDefault(v => v.FieldId == fieldId)?.Value ?? "";
+    private static string GetCustomDisplayValue(TodoTaskEntity task, TodoCustomFieldDefinitionEntity field)
+    {
+        var value = GetCustomValue(task, field.Id);
+        return field.Type == TodoCustomFieldType.MultiSelect
+            ? string.Join(", ", CustomFieldMultiSelectValues.Parse(value))
+            : value;
+    }
+
+    private static string CustomFieldBadgeStyle(string option)
+    {
+        var palette = new[]
+        {
+            ("#dbeafe", "#1e40af"),
+            ("#dcfce7", "#166534"),
+            ("#fef3c7", "#92400e"),
+            ("#fce7f3", "#9d174d"),
+            ("#ede9fe", "#5b21b6"),
+            ("#ccfbf1", "#0f766e"),
+            ("#fee2e2", "#991b1b"),
+            ("#e0f2fe", "#075985")
+        };
+        uint hash = 0;
+        foreach (var c in option ?? "")
+            hash = unchecked((hash * 31) + c);
+        var selected = palette[(int)(hash % (uint)palette.Length)];
+        return $"background:{selected.Item1};color:{selected.Item2};";
+    }
+    private static string ColumnWidth(TableColumn c) => c.Key switch
+    {
+        "#" => "68px",
+        "open" or "attachments" or "comments" or "notify" => "34px",
+        "done" => "144px",
+        "important" => "160px",
+        "title" => "280px",
+        "column" => "190px",
+        "labels" => "240px",
+        "assignee" => "240px",
+        "start" or "due" or "created" => "170px",
+        _ => "190px"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        if (_columnPickerHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "todo-table-column-picker"); } catch { }
+
+        if (_sortableInitialized)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableColumns", _headerHost); } catch { }
+        }
+        if (_taskSortableInitialized)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableTasks", _taskRowsHost); } catch { }
+        }
+        _dotNetRef?.Dispose();
+    }
+
+    private sealed record TableColumn(string Key, string Title, bool Sortable, bool Hideable, bool Reorderable, Func<TodoTaskEntity, string> Value, TodoCustomFieldDefinitionEntity? CustomField = null);
+    private sealed record AssigneeOption(string UserId, string Email);
+}
+
+<style>
+    .todo-table-row {
+        display: grid;
+        min-height: 44px;
+    }
+
+    .todo-table-cell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        min-width: 0;
+        border-right: 1px solid #e2e8f0;
+        padding: .5rem .65rem;
+        font-size: .875rem;
+        color: #334155;
+    }
+
+    .todo-table-cell:hover .todo-table-action-button,
+    .todo-table-action-slot:hover .todo-table-action-button {
+        opacity: 1;
+    }
+
+    .todo-table-header-cell {
+        color: #0f172a;
+        user-select: none;
+    }
+
+    .todo-table-cell-center {
+        justify-content: center;
+        text-align: center;
+        padding-left: .25rem;
+        padding-right: .25rem;
+    }
+
+    .todo-table-input {
+        width: 100%;
+        min-width: 0;
+        border-radius: .375rem;
+        border: 1px solid transparent;
+        background: transparent;
+        padding: .25rem .4rem;
+        font-size: .875rem;
+        color: #334155;
+        outline: none;
+    }
+
+    .todo-table-input:hover,
+    .todo-table-input:focus {
+        border-color: #cbd5e1;
+        background: #fff;
+    }
+
+    .todo-table-add-row {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        box-shadow: 0 -1px 0 #e2e8f0;
+    }
+
+    .todo-table-add-input {
+        border-color: #bae6fd;
+        background: #f8fafc;
+    }
+
+    .todo-table-icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: .375rem;
+        color: #475569;
+    }
+
+    .todo-table-icon-button:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+
+    .todo-table-action-slot {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    .todo-table-action-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: .25rem;
+        color: #5d99c9;
+        opacity: 0;
+        transition: opacity .12s ease, background-color .12s ease, color .12s ease;
+    }
+
+    .todo-table-action-button-active {
+        opacity: 1;
+    }
+
+    .todo-table-action-button:hover {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .todo-table-done-checkbox {
+        accent-color: #0ea5e9;
+    }
+
+    .todo-table-multiselect-trigger {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .25rem;
+        width: 100%;
+        min-height: 2rem;
+        min-width: 0;
+        border-radius: .375rem;
+        border: 1px solid transparent;
+        background: transparent;
+        padding: .2rem .35rem;
+        text-align: left;
+    }
+
+    .todo-table-multiselect-placeholder {
+        display: inline-flex;
+        align-items: center;
+        min-height: 1.5rem;
+        border-radius: .375rem;
+        border: 1px dashed #cbd5e1;
+        padding: .125rem .5rem;
+        color: #475569;
+        background: #f8fafc;
+        font-size: .75rem;
+        font-weight: 600;
+    }
+
+    .todo-table-multiselect-trigger:hover,
+    .todo-table-multiselect-trigger:focus {
+        border-color: #cbd5e1;
+        background: #fff;
+        outline: none;
+    }
+
+    .todo-table-custom-badge {
+        display: inline-flex;
+        align-items: center;
+        max-width: 100%;
+        border-radius: 999px;
+        padding: .125rem .5rem;
+        font-size: .75rem;
+        font-weight: 600;
+        line-height: 1.25rem;
+    }
+</style>

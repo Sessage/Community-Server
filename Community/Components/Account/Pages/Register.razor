@@ -1,0 +1,203 @@
+@page "/Account/Register"
+@layout BodyOnlyLayout
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Klassenbibliothek.Data
+@using TodoSuite.Server.Services
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IUserStore<ApplicationUser> UserStore
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject AdminSettingsService AdminSettings
+
+<PageTitle>@L["Account_Register_Title"]</PageTitle>
+
+@if (!AdminSettings.AllowSelfRegistration)
+{
+    <h1>@L["Account_Register_DisabledTitle"]</h1>
+    <p>@L["Account_Register_DisabledText"]</p>
+    <p><a href="Account/Login">@L["Account_BackToLogin"]</a></p>
+}
+else
+{
+    
+
+    <div class="row justify-center">
+        <div class="col-lg-6">
+            <div class="flex justify-center mb-3">
+                <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
+            </div>
+            <h1 class="h1">@L["Account_Register_Title"]</h1>
+            <StatusMessage Message="@Message" />
+            <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
+                <DataAnnotationsValidator />
+                <h2>@L["Account_Register_CreateAccount"]</h2>
+                <hr />
+                <ValidationSummary class="text-danger" role="alert" />
+                <div class="form-floating mb-3">
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <label for="Input.Email">@L["Account_Email"]</label>
+                    <ValidationMessage For="() => Input.Email" class="text-danger" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="@L["Account_Password"]" />
+                    <label for="Input.Password">@L["Account_Password"]</label>
+                    <ValidationMessage For="() => Input.Password" class="text-danger" />
+                </div>
+                <div class="form-floating mb-3">
+                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="@L["Account_ConfirmPassword"]" />
+                    <label for="Input.ConfirmPassword">@L["Account_ConfirmPassword"]</label>
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Register_Button"]</button>
+            </EditForm>
+
+            <p class="mt-3">
+                <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">@L["Account_LoginExistingUser"]</a>
+            </p>
+        </div>
+        @* <div class="col-lg-4 col-lg-offset-2">
+            <section>
+                <h3>Mit einem anderen Dienst registrieren.</h3>
+                <hr />
+                <ExternalLoginPicker />
+            </section>
+        </div> *@
+    </div>
+}
+
+@code {
+    private IEnumerable<IdentityError>? identityErrors;
+
+    [SupplyParameterFromForm(FormName = "register")]
+    private InputModel Input { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    private string? Message => identityErrors is null ? null : string.Format(L["Err_Generic"], string.Join(", ", identityErrors.Select(error => error.Description)));
+
+    protected override void OnInitialized()
+    {
+        Input ??= new();
+
+        if (!AdminSettings.AllowSelfRegistration)
+            return;
+    }
+
+    public async Task RegisterUser(EditContext editContext)
+    {
+        if (!AdminSettings.AllowSelfRegistration)
+        {
+            RedirectManager.RedirectTo("Account/Login");
+            return;
+        }
+
+        var email = Input.Email.Trim();
+        Input.Email = email;
+
+        var existingUser = await UserManager.FindByEmailAsync(email);
+        if (existingUser is not null)
+        {
+            identityErrors =
+            [
+                new IdentityError { Description = L["Account_Error_EmailExists"] }
+            ];
+            return;
+        }
+
+        var user = CreateUser();
+
+        await UserStore.SetUserNameAsync(user, email, CancellationToken.None);
+        var emailStore = GetEmailStore();
+        await emailStore.SetEmailAsync(user, email, CancellationToken.None);
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            identityErrors = result.Errors;
+            return;
+        }
+
+        Logger.LogInformation("Benutzer hat ein neues Konto mit Passwort erstellt.");
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+
+        try
+        {
+            await EmailSender.SendConfirmationLinkAsync(user, email, callbackUrl);
+        }
+        catch (Exception ex)
+        {
+            identityErrors =
+            [
+                new IdentityError { Description = string.Format(L["Account_Error_ConfirmationEmailFailed"], ex.Message) }
+            ];
+            return;
+        }
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo(
+                "Account/RegisterConfirmation",
+                new() { ["email"] = email, ["returnUrl"] = ReturnUrl });
+        }
+        else
+        {
+            await SignInManager.SignInAsync(user, isPersistent: false);
+            RedirectManager.RedirectTo(ReturnUrl);
+        }
+    }
+
+    private ApplicationUser CreateUser()
+    {
+        try
+        {
+            return Activator.CreateInstance<ApplicationUser>();
+        }
+        catch
+        {
+            throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
+                $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor.");
+        }
+    }
+
+    private IUserEmailStore<ApplicationUser> GetEmailStore()
+    {
+        if (!UserManager.SupportsUserEmail)
+        {
+            throw new NotSupportedException("The default UI requires a user store with email support.");
+        }
+        return (IUserEmailStore<ApplicationUser>)UserStore;
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        [Display(Name = "E-Mail")]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [StringLength(100, ErrorMessage = "Das {0} muss mindestens {2} und maximal {1} Zeichen lang sein.", MinimumLength = 6)]
+        [DataType(DataType.Password)]
+        [Display(Name = "Passwort")]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Passwort bestätigen")]
+        [Compare("Password", ErrorMessage = "Das Passwort und die Bestätigung stimmen nicht überein.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

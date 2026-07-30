@@ -1,0 +1,79 @@
+@page "/Account/RegisterConfirmation"
+@layout BodyOnlyLayout
+
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Klassenbibliothek.Data
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IEmailSender<ApplicationUser> EmailSender
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Registrierung bestätigen</PageTitle>
+
+<div class="row justify-center">
+    <div class="col-lg-6">
+        <div class="flex justify-center mb-3">
+            <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
+        </div>
+        <h1 class="h1">Registrierung fast fertig</h1>
+        <StatusMessage Message="@statusMessage" />
+
+        @if (emailConfirmationLink is not null)
+        {
+            <p role="alert">
+                E-Mail-Versand ist deaktiviert. Bestätige dein Konto über diesen Link:
+                <a href="@emailConfirmationLink">Konto bestätigen</a>
+            </p>
+        }
+        else if (statusMessage is null)
+        {
+            <p role="alert">Bitte überprüfe dein Postfach und bestätige deine E-Mail-Adresse.</p>
+        }
+
+        <p class="mt-3">
+            <a href="Account/Login">Zur Anmeldung</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    private string? emailConfirmationLink;
+    private string? statusMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromQuery]
+    private string? Email { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Email is null)
+        {
+            RedirectManager.RedirectTo("");
+            return;
+        }
+
+        var user = await UserManager.FindByEmailAsync(Email.Trim());
+        if (user is null)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+            statusMessage = "Fehler: Benutzer für diese E-Mail-Adresse wurde nicht gefunden.";
+        }
+        else if (EmailSender is IdentityNoOpEmailSender)
+        {
+            var userId = await UserManager.GetUserIdAsync(user);
+            var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            emailConfirmationLink = NavigationManager.GetUriWithQueryParameters(
+                NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+                new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
+        }
+    }
+}

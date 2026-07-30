@@ -1,0 +1,30 @@
+# .NET- und IDE-Ausgaben
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+TestResults/
+
+# Node-/Frontend-Ausgaben
+node_modules/
+npm-debug.log*
+
+# Lokale Konfiguration, Geheimnisse und Laufzeitdaten
+**/appsettings.Development.json
+**/appsettings.Local.json
+.env
+.env.*
+App_Data/
+uploads/
+*.log
+
+# Publish-Ausgaben
+publish/
+out/
+
+# Betriebssystemdateien
+.DS_Store
+Thumbs.db
+

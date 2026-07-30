@@ -1,0 +1,19 @@
+{
+  "name": "sessage.server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "tw:build": "tailwindcss -i ./Styles/tailwind.input.css -o ../TodoSuite.Community.Shared/wwwroot/lib/tailwind/tailwind.css --minify",
+    "tw:watch": "tailwindcss -i ./Styles/tailwind.input.css -o ../TodoSuite.Community.Shared/wwwroot/lib/tailwind/tailwind.css --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "SEE LICENSE IN ../LICENSE.md",
+  "type": "commonjs",
+  "devDependencies": {
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17"
+  }
+}

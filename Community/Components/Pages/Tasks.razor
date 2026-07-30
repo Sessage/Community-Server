@@ -1,0 +1,177 @@
+@page "/"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@using Klassenbibliothek.Components.Views
+@using Klassenbibliothek.Data
+@inject ITodoListService ListService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IProductFeatureCatalog ProductFeatures
+@using Klassenbibliothek.Features
+@using System.Security.Claims;
+@using Microsoft.AspNetCore.Authorization
+
+<div class="flex flex-col h-full min-h-0 space-y-4">
+    <div class="p-4">
+        <div class="text-xs uppercase text-slate-500">@L["Page_Tasks_Section"]</div>
+        <h1 class="text-3xl font-semibold">@L["Page_Tasks_Title"]</h1>
+        <p class="text-sm text-slate-600">@L["Page_Tasks_Description"]</p>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="p-4 flex items-center gap-2 text-slate-500">
+            <FluentProgressRing Style="width:20px;height:20px;" />
+            <span>@L["Lbl_Loading"]</span>
+        </div>
+    }
+    else if (_taskList.Tasks.Count == 0)
+    {
+        <div class="p-4 text-slate-500">@L["Page_Tasks_Empty"]</div>
+    }
+    else
+    {
+        <div class="flex-1 min-h-0">
+            <ToDoListView List="_taskList"
+                          SortMode="ListSortMode.DueDate"
+                          ShowAddTaskInput="false"
+                          ListIdSelector="GetTaskListId"
+                          OnChanged="ReloadAsync"
+                          OnTaskSelected="OpenTaskDetails" />
+        </div>
+    }
+
+    @if (_selectedTask is not null)
+    {
+        <TaskEditModal Task="_selectedTask"
+                       ListId="_selectedListId"
+                       Columns="_selectedList?.Columns"
+                       Labels="_selectedList?.Labels"
+                       List="_selectedList"
+                       AvailableLists="_listLookup.Values.ToList()"
+                       EnableCustomFields="@ProductFeatures.IsEnabled(ProductFeatureIds.Forms)"
+                       OnClose="CloseTaskDetails"
+                       OnTaskUpdated="HandleTaskUpdated"
+                       OnListChanged="ReloadAsync" />
+    }
+</div>
+
+@code {
+    private TodoListEntity _taskList = new()
+    {
+        Name = "Aufgaben",
+        Columns = new List<string>()
+    };
+
+    private readonly Dictionary<Guid, TodoListEntity> _listLookup = new();
+    private TodoTaskEntity? _selectedTask;
+    private TodoListEntity? _selectedList;
+    private Guid _selectedListId;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAssignedTasksAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        await LoadAssignedTasksAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAssignedTasksAsync()
+    {
+        _loading = true;
+        await InvokeAsync(StateHasChanged);
+
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        var userId =
+            user.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? user.FindFirstValue("sub")
+            ?? "gast";
+
+        var userKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            userId
+        };
+
+        var email = user.FindFirstValue(ClaimTypes.Email);
+        if (!string.IsNullOrWhiteSpace(email))
+            userKeys.Add(email.Trim());
+
+        var upn = user.FindFirstValue(ClaimTypes.Upn);
+        if (!string.IsNullOrWhiteSpace(upn))
+            userKeys.Add(upn.Trim());
+
+        try
+        {
+            var lists = await ListService.GetAssignedTaskListsAsync(userId, userKeys);
+
+            _listLookup.Clear();
+            foreach (var list in lists)
+            {
+                _listLookup[list.Id] = list;
+            }
+
+            var tasks = lists
+                .SelectMany(list => list.Tasks)
+                .ToList();
+
+            _taskList = new TodoListEntity
+            {
+                Id = Guid.Empty,
+                Name = "Aufgaben",
+                Columns = new List<string>(),
+                Tasks = tasks
+            };
+
+            if (_selectedTask is not null)
+            {
+                _selectedTask = tasks.FirstOrDefault(t => t.Id == _selectedTask.Id);
+                if (_selectedTask is null)
+                {
+                    _selectedList = null;
+                    _selectedListId = Guid.Empty;
+                }
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Guid GetTaskListId(TodoTaskEntity task) => task.ListId;
+
+    private Task OpenTaskDetails(TodoTaskEntity task)
+    {
+        _selectedTask = task;
+        if (_listLookup.TryGetValue(task.ListId, out var list))
+        {
+            _selectedList = list;
+            _selectedListId = list.Id;
+        }
+        else
+        {
+            _selectedList = null;
+            _selectedListId = Guid.Empty;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task CloseTaskDetails()
+    {
+        _selectedTask = null;
+        _selectedList = null;
+        _selectedListId = Guid.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleTaskUpdated(TodoTaskEntity updated)
+    {
+        await ReloadAsync();
+    }
+}

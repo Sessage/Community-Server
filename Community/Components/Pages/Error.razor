@@ -1,0 +1,34 @@
+﻿@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>@L["Page_Error_Title"]</PageTitle>
+
+<h1 class="text-danger">@L["Page_Error_Title"].</h1>
+<h2 class="text-danger">@L["Page_Error_Message"]</h2>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@RequestId</code>
+    </p>
+}
+
+<h3>@L["Page_Error_DevMode"]</h3>
+<p>
+    @L["Page_Error_DevModeHint"]
+</p>
+<p>
+    <strong>@L["Page_Error_DevModeWarning"]</strong>
+    @L["Page_Error_DevModeEnvVar"]
+</p>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

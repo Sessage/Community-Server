@@ -1,0 +1,98 @@
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@inject IPortfolioSharingService SharingService
+@inject IDirectorySharingService DirectorySharing
+@inject IJSRuntime JS
+
+<div class="space-y-4">
+    @if (!string.IsNullOrWhiteSpace(_error)) { <div class="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800"><div class="font-semibold">@L["Lbl_Error"]</div>@_error</div> }
+    @if (!string.IsNullOrWhiteSpace(_info)) { <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><div class="font-semibold">@L["Lbl_Info"]</div>@_info</div> }
+
+    <div class="flex items-center">
+        <div class="flex-1 text-xs uppercase tracking-wide text-slate-500">@L["Participants_Invite"]</div>
+        <div class="inline-flex rounded-xl bg-slate-200 p-1">
+            <button class="@TabCss(PortfolioShareTab.Email)" @onclick="() => _activeTab = PortfolioShareTab.Email">@L["Participants_ByEmail"]</button>
+            <button class="@TabCss(PortfolioShareTab.Link)" @onclick="() => _activeTab = PortfolioShareTab.Link">@L["Participants_ByLink"]</button>
+            @if (DirectorySharing.IsAvailable) { <button class="@TabCss(PortfolioShareTab.Directory)" @onclick="() => _activeTab = PortfolioShareTab.Directory">Verzeichnis</button> }
+        </div>
+    </div>
+
+    @if (_activeTab == PortfolioShareTab.Link)
+    {
+        <div class="space-y-3">
+            <div class="flex flex-col md:flex-row gap-2 md:items-end">
+                <div class="flex-1"><div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div><select class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_linkRole"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select></div>
+                <div class="flex-1"><div class="text-sm text-slate-700 mb-1">@L["Participants_CommentOptional"]</div><input class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_comment" placeholder="@L["Participants_CommentPlaceholder"]" /></div>
+                <FluentButton Appearance="Appearance.Accent" Disabled="_busy" OnClick="CreateLinkAsync">@L["Participants_CreateShareLink"]</FluentButton>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_newLink))
+            {
+                <div class="flex flex-col md:flex-row gap-2"><input class="w-full rounded-xl border border-slate-200 p-2 bg-white" value="@_newLink" readonly /><FluentButton Appearance="Appearance.Neutral" OnClick="() => CopyAsync(_newLink)">@L["Participants_CopyLink"]</FluentButton></div>
+            }
+            <div class="pt-2 space-y-2">
+                <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_ActiveShareLinks"]</div>
+                @foreach (var link in _links.Where(x => !x.Revoked))
+                {
+                    <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+                        <div class="flex items-start justify-between gap-3"><div class="min-w-0 flex-1"><div class="font-semibold truncate">@(string.IsNullOrWhiteSpace(link.Comment) ? L["Participants_NoComment"].Value : link.Comment)</div><div class="text-xs text-slate-600">@link.Role · @link.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div></div><div class="flex gap-2"><FluentButton Appearance="Appearance.Neutral" OnClick="() => CopyAsync(link.Link)">@L["Participants_CopyLink"]</FluentButton><FluentButton Appearance="Appearance.Neutral" Disabled="_busy" OnClick="() => RevokeAsync(link.Id)">@L["Btn_Delete"]</FluentButton><FluentButton Appearance="Appearance.Stealth" OnClick="() => Toggle(link.Id)">@(_expanded.Contains(link.Id) ? "⌃" : "⌄")</FluentButton></div></div>
+                        @if (_expanded.Contains(link.Id))
+                        {
+                            <input class="w-full rounded-xl border border-slate-200 p-2 bg-white text-sm" value="@link.Link" readonly />
+                            @if (!string.IsNullOrWhiteSpace(link.QrCodeDataUrl)) { <img src="@link.QrCodeDataUrl" alt="QR-Code" class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2" /> }
+                            <div class="flex gap-2"><input class="flex-1 rounded-xl border border-slate-200 p-2 bg-white" value="@EditComment(link)" @oninput="e => _comments[link.Id] = e.Value?.ToString() ?? string.Empty" /><FluentButton Appearance="Appearance.Outline" OnClick="() => SaveCommentAsync(link.Id)">@L["Btn_Save"]</FluentButton></div>
+                        }
+                    </div>
+                }
+                @if (!_links.Any(x => !x.Revoked)) { <div class="text-sm text-slate-600">@L["Participants_NoActiveShareLinks"]</div> }
+            </div>
+        </div>
+    }
+    else if (_activeTab == PortfolioShareTab.Directory)
+    {
+        <DirectorySharingPanel ResourceType="DirectoryShareResourceType.Portfolio" ResourceId="PortfolioId" RequestingUserId="RequestingUserId" OnChanged="LoadAsync" />
+    }
+    else
+    {
+        <div class="flex flex-col md:flex-row md:items-end gap-2">
+            <div class="flex-1"><div class="text-sm text-slate-700 mb-1">@L["Participants_Email"]</div><input type="email" class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_email" placeholder="@L["Participants_Email"]" /></div>
+            <div class="md:w-56"><div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div><select class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_emailRole"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select></div>
+            <FluentButton Appearance="Appearance.Accent" Disabled="_busy" OnClick="InviteAsync">@L["Participants_Invite"]</FluentButton>
+        </div>
+    }
+
+    <div class="pt-2 space-y-2">
+        <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_ParticipantsAndRoles"]</div>
+        @foreach (var participant in _participants)
+        {
+            var directoryOnly = participant.DirectoryRole is not null && participant.DirectRole is null;
+            <div class="flex flex-col md:flex-row md:items-center gap-2 border border-slate-200 rounded-2xl px-3 py-2">
+                <div class="min-w-0 flex-1"><div class="text-sm font-semibold truncate">@participant.DisplayName @if (participant.DirectoryRole is not null) { <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">Über Verzeichnis</span> }</div><div class="text-xs text-slate-600 truncate">@participant.Email</div>@if (participant.InvitationPending) { <span class="mt-1 inline-flex text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">@L["Participants_InvitationPending"]</span> }</div>
+                <div class="flex items-center gap-2"><select class="rounded-xl border border-slate-200 p-2 bg-white" disabled="@directoryOnly" value="@participant.Role" @onchange="e => ChangeRoleAsync(participant.Id, e)"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select><FluentButton Appearance="Appearance.Outline" Disabled="@(_busy || directoryOnly)" OnClick="() => RemoveAsync(participant.Id)">@(participant.InvitationPending ? L["Participants_Withdraw"] : L["Btn_Delete"])</FluentButton></div>
+            </div>
+        }
+        @if (_participants.Count == 0) { <div class="text-sm text-slate-600">@L["Participants_NoParticipants"]</div> }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid PortfolioId { get; set; }
+    [Parameter] public string RequestingUserId { get; set; } = "";
+    private bool _busy; private PortfolioShareTab _activeTab; private string _email = "", _comment = "", _error = "", _info = ""; private string? _newLink;
+    private ListRole _emailRole = ListRole.Member, _linkRole = ListRole.Member;
+    private IReadOnlyList<ShareLinkInfo> _links = []; private IReadOnlyList<PortfolioParticipantEntity> _participants = [];
+    private readonly Dictionary<Guid, string> _comments = []; private readonly HashSet<Guid> _expanded = [];
+    protected override Task OnParametersSetAsync() => LoadAsync();
+    private async Task LoadAsync() { if (PortfolioId == Guid.Empty) return; _links = await SharingService.GetShareLinksAsync(RequestingUserId, PortfolioId); _participants = await SharingService.GetParticipantsAsync(RequestingUserId, PortfolioId); foreach (var link in _links) _comments.TryAdd(link.Id, link.Comment ?? ""); }
+    private string TabCss(PortfolioShareTab tab) => "share-mode-tab rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none " + (_activeTab == tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900");
+    private enum PortfolioShareTab { Email, Link, Directory }
+    private void Reset() { _error = _info = ""; }
+    private async Task InviteAsync() { Reset(); _busy = true; try { var r = await SharingService.InviteAsync(RequestingUserId, PortfolioId, _email, _emailRole); _info = r.Message; if (!r.Success) _error = r.Message; _newLink = r.Link; if (r.Success) _email = ""; await LoadAsync(); } finally { _busy = false; } }
+    private async Task CreateLinkAsync() { Reset(); _busy = true; try { var r = await SharingService.CreateShareLinkAsync(RequestingUserId, PortfolioId, _linkRole, _comment); if (!r.Success) _error = r.Message; else { _info = r.Message; _newLink = r.Link; _comment = ""; await LoadAsync(); } } finally { _busy = false; } }
+    private async Task RevokeAsync(Guid id) { _busy = true; try { var r = await SharingService.RevokeShareLinkAsync(RequestingUserId, PortfolioId, id); _info = r.Message; await LoadAsync(); } finally { _busy = false; } }
+    private async Task SaveCommentAsync(Guid id) { var r = await SharingService.UpdateShareLinkCommentAsync(RequestingUserId, PortfolioId, id, _comments.GetValueOrDefault(id)); _info = r.Message; await LoadAsync(); }
+    private async Task ChangeRoleAsync(Guid id, ChangeEventArgs e) { if (Enum.TryParse<ListRole>(e.Value?.ToString(), out var role)) { var r = await SharingService.UpdateParticipantRoleAsync(RequestingUserId, PortfolioId, id, role); _info = r.Message; await LoadAsync(); } }
+    private async Task RemoveAsync(Guid id) { _busy = true; try { var r = await SharingService.RemoveParticipantAsync(RequestingUserId, PortfolioId, id); _info = r.Message; await LoadAsync(); } finally { _busy = false; } }
+    private Task CopyAsync(string? value) => string.IsNullOrWhiteSpace(value) ? Task.CompletedTask : JS.InvokeVoidAsync("navigator.clipboard.writeText", value).AsTask();
+    private void Toggle(Guid id) { if (!_expanded.Add(id)) _expanded.Remove(id); }
+    private string EditComment(ShareLinkInfo link) => _comments.GetValueOrDefault(link.Id, link.Comment ?? "");
+}

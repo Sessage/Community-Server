@@ -1,0 +1,214 @@
+@page "/search"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@inject ISearchService SearchService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+@using Klassenbibliothek.Services
+@using Microsoft.FluentUI.AspNetCore.Components
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using Microsoft.AspNetCore.Authorization
+
+<div class="space-y-6">
+    <div>
+        <div class="text-xs uppercase text-slate-500">@L["Search_Section"]</div>
+        <h1 class="text-3xl font-semibold">@L["Search_Title"]</h1>
+    </div>
+
+    <!-- Search input -->
+    <div class="relative">
+        <div class="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+            <FluentIcon Value="@(new Icons.Regular.Size20.Search())" Color="Color.Neutral" />
+            <input class="flex-1 outline-none text-base bg-transparent"
+                   type="search"
+                   placeholder="@L["Search_Placeholder"]"
+                   value="@_query"
+                   @onchange="OnQueryChange"
+                   @onkeydown="OnKeyDown"
+                   autofocus />
+            @if (!string.IsNullOrEmpty(_query))
+            {
+                <button type="button" class="text-slate-400 hover:text-slate-600" @onclick="ClearSearch">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-slate-500">@L["Lbl_Loading"]</div>
+    }
+    else if (_searched && string.IsNullOrWhiteSpace(_query))
+    {
+        <div class="text-slate-500">@L["Search_EnterQuery"]</div>
+    }
+    else if (_searched && _results.Count == 0)
+    {
+        <div class="text-slate-500">@string.Format(L["Search_NoResults"], _query)</div>
+    }
+    else if (_searched)
+    {
+        <div class="text-sm text-slate-500">@string.Format(L["Search_ResultCount"], _results.Count, _query)</div>
+
+        <!-- Lists section -->
+        @if (_listResults.Count > 0)
+        {
+            <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.DocumentBulletList())" Color="Color.Accent" />
+                    <span class="text-sm font-semibold uppercase tracking-wide text-slate-600">@L["Search_GroupLists"] (@_listResults.Count)</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    @foreach (var item in _listResults)
+                    {
+                        <button type="button"
+                                class="text-left bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                @onclick="() => NavigateTo(item)">
+                            <div class="flex items-center gap-2">
+                                <FluentIcon Value="@(new Icons.Regular.Size20.DocumentBulletList())" Color="Color.Accent" />
+                                <span class="font-medium truncate">@item.Title</span>
+                            </div>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Tasks section -->
+        @if (_taskResults.Count > 0)
+        {
+            <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                    <FluentIcon Value="@(new Icons.Filled.Size20.TaskListSquareSparkle())" Color="Color.Accent" />
+                    <span class="text-sm font-semibold uppercase tracking-wide text-slate-600">@L["Search_GroupTasks"] (@_taskResults.Count)</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    @foreach (var item in _taskResults)
+                    {
+                        <button type="button"
+                                class="text-left bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                @onclick="() => NavigateTo(item)">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <FluentIcon Value="@(new Icons.Filled.Size20.TaskListSquareSparkle())" Color="Color.Neutral" />
+                                <span class="font-medium truncate">@item.Title</span>
+                            </div>
+                            <div class="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                                <FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" Color="Color.Neutral" />
+                                <span class="truncate">@item.ListName</span>
+                                @if (item.MatchField == "description")
+                                {
+                                    <span class="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full">@L["Search_MatchDescription"]</span>
+                                }
+                                else if (item.MatchField == "step")
+                                {
+                                    <span class="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">@L["Search_MatchStep"]</span>
+                                }
+                            </div>
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? QueryParam { get; set; }
+
+    private string _query = "";
+    private bool _loading;
+    private bool _searched;
+    private List<SearchResultItem> _results = new();
+    private List<SearchResultItem> _listResults = new();
+    private List<SearchResultItem> _taskResults = new();
+
+    private string _userId = "gast";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = auth.User?.Identity?.Name ?? "gast";
+
+        if (!string.IsNullOrWhiteSpace(QueryParam))
+        {
+            _query = QueryParam;
+            await RunSearchAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (QueryParam != _query && !string.IsNullOrWhiteSpace(QueryParam))
+        {
+            _query = QueryParam;
+            await RunSearchAsync();
+        }
+    }
+
+    private async Task OnQueryChange(ChangeEventArgs e)
+    {
+        _query = e.Value?.ToString() ?? "";
+        Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_query)}", replace: true);
+        await RunSearchAsync();
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_query)}", replace: true);
+            await RunSearchAsync();
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        _query = "";
+        _results.Clear();
+        _listResults.Clear();
+        _taskResults.Clear();
+        _searched = false;
+        Navigation.NavigateTo("/search", replace: true);
+        await Task.CompletedTask;
+    }
+
+    private async Task RunSearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_query))
+        {
+            _results.Clear();
+            _listResults.Clear();
+            _taskResults.Clear();
+            _searched = true;
+            return;
+        }
+
+        _loading = true;
+        _searched = false;
+        StateHasChanged();
+
+        try
+        {
+            var all = await SearchService.SearchAsync(_userId, _query);
+            _results = all.ToList();
+            _listResults = _results.Where(r => r.Kind == SearchResultKind.List).ToList();
+            _taskResults = _results.Where(r => r.Kind == SearchResultKind.Task).ToList();
+        }
+        finally
+        {
+            _loading = false;
+            _searched = true;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateTo(SearchResultItem item)
+    {
+        if (item.TaskId.HasValue)
+            Navigation.NavigateTo($"/list/{item.ListId}?taskId={item.TaskId}");
+        else
+            Navigation.NavigateTo($"/list/{item.ListId}");
+    }
+}

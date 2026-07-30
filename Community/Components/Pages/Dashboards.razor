@@ -1,0 +1,921 @@
+@page "/dashboards"
+@page "/portfolio/{PortfolioId:guid}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@attribute [Authorize]
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Authorization
+@using System.Globalization
+@using System.Text
+@using System.Text.Json
+@using Klassenbibliothek.Components.Views
+@using Klassenbibliothek.Features
+@inject ITodoListService ListService
+@inject IDashboardService DashboardService
+@inject IPortfolioSharingService PortfolioSharingService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+@inject IProductFeatureCatalog ProductFeatures
+
+<PageTitle>@L["Dashboard_PageTitle"]</PageTitle>
+
+<div class="mx-auto h-full min-h-0 flex flex-col overflow-hidden overflow-x-hidden" @onclick="CloseOverlays">
+
+    @if (PortfolioId.HasValue)
+    {
+        <div class="px-4 pt-4 flex items-center justify-between gap-3">
+            <div>
+                <div class="text-xs uppercase tracking-wide text-indigo-600">Portfolio</div>
+                <h1 class="text-xl font-semibold text-slate-900">@(_activeDashboard?.Name ?? "Portfolio")</h1>
+            </div>
+            @if (_canManagePortfolio) { <FluentButton Appearance="Appearance.Accent" OnClick="OpenPortfolioShareDialog"><span>Portfolio teilen</span></FluentButton> }
+        </div>
+    }
+
+    <DashboardHeader Dashboards="_dashboards"
+                     ActiveDashboard="_activeDashboard"
+                     IsFixedDashboard="@PortfolioId.HasValue"
+                     CanEdit="@CanEditDashboard"
+                     FilterDraft="_filterDraft"
+                     SortsOpen="_sortsOpen"
+                     OnDashboardChanged="SelectDashboard"
+                     OnDashboardRenamed="InlineRenameDashboardAsync"
+                     OnCreateDashboard="OpenCreateDashboardDialog"
+                     OnFilterClick="ToggleFilterDialog"
+                     OnSortToggle="ToggleSorts"
+                     OnSortModeSelected="SetSortModeAsync"
+                     OnWidgetCustomizeClick="OpenWidgetDialog"
+                     OnSettingsClick="OpenSettingsDialog"
+                     OnExportJson="ExportJsonAsync"
+                     OnExportCsv="ExportCsvAsync"
+                     OnExportPdf="ExportPdfAsync" />
+
+    <section class="p-4 min-h-0 overflow-auto space-y-4">
+        <div class="flex justify-end" @onclick:stopPropagation="true">
+            <FloatingDropdown @ref="_viewDropdown" AlignEnd="true">
+                <ChildContent>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+                        <span>@CurrentViewLabel</span>
+                        <span aria-hidden="true">▾</span>
+                    </button>
+                </ChildContent>
+                <DropdownContent>
+                    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                        <button class="@ViewMenuItemCss(DashboardView.List)" @onclick="() => SwitchView(DashboardView.List)">
+                            @L["Page_Workspace_ListView"]
+                        </button>
+                        <button class="@ViewMenuItemCss(DashboardView.Calendar)" @onclick="() => SwitchView(DashboardView.Calendar)">
+                            @L["QuickLink_Calendar"]
+                        </button>
+                    </div>
+                </DropdownContent>
+            </FloatingDropdown>
+        </div>
+
+        @if (_activeDashboard is null)
+        {
+            <div class="text-slate-500">@L["Dashboard_NoneSelected"]</div>
+        }
+        else if (_view == DashboardView.Calendar)
+        {
+            <TodoCalendarView Items="BuildDashboardCalendarItems()"
+                              OnItemClick="OpenCalendarTaskAsync"
+                              EmptyText="@L["Page_Calendar_Empty"]"
+                              ContainerClass="min-h-[70vh] rounded-xl border border-slate-200 bg-white p-3 shadow-sm" />
+        }
+        else
+        {
+            <div @ref="_widgetContainer" class="flex flex-col gap-4">
+                @foreach (var widgetId in _filterDraft.WidgetOrder)
+                {
+                    @if (IsWidgetVisible(widgetId))
+                    {
+                        var wId = widgetId;
+                        <div data-widget-id="@wId" class="relative group">
+                            @if (CanEditDashboard)
+                            {
+                            <button class="dashboard-drag-handle absolute top-3 right-3 z-10 p-1.5
+                                           rounded-lg cursor-grab select-none
+                                           bg-white border border-slate-200 text-slate-400
+                                           hover:text-slate-600 hover:bg-slate-50
+                                           opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="@GetWidgetLabel(wId)" type="button">⠿</button>
+                            }
+                            @RenderWidget(wId)
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@if (_portfolioShareOpen && _canManagePortfolio && PortfolioId.HasValue)
+{
+    <FluentDialog id="portfolio-share-dlg" Open="true" Modal="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true" HiddenChanged="@(_ => _portfolioShareOpen = false)">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">Portfolio teilen</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="() => _portfolioShareOpen = false">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <div class="share-dialog-scroll-content max-h-[calc(92vh-120px)] overflow-y-auto">
+                @if (PortfolioId.HasValue) { <PortfolioParticipantsPanel PortfolioId="PortfolioId.Value" RequestingUserId="@_userId" /> }
+            </div>
+        </FluentDialogBody>
+    </FluentDialog>
+}
+
+<DashboardCreateModal IsOpen="_isCreateDialogOpen"
+                      DefaultName="@($"Dashboard {_dashboards.Count + 1}")"
+                      OnClose="() => _isCreateDialogOpen = false"
+                      OnCreate="CreateDashboardFromDialogAsync" />
+
+<DashboardFilterModal IsOpen="_isFilterDialogOpen"
+                      Draft="_filterDialogDraft"
+                      OnClose="CloseFilterDialog"
+                      OnApply="ApplyFilterDialogAsync"
+                      OnClear="() => _filterDialogDraft.ClearCriteria()" />
+
+<DashboardSettingsModal IsOpen="_isSettingsDialogOpen"
+                        ActiveDashboard="_activeDashboard"
+                        AllowDelete="@(!PortfolioId.HasValue)"
+                        Lists="_lists"
+                        OnClose="() => _isSettingsDialogOpen = false"
+                        OnNameInput="OnDashboardNameInput"
+                        OnGroupByChanged="OnGroupByChanged"
+                        OnListToggled="args => ToggleListSelectionAsync(args.ListId, args.Selected)"
+                        OnDelete="DeleteDashboardAsync" />
+
+<DashboardWidgetModal IsOpen="_isWidgetDialogOpen"
+                      FilterDraft="_filterDraft"
+                      OnClose="() => _isWidgetDialogOpen = false"
+                      OnToggleWidget="args => ToggleWidgetByIdAsync(args.WidgetId, args.Selected)"
+                      OnMoveUp="MoveWidgetUpAsync"
+                      OnMoveDown="MoveWidgetDownAsync" />
+
+@if (_selectedTask is not null && _selectedTaskList is not null)
+{
+    <TaskEditModal Task="_selectedTask"
+                   ListId="_selectedTaskList.Id"
+                   Columns="_selectedTaskList.Columns"
+                   Labels="_selectedTaskList.Labels"
+                   List="_selectedTaskList"
+                   AvailableLists="_lists"
+                   EnableCustomFields="@ProductFeatures.IsEnabled(ProductFeatureIds.Forms)"
+                   OnClose="CloseTaskDetails"
+                   OnTaskUpdated="HandleTaskUpdated"
+                   OnListChanged="ReloadDashboardListsAsync" />
+}
+
+@code {
+    [Parameter] public Guid? PortfolioId { get; set; }
+    private enum DashboardView { List, Calendar }
+
+    private readonly List<DashboardEntity> _dashboards = [];
+    private IReadOnlyList<TodoListEntity> _lists = [];
+    private string _userId = "gast";
+    private Guid? _activeDashboardId;
+    private DashboardEntity? _activeDashboard;
+    private DashboardFilter _filterDraft = new();
+    private DashboardFilter _filterDialogDraft = new();
+    private List<(TodoListEntity List, TodoTaskEntity Task)> _visibleItems = [];
+    private TodoListEntity? _selectedTaskList;
+    private TodoTaskEntity? _selectedTask;
+
+    private bool _sortsOpen;
+    private bool _isCreateDialogOpen;
+    private bool _isFilterDialogOpen;
+    private bool _isSettingsDialogOpen;
+    private bool _isWidgetDialogOpen;
+    private DashboardView _view = DashboardView.List;
+    private string _saveState = string.Empty;
+    private CancellationTokenSource? _autoSaveCts;
+
+    private ElementReference _widgetContainer;
+    private DotNetObjectReference<Dashboards>? _dotNetRef;
+    private FloatingDropdown? _viewDropdown;
+    private bool _initSortableAfterRender = true;
+
+    private bool _createHookActive;
+    private bool _filterHookActive;
+    private bool _settingsHookActive;
+    private bool _widgetHookActive;
+    private bool _portfolioShareHookActive;
+    private bool _portfolioShareOpen;
+    private bool _initialized;
+    private Guid? _loadedPortfolioId;
+    private bool _canManagePortfolio;
+    private bool CanEditDashboard => !PortfolioId.HasValue || _canManagePortfolio;
+
+    // ── Init ──────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                  ?? authState.User.FindFirst("sub")?.Value
+                  ?? "gast";
+        _lists = await ListService.GetListsAsync(_userId);
+        await ReloadDashboardsAsync();
+        _loadedPortfolioId = PortfolioId;
+        _initialized = true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized || _loadedPortfolioId == PortfolioId) return;
+        _loadedPortfolioId = PortfolioId;
+        _lists = await ListService.GetListsAsync(_userId);
+        await ReloadDashboardsAsync();
+    }
+
+    // ── Dashboard CRUD ────────────────────────────────────────────────────
+
+    private async Task ReloadDashboardsAsync()
+    {
+        _dashboards.Clear();
+        if (PortfolioId.HasValue)
+        {
+            _canManagePortfolio = await PortfolioSharingService.CanManageAsync(_userId, PortfolioId.Value);
+            var portfolioDashboard = await DashboardService.GetOrCreatePortfolioDashboardAsync(_userId, PortfolioId.Value);
+            if (portfolioDashboard is not null)
+            {
+                _dashboards.Add(portfolioDashboard);
+                _activeDashboardId = portfolioDashboard.Id;
+                SelectDashboard(portfolioDashboard.Id);
+            }
+            return;
+        }
+        _canManagePortfolio = false;
+        _dashboards.AddRange(await DashboardService.GetDashboardsAsync(_userId));
+
+        if (_dashboards.Count == 0)
+        {
+            await CreateDashboardInternalAsync("Dashboard 1");
+            return;
+        }
+
+        var selected = _activeDashboardId.HasValue
+            ? _dashboards.FirstOrDefault(x => x.Id == _activeDashboardId.Value)
+            : null;
+
+        selected ??= _dashboards.First();
+        SelectDashboard(selected.Id);
+    }
+
+    private void SelectDashboard(Guid id)
+    {
+        _activeDashboardId = id;
+        _activeDashboard = _dashboards.First(x => x.Id == id);
+        _filterDraft = _activeDashboard.GetFilter();
+        _sortsOpen = false;
+        _initSortableAfterRender = true;
+        RecalculateVisibleItems();
+    }
+
+    private void OpenCreateDashboardDialog()
+    {
+        if (PortfolioId.HasValue) return;
+        _isSettingsDialogOpen = false;
+        _isCreateDialogOpen = true;
+    }
+
+    private async Task CreateDashboardFromDialogAsync(string name)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(name) ? $"Dashboard {_dashboards.Count + 1}" : name.Trim();
+        _isCreateDialogOpen = false;
+        await CreateDashboardInternalAsync(trimmed);
+    }
+
+    private async Task CreateDashboardInternalAsync(string name)
+    {
+        var created = await DashboardService.CreateDashboardAsync(_userId, new DashboardEntity
+        {
+            Name = name,
+            SelectedListIds = _lists.Take(3).Select(l => l.Id).ToList(),
+            SortMode = ListSortMode.DueDate,
+            GroupBy = DashboardGroupBy.List
+        });
+        _dashboards.Add(created);
+        SelectDashboard(created.Id);
+    }
+
+    private async Task DeleteDashboardAsync()
+    {
+        if (PortfolioId.HasValue) return;
+        if (_activeDashboard is null) return;
+        _isSettingsDialogOpen = false;
+        await DashboardService.DeleteDashboardAsync(_userId, _activeDashboard.Id);
+        await ReloadDashboardsAsync();
+    }
+
+    private void OpenPortfolioShareDialog()
+    {
+        if (_canManagePortfolio && PortfolioId.HasValue)
+            _portfolioShareOpen = true;
+    }
+
+    private void OpenWidgetDialog()
+    {
+        if (CanEditDashboard)
+            _isWidgetDialogOpen = true;
+    }
+
+    private void OpenSettingsDialog()
+    {
+        if (CanEditDashboard)
+            _isSettingsDialogOpen = true;
+    }
+
+
+    // ── Settings modal fields ─────────────────────────────────────────────
+
+    private async Task OnDashboardNameInput(ChangeEventArgs e)
+    {
+        if (_activeDashboard is null || !CanEditDashboard) return;
+        _activeDashboard.Name = e.Value?.ToString() ?? string.Empty;
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    private async Task InlineRenameDashboardAsync(string newName)
+    {
+        if (_activeDashboard is null || !CanEditDashboard) return;
+        _activeDashboard.Name = newName;
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    private async Task OnGroupByChanged(ChangeEventArgs e)
+    {
+        if (_activeDashboard is null || !CanEditDashboard) return;
+        if (Enum.TryParse<DashboardGroupBy>(e.Value?.ToString(), out var groupBy))
+        {
+            _activeDashboard.GroupBy = groupBy;
+            await MarkDirtyAndAutoSaveAsync();
+        }
+    }
+
+    private async Task ToggleListSelectionAsync(Guid listId, bool selected)
+    {
+        if (_activeDashboard is null || !CanEditDashboard) return;
+        if (selected)
+        {
+            if (!_activeDashboard.SelectedListIds.Contains(listId))
+                _activeDashboard.SelectedListIds.Add(listId);
+        }
+        else
+        {
+            _activeDashboard.SelectedListIds.RemoveAll(x => x == listId);
+        }
+        RecalculateVisibleItems();
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    // ── Filter dialog ─────────────────────────────────────────────────────
+
+    private void ToggleFilterDialog()
+    {
+        if (!CanEditDashboard) return;
+        _sortsOpen = false;
+        _filterDialogDraft = _filterDraft.Clone();
+        _isFilterDialogOpen = true;
+    }
+
+    private void CloseFilterDialog() => _isFilterDialogOpen = false;
+
+    private async Task ApplyFilterDialogAsync()
+    {
+        if (!CanEditDashboard) return;
+        _filterDraft = _filterDialogDraft.Clone();
+        _isFilterDialogOpen = false;
+        RecalculateVisibleItems();
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    // ── Sort ──────────────────────────────────────────────────────────────
+
+    private void ToggleSorts()
+    {
+        if (!CanEditDashboard) return;
+        _isFilterDialogOpen = false;
+        _sortsOpen = !_sortsOpen;
+    }
+
+    private async Task SetSortModeAsync(ListSortMode mode)
+    {
+        if (_activeDashboard is null || !CanEditDashboard) return;
+        _activeDashboard.SortMode = mode;
+        _sortsOpen = false;
+        RecalculateVisibleItems();
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    // ── Widget visibility & order ─────────────────────────────────────────
+
+    private async Task ToggleWidgetByIdAsync(string widgetId, bool selected)
+    {
+        if (!CanEditDashboard) return;
+        switch (widgetId)
+        {
+            case "kpi":      _filterDraft.ShowKpiCards = selected; break;
+            case "status":   _filterDraft.ShowStatusChart = selected; break;
+            case "priority": _filterDraft.ShowPriorityChart = selected; break;
+            case "due":      _filterDraft.ShowDueChart = selected; break;
+        }
+        _initSortableAfterRender = true;
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    private bool IsWidgetVisible(string widgetId) => widgetId switch
+    {
+        "kpi"      => _filterDraft.ShowKpiCards,
+        "status"   => _filterDraft.ShowStatusChart,
+        "priority" => _filterDraft.ShowPriorityChart,
+        "due"      => _filterDraft.ShowDueChart,
+        "tasks"    => true,
+        _          => false
+    };
+
+    private async Task MoveWidgetUpAsync(string widgetId)
+    {
+        if (!CanEditDashboard) return;
+        var order = _filterDraft.WidgetOrder;
+        var idx = order.IndexOf(widgetId);
+        if (idx <= 0) return;
+        order.RemoveAt(idx);
+        order.Insert(idx - 1, widgetId);
+        _initSortableAfterRender = true;
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    private async Task MoveWidgetDownAsync(string widgetId)
+    {
+        if (!CanEditDashboard) return;
+        var order = _filterDraft.WidgetOrder;
+        var idx = order.IndexOf(widgetId);
+        if (idx < 0 || idx >= order.Count - 1) return;
+        order.RemoveAt(idx);
+        order.Insert(idx + 1, widgetId);
+        _initSortableAfterRender = true;
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    // ── SortableJS interop ────────────────────────────────────────────────
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        if (_initSortableAfterRender && _activeDashboard is not null && _view == DashboardView.List)
+        {
+            _initSortableAfterRender = false;
+            if (CanEditDashboard)
+                await JS.InvokeVoidAsync("todoUi.initDashboardSortable", _widgetContainer, _dotNetRef);
+            else
+                await JS.InvokeVoidAsync("todoUi.disposeDashboardSortable");
+        }
+        _createHookActive   = await UpdateDialogHookAsync(_isCreateDialogOpen,   "dashboard-create-dlg",   _createHookActive);
+        _filterHookActive   = await UpdateDialogHookAsync(_isFilterDialogOpen,   "dashboard-filter-dlg",   _filterHookActive);
+        _settingsHookActive = await UpdateDialogHookAsync(_isSettingsDialogOpen, "dashboard-settings-dlg", _settingsHookActive);
+        _widgetHookActive   = await UpdateDialogHookAsync(_isWidgetDialogOpen,   "dashboard-widget-dlg",   _widgetHookActive);
+        _portfolioShareHookActive = await UpdateDialogHookAsync(_portfolioShareOpen && _canManagePortfolio, "portfolio-share-dlg", _portfolioShareHookActive);
+    }
+
+    private async Task<bool> UpdateDialogHookAsync(bool isOpen, string dialogId, bool hookActive)
+    {
+        if (isOpen && !hookActive)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("todoUi.enableDialogOutsideCloseById", dialogId, _dotNetRef, Array.Empty<string>());
+                return true;
+            }
+            catch { }
+        }
+        else if (!isOpen && hookActive)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", dialogId); } catch { }
+            return false;
+        }
+        return hookActive;
+    }
+
+    [JSInvokable]
+    public async Task CloseFromOutsideClick()
+    {
+        _isCreateDialogOpen   = false;
+        _isFilterDialogOpen   = false;
+        _isSettingsDialogOpen = false;
+        _isWidgetDialogOpen   = false;
+        _portfolioShareOpen   = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task OnWidgetOrderChanged(string[] newOrder)
+    {
+        if (!CanEditDashboard) return;
+        var defaults = DashboardFilter.DefaultWidgetOrder();
+        var normalized = newOrder.Where(defaults.Contains).ToList();
+        foreach (var id in defaults.Where(d => !normalized.Contains(d)))
+            normalized.Add(id);
+        _filterDraft.WidgetOrder = normalized;
+        await MarkDirtyAndAutoSaveAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_createHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "dashboard-create-dlg"); } catch { }
+        if (_filterHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "dashboard-filter-dlg"); } catch { }
+        if (_settingsHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "dashboard-settings-dlg"); } catch { }
+        if (_widgetHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "dashboard-widget-dlg"); } catch { }
+        if (_portfolioShareHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "portfolio-share-dlg"); } catch { }
+        try { await JS.InvokeVoidAsync("todoUi.disposeDashboardSortable"); } catch { }
+        _dotNetRef?.Dispose();
+        _autoSaveCts?.Cancel();
+    }
+
+    // ── Autosave ──────────────────────────────────────────────────────────
+
+    private async Task MarkDirtyAndAutoSaveAsync()
+    {
+        if (!CanEditDashboard) return;
+        _saveState = L["Dashboard_Autosave_Pending"];
+        _autoSaveCts?.Cancel();
+        _autoSaveCts = new CancellationTokenSource();
+        var token = _autoSaveCts.Token;
+        try
+        {
+            await Task.Delay(600, token);
+            await SaveDashboardAsync();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task SaveDashboardAsync()
+    {
+        if (_activeDashboard is null || !CanEditDashboard) return;
+        _activeDashboard.SetFilter(_filterDraft);
+        var updated = await DashboardService.UpdateDashboardAsync(_userId, _activeDashboard);
+        if (updated is not null)
+        {
+            var idx = _dashboards.FindIndex(x => x.Id == updated.Id);
+            if (idx >= 0) _dashboards[idx] = updated;
+            SelectDashboard(updated.Id);
+            _saveState = $"{L["Dashboard_Autosave_Saved"]}: {DateTime.Now:HH:mm:ss}";
+        }
+    }
+
+    // ── Visible items ─────────────────────────────────────────────────────
+
+    private void RecalculateVisibleItems()
+    {
+        if (_activeDashboard is null) { _visibleItems = []; return; }
+
+        var selected = new HashSet<Guid>(_activeDashboard.SelectedListIds);
+        var now = DateTime.UtcNow;
+
+        var items = _lists
+            .Where(l => selected.Contains(l.Id))
+            .SelectMany(l => (l.Tasks ?? []).Select(t => (List: l, Task: t)))
+            .Where(x => PassesFilter(x.Task, x.List, now))
+            .ToList();
+
+        _visibleItems = SortItems(items, _activeDashboard.SortMode);
+    }
+
+    private bool PassesFilter(TodoTaskEntity task, TodoListEntity list, DateTime now)
+    {
+        if (!string.IsNullOrWhiteSpace(_filterDraft.Query))
+        {
+            var q = _filterDraft.Query.Trim();
+            if (!$"{task.Title} {task.Description} {list.Name}".Contains(q, StringComparison.OrdinalIgnoreCase))
+                return false;
+        }
+        if (_filterDraft.Done is not null && task.Done != _filterDraft.Done.Value) return false;
+        if (_filterDraft.NoDueDate && task.DueDate is not null) return false;
+        if (_filterDraft.Overdue && (task.DueDate is null || task.DueDate >= now)) return false;
+        if (_filterDraft.DueNextDay && (task.DueDate is null || task.DueDate > now.AddDays(1) || task.DueDate < now)) return false;
+        if (_filterDraft.DueNextWeek && (task.DueDate is null || task.DueDate > now.AddDays(7) || task.DueDate < now)) return false;
+        if (_filterDraft.DueNextMonth && (task.DueDate is null || task.DueDate > now.AddDays(30) || task.DueDate < now)) return false;
+        if (_filterDraft.AssignedToMe && !(task.MemberUserIds?.Contains(_userId) ?? false)) return false;
+        if (_filterDraft.NoAssignee && (!string.IsNullOrWhiteSpace(task.Assignee) || (task.MemberUserIds?.Count ?? 0) > 0)) return false;
+        if (_filterDraft.IsImportant && !task.IsImportant) return false;
+        return true;
+    }
+
+    private static List<(TodoListEntity List, TodoTaskEntity Task)> SortItems(
+        List<(TodoListEntity List, TodoTaskEntity Task)> items, ListSortMode mode)
+        => mode switch
+        {
+            ListSortMode.Alphabetical => items.OrderBy(x => x.Task.Title).ToList(),
+            ListSortMode.CreatedAt => items.OrderByDescending(x => x.Task.CreatedAtUtc).ToList(),
+            ListSortMode.Importance => items.OrderByDescending(x => x.Task.IsImportant).ThenBy(x => x.Task.Title).ToList(),
+            ListSortMode.DueDate => items.OrderBy(x => x.Task.DueDate ?? DateTime.MaxValue).ThenBy(x => x.Task.Title).ToList(),
+            _ => items.OrderBy(x => x.Task.ListSortOrder).ToList()
+        };
+
+    private IEnumerable<IGrouping<string, (TodoListEntity List, TodoTaskEntity Task)>> GetGroupedItems()
+    {
+        if (_activeDashboard is null) return [];
+        return _activeDashboard.GroupBy switch
+        {
+            DashboardGroupBy.Status   => _visibleItems.GroupBy(x => x.Task.Done ? L["Dashboard_Chart_Done"].Value : L["Dashboard_Chart_Open"].Value),
+            DashboardGroupBy.DueDate  => _visibleItems.GroupBy(x => x.Task.DueDate?.Date.ToString("yyyy-MM-dd") ?? L["Dashboard_Chart_NoDate"].Value),
+            DashboardGroupBy.List     => _visibleItems.GroupBy(x => x.List.Name),
+            _                         => _visibleItems.GroupBy(_ => L["Dashboard_AllTasks"].Value)
+        };
+    }
+
+    // ── Widget rendering ──────────────────────────────────────────────────
+
+    private RenderFragment RenderWidget(string widgetId) => widgetId switch
+    {
+        "kpi"      => RenderKpi(),
+        "status"   => RenderStatusChart(),
+        "priority" => RenderPriorityChart(),
+        "due"      => RenderDueChart(),
+        "tasks"    => RenderTaskTable(),
+        _          => builder => { }
+    };
+
+    private RenderFragment RenderKpi() => builder =>
+    {
+        builder.OpenComponent<DashboardKpiWidget>(0);
+        builder.AddAttribute(1, "Total", _visibleItems.Count);
+        builder.AddAttribute(2, "Open", _visibleItems.Count(x => !x.Task.Done));
+        builder.AddAttribute(3, "Done", _visibleItems.Count(x => x.Task.Done));
+        builder.AddAttribute(4, "CompletionPercent", GetCompletionPercent());
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderStatusChart() => builder =>
+    {
+        builder.OpenComponent<DashboardChartWidget>(0);
+        builder.AddAttribute(1, "Title", L["Dashboard_Widget_Status"].Value);
+        builder.AddAttribute(2, "Total", _visibleItems.Count);
+        builder.AddAttribute(3, "Bars", new (string, int)[]
+        {
+            (L["Dashboard_Chart_Open"].Value,  _visibleItems.Count(x => !x.Task.Done)),
+            (L["Dashboard_Chart_Done"].Value,  _visibleItems.Count(x => x.Task.Done))
+        });
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderPriorityChart() => builder =>
+    {
+        builder.OpenComponent<DashboardChartWidget>(0);
+        builder.AddAttribute(1, "Title", L["Dashboard_Widget_Priority"].Value);
+        builder.AddAttribute(2, "Total", _visibleItems.Count);
+        builder.AddAttribute(3, "Bars", new (string, int)[]
+        {
+            (L["Dashboard_Chart_Important"].Value, _visibleItems.Count(x => x.Task.IsImportant)),
+            (L["Dashboard_Chart_Normal"].Value,    _visibleItems.Count(x => !x.Task.IsImportant))
+        });
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderDueChart() => builder =>
+    {
+        var now = DateTime.UtcNow;
+        builder.OpenComponent<DashboardChartWidget>(0);
+        builder.AddAttribute(1, "Title", L["Dashboard_Widget_Due"].Value);
+        builder.AddAttribute(2, "Total", _visibleItems.Count);
+        builder.AddAttribute(3, "Bars", new (string, int)[]
+        {
+            (L["Dashboard_Chart_Overdue"].Value, _visibleItems.Count(x => x.Task.DueDate < now && !x.Task.Done && x.Task.DueDate is not null)),
+            (L["Dashboard_Chart_DueSoon"].Value, _visibleItems.Count(x => x.Task.DueDate >= now && x.Task.DueDate <= now.AddDays(7))),
+            (L["Dashboard_Chart_NoDate"].Value,  _visibleItems.Count(x => x.Task.DueDate is null))
+        });
+        builder.CloseComponent();
+    };
+
+    private RenderFragment RenderTaskTable() => builder =>
+    {
+        builder.OpenComponent<DashboardTaskTable>(0);
+        builder.AddAttribute(1, "VisibleCount", _visibleItems.Count);
+        builder.AddAttribute(2, "GroupedItems", GetGroupedItems());
+        builder.CloseComponent();
+    };
+
+    private IReadOnlyList<TodoCalendarItem> BuildDashboardCalendarItems()
+        => _visibleItems
+            .Where(item => item.Task.StartDate.HasValue && item.Task.DueDate.HasValue)
+            .Select(item =>
+            {
+                var startDate = item.Task.StartDate!.Value.Date;
+                var dueDate = item.Task.DueDate!.Value.Date;
+                var endDate = dueDate >= startDate ? dueDate.AddDays(1) : startDate.AddDays(1);
+
+                return new TodoCalendarItem
+                {
+                    TaskId = item.Task.Id,
+                    ListId = item.List.Id,
+                    Title = $"{item.Task.Title} · {item.List.Name}",
+                    Start = startDate,
+                    End = endDate,
+                    CardColor = item.Task.CardColor,
+                    CardColorMode = item.Task.CardColorMode,
+                    AssigneeUserId = string.IsNullOrWhiteSpace(item.Task.Assignee) ? null : item.Task.Assignee.Trim(),
+                    AssigneeDisplayName = GetCalendarAssigneeDisplayName(item.List, item.Task.Assignee),
+                    AssigneeInitials = GetCalendarAssigneeInitials(item.List, item.Task.Assignee),
+                    AssigneeAvatarColor = GetCalendarAssigneeAvatarColor(item.Task.Assignee),
+                    AssigneeProfilePictureUrl = GetCalendarAssigneeProfilePictureUrl(item.Task.Assignee)
+                };
+            })
+            .ToList();
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    private static string? GetCalendarAssigneeDisplayName(TodoListEntity list, string? userId)
+    {
+        var participant = FindCalendarParticipant(list, userId);
+        return participant is not null && !string.IsNullOrWhiteSpace(participant.DisplayName)
+            ? participant.DisplayName
+            : string.IsNullOrWhiteSpace(userId) ? null : userId.Trim();
+    }
+
+    private static string? GetCalendarAssigneeInitials(TodoListEntity list, string? userId)
+    {
+        var displayName = GetCalendarAssigneeDisplayName(list, userId);
+        if (string.IsNullOrWhiteSpace(displayName))
+            return null;
+
+        var parts = displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant();
+
+        return parts.Length == 1 && parts[0].Length > 0
+            ? parts[0][0].ToString().ToUpperInvariant()
+            : "?";
+    }
+
+    private static ListParticipantEntity? FindCalendarParticipant(TodoListEntity list, string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || list.Participants is null)
+            return null;
+
+        var uid = userId.Trim();
+        return list.Participants.FirstOrDefault(p =>
+            (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(p.Email) && string.Equals(p.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static string? GetCalendarAssigneeAvatarColor(string? userId)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return null;
+
+        var colors = new[] { "#0079bf", "#d29034", "#519839", "#b04632", "#89609e", "#cd5a91", "#4bbf6b", "#00aecc", "#838c91" };
+        var hash = 0;
+        foreach (var c in userId.Trim())
+            hash = unchecked(hash * 31 + c);
+        return colors[Math.Abs(hash) % colors.Length];
+    }
+
+    private static string? GetCalendarAssigneeProfilePictureUrl(string? userId)
+        => string.IsNullOrWhiteSpace(userId)
+            ? null
+            : $"/api/profile-picture/{Uri.EscapeDataString(userId.Trim())}";
+
+    private string CurrentViewLabel => _view == DashboardView.Calendar
+        ? L["QuickLink_Calendar"]
+        : L["Page_Workspace_ListView"];
+
+    private string ViewMenuItemCss(DashboardView view)
+        => $"block w-full px-3 py-2 text-left hover:bg-slate-50 {(_view == view ? "bg-blue-50 text-blue-700" : "text-slate-700")}";
+
+    private async Task SwitchView(DashboardView view)
+    {
+        if (_viewDropdown is not null)
+        {
+            await _viewDropdown.CloseAsync();
+        }
+
+        _view = view;
+        _initSortableAfterRender = view == DashboardView.List;
+        _sortsOpen = false;
+    }
+
+    private Task OpenCalendarTaskAsync(TodoCalendarItem item)
+    {
+        if (item.ListId is null || item.TaskId is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var list = _lists.FirstOrDefault(candidate => candidate.Id == item.ListId.Value);
+        var task = list?.Tasks.FirstOrDefault(candidate => candidate.Id == item.TaskId.Value);
+        if (list is not null && task is not null)
+        {
+            _selectedTaskList = list;
+            _selectedTask = task;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task CloseTaskDetails()
+    {
+        _selectedTask = null;
+        _selectedTaskList = null;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleTaskUpdated(TodoTaskEntity updatedTask)
+    {
+        _selectedTask = updatedTask;
+        return Task.CompletedTask;
+    }
+
+    private async Task ReloadDashboardListsAsync()
+    {
+        _lists = await ListService.GetListsAsync(_userId);
+        RecalculateVisibleItems();
+
+        if (_selectedTask is not null && _selectedTaskList is not null)
+        {
+            _selectedTaskList = _lists.FirstOrDefault(list => list.Id == _selectedTaskList.Id);
+            _selectedTask = _selectedTaskList?.Tasks.FirstOrDefault(task => task.Id == _selectedTask.Id);
+        }
+    }
+
+    private string GetWidgetLabel(string widgetId) => widgetId switch
+    {
+        "kpi"      => L["Dashboard_Widget_Kpi"],
+        "status"   => L["Dashboard_Widget_Status"],
+        "priority" => L["Dashboard_Widget_Priority"],
+        "due"      => L["Dashboard_Widget_Due"],
+        "tasks"    => L["Dashboard_Widget_Tasks"],
+        _          => widgetId
+    };
+
+    private int GetCompletionPercent()
+    {
+        if (_visibleItems.Count == 0) return 0;
+        return (int)Math.Round((double)_visibleItems.Count(x => x.Task.Done) / _visibleItems.Count * 100, MidpointRounding.AwayFromZero);
+    }
+
+    private void CloseOverlays() => _sortsOpen = false;
+
+    // ── Export ────────────────────────────────────────────────────────────
+
+    private async Task ExportJsonAsync()
+    {
+        var payload = JsonSerializer.Serialize(_visibleItems.Select(ToExportRow), new JsonSerializerOptions { WriteIndented = true });
+        await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("json"), payload, "application/json");
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Task,List,Column,DueDate,Done,Important");
+        foreach (var item in _visibleItems)
+        {
+            sb.AppendLine(string.Join(",", new[]
+            {
+                CsvEscape(item.Task.Title), CsvEscape(item.List.Name), CsvEscape(item.Task.Column),
+                item.Task.DueDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+                item.Task.Done ? "true" : "false",
+                item.Task.IsImportant ? "true" : "false"
+            }));
+        }
+        await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("csv"), "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
+    }
+
+    private async Task ExportPdfAsync()
+    {
+        var rows = string.Join("", _visibleItems.Select(i =>
+            $"<tr><td>{System.Net.WebUtility.HtmlEncode(i.Task.Title)}</td>" +
+            $"<td>{System.Net.WebUtility.HtmlEncode(i.List.Name)}</td>" +
+            $"<td>{System.Net.WebUtility.HtmlEncode(i.Task.Column)}</td>" +
+            $"<td>{i.Task.DueDate?.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) ?? "-"}</td></tr>"));
+        var html = $"<html><head><meta charset='utf-8'><title>Dashboard</title>" +
+                   $"<style>body{{font-family:Arial;padding:16px}}table{{width:100%;border-collapse:collapse}}th,td{{border:1px solid #ddd;padding:8px;text-align:left}}</style></head>" +
+                   $"<body><h2>{System.Net.WebUtility.HtmlEncode(_activeDashboard?.Name ?? "Dashboard")}</h2>" +
+                   $"<table><thead><tr><th>Task</th><th>List</th><th>Column</th><th>Due</th></tr></thead><tbody>{rows}</tbody></table></body></html>";
+        await JS.InvokeVoidAsync("todoUi.printContent", html);
+    }
+
+    private object ToExportRow((TodoListEntity List, TodoTaskEntity Task) item) => new
+    {
+        item.Task.Id, item.Task.Title, item.Task.Description,
+        List = item.List.Name, item.Task.Column,
+        item.Task.DueDate, item.Task.Done, item.Task.IsImportant
+    };
+
+    private string BuildFileName(string ext) => $"dashboard-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{ext}";
+
+    private static string CsvEscape(string? value)
+    {
+        if (value is null) return string.Empty;
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
+    }
+}

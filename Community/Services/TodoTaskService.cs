@@ -1,0 +1,969 @@
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
+using System.Net;
+using Klassenbibliothek.Data;
+using Klassenbibliothek.Localization;
+using Klassenbibliothek.Services;
+using Klassenbibliothek.Hubs;
+using Klassenbibliothek.Features;
+using TodoSuite.Server.Services.Sharing;
+
+namespace TodoSuite.Server.Services;
+
+/// <summary>
+/// Implementiert die Aufgabenverwaltung des Workspaces.
+/// </summary>
+public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
+{
+    private readonly IEmailSender _emailSender;
+    private readonly SmtpOptions _smtpOptions;
+    private readonly IStringLocalizer<SharedResource> _localizer;
+    private readonly INotificationService _notificationService;
+    private readonly ITodoAutomationService _automationService;
+    private readonly ILogger<TodoTaskService> _logger;
+    private readonly IProductFeatureCatalog _features;
+    private bool CustomFieldsEnabled => _features.IsEnabled(ProductFeatureIds.Forms);
+
+    /// <summary>
+    /// Erstellt eine neue Instanz der Aufgabenverwaltung.
+    /// </summary>
+    public TodoTaskService(
+        IDbContextFactory<ApplicationDbContext> dbContextFactory,
+        IHubContext<TodoHubEndpoint> hubContext,
+        IWebHostEnvironment env,
+        ITaskMemberService taskMemberService,
+        IEmailSender emailSender,
+        IOptions<SmtpOptions> smtpOptions,
+        IStringLocalizer<SharedResource> localizer,
+        INotificationService notificationService,
+        ITodoAutomationService automationService,
+        ILogger<TodoTaskService> logger,
+        IProductFeatureCatalog features)
+        : base(dbContextFactory, hubContext, env, taskMemberService)
+    {
+        _emailSender = emailSender;
+        _smtpOptions = smtpOptions.Value;
+        _localizer = localizer;
+        _notificationService = notificationService;
+        _automationService = automationService;
+        _logger = logger;
+        _features = features;
+    }
+
+    /// <inheritdoc />
+    public async Task<TodoTaskEntity?> AddTaskAsync(string userId, Guid listId, TodoTaskEntity task, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
+
+        if (list is null)
+            return null;
+
+        if (!CanWrite(userId, list))
+            throw new UnauthorizedAccessException(
+                $"Aufgabe kann nicht angelegt werden (Liste='{list.Name}', User='{userId}').");
+
+        if (task.Id != Guid.Empty)
+        {
+            var existing = await db.TodoTasks
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == task.Id && t.ListId == listId && t.DeletedAt == null, cancellationToken);
+
+            if (existing is not null)
+                return existing;
+        }
+
+        var targetCol = string.IsNullOrWhiteSpace(task.Column)
+            ? (list.Columns.FirstOrDefault() ?? "Backlog")
+            : task.Column;
+
+        var nextListOrder = (await db.TodoTasks
+            .Where(t => t.ListId == listId && t.DeletedAt == null && !t.Done)
+            .Select(t => (int?)t.ListSortOrder)
+            .MaxAsync(cancellationToken) ?? -1) + 1;
+
+        var nextKanbanOrder = (await db.TodoTasks
+            .Where(t => t.ListId == listId && t.DeletedAt == null && !t.Done && t.Column == targetCol)
+            .Select(t => (int?)t.KanbanSortOrder)
+            .MaxAsync(cancellationToken) ?? -1) + 1;
+
+        var entity = new TodoTaskEntity
+        {
+            Id = task.Id == Guid.Empty ? Guid.NewGuid() : task.Id,
+            ListId = listId,
+            Title = (task.Title ?? "").Trim(),
+            Description = task.Description,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+            Done = task.Done,
+            IsImportant = task.IsImportant,
+            Assignee = task.Assignee,
+            Recurrence = task.Recurrence,
+            CustomRecurrence = task.CustomRecurrence,
+            Column = targetCol,
+            ReminderAtUtc = task.ReminderAtUtc,
+            ReminderSentAtUtc = null,
+            ListSortOrder = nextListOrder,
+            KanbanSortOrder = nextKanbanOrder,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        if (CustomFieldsEnabled)
+            ApplyCustomFieldValues(entity, NormalizeCustomFieldValues(task.CustomFieldValues, await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken)));
+
+        if (string.IsNullOrWhiteSpace(entity.Title))
+            throw new ArgumentException(
+                $"Aufgabe konnte nicht angelegt werden: Titel ist leer. ListId='{listId}'.",
+                nameof(task));
+
+        db.TodoTasks.Add(entity);
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(entity.Assignee))
+            await TrySendAssigneeNotificationAsync(entity, list, cancellationToken);
+
+        await _notificationService.NotifyTaskEventAsync(
+            userId,
+            listId,
+            entity.Id,
+            NotificationEventType.TaskCreated,
+            "Vorgang erstellt",
+            $"Die Aufgabe \"{entity.Title}\" wurde erstellt.",
+            entity.Assignee,
+            cancellationToken);
+
+        await _automationService.ExecuteAsync(
+            new TodoAutomationContext(listId, list.Name, userId, entity, null, TodoAutomationTriggerType.TaskCreated),
+            cancellationToken);
+        await db.Entry(entity).ReloadAsync(cancellationToken);
+
+        await NotifyListUpdatedAsync(listId, cancellationToken);
+
+        return entity;
+    }
+
+    /// <inheritdoc />
+    public async Task<TodoTaskEntity?> UpdateTaskAsync(string userId, Guid listId, TodoTaskEntity task, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
+
+        if (list is null)
+            return null;
+
+        if (!CanWrite(userId, list))
+            throw new UnauthorizedAccessException($"Aufgabe kann nicht geändert werden (Liste='{list.Name}', User='{userId}').");
+
+        var entity = await db.TodoTasks
+            .Include(t => t.Attachments)
+            .Include(t => t.Steps)
+            .Include(t => t.Comments)
+            .Include(t => t.Members)
+            .Include(t => t.Watchers)
+            .Include(t => t.LabelLinks)
+            .Include(t => t.CustomFieldValues)
+            .FirstOrDefaultAsync(t => t.Id == task.Id && t.ListId == listId && t.DeletedAt == null, cancellationToken);
+
+        if (entity is null)
+            return null;
+
+        if (task.SyncVersion.HasValue && task.SyncVersion.Value != entity.ContentVersion)
+            throw new WorkspaceConcurrencyException("Die Aufgabe wurde zwischenzeitlich auf einem anderen Gerät geändert.");
+        entity.ContentVersion++;
+
+        var previousTask = SnapshotForAutomation(entity);
+
+        entity.Title = (task.Title ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(entity.Title))
+            throw new ArgumentException($"Aufgabe konnte nicht geändert werden: Titel ist leer. TaskId='{entity.Id}'.", nameof(task));
+
+        var wasAlreadyDone = entity.Done;
+        var oldAssignee = entity.Assignee;
+
+        entity.Description = task.Description;
+        entity.StartDate = task.StartDate;
+        entity.DueDate = task.DueDate;
+        entity.Done = task.Done;
+        entity.IsImportant = task.IsImportant;
+        entity.Assignee = task.Assignee;
+        entity.Recurrence = task.Recurrence;
+        entity.CustomRecurrence = task.CustomRecurrence;
+        entity.Column = task.Column;
+        entity.CardColor = string.IsNullOrWhiteSpace(task.CardColor) ? null : task.CardColor.Trim();
+        entity.CardColorMode = task.CardColorMode;
+        var customFieldValues = CustomFieldsEnabled
+            ? NormalizeCustomFieldValues(task.CustomFieldValues, await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken))
+            : [];
+
+        var incomingMemberIds = (task.MemberUserIds ?? new List<string>())
+            .Select(x => (x ?? "").Trim())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var eligibleMemberIds = (list.Participants ?? [])
+            .Where(participant => !participant.InvitationPending && !string.IsNullOrWhiteSpace(participant.UserId))
+            .Select(participant => participant.UserId!.Trim())
+            .Where(memberId => !memberId.Contains('@'))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var invalidMembers = incomingMemberIds
+            .Where(memberId => memberId.Contains('@') || !eligibleMemberIds.Contains(memberId))
+            .ToList();
+        if (invalidMembers.Count > 0)
+            throw new ArgumentException($"Nicht berechtigte Aufgabenmitglieder: {string.Join(", ", invalidMembers)}", nameof(task));
+
+        entity.Members ??= [];
+        var removedMembers = entity.Members
+            .Where(member => !incomingMemberIds.Contains(member.UserId, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        db.TodoTaskMembers.RemoveRange(removedMembers);
+        foreach (var member in removedMembers) entity.Members.Remove(member);
+        var existingMemberIds = entity.Members.Select(member => member.UserId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var memberId in incomingMemberIds.Where(memberId => !existingMemberIds.Contains(memberId)))
+        {
+            var member = new TodoTaskMemberEntity { Id = Guid.NewGuid(), TaskId = entity.Id, UserId = memberId };
+            entity.Members.Add(member);
+            db.TodoTaskMembers.Add(member);
+        }
+
+        var validLabelIds = await db.TodoLabels
+            .Where(x => x.ListId == listId)
+            .Select(x => x.Id)
+            .ToListAsync(cancellationToken);
+
+        var validSet = new HashSet<Guid>(validLabelIds);
+
+        var incomingIds = (task.LabelLinks ?? new List<TodoTaskLabelEntity>())
+            .Select(x => x.LabelId)
+            .Distinct()
+            .ToList();
+
+        var invalid = incomingIds.Where(id => !validSet.Contains(id)).ToList();
+        if (invalid.Count > 0)
+            throw new ArgumentException(
+                $"Aufgabe konnte nicht geändert werden: Unbekannte Label-Ids: {string.Join(", ", invalid)}. TaskId='{entity.Id}'.",
+                nameof(task));
+
+        entity.LabelLinks ??= new List<TodoTaskLabelEntity>();
+        entity.LabelLinks.Clear();
+
+        foreach (var id in incomingIds)
+        {
+            entity.LabelLinks.Add(new TodoTaskLabelEntity
+            {
+                TaskId = entity.Id,
+                LabelId = id
+            });
+        }
+
+        entity.Steps.Clear();
+        foreach (var step in task.Steps ?? new List<TodoStepEntity>())
+        {
+            var title = (step.Title ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(title))
+                continue;
+
+            entity.Steps.Add(new TodoStepEntity
+            {
+                Id = step.Id == Guid.Empty ? Guid.NewGuid() : step.Id,
+                Title = title,
+                IsCompleted = step.IsCompleted,
+                TaskId = entity.Id
+            });
+        }
+        var oldReminderAtUtc = entity.ReminderAtUtc;
+        entity.ReminderAtUtc = task.ReminderAtUtc;
+
+        if (oldReminderAtUtc != entity.ReminderAtUtc)
+            entity.ReminderSentAtUtc = null;
+
+        if (entity.Done)
+        {
+            entity.ReminderAtUtc = null;
+            entity.ReminderSentAtUtc = null;
+
+            var recipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrWhiteSpace(entity.Assignee))
+                recipients.Add(entity.Assignee.Trim());
+
+            foreach (var m in entity.Members ?? new())
+                recipients.Add(m.UserId.Trim());
+
+            foreach (var r in recipients)
+            {
+                await HubContext.Clients
+                    .Group(TodoHub.UserGroup(r))
+                    .SendAsync(TodoHub.ReminderTriggered,
+                        "Aufgabe abgeschlossen",
+                        $"Die Aufgabe „{entity.Title}“ wurde abgeschlossen.",
+                        entity.Id,
+                        cancellationToken);
+            }
+        }
+
+        if (CustomFieldsEnabled)
+            await ApplyCustomFieldValuesAsync(db, entity.Id, customFieldValues, cancellationToken);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new WorkspaceConcurrencyException("Die Aufgabe wurde gleichzeitig auf einem anderen Gerät geändert.");
+        }
+
+        await _automationService.ExecuteAsync(
+            new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskUpdated),
+            cancellationToken);
+
+        if (!string.Equals(previousTask.Column, entity.Column, StringComparison.OrdinalIgnoreCase))
+        {
+            await _automationService.ExecuteAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.ColumnChanged),
+                cancellationToken);
+        }
+
+        if (!previousTask.Done && entity.Done)
+        {
+            await _automationService.ExecuteAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskCompleted),
+                cancellationToken);
+        }
+        else if (previousTask.Done && !entity.Done)
+        {
+            await _automationService.ExecuteAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskReopened),
+                cancellationToken);
+        }
+
+        if (!string.Equals(previousTask.Assignee, entity.Assignee, StringComparison.OrdinalIgnoreCase))
+        {
+            await _automationService.ExecuteAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.AssigneeChanged),
+                cancellationToken);
+        }
+
+        await db.Entry(entity).ReloadAsync(cancellationToken);
+
+        var newAssignee = entity.Assignee;
+        if (!string.Equals((oldAssignee ?? "").Trim(), (newAssignee ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(newAssignee))
+        {
+            await TrySendAssigneeNotificationAsync(entity, list, cancellationToken);
+            await _notificationService.NotifyTaskEventAsync(
+                userId,
+                listId,
+                entity.Id,
+                NotificationEventType.TaskAssigned,
+                "Vorgang zugewiesen",
+                $"Die Aufgabe \"{entity.Title}\" wurde zugewiesen.",
+                newAssignee,
+                cancellationToken);
+        }
+        else
+        {
+            await _notificationService.NotifyTaskEventAsync(
+                userId,
+                listId,
+                entity.Id,
+                entity.Done && !wasAlreadyDone
+                    ? NotificationEventType.TaskCompleted
+                    : !entity.Done && wasAlreadyDone
+                        ? NotificationEventType.TaskReopened
+                        : NotificationEventType.TaskUpdated,
+                entity.Done && !wasAlreadyDone
+                    ? "Vorgang erledigt"
+                    : !entity.Done && wasAlreadyDone
+                        ? "Vorgang erneut geöffnet"
+                        : "Vorgang aktualisiert",
+                $"Die Aufgabe \"{entity.Title}\" wurde geändert.",
+                entity.Assignee,
+                cancellationToken);
+        }
+
+        // Wiederholung: Wenn Aufgabe soeben abgeschlossen wurde und ein Wiederholungsintervall hat,
+        // wird eine neue Aufgabe mit der berechneten Fälligkeit erstellt.
+        if (entity.Done && !wasAlreadyDone && entity.Recurrence != RecurrencePattern.Keine)
+        {
+            var baseDate = (entity.DueDate ?? DateTime.UtcNow).Date;
+            var nextDueDate = CalculateNextDueDate(entity.Recurrence, baseDate);
+
+            if (nextDueDate.HasValue)
+            {
+                var activeTasks = await db.TodoTasks
+                    .Where(t => t.ListId == entity.ListId && t.DeletedAt == null && !t.Done)
+                    .ToListAsync(cancellationToken);
+
+                var newTask = new TodoTaskEntity
+                {
+                    Id = Guid.NewGuid(),
+                    ListId = entity.ListId,
+                    Title = entity.Title,
+                    Description = entity.Description,
+                    DueDate = nextDueDate,
+                    Done = false,
+                    IsImportant = entity.IsImportant,
+                    Assignee = entity.Assignee,
+                    Recurrence = entity.Recurrence,
+                    CustomRecurrence = entity.CustomRecurrence,
+                    Column = entity.Column,
+                    CardColor = entity.CardColor,
+                    CardColorMode = entity.CardColorMode,
+                    CreatedAtUtc = DateTime.UtcNow,
+                    ListSortOrder = activeTasks.Any() ? activeTasks.Max(t => t.ListSortOrder) + 1 : 0,
+                    KanbanSortOrder = activeTasks.Where(t => t.Column == entity.Column).Any()
+                        ? activeTasks.Where(t => t.Column == entity.Column).Max(t => t.KanbanSortOrder) + 1
+                        : 0,
+                    LabelLinks = (entity.LabelLinks ?? new List<TodoTaskLabelEntity>())
+                        .Select(ll => new TodoTaskLabelEntity { TaskId = Guid.Empty, LabelId = ll.LabelId })
+                        .ToList(),
+                    Steps = (entity.Steps ?? new List<TodoStepEntity>())
+                        .Select(s => new TodoStepEntity { Id = Guid.NewGuid(), Title = s.Title, IsCompleted = false })
+                        .ToList(),
+                    Members = (entity.Members ?? new List<TodoTaskMemberEntity>())
+                        .Select(m => new TodoTaskMemberEntity { UserId = m.UserId })
+                        .ToList(),
+                    CustomFieldValues = customFieldValues
+                        .Select(v => new TodoTaskCustomFieldValueEntity { Id = Guid.NewGuid(), FieldId = v.FieldId, Value = v.Value })
+                        .ToList()
+                };
+
+                // TaskId in den abhängigen Entitäten korrekt setzen
+                foreach (var ll in newTask.LabelLinks) ll.TaskId = newTask.Id;
+                foreach (var s in newTask.Steps) s.TaskId = newTask.Id;
+                foreach (var m in newTask.Members) m.TaskId = newTask.Id;
+                foreach (var v in newTask.CustomFieldValues) v.TaskId = newTask.Id;
+
+                db.TodoTasks.Add(newTask);
+                await db.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        await NotifyListUpdatedAsync(listId, cancellationToken);
+        await NotifyTaskUpdatesAsync(listId, entity.Id, cancellationToken);
+
+        entity.MemberUserIds = incomingMemberIds.ToList();
+        entity.SyncVersion = entity.ContentVersion;
+
+        return entity;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteTaskAsync(string userId, Guid listId, Guid taskId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
+
+        if (list is null)
+            return false;
+
+        if (!CanWrite(userId, list))
+            throw new UnauthorizedAccessException($"Aufgabe kann nicht gelöscht werden (Liste='{list.Name}', User='{userId}').");
+
+        var task = await db.TodoTasks
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == listId && t.DeletedAt == null, cancellationToken);
+
+        if (task is null)
+            return false;
+
+        // Soft-Delete: In Papierkorb verschieben
+        task.DeletedAt = DateTime.UtcNow;
+        task.DeletedByUserId = userId;
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        await _notificationService.NotifyTaskEventAsync(
+            userId,
+            listId,
+            taskId,
+            NotificationEventType.TaskDeleted,
+            "Vorgang gelöscht",
+            $"Die Aufgabe \"{task.Title}\" wurde gelöscht.",
+            task.Assignee,
+            cancellationToken);
+
+        await NotifyListUpdatedAsync(listId, cancellationToken);
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<TodoTaskEntity?> MoveTaskToListAsync(
+        string userId,
+        Guid fromListId,
+        Guid toListId,
+        Guid taskId,
+        string? desiredTargetColumn = null,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var fromList = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == fromListId, cancellationToken);
+
+        if (fromList is null)
+            throw new InvalidOperationException(
+                $"Verschieben fehlgeschlagen: Quell-Liste nicht gefunden. FromListId='{fromListId}'.");
+
+        var toList = await db.TodoLists
+            .Include(l => l.Participants)
+            .Include(l => l.Labels)
+            .FirstOrDefaultAsync(l => l.Id == toListId, cancellationToken);
+
+        if (toList is null)
+            throw new InvalidOperationException(
+                $"Verschieben fehlgeschlagen: Ziel-Liste nicht gefunden. ToListId='{toListId}'.");
+
+        if (!CanWrite(userId, fromList))
+            throw new UnauthorizedAccessException(
+                $"Verschieben nicht erlaubt: Keine Schreibrechte in Quell-Liste '{fromList.Name}'. User='{userId}'.");
+
+        if (!CanWrite(userId, toList))
+            throw new UnauthorizedAccessException(
+                $"Verschieben nicht erlaubt: Keine Schreibrechte in Ziel-Liste '{toList.Name}'. User='{userId}'.");
+
+        var task = await db.TodoTasks
+            .Include(t => t.Attachments)
+            .Include(t => t.Steps)
+            .Include(t => t.Comments)
+            .Include(t => t.LabelLinks)
+            .ThenInclude(ll => ll.Label)
+            .Include(t => t.CustomFieldValues)
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == fromListId, cancellationToken);
+
+        if (task is null)
+            throw new InvalidOperationException(
+                $"Verschieben fehlgeschlagen: Aufgabe nicht gefunden. TaskId='{taskId}', FromListId='{fromListId}'.");
+
+        if (fromListId == toListId)
+            return task;
+
+        var previousTask = SnapshotForAutomation(task);
+
+        toList.Columns ??= new List<string>();
+
+        string fallbackCol = toList.Columns.FirstOrDefault() ?? "Backlog";
+
+        var wanted = (desiredTargetColumn ?? "").Trim();
+        string targetColumn;
+
+        if (!string.IsNullOrWhiteSpace(wanted) && toList.Columns.Any(c => c.Equals(wanted, StringComparison.OrdinalIgnoreCase)))
+            targetColumn = toList.Columns.First(c => c.Equals(wanted, StringComparison.OrdinalIgnoreCase));
+        else
+            targetColumn = fallbackCol;
+
+        var nextListOrder = (await db.TodoTasks
+            .Where(t => t.ListId == toListId && !t.Done && t.DeletedAt == null)
+            .Select(t => (int?)t.ListSortOrder)
+            .MaxAsync(cancellationToken) ?? -1) + 1;
+
+        var nextKanbanOrder = (await db.TodoTasks
+            .Where(t => t.ListId == toListId && !t.Done && t.DeletedAt == null && t.Column == targetColumn)
+            .Select(t => (int?)t.KanbanSortOrder)
+            .MaxAsync(cancellationToken) ?? -1) + 1;
+
+        var toLabelsByTitle = (toList.Labels ?? new List<TodoLabelEntity>())
+            .GroupBy(l => (l.Title ?? "").Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var oldTitles = (task.LabelLinks ?? new List<TodoTaskLabelEntity>())
+            .Select(ll => ll.Label?.Title)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(t => t!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        task.LabelLinks ??= new List<TodoTaskLabelEntity>();
+        task.LabelLinks.Clear();
+
+        foreach (var title in oldTitles)
+        {
+            if (toLabelsByTitle.TryGetValue(title, out var targetLabel))
+            {
+                task.LabelLinks.Add(new TodoTaskLabelEntity
+                {
+                    TaskId = task.Id,
+                    LabelId = targetLabel.Id
+                });
+            }
+        }
+
+        foreach (var att in task.Attachments ?? new List<TodoAttachmentEntity>())
+        {
+            if (!string.IsNullOrWhiteSpace(att.Url))
+            {
+                var baseUrl = att.Url.Split('?', 2)[0];
+                att.Url = $"{baseUrl}?listId={toListId}";
+            }
+        }
+
+        task.ListId = toListId;
+        task.Column = targetColumn;
+        task.ListSortOrder = nextListOrder;
+        task.KanbanSortOrder = nextKanbanOrder;
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        var persistedListId = await db.TodoTasks
+            .AsNoTracking()
+            .Where(t => t.Id == taskId)
+            .Select(t => t.ListId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (persistedListId != toListId)
+        {
+            throw new InvalidOperationException(
+                $"Verschieben fehlgeschlagen: Aufgabe wurde nicht in der Datenbank verschoben. TaskId='{taskId}', PersistedListId='{persistedListId}', ExpectedListId='{toListId}'.");
+        }
+
+        await _automationService.ExecuteAsync(
+            new TodoAutomationContext(toListId, toList.Name, userId, task, previousTask, TodoAutomationTriggerType.ColumnChanged),
+            cancellationToken);
+        await db.Entry(task).ReloadAsync(cancellationToken);
+
+        await _notificationService.NotifyTaskEventAsync(
+            userId,
+            toListId,
+            task.Id,
+            NotificationEventType.TaskMoved,
+            "Vorgang verschoben",
+            $"Die Aufgabe \"{task.Title}\" wurde verschoben.",
+            task.Assignee,
+            cancellationToken);
+
+        await NotifyListUpdatedAsync(fromListId, cancellationToken);
+        await NotifyListUpdatedAsync(toListId, cancellationToken);
+
+        return task;
+    }
+
+    /// <inheritdoc />
+    public async Task ReorderListAsync(string userId, Guid listId, IReadOnlyList<Guid> orderedTaskIds, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+
+        if (list is null)
+            return;
+
+        if (!CanWrite(userId, list))
+            throw new UnauthorizedAccessException($"Reihenfolge (Liste) kann nicht gespeichert werden (Liste='{list.Name}', User='{userId}').");
+
+        var open = await db.TodoTasks
+            .Where(t => t.ListId == listId && !t.Done && t.DeletedAt == null)
+            .ToListAsync(cancellationToken);
+        var openDict = open.ToDictionary(t => t.Id);
+
+        var seen = new HashSet<Guid>();
+        var i = 0;
+
+        if (orderedTaskIds is not null)
+        {
+            foreach (var id in orderedTaskIds)
+            {
+                if (!openDict.TryGetValue(id, out var t))
+                    continue;
+
+                t.ListSortOrder = i++;
+                seen.Add(id);
+            }
+        }
+
+        var rest = open
+            .Where(t => !seen.Contains(t.Id))
+            .OrderBy(t => t.ListSortOrder)
+            .ThenBy(t => t.CreatedAtUtc)
+            .ToList();
+
+        foreach (var t in rest)
+            t.ListSortOrder = i++;
+
+        await db.SaveChangesAsync(cancellationToken);
+        await NotifyListUpdatedAsync(listId, cancellationToken);
+    }
+
+    /// Berechnet das nächste Fälligkeitsdatum basierend auf dem Wiederholungsintervall.
+    private static DateTime? CalculateNextDueDate(RecurrencePattern recurrence, DateTime baseDate)
+        => recurrence switch
+        {
+            RecurrencePattern.Taeglich            => baseDate.AddDays(1),
+            RecurrencePattern.Woechentlich        => baseDate.AddDays(7),
+            RecurrencePattern.BestimmteWochentage => baseDate.AddDays(7),
+            RecurrencePattern.Monatlich           => baseDate.AddMonths(1),
+            RecurrencePattern.Jaehrlich           => baseDate.AddYears(1),
+            _                                     => null // Keine, Benutzerdefiniert
+        };
+
+    private static async Task<Dictionary<Guid, TodoCustomFieldDefinitionEntity>> GetCustomFieldDefinitionsAsync(ApplicationDbContext db, Guid listId, CancellationToken ct)
+        => (await db.TodoCustomFields
+            .Include(x => x.SourceTaskList)!.ThenInclude(l => l!.Tasks)
+            .Where(x => x.ListId == listId)
+            .ToListAsync(ct))
+            .ToDictionary(x => x.Id);
+
+    private static IReadOnlyList<NormalizedCustomFieldValue> NormalizeCustomFieldValues(
+        IEnumerable<TodoTaskCustomFieldValueEntity>? incoming,
+        IReadOnlyDictionary<Guid, TodoCustomFieldDefinitionEntity> customFields)
+        => (incoming ?? [])
+            .Where(v => customFields.ContainsKey(v.FieldId))
+            .GroupBy(v => v.FieldId)
+            .Select(g => g.Last())
+            .Select(v => new NormalizedCustomFieldValue(v.FieldId, NormalizeCustomFieldValue(customFields[v.FieldId], v.Value)))
+            .Where(v => !string.IsNullOrWhiteSpace(v.Value))
+            .ToList();
+
+    private static string NormalizeCustomFieldValue(TodoCustomFieldDefinitionEntity field, string? value)
+    {
+        var normalized = (value ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return normalized;
+
+        if (field.Type == TodoCustomFieldType.MultiSelect)
+            return CustomFieldMultiSelectValues.Serialize(CustomFieldMultiSelectValues.Parse(normalized));
+
+        if (field.Type != TodoCustomFieldType.TaskTitleSelect)
+            return normalized;
+
+        var sourceTasks = (field.SourceTaskList?.Tasks ?? [])
+            .Where(task => task.DeletedAt is null)
+            .ToList();
+
+        if (Guid.TryParse(normalized, out var taskId)
+            && sourceTasks.Any(task => task.Id == taskId))
+            return CustomFieldSelectOptions.TaskValue(taskId);
+
+        var legacyMatch = sourceTasks.FirstOrDefault(task =>
+            string.Equals((task.Title ?? "").Trim(), normalized, StringComparison.OrdinalIgnoreCase));
+
+        return legacyMatch is null
+            ? normalized
+            : CustomFieldSelectOptions.TaskValue(legacyMatch.Id);
+    }
+
+    private static void ApplyCustomFieldValues(TodoTaskEntity entity, IReadOnlyList<NormalizedCustomFieldValue> incoming)
+    {
+        entity.CustomFieldValues ??= new List<TodoTaskCustomFieldValueEntity>();
+
+        foreach (var value in incoming)
+        {
+            entity.CustomFieldValues.Add(new TodoTaskCustomFieldValueEntity
+            {
+                Id = Guid.NewGuid(),
+                TaskId = entity.Id,
+                FieldId = value.FieldId,
+                Value = value.Value
+            });
+        }
+    }
+
+    private static async Task ApplyCustomFieldValuesAsync(
+        ApplicationDbContext db,
+        Guid taskId,
+        IReadOnlyList<NormalizedCustomFieldValue> incoming,
+        CancellationToken ct)
+    {
+        var existingValues = await db.TodoTaskCustomFieldValues
+            .Where(v => v.TaskId == taskId)
+            .ToListAsync(ct);
+
+        var incomingFieldIds = incoming.Select(v => v.FieldId).ToHashSet();
+
+        foreach (var existing in existingValues.Where(v => !incomingFieldIds.Contains(v.FieldId)))
+            db.TodoTaskCustomFieldValues.Remove(existing);
+
+        foreach (var value in incoming)
+        {
+            var existing = existingValues.FirstOrDefault(v => v.FieldId == value.FieldId);
+            if (existing is not null)
+            {
+                existing.Value = value.Value;
+                continue;
+            }
+
+            db.TodoTaskCustomFieldValues.Add(new TodoTaskCustomFieldValueEntity
+            {
+                Id = Guid.NewGuid(),
+                TaskId = taskId,
+                FieldId = value.FieldId,
+                Value = value.Value
+            });
+        }
+    }
+
+    private sealed record NormalizedCustomFieldValue(Guid FieldId, string Value);
+
+    private static TodoTaskEntity SnapshotForAutomation(TodoTaskEntity task)
+        => new()
+        {
+            Id = task.Id,
+            ListId = task.ListId,
+            Title = task.Title,
+            Description = task.Description,
+            Column = task.Column,
+            Done = task.Done,
+            IsImportant = task.IsImportant,
+            Assignee = task.Assignee,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+            CardColor = task.CardColor,
+            CardColorMode = task.CardColorMode,
+            CustomFieldValues = (task.CustomFieldValues ?? [])
+                .Select(x => new TodoTaskCustomFieldValueEntity
+                {
+                    Id = x.Id,
+                    TaskId = x.TaskId,
+                    FieldId = x.FieldId,
+                    Value = x.Value
+                })
+                .ToList()
+        };
+
+    private async Task TrySendAssigneeNotificationAsync(
+        TodoTaskEntity task,
+        TodoListEntity list,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(_smtpOptions.Host) || string.IsNullOrWhiteSpace(_smtpOptions.FromAddress))
+            return;
+
+        if (string.IsNullOrWhiteSpace(task.Assignee))
+            return;
+
+        var participant = list.Participants?.FirstOrDefault(p =>
+            string.Equals(p.UserId, task.Assignee, StringComparison.OrdinalIgnoreCase));
+
+        if (participant is null || string.IsNullOrWhiteSpace(participant.Email))
+            return;
+
+        try
+        {
+            var subject = string.Format(_localizer["Email_NewAssignee_Subject"].Value, task.Title);
+            var body = BuildAssigneeNotificationEmail(task, list.Name ?? "");
+            await _emailSender.SendEmailAsync(participant.Email, subject, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Zuweisungs-E-Mail konnte nicht gesendet werden. TaskId={TaskId}, Recipient={RecipientEmail}", task.Id, participant.Email);
+        }
+    }
+
+    private string BuildAssigneeNotificationEmail(TodoTaskEntity task, string listName)
+    {
+        var descEncoded = WebUtility.HtmlEncode(task.Description ?? "");
+
+        var appBase = (_smtpOptions.AppBaseUrl ?? "").TrimEnd('/');
+        var taskUrl = string.IsNullOrWhiteSpace(appBase)
+            ? $"/list/{task.ListId}?taskId={task.Id}"
+            : $"{appBase}/list/{task.ListId}?taskId={task.Id}";
+        var taskUrlEncoded = WebUtility.HtmlEncode(taskUrl);
+
+        var heading = WebUtility.HtmlEncode(_localizer["Email_NewAssignee_Heading"].Value);
+        var intro = WebUtility.HtmlEncode(string.Format(_localizer["Email_NewAssignee_Intro"].Value, task.Title, listName));
+        var goToTask = WebUtility.HtmlEncode(_localizer["Email_NewAssignee_GoToTask"].Value);
+        var linkFallback = WebUtility.HtmlEncode(_localizer["Email_NewAssignee_LinkFallback"].Value);
+
+        return $@"<!doctype html>
+<html lang=""de"">
+<head>
+  <meta charset=""utf-8"" />
+</head>
+<body style=""font-family:Segoe UI, Arial, sans-serif; background:#f8fafc; padding:24px;"">
+  <div style=""max-width:560px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; padding:20px;"">
+    <h2 style=""margin:0 0 12px 0; font-size:18px; color:#0f172a;"">{heading}</h2>
+    <p style=""margin:0 0 16px 0; color:#334155; font-size:14px;"">{intro}</p>
+    {(string.IsNullOrWhiteSpace(task.Description) ? "" : $@"<p style=""margin:0 0 16px 0; color:#334155; font-size:14px;"">{descEncoded}</p>")}
+    <p style=""margin:0 0 18px 0;"">
+      <a href=""{taskUrlEncoded}""
+         style=""display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:12px; font-weight:600;"">
+        {goToTask}
+      </a>
+    </p>
+    <p style=""margin:0 0 12px 0; color:#64748b; font-size:12px;"">
+      {linkFallback}
+    </p>
+    <p style=""margin:0 0 16px 0; font-size:12px; color:#0f172a; word-break:break-all;"">
+      {taskUrlEncoded}
+    </p>
+  </div>
+</body>
+</html>";
+    }
+
+    /// <inheritdoc />
+    public async Task ReorderKanbanColumnAsync(string userId, Guid listId, string column, IReadOnlyList<Guid> orderedTaskIds, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+
+        if (list is null)
+            return;
+
+        if (!CanWrite(userId, list))
+            throw new UnauthorizedAccessException($"Reihenfolge (Kanban) kann nicht gespeichert werden (Liste='{list.Name}', User='{userId}').");
+
+        var tasksInColumn = await db.TodoTasks
+            .Where(t => t.ListId == listId && t.DeletedAt == null && !t.Done && t.Column == column)
+            .ToDictionaryAsync(t => t.Id, cancellationToken);
+
+        for (int i = 0; i < orderedTaskIds.Count; i++)
+        {
+            if (tasksInColumn.TryGetValue(orderedTaskIds[i], out var task))
+                task.KanbanSortOrder = i;
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        await NotifyListUpdatedAsync(listId, cancellationToken);
+    }
+
+    public async Task<bool> SetTaskWatchingAsync(string userId, Guid listId, Guid taskId, bool watching, CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
+
+        if (list is null || !CanRead(userId, list))
+            return false;
+
+        var taskExists = await db.TodoTasks
+            .AnyAsync(t => t.Id == taskId && t.ListId == listId && t.DeletedAt == null, cancellationToken);
+
+        if (!taskExists)
+            return false;
+
+        var existing = await db.TodoTaskWatchers
+            .FirstOrDefaultAsync(w => w.TaskId == taskId && w.UserId == userId, cancellationToken);
+
+        if (watching && existing is null)
+            db.TodoTaskWatchers.Add(new TodoTaskWatcherEntity { TaskId = taskId, UserId = userId });
+        else if (!watching && existing is not null)
+            db.TodoTaskWatchers.Remove(existing);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await NotifyTaskUpdatesAsync(listId, taskId, cancellationToken);
+        return true;
+    }
+}
