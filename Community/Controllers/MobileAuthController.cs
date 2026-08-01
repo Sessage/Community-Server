@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,6 +14,7 @@ using Klassenbibliothek.Localization;
 using TodoSuite.Server.Services;
 using TodoSuite.Server.Auth;
 using Klassenbibliothek.Services;
+using Klassenbibliothek.Administration;
 
 namespace TodoSuite.Server.Controllers;
 
@@ -24,44 +26,50 @@ public class MobileAuthController : ControllerBase
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
     private readonly LdapAuthService _ldapAuth;
-    private readonly AdminSettingsService _adminSettings;
     private readonly ActiveDirectoryOptions _adOptions;
     private readonly IStringLocalizer<SharedResource> _localizer;
     private readonly IEmailSender<ApplicationUser> _emailSender;
     private readonly AuthAttemptProtectionService _attemptProtection;
     private readonly IDirectoryIdentitySynchronizer _directoryIdentitySynchronizer;
     private readonly JwtTokenOptions _jwtOptions;
+    private readonly ICentralAdministrationPolicy _centralPolicy;
+    private readonly IAuditEventSink _audit;
+    private readonly ILogger<MobileAuthController> _logger;
 
     public MobileAuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
         LdapAuthService ldapAuth,
-        AdminSettingsService adminSettings,
         ActiveDirectoryOptions adOptions,
         IStringLocalizer<SharedResource> localizer,
         IEmailSender<ApplicationUser> emailSender,
         AuthAttemptProtectionService attemptProtection,
         IDirectoryIdentitySynchronizer directoryIdentitySynchronizer,
-        JwtTokenOptions jwtOptions)
+        JwtTokenOptions jwtOptions,
+        ICentralAdministrationPolicy centralPolicy,
+        IAuditEventSink audit,
+        ILogger<MobileAuthController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
         _ldapAuth = ldapAuth;
-        _adminSettings = adminSettings;
         _adOptions = adOptions;
         _localizer = localizer;
         _emailSender = emailSender;
         _attemptProtection = attemptProtection;
         _directoryIdentitySynchronizer = directoryIdentitySynchronizer;
         _jwtOptions = jwtOptions;
+        _centralPolicy = centralPolicy;
+        _audit = audit;
+        _logger = logger;
     }
 
     [HttpGet("config")]
     public ActionResult<ConfigResponse> Config()
     {
-        return Ok(new ConfigResponse(_adOptions.Enabled, _adminSettings.AllowSelfRegistration));
+        return Ok(new ConfigResponse(_adOptions.Enabled, _centralPolicy.Current.AllowSelfRegistration));
     }
 
     [HttpPost("login")]
@@ -183,7 +191,7 @@ public class MobileAuthController : ControllerBase
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request)
     {
-        if (!_adminSettings.AllowSelfRegistration)
+        if (!_centralPolicy.Current.AllowSelfRegistration)
             return StatusCode(403, new RegisterResponse(false, [_localizer["Err_Auth_RegistrationNotAllowed"].Value]));
 
         if (_adOptions.Enabled)
@@ -346,6 +354,80 @@ public class MobileAuthController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var email = (request.Email ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(email))
+            return BadRequest(new ErrorResponse("E-Mail-Adresse darf nicht leer sein."));
+
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user is not null && await _userManager.HasPasswordAsync(user))
+        {
+            var code = await _userManager.GeneratePasswordResetTokenAsync(user);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            var callbackUrl = QueryHelpers.AddQueryString(
+                BuildPublicUrl("/Account/ResetPassword"),
+                new Dictionary<string, string?> { ["code"] = code });
+            try
+            {
+                await _emailSender.SendPasswordResetLinkAsync(user, email, callbackUrl);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Passwort-Reset-E-Mail an Benutzer '{UserId}' konnte nicht versendet werden.", user.Id);
+            }
+        }
+
+        // Always return the same result to avoid account enumeration.
+        return NoContent();
+    }
+
+    [HttpGet("personal-data")]
+    [Authorize(Policy = "MobileApi")]
+    public async Task<IActionResult> DownloadPersonalData()
+    {
+        var (userId, user) = await GetCurrentUserAsync();
+        if (user is null || string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!_centralPolicy.Current.AllowPersonalDataExport)
+            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse("Der Export persönlicher Daten wurde administrativ deaktiviert."));
+
+        var personalData = new Dictionary<string, string>();
+        var properties = typeof(ApplicationUser).GetProperties()
+            .Where(property => Attribute.IsDefined(property, typeof(PersonalDataAttribute)));
+        foreach (var property in properties)
+            personalData[property.Name] = property.GetValue(user)?.ToString() ?? "null";
+
+        foreach (var login in await _userManager.GetLoginsAsync(user))
+            personalData[$"{login.LoginProvider} external login provider key"] = login.ProviderKey;
+        personalData["Authenticator Key"] = await _userManager.GetAuthenticatorKeyAsync(user) ?? "null";
+
+        await _audit.RecordAsync("personal-data", "data-exported", userId, cancellationToken: HttpContext.RequestAborted);
+        return File(JsonSerializer.SerializeToUtf8Bytes(personalData, new JsonSerializerOptions { WriteIndented = true }),
+            "application/json", "PersonalData.json");
+    }
+
+    [HttpDelete("personal-data")]
+    [Authorize(Policy = "MobileApi")]
+    public async Task<IActionResult> DeletePersonalData([FromBody] DeletePersonalDataRequest request)
+    {
+        var (userId, user) = await GetCurrentUserAsync();
+        if (user is null || string.IsNullOrWhiteSpace(userId)) return Unauthorized();
+        if (!_centralPolicy.Current.AllowAccountDeletion)
+            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse("Die Selbstlöschung von Konten wurde administrativ deaktiviert."));
+        if (await _userManager.HasPasswordAsync(user)
+            && !await _userManager.CheckPasswordAsync(user, request.Password ?? string.Empty))
+            return BadRequest(new ErrorResponse("Das eingegebene Passwort ist falsch."));
+
+        var result = await _userManager.DeleteAsync(user);
+        if (!result.Succeeded)
+            return BadRequest(new ErrorResponse(string.Join(" ", result.Errors.Select(error => error.Description))));
+
+        await _audit.RecordAsync("personal-data", "account-deleted", userId, cancellationToken: HttpContext.RequestAborted);
+        return NoContent();
+    }
+
     private async Task<(string? UserId, ApplicationUser? User)> GetCurrentUserAsync()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
@@ -490,6 +572,8 @@ public class MobileAuthController : ControllerBase
     public record LanguagePreferenceRequest(string? PreferredLanguage);
     public record ChangePasswordRequest(string OldPassword, string NewPassword);
     public record ChangeEmailRequest(string NewEmail);
+    public record ForgotPasswordRequest(string? Email);
+    public record DeletePersonalDataRequest(string? Password);
     public record ErrorResponse(string Error);
 
     private string BuildPublicUrl(string path)

@@ -167,6 +167,8 @@ public static class CommunityApplication
         builder.Services.AddScoped<ITodoCustomFieldService, CommunityCustomFieldService>();
         builder.Services.AddScoped<ITodoTableColumnOrderService, TodoTableColumnOrderService>();
         builder.Services.AddSingleton<AdminSettingsService>();
+        builder.Services.AddSingleton<Klassenbibliothek.Administration.ICentralAdministrationPolicy, CommunityCentralAdministrationPolicy>();
+        builder.Services.AddSingleton<Klassenbibliothek.Administration.IAuditEventSink, NoOpAuditEventSink>();
         builder.Services.AddSingleton<UserDirectoryService>();
         
         var adOptions = builder.Configuration.GetSection("ActiveDirectory").Get<ActiveDirectoryOptions>() ?? new ActiveDirectoryOptions();

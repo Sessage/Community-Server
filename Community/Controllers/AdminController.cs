@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Localization;
+using Klassenbibliothek.Administration;
 
 namespace TodoSuite.Server.Controllers;
 
@@ -16,11 +17,13 @@ public class AdminController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IStringLocalizer<SharedResource> _localizer;
+    private readonly IAuditEventSink _audit;
 
-    public AdminController(UserManager<ApplicationUser> userManager, IStringLocalizer<SharedResource> localizer)
+    public AdminController(UserManager<ApplicationUser> userManager, IStringLocalizer<SharedResource> localizer, IAuditEventSink audit)
     {
         _userManager = userManager;
         _localizer = localizer;
+        _audit = audit;
     }
 
     [HttpGet("users")]
@@ -80,6 +83,9 @@ public class AdminController : ControllerBase
         if (request.IsAdmin)
             await _userManager.AddToRoleAsync(user, "Admin");
 
+        await _audit.RecordAsync("users", "user-created", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+            $"userId={user.Id}; isAdmin={request.IsAdmin}", HttpContext.RequestAborted);
+
         return Ok(new AdminUserDto(user.Id, user.Email!, user.UserName!, request.IsAdmin));
     }
 
@@ -99,6 +105,8 @@ public class AdminController : ControllerBase
             await _userManager.RemoveFromRoleAsync(user, "Admin");
 
         var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+        await _audit.RecordAsync("users", "role-updated", currentCallerId ?? string.Empty,
+            $"userId={user.Id}; isAdmin={isAdmin}", HttpContext.RequestAborted);
         return Ok(new AdminUserDto(user.Id, user.Email ?? string.Empty, user.UserName ?? string.Empty, isAdmin));
     }
 
@@ -116,6 +124,9 @@ public class AdminController : ControllerBase
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description).ToArray() });
+
+        await _audit.RecordAsync("users", "user-deleted", currentCallerId ?? string.Empty,
+            $"userId={userId}", HttpContext.RequestAborted);
 
         return NoContent();
     }
