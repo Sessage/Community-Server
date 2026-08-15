@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi;
+using TodoSuite.Server.OpenApi;
 using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -106,40 +106,7 @@ public static class CommunityApplication
         
         if (builder.Environment.IsDevelopment())
         {
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen(options =>
-            {
-                options.SwaggerDoc("v1", new OpenApiInfo
-                {
-                    Title = "Sessage API",
-                    Version = "v1",
-                    Description = "REST-API für Sessage - Mobile-Sync, Authentifizierung und Admin-Verwaltung.\n\n" +
-                                  "Authentifizierung via JWT Bearer (POST /api/mobile/auth/login) oder Personal Access Token."
-                });
-        
-                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-                {
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.Http,
-                    Scheme = "bearer",
-                    BearerFormat = "JWT",
-                    In = ParameterLocation.Header,
-                    Description = "JWT-Token aus POST /api/mobile/auth/login. Format: Bearer {token}"
-                });
-        
-                options.AddSecurityRequirement(openApiDocument => new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecuritySchemeReference("Bearer", openApiDocument),
-                        []
-                    }
-                });
-        
-                var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                if (File.Exists(xmlPath))
-                    options.IncludeXmlComments(xmlPath);
-            });
+            builder.Services.AddSessageSwagger();
         }
         
         builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
