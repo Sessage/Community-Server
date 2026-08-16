@@ -454,6 +454,11 @@
         "community" => "Community-Edition",
         "license-missing" => "Keine Enterprise-Lizenz installiert",
         "public-key-missing" => "Öffentlicher Lizenzschlüssel fehlt",
+        "installation-mismatch" => "Lizenz gehört zu einer anderen Installation",
+        "invalid-signature" => "Lizenz und öffentlicher Schlüssel passen nicht zusammen",
+        "invalid-license" => "Lizenzdatei ist ungültig",
+        "unsupported-algorithm" => "Lizenz verwendet einen nicht unterstützten Algorithmus",
+        "license-unavailable" => "Lizenzdateien konnten nicht gelesen werden",
         _ => HasEnterpriseLicense ? "Lizenz ist gültig" : "Keine gültige Enterprise-Lizenz"
     };
     private string LicenseExpiryText => !HasEnterpriseLicense

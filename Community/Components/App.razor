@@ -12,8 +12,8 @@
     <ResourcePreloader />
     <FluentDesignSystemProvider />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
-    <link rel="stylesheet" href="_content/TodoSuite.Community.Shared/lib/tailwind/tailwind.css" />
-    <link rel="stylesheet" href="_content/TodoSuite.Community.Shared/app.css" />
+    <link rel="stylesheet" href="@Assets["_content/TodoSuite.Community.Shared/lib/tailwind/tailwind.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TodoSuite.Community.Shared/app.css"]" />
     <link rel="stylesheet" href="@Assets["TodoSuite.Community.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -23,19 +23,32 @@
 <body>
     <Routes @rendermode="PageRenderMode" />
     <ReconnectModal />
+    <script>
+        window.todoUi = window.todoUi || {};
+        window.todoUi.reloadOnceForAssetMismatch = function (assetName) {
+            const key = `sessage.asset-reload.${assetName}`;
+            if (window.sessionStorage.getItem(key) === "1") return false;
+            window.sessionStorage.setItem(key, "1");
+            window.location.reload();
+            return true;
+        };
+        window.todoUi.markAssetReady = function (assetName) {
+            window.sessionStorage.removeItem(`sessage.asset-reload.${assetName}`);
+        };
+    </script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
-    <script src="_content/TodoSuite.Community.Shared/lib/sortablejs/Sortable.min.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-list.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-kanban.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-nav.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-dashboard.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-sortable-table.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-form-designer.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/publicFormAccessibility.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/todo-calendar.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/floatingDropdown.js"></script>
-    <script src="_content/TodoSuite.Community.Shared/js/imageCropper.js"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/lib/sortablejs/Sortable.min.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-sortable-list.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-sortable-kanban.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-sortable-nav.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-sortable-dashboard.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-sortable-table.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-form-designer.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/publicFormAccessibility.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/todo-calendar.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/floatingDropdown.js"]"></script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/imageCropper.js"]"></script>
     <script>
         window.todoUi = window.todoUi || {};
         window.todoUi.__dlgOutsideClose = window.todoUi.__dlgOutsideClose || {};

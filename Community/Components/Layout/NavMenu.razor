@@ -949,10 +949,23 @@
             try
             {
                 await JS.InvokeVoidAsync("todoUi.initNavSortable", _dotNetRef);
+                await JS.InvokeVoidAsync("todoUi.markAssetReady", "navigation");
                 _navSortableInitialized = true;
             }
             catch (Exception ex)
             {
+                if (ex.Message.Contains("not a function", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        if (await JS.InvokeAsync<bool>("todoUi.reloadOnceForAssetMismatch", "navigation"))
+                            return;
+                    }
+                    catch
+                    {
+                        // Der normale, sichtbare Fehlerpfad unten bleibt als Fallback erhalten.
+                    }
+                }
                 _error = string.Format(L["Err_NavSortableInit"], ex.Message);
             }
         }
