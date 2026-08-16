@@ -236,7 +236,7 @@ internal static class PortfolioAccessCoordinator
             participant = new ListParticipantEntity
             {
                 ListId = list.Id, UserId = portfolio.OwnerId, Email = email,
-                DisplayName = user?.UserName ?? email, DirectRole = ListRole.Admin,
+                DisplayName = user?.DisplayName ?? user?.UserName ?? email, DirectRole = ListRole.Admin,
                 Role = ListRole.Admin, DirectInvitationPending = false, InvitationPending = false
             };
             list.Participants.Add(participant);

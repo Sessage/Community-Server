@@ -39,6 +39,10 @@ namespace TodoSuite.Server.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
 

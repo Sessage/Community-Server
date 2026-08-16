@@ -65,6 +65,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .Property(user => user.PreferredLanguage)
             .HasMaxLength(16);
 
+        builder.Entity<ApplicationUser>()
+            .Property(user => user.DisplayName)
+            .HasMaxLength(200);
+
         builder.Entity<TodoListEntity>(entity =>
         {
             // ContentVersion is advanced by services and exposed to mobile sync. Database-side

@@ -252,6 +252,7 @@
             {
                 UserName = adUser.Email,
                 Email = adUser.Email,
+                DisplayName = adUser.DisplayName,
                 EmailConfirmed = true
             };
 
@@ -263,6 +264,16 @@
             }
 
             Logger.LogInformation("Verzeichnisbenutzer '{Username}' wurde als lokaler Benutzer angelegt.", adUser.UserName);
+        }
+        else if (!string.Equals(localUser.DisplayName, adUser.DisplayName, StringComparison.Ordinal))
+        {
+            localUser.DisplayName = adUser.DisplayName;
+            var updateResult = await UserManager.UpdateAsync(localUser);
+            if (!updateResult.Succeeded)
+            {
+                errorMessage = string.Format(L["Account_Error_UserCreateFailed"], string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                return;
+            }
         }
 
         await DirectoryIdentitySynchronizer.SynchronizeAsync(localUser.Id, adUser.DirectoryIdentity);

@@ -3,8 +3,11 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Klassenbibliothek.Data
+@using Klassenbibliothek.Features
 @inject UserManager<ApplicationUser> UserManager
 @inject RoleManager<IdentityRole> RoleManager
+@inject IProductFeatureCatalog FeatureCatalog
+@inject ILogger<Admin> Logger
 
 <PageTitle>Administration - Sessage</PageTitle>
 
@@ -16,13 +19,23 @@
             <p class="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-1">Systemverwaltung</p>
             <h1 class="text-2xl font-bold text-slate-900">Administration</h1>
         </div>
-        @if (!string.IsNullOrWhiteSpace(_message))
-        {
-            <div class="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
-                        @(_messageIsError ? "bg-red-50 border border-red-200 text-red-700" : "bg-emerald-50 border border-emerald-200 text-emerald-700")">
-                @_message
+    </div>
+
+    <!-- Lizenzübersicht -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Lizenzstatus">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center justify-between gap-4">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Lizenz</p>
+                <p class="text-lg font-semibold text-slate-900">@LicenseEdition</p>
+                <p class="text-xs text-slate-500 mt-1">@LicenseStatusDescription</p>
             </div>
-        }
+            <span class="rounded-full px-3 py-1 text-xs font-semibold @LicenseBadgeCss">@LicenseEdition</span>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Läuft ab am</p>
+            <p class="text-lg font-semibold text-slate-900">@LicenseExpiryText</p>
+            <p class="text-xs text-slate-500 mt-1">@LicenseExpiryDescription</p>
+        </div>
     </div>
 
     <!-- Benutzer anlegen / bearbeiten -->
@@ -38,6 +51,13 @@
                     @(_editingUserId == null ? "Benutzer anlegen" : "Benutzer bearbeiten")
                 </h2>
             </div>
+            @if (!string.IsNullOrWhiteSpace(_message))
+            {
+                <div role="status" aria-live="polite"
+                     class="rounded-xl px-4 py-3 text-sm font-medium @(_messageIsError ? "bg-red-50 border border-red-200 text-red-700" : "bg-blue-50 border border-blue-200 text-blue-700")">
+                    @_message
+                </div>
+            }
             <EditForm Model="@_form" OnValidSubmit="SaveUserAsync" autocomplete="off">
                 <DataAnnotationsValidator />
                 <div class="space-y-3">
@@ -61,6 +81,7 @@
                                              TextFieldType="TextFieldType.Password" autocomplete="new-password"
                                              Class="admin-text-field w-full" />
                             <ValidationMessage For="@(() => _form.Password)" class="text-xs text-red-600 mt-0.5" />
+                            <p class="text-xs text-slate-500 mt-1">Mit Groß- und Kleinbuchstaben, Ziffer und Sonderzeichen.</p>
                         </div>
                     }
                     <FluentSwitch @bind-Checked="_form.IsAdmin">Administrator</FluentSwitch>
@@ -68,7 +89,7 @@
                 <div class="flex justify-end gap-2 pt-2">
                     @if (_editingUserId != null)
                     {
-                        <FluentButton Appearance="Appearance.Outline" OnClick="ResetForm">Abbrechen</FluentButton>
+                        <FluentButton Appearance="Appearance.Outline" OnClick="() => ResetForm()">Abbrechen</FluentButton>
                     }
                     <FluentButton ButtonType="ButtonType.Submit" Appearance="Appearance.Accent" Disabled="@_saving">
                         @if (_saving)
@@ -121,7 +142,7 @@
                                 @UserInitial(user.Email ?? user.UserName ?? "?")
                             </div>
                             <div class="min-w-0">
-                                <div class="font-medium text-slate-800 truncate">@(user.UserName ?? user.Email)</div>
+                                <div class="font-medium text-slate-800 truncate">@(user.DisplayName ?? user.UserName ?? user.Email)</div>
                                 <div class="text-xs text-slate-500 truncate">@user.Email</div>
                             </div>
                             @if (user.IsAdmin)
@@ -181,6 +202,11 @@
     private List<UserViewModel> _users = new();
     private string? _editingUserId;
     private UserViewModel? _deleteTarget;
+    private ProductCapabilitiesDocument _capabilities = new(
+        ProductEdition.Community,
+        [],
+        new Dictionary<string, long>(),
+        "community");
 
     private UserFormModel _form = new();
 
@@ -189,12 +215,14 @@
         public string Id { get; init; } = string.Empty;
         public string? UserName { get; init; }
         public string? Email { get; init; }
+        public string? DisplayName { get; init; }
         public bool IsAdmin { get; init; }
     }
 
     private class UserFormModel
     {
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Name ist erforderlich.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(200, ErrorMessage = "Der Name darf höchstens 200 Zeichen lang sein.")]
         public string DisplayName { get; set; } = string.Empty;
 
         [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "E-Mail ist erforderlich.")]
@@ -209,6 +237,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _capabilities = FeatureCatalog.GetCapabilities();
         await LoadUsersAsync();
     }
 
@@ -224,7 +253,8 @@
         {
             if (!string.IsNullOrWhiteSpace(_searchTerm) &&
                 !(u.Email?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                  u.UserName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true))
+                  u.UserName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                  u.DisplayName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true))
                 continue;
 
             var isAdmin = await UserManager.IsInRoleAsync(u, "Admin");
@@ -233,6 +263,7 @@
                 Id = u.Id,
                 UserName = u.UserName,
                 Email = u.Email,
+                DisplayName = u.DisplayName,
                 IsAdmin = isAdmin
             });
         }
@@ -264,7 +295,8 @@
                     return;
                 }
 
-                var existing = await UserManager.FindByEmailAsync(_form.Email);
+                var normalizedEmail = _form.Email.Trim();
+                var existing = await UserManager.FindByEmailAsync(normalizedEmail);
                 if (existing != null)
                 {
                     ShowMessage("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.", isError: true);
@@ -273,8 +305,9 @@
 
                 var newUser = new ApplicationUser
                 {
-                    UserName = _form.Email,
-                    Email = _form.Email,
+                    UserName = normalizedEmail,
+                    Email = normalizedEmail,
+                    DisplayName = _form.DisplayName.Trim(),
                     EmailConfirmed = true
                 };
 
@@ -286,7 +319,15 @@
                 }
 
                 if (_form.IsAdmin)
-                    await UserManager.AddToRoleAsync(newUser, "Admin");
+                {
+                    var roleResult = await UserManager.AddToRoleAsync(newUser, "Admin");
+                    if (!roleResult.Succeeded)
+                    {
+                        await UserManager.DeleteAsync(newUser);
+                        ShowMessage(IdentityErrors(roleResult), isError: true);
+                        return;
+                    }
+                }
 
                 ShowMessage($"Benutzer {_form.Email} wurde angelegt.", isError: false);
             }
@@ -300,17 +341,44 @@
                     return;
                 }
 
+                user.DisplayName = _form.DisplayName.Trim();
+                var updateResult = await UserManager.UpdateAsync(user);
+                if (!updateResult.Succeeded)
+                {
+                    ShowMessage(IdentityErrors(updateResult), isError: true);
+                    return;
+                }
+
                 var isCurrentlyAdmin = await UserManager.IsInRoleAsync(user, "Admin");
                 if (_form.IsAdmin && !isCurrentlyAdmin)
-                    await UserManager.AddToRoleAsync(user, "Admin");
+                {
+                    var roleResult = await UserManager.AddToRoleAsync(user, "Admin");
+                    if (!roleResult.Succeeded)
+                    {
+                        ShowMessage(IdentityErrors(roleResult), isError: true);
+                        return;
+                    }
+                }
                 else if (!_form.IsAdmin && isCurrentlyAdmin)
-                    await UserManager.RemoveFromRoleAsync(user, "Admin");
+                {
+                    var roleResult = await UserManager.RemoveFromRoleAsync(user, "Admin");
+                    if (!roleResult.Succeeded)
+                    {
+                        ShowMessage(IdentityErrors(roleResult), isError: true);
+                        return;
+                    }
+                }
 
                 ShowMessage($"Benutzer {user.Email} wurde aktualisiert.", isError: false);
             }
 
-            ResetForm();
+            ResetForm(clearMessage: false);
             await LoadUsersAsync();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Benutzerverwaltung konnte die Aktion nicht abschließen.");
+            ShowMessage("Die Benutzeraktion konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.", isError: true);
         }
         finally
         {
@@ -324,18 +392,19 @@
         _form = new UserFormModel
         {
             Email = user.Email ?? string.Empty,
-            DisplayName = user.UserName ?? user.Email ?? string.Empty,
+            DisplayName = user.DisplayName ?? user.UserName ?? user.Email ?? string.Empty,
             IsAdmin = user.IsAdmin,
             Password = string.Empty
         };
         _message = string.Empty;
     }
 
-    private void ResetForm()
+    private void ResetForm(bool clearMessage = true)
     {
         _editingUserId = null;
         _form = new UserFormModel();
-        _message = string.Empty;
+        if (clearMessage)
+            _message = string.Empty;
     }
 
     private void ConfirmDelete(UserViewModel user) => _deleteTarget = user;
@@ -366,4 +435,43 @@
 
     private static string UserInitial(string email)
         => email.Length > 0 ? email[0].ToString().ToUpperInvariant() : "?";
+
+    private bool HasEnterpriseLicense =>
+        _capabilities.Edition == ProductEdition.Enterprise
+        && _capabilities.LicenseStatus is "valid" or "development";
+
+    private string LicenseEdition => HasEnterpriseLicense ? "Enterprise" : "Community";
+    private string LicenseBadgeCss => HasEnterpriseLicense
+        ? "bg-indigo-100 text-indigo-700"
+        : "bg-slate-100 text-slate-700";
+    private string LicenseStatusDescription => _capabilities.LicenseStatus switch
+    {
+        "valid" => "Lizenz ist gültig",
+        "development" => "Entwicklungslizenz",
+        "expired" => "Enterprise-Lizenz ist abgelaufen",
+        "community" => "Community-Edition",
+        "license-missing" => "Keine Enterprise-Lizenz installiert",
+        "public-key-missing" => "Öffentlicher Lizenzschlüssel fehlt",
+        _ => HasEnterpriseLicense ? "Lizenz ist gültig" : "Keine gültige Enterprise-Lizenz"
+    };
+    private string LicenseExpiryText => !HasEnterpriseLicense
+        ? "–"
+        : _capabilities.LicenseExpiresAtUtc is { } expiresAt
+            ? DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc).ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+            : "Unbefristet";
+    private string LicenseExpiryDescription => HasEnterpriseLicense
+        ? _capabilities.LicenseExpiresAtUtc is null ? "Kein Ablaufdatum hinterlegt" : "Lokale Serverzeit"
+        : "Nur für Enterprise-Lizenzen";
+
+    private static string IdentityErrors(IdentityResult result)
+        => string.Join(" ", result.Errors.Select(error => error.Code switch
+        {
+            "PasswordTooShort" => "Das Passwort ist zu kurz.",
+            "PasswordRequiresNonAlphanumeric" => "Das Passwort benötigt ein Sonderzeichen.",
+            "PasswordRequiresDigit" => "Das Passwort benötigt eine Ziffer.",
+            "PasswordRequiresLower" => "Das Passwort benötigt einen Kleinbuchstaben.",
+            "PasswordRequiresUpper" => "Das Passwort benötigt einen Großbuchstaben.",
+            "DuplicateEmail" or "DuplicateUserName" => "Diese E-Mail-Adresse wird bereits verwendet.",
+            _ => error.Description
+        }));
 }

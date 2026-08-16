@@ -642,13 +642,13 @@ public class ListSharingService : IListSharingService
         var u = await db.Users
             .AsNoTracking()
             .Where(x => x.Id == userId)
-            .Select(x => new { x.Email, x.UserName })
+            .Select(x => new { x.Email, x.UserName, x.DisplayName })
             .FirstOrDefaultAsync();
 
         if (u is null) return (null, null);
 
         var email = (u.Email ?? "").Trim();
-        var display = (u.UserName ?? "").Trim();
+        var display = (u.DisplayName ?? u.UserName ?? "").Trim();
 
         return (string.IsNullOrWhiteSpace(email) ? null : email,
                 string.IsNullOrWhiteSpace(display) ? null : display);

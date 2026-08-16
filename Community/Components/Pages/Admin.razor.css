@@ -1,9 +1,16 @@
-.admin-page fluent-text-field.admin-text-field {
+.admin-page ::deep fluent-text-field.admin-text-field {
     width: 100%;
 }
 
-.admin-page fluent-text-field.admin-text-field::part(root),
-.admin-page fluent-text-field.admin-text-field::part(control) {
+/* Blazors globale .valid.modified-Regel zeichnet sonst einen grünen Rahmen um
+   jedes bereits bearbeitete Feld. Im Adminformular genügt der ruhige Standard-
+   bzw. blaue Fokusring; Fehler bleiben weiterhin rot sichtbar. */
+.admin-page ::deep fluent-text-field.admin-text-field.valid.modified:not([type=checkbox]) {
+    outline: none !important;
+}
+
+.admin-page ::deep fluent-text-field.admin-text-field::part(root),
+.admin-page ::deep fluent-text-field.admin-text-field::part(control) {
     border: 1px solid #cbd5e1;
     border-radius: 0.75rem;
     background: #ffffff;
@@ -11,14 +18,14 @@
     min-height: 2.5rem;
 }
 
-.admin-page fluent-text-field.admin-text-field:focus-within::part(root),
-.admin-page fluent-text-field.admin-text-field:focus-within::part(control) {
+.admin-page ::deep fluent-text-field.admin-text-field:focus-within::part(root),
+.admin-page ::deep fluent-text-field.admin-text-field:focus-within::part(control) {
     border-color: #60a5fa;
     box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.22);
     outline: none;
 }
 
-.admin-page fluent-text-field.admin-text-field::part(control):focus,
-.admin-page fluent-text-field.admin-text-field::part(control):focus-visible {
+.admin-page ::deep fluent-text-field.admin-text-field::part(control):focus,
+.admin-page ::deep fluent-text-field.admin-text-field::part(control):focus-visible {
     outline: none;
 }

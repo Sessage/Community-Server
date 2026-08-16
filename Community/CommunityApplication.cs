@@ -475,6 +475,12 @@ public static class CommunityApplication
             app.UseExceptionHandler("/Error", createScopeForErrors: true);
             app.UseHsts();
         }
+
+        // A form rendered before a deployment can still carry an antiforgery token from
+        // the previous Data Protection key ring. Refresh that browser state once instead
+        // of showing the generic production error page. The middleware only handles the
+        // precise validation exception; APIs and unrelated failures remain untouched.
+        app.UseMiddleware<StaleAntiforgeryCookieRecoveryMiddleware>();
         
         app.UseRequestLocalization();
         app.Use(async (context, next) =>

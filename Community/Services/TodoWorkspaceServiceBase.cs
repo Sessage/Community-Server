@@ -138,13 +138,13 @@ public abstract class TodoWorkspaceServiceBase
         var u = await db.Users
             .AsNoTracking()
             .Where(x => x.Id == userId)
-            .Select(x => new { x.Email, x.UserName })
+            .Select(x => new { x.Email, x.UserName, x.DisplayName })
             .FirstOrDefaultAsync(ct);
 
         if (u is null) return (null, null);
 
         var email = (u.Email ?? "").Trim();
-        var name = (u.UserName ?? "").Trim();
+        var name = (u.DisplayName ?? u.UserName ?? "").Trim();
 
         return (string.IsNullOrWhiteSpace(email) ? null : email,
                 string.IsNullOrWhiteSpace(name) ? null : name);
