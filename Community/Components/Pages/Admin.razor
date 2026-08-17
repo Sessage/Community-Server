@@ -92,7 +92,7 @@
                     {
                         <FluentButton Appearance="Appearance.Outline" OnClick="() => ResetForm()">Abbrechen</FluentButton>
                     }
-                    <FluentButton ButtonType="ButtonType.Submit" Appearance="Appearance.Accent" Disabled="@_saving">
+                    <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Disabled="@_saving">
                         @if (_saving)
                         {
                             <FluentProgressRing Style="width:14px;height:14px;margin-right:6px;" />
