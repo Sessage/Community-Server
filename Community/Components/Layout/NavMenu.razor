@@ -246,15 +246,24 @@
                                       title="@L["Nav_DragGroup"]">⋮⋮</span>
 
                                 <span aria-hidden="true" class="pt-0.5 shrink-0 text-blue-500">
-                                    @if (g.IsPortfolio && ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios)) { <FluentIcon Value="@(new Icons.Regular.Size24.ArrowTrendingLines())" /> }
-                                    else { <FluentIcon Value="@(collapsed ? (Icon)new Icons.Regular.Size24.Folder() : new Icons.Regular.Size24.FolderOpen())" /> }
+                                    @if (g.IsPortfolio && ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
+                                    {
+                                        <FluentIcon Value="@(new Icons.Regular.Size24.ArrowTrendingLines())" />
+                                    }
+                                    else
+                                    {
+
+                                        <FluentIcon Value="@(collapsed ? (Icon)new Icons.Regular.Size24.Folder() : new Icons.Regular.Size24.FolderOpen())" />
+                                    }
                                 </span>
 
                                 @if (g.IsPortfolio && ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
                                 {
                                     <button type="button" class="font-semibold truncate flex-1 text-left text-sm text-slate-700"
                                             title="Portfolio-Dashboard öffnen"
-                                            @onclick="() => NavigateToPortfolio(g.Id)">@g.Name</button>
+                                            @onclick="() => NavigateToPortfolio(g.Id)">
+                                        @g.Name
+                                    </button>
                                 }
                                 else
                                 {
@@ -263,46 +272,46 @@
 
                                 @if (g.CanManage)
                                 {
-                                <div class="shrink-0" @onclick:stopPropagation="true">
-                                    @{
-                                        FloatingDropdown? groupDropdown = default;
-                                    }
-                                    <FloatingDropdown @ref="groupDropdown" MinWidth="220" CloseOnContentClick="true">
-                                        <ChildContent>
-                                            <FluentButton Appearance="Appearance.Stealth" Title="@L["Nav_Options"]">⋯</FluentButton>
-                                        </ChildContent>
-                                        <DropdownContent>
-                                            <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden py-1">
-                                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
-                                                    Gruppe: @g.Name
+                                    <div class="shrink-0" @onclick:stopPropagation="true">
+                                        @{
+                                            FloatingDropdown? groupDropdown = default;
+                                        }
+                                        <FloatingDropdown @ref="groupDropdown" MinWidth="220" CloseOnContentClick="true">
+                                            <ChildContent>
+                                                <FluentButton Appearance="Appearance.Stealth" Title="@L["Nav_Options"]">⋯</FluentButton>
+                                            </ChildContent>
+                                            <DropdownContent>
+                                                <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden py-1">
+                                                    <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                                                        Gruppe: @g.Name
+                                                    </div>
+                                                    <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                            @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenManageGroupLists(g.Id); }">
+                                                        @L["Nav_AddRemoveLists"]
+                                                    </button>
+                                                    <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                            @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenRenameGroup(g.Id, g.Name); }">
+                                                        @L["Nav_RenameGroup"]
+                                                    </button>
+                                                    @if (g.OwnerId == _userId)
+                                                    {
+                                                        @if (ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
+                                                        {
+                                                            <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                                                    @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); await TogglePortfolioAsync(g); }">
+                                                                @(g.IsPortfolio ? "Portfolio deaktivieren" : "In Portfolio umwandeln")
+                                                            </button>
+                                                        }
+                                                        <div class="h-px bg-slate-100 my-1"></div>
+                                                        <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
+                                                                @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenUngroupGroup(g.Id, g.Name); }">
+                                                            @L["Nav_RemoveGrouping"]
+                                                        </button>
+                                                    }
                                                 </div>
-                                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
-                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenManageGroupLists(g.Id); }">
-                                                    @L["Nav_AddRemoveLists"]
-                                                </button>
-                                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
-                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenRenameGroup(g.Id, g.Name); }">
-                                                    @L["Nav_RenameGroup"]
-                                                </button>
-                                                @if (g.OwnerId == _userId)
-                                                {
-                                                @if (ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
-                                                {
-                                                <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
-                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); await TogglePortfolioAsync(g); }">
-                                                    @(g.IsPortfolio ? "Portfolio deaktivieren" : "In Portfolio umwandeln")
-                                                </button>
-                                                }
-                                                <div class="h-px bg-slate-100 my-1"></div>
-                                                <button class="w-full text-left px-3 py-2 hover:bg-red-50 text-red-700"
-                                                        @onclick="async () => { if (groupDropdown != null) await groupDropdown.CloseAsync(); OpenUngroupGroup(g.Id, g.Name); }">
-                                                    @L["Nav_RemoveGrouping"]
-                                                </button>
-                                                }
-                                            </div>
-                                        </DropdownContent>
-                                    </FloatingDropdown>
-                                </div>
+                                            </DropdownContent>
+                                        </FloatingDropdown>
+                                    </div>
                                 }
 
                                 <FluentButton Appearance="Appearance.Stealth"
@@ -391,67 +400,67 @@
                             <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
                         </FluentButton>
 
-                    <FloatingDropdown @ref="_notificationsDropdown" MinWidth="320" AlwaysAbove="true">
-                        <ChildContent>
-                            <span class="relative inline-flex">
-                                <FluentButton Appearance="Appearance.Stealth"
-                                              Title="Neueste Änderungen"
-                                              OnClick="ToggleNotificationsPanelAsync">
-                                    <FluentIcon Value="@(new Icons.Regular.Size20.Alert())" />
-                                </FluentButton>
-                                @if (_unreadNotifications > 0)
-                                {
-                                    <span class="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-5 text-white text-center">
-                                        @_unreadNotifications
-                                    </span>
-                                }
-                            </span>
-                        </ChildContent>
-                        <DropdownContent>
-                            <div class="w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
-                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between gap-2">
-                                    <span>Neueste Änderungen</span>
-                                    <FluentButton Appearance="Appearance.Stealth" Title="Schließen" @onclick="CloseNotificationsPanel">x</FluentButton>
-                                </div>
-                                <div class="max-h-80 overflow-auto divide-y divide-slate-100">
-                                    @if (_latestNotifications.Count == 0)
-                                    {
-                                        <div class="px-3 py-4 text-sm text-slate-500">Keine neuen Änderungen.</div>
-                                    }
-                                    else
-                                    {
-                                        @foreach (var n in _latestNotifications)
-                                        {
-                                            <div class="flex items-start gap-1 px-3 py-2 hover:bg-slate-50">
-                                                <button class="min-w-0 flex-1 text-left"
-                                                        @onclick="() => OpenNotificationAsync(n)">
-                                                    <div class="text-sm font-medium text-slate-800">@n.Title</div>
-                                                    <div class="text-xs text-slate-500">@n.Message</div>
-                                                    <div class="text-[11px] text-slate-400">@n.CreatedAtUtc.ToLocalTime().ToString("g")</div>
-                                                </button>
-                                                <FluentButton Appearance="Appearance.Stealth"
-                                                              Title="Benachrichtigung löschen"
-                                                              OnClick="() => DeleteNotificationAsync(n.Id)">
-                                                    <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
-                                                </FluentButton>
-                                            </div>
-                                        }
-                                    }
-                                </div>
-                                <div class="border-t border-slate-100 p-2 flex items-center justify-between gap-2">
+                        <FloatingDropdown @ref="_notificationsDropdown" MinWidth="320" AlwaysAbove="true">
+                            <ChildContent>
+                                <span class="relative inline-flex">
                                     <FluentButton Appearance="Appearance.Stealth"
-                                                  Disabled="@(_latestNotifications.Count == 0)"
-                                                  OnClick="DeleteAllNotificationsAsync">
-                                        Alle löschen
+                                                  Title="Neueste Änderungen"
+                                                  OnClick="ToggleNotificationsPanelAsync">
+                                        <FluentIcon Value="@(new Icons.Regular.Size20.Alert())" />
                                     </FluentButton>
-                                    <FluentButton Appearance="Appearance.Stealth" OnClick="MarkNotificationsReadAsync">Gelesen</FluentButton>
+                                    @if (_unreadNotifications > 0)
+                                    {
+                                        <span class="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-red-600 px-1 text-[11px] font-semibold leading-5 text-white text-center">
+                                            @_unreadNotifications
+                                        </span>
+                                    }
+                                </span>
+                            </ChildContent>
+                            <DropdownContent>
+                                <div class="w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+                                    <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between gap-2">
+                                        <span>Neueste Änderungen</span>
+                                        <FluentButton Appearance="Appearance.Stealth" Title="Schließen" @onclick="CloseNotificationsPanel">x</FluentButton>
+                                    </div>
+                                    <div class="max-h-80 overflow-auto divide-y divide-slate-100">
+                                        @if (_latestNotifications.Count == 0)
+                                        {
+                                            <div class="px-3 py-4 text-sm text-slate-500">Keine neuen Änderungen.</div>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var n in _latestNotifications)
+                                            {
+                                                <div class="flex items-start gap-1 px-3 py-2 hover:bg-slate-50">
+                                                    <button class="min-w-0 flex-1 text-left"
+                                                            @onclick="() => OpenNotificationAsync(n)">
+                                                        <div class="text-sm font-medium text-slate-800">@n.Title</div>
+                                                        <div class="text-xs text-slate-500">@n.Message</div>
+                                                        <div class="text-[11px] text-slate-400">@n.CreatedAtUtc.ToLocalTime().ToString("g")</div>
+                                                    </button>
+                                                    <FluentButton Appearance="Appearance.Stealth"
+                                                                  Title="Benachrichtigung löschen"
+                                                                  OnClick="() => DeleteNotificationAsync(n.Id)">
+                                                        <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
+                                                    </FluentButton>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                    <div class="border-t border-slate-100 p-2 flex items-center justify-between gap-2">
+                                        <FluentButton Appearance="Appearance.Stealth"
+                                                      Disabled="@(_latestNotifications.Count == 0)"
+                                                      OnClick="DeleteAllNotificationsAsync">
+                                            Alle löschen
+                                        </FluentButton>
+                                        <FluentButton Appearance="Appearance.Stealth" OnClick="MarkNotificationsReadAsync">Gelesen</FluentButton>
+                                    </div>
                                 </div>
-                            </div>
-                        </DropdownContent>
-                    </FloatingDropdown>
+                            </DropdownContent>
+                        </FloatingDropdown>
                     </div>
 
-                    <FloatingDropdown MinWidth="220" AlwaysAbove="true">
+                    <FloatingDropdown @ref="_accountDropdown" MinWidth="220" AlwaysAbove="true" CloseOnContentClick="true">
                         <ChildContent>
                             <button type="button"
                                     class="app-account-menu-trigger inline-flex items-center gap-2 rounded-xl hover:bg-slate-100 p-2 transition-colors"
@@ -472,56 +481,56 @@
                             </button>
                         </ChildContent>
                         <DropdownContent>
-                        <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden py-1">
-                            @* Konto-Einstellungen *@
-                            <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
-                                @_userName
+                            <div class="rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden py-1">
+                                @* Konto-Einstellungen *@
+                                <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50">
+                                    @_userName
+                                </div>
+
+                                <button type="button"
+                                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="@(() => NavigateFromAccountMenuAsync("/konto"))">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Person())" Color="Color.Neutral" />
+                                    @L["Nav_Account"]
+                                </button>
+
+                                <button type="button"
+                                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="@(() => NavigateFromAccountMenuAsync("/profile"))">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.ImageCircle())" Color="Color.Neutral" />
+                                    @L["Nav_ProfilePicture"]
+                                </button>
+
+                                <button type="button"
+                                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                        @onclick="@(() => NavigateFromAccountMenuAsync("/access-tokens"))">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Key())" Color="Color.Neutral" />
+                                    @L["Nav_AccessTokens"]
+                                </button>
+
+                                @* Admin-Bereich nur für Admins *@
+                                <AuthorizeView Roles="Admin" Context="adminContext">
+                                    <Authorized>
+                                        <div class="h-px bg-slate-100 my-1"></div>
+                                        <button type="button"
+                                                class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
+                                                @onclick="@(() => NavigateFromAccountMenuAsync("/admin"))">
+                                            <FluentIcon Value="@(new Icons.Regular.Size20.Shield())" Color="Color.Neutral" />
+                                            @L["Nav_AdminArea"]
+                                        </button>
+                                    </Authorized>
+                                </AuthorizeView>
+
+                                <div class="h-px bg-slate-100 my-1"></div>
+
+                                @* Abmelden *@
+                                <a href="Account/Logout?returnUrl=Account/Login"
+                                   data-enhance-nav="false"
+                                   class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-700 flex items-center gap-2">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.SignOut())" Color="Color.Error" />
+                                    @L["Nav_Logout"]
+                                </a>
                             </div>
-
-                            <button type="button"
-                                    class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
-                                    @onclick="@(() => Navigation.NavigateTo("/konto"))">
-                                <FluentIcon Value="@(new Icons.Regular.Size20.Person())" Color="Color.Neutral" />
-                                @L["Nav_Account"]
-                            </button>
-
-                            <button type="button"
-                                    class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
-                                    @onclick="@(() => Navigation.NavigateTo("/profile"))">
-                                <FluentIcon Value="@(new Icons.Regular.Size20.ImageCircle())" Color="Color.Neutral" />
-                                @L["Nav_ProfilePicture"]
-                            </button>
-
-                            <button type="button"
-                                    class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
-                                    @onclick="@(() => Navigation.NavigateTo("/access-tokens"))">
-                                <FluentIcon Value="@(new Icons.Regular.Size20.Key())" Color="Color.Neutral" />
-                                @L["Nav_AccessTokens"]
-                            </button>
-
-                            @* Admin-Bereich nur für Admins *@
-                            <AuthorizeView Roles="Admin" Context="adminContext">
-                                <Authorized>
-                                    <div class="h-px bg-slate-100 my-1"></div>
-                                    <button type="button"
-                                            class="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 flex items-center gap-2"
-                                            @onclick="@(() => Navigation.NavigateTo("/admin"))">
-                                        <FluentIcon Value="@(new Icons.Regular.Size20.Shield())" Color="Color.Neutral" />
-                                        @L["Nav_AdminArea"]
-                                    </button>
-                                </Authorized>
-                            </AuthorizeView>
-
-                            <div class="h-px bg-slate-100 my-1"></div>
-
-                            @* Abmelden *@
-                            <a href="Account/Logout?returnUrl=Account/Login"
-                               data-enhance-nav="false"
-                               class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-700 flex items-center gap-2">
-                                <FluentIcon Value="@(new Icons.Regular.Size20.SignOut())" Color="Color.Error" />
-                                @L["Nav_Logout"]
-                            </a>
-                        </div>
                         </DropdownContent>
                     </FloatingDropdown>
                 </div>
@@ -648,6 +657,7 @@
     private string _userName = "gast";
     private string? _profilePictureUrl;
     private FloatingDropdown? _notificationsDropdown;
+    private FloatingDropdown? _accountDropdown;
     private int _unreadNotifications;
     private List<UserNotificationEntity> _latestNotifications = new();
 
@@ -732,6 +742,17 @@
 
     private static NavLinkMatch GetQuickLinkMatch(string href)
         => href == "/" ? NavLinkMatch.All : NavLinkMatch.Prefix;
+
+    private async Task NavigateFromAccountMenuAsync(string targetUri)
+    {
+        // FloatingDropdown wird außerhalb des normalen DOM-Flusses gerendert.
+        // Deshalb vor der Navigation explizit schließen, damit es auf mobilen
+        // Geräten nicht über der neu geladenen Seite stehen bleibt.
+        if (_accountDropdown is not null)
+            await _accountDropdown.CloseAsync();
+
+        Navigation.NavigateTo(targetUri);
+    }
 
     private void OnSearchFocus()
     {
