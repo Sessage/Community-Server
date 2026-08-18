@@ -27,18 +27,18 @@
             <p class="text-sm text-slate-600 mt-1">@L["Account_PageSubtitle"]</p>
         </div>
 
-        @if (!string.IsNullOrEmpty(_statusMessage))
-        {
-            <div class="rounded-xl border @(_isError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm">
-                @_statusMessage
-            </div>
-        }
-
         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
             <div>
                 <label for="account-language" class="font-medium">@L["Language_Title"]</label>
                 <div class="text-sm text-slate-500">@L["Language_Hint"]</div>
             </div>
+            @if (!string.IsNullOrEmpty(_languageStatusMessage))
+            {
+                <div class="rounded-xl border @(_languageIsError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm"
+                     role="status" aria-live="polite">
+                    @_languageStatusMessage
+                </div>
+            }
             <select id="account-language"
                     class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value="@_preferredLanguage"
@@ -63,6 +63,14 @@
         {
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                 <div class="font-medium">@L["Account_EmailAddress"]</div>
+
+                @if (!string.IsNullOrEmpty(_emailStatusMessage))
+                {
+                    <div class="rounded-xl border @(_emailIsError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm"
+                         role="status" aria-live="polite">
+                        @_emailStatusMessage
+                    </div>
+                }
 
                 @if (!_emailConfirmed)
                 {
@@ -109,6 +117,13 @@
             @* ── Passwort ändern ─────────────────────────────────────────── *@
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                 <div class="font-medium">@L["Account_ChangePassword"]</div>
+                @if (!string.IsNullOrEmpty(_passwordStatusMessage))
+                {
+                    <div class="rounded-xl border @(_passwordIsError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm"
+                         role="status" aria-live="polite">
+                        @_passwordStatusMessage
+                    </div>
+                }
                 <div class="space-y-3">
                     <div>
                         <label class="text-xs text-slate-500 mb-1 block">@L["Account_CurrentPassword"]</label>
@@ -142,9 +157,9 @@
                                 style="background-color:#2563eb;color:#ffffff;"
                                 @onclick="ChangePasswordAsync"
                                 disabled="@(_saving
-                                    || string.IsNullOrEmpty(_oldPassword)
-                                    || string.IsNullOrEmpty(_newPassword)
-                                    || _newPassword != _confirmPassword)">
+                                                                || string.IsNullOrEmpty(_oldPassword)
+                                                                || string.IsNullOrEmpty(_newPassword)
+                                                                || _newPassword != _confirmPassword)">
                             @(_saving && _activeAction == "password" ? L["Account_Saving"] : L["Account_UpdatePassword"])
                         </button>
                     </div>
@@ -158,6 +173,13 @@
                 <div class="font-medium">@L["Notifications_Title"]</div>
                 <div class="text-sm text-slate-500">@L["Notifications_GlobalHint"]</div>
             </div>
+            @if (!string.IsNullOrEmpty(_notificationStatusMessage))
+            {
+                <div class="rounded-xl border @(_notificationIsError ? "border-red-200 bg-red-50 text-red-800" : "border-green-200 bg-green-50 text-green-800") p-3 text-sm"
+                     role="status" aria-live="polite">
+                    @_notificationStatusMessage
+                </div>
+            }
             <div class="flex flex-wrap gap-2">
                 @foreach (var channel in NotificationChannels)
                 {
@@ -192,7 +214,7 @@
 
                 <div class="flex items-center justify-between px-5 py-3">
                     <div>
-                            <div class="text-sm font-medium">@L["Security_TwoFactor"]</div>
+                        <div class="text-sm font-medium">@L["Security_TwoFactor"]</div>
                         <div class="text-xs text-slate-500 mt-0.5">
                             @if (_is2faEnabled)
                             {
@@ -273,8 +295,15 @@
     private bool _savingNotifications;
     private bool _savingLanguage;
     private string _activeAction = "";
-    private string _statusMessage = "";
-    private bool _isError;
+
+    private string _languageStatusMessage = "";
+    private bool _languageIsError;
+    private string _emailStatusMessage = "";
+    private bool _emailIsError;
+    private string _passwordStatusMessage = "";
+    private bool _passwordIsError;
+    private string _notificationStatusMessage = "";
+    private bool _notificationIsError;
     private NotificationDeliveryChannel _userNotificationChannel = NotificationDeliveryChannel.Browser;
     private PushNotificationContentMode _pushContentMode = PushNotificationContentMode.Anonymous;
     private string _preferredLanguage = string.Empty;
@@ -308,12 +337,12 @@
         _user = await UserManager.FindByIdAsync(userId);
         if (_user is null) return;
 
-        _hasLocalPassword   = await UserManager.HasPasswordAsync(_user);
-        _preferredLanguage  = UserLanguagePreferences.Normalize(_user.PreferredLanguage) ?? string.Empty;
-        _currentEmail       = await UserManager.GetEmailAsync(_user);
-        _emailConfirmed     = await UserManager.IsEmailConfirmedAsync(_user);
-        _is2faEnabled       = await UserManager.GetTwoFactorEnabledAsync(_user);
-        _recoveryCodesLeft  = await UserManager.CountRecoveryCodesAsync(_user);
+        _hasLocalPassword = await UserManager.HasPasswordAsync(_user);
+        _preferredLanguage = UserLanguagePreferences.Normalize(_user.PreferredLanguage) ?? string.Empty;
+        _currentEmail = await UserManager.GetEmailAsync(_user);
+        _emailConfirmed = await UserManager.IsEmailConfirmedAsync(_user);
+        _is2faEnabled = await UserManager.GetTwoFactorEnabledAsync(_user);
+        _recoveryCodesLeft = await UserManager.CountRecoveryCodesAsync(_user);
 
         var passkeys = await UserManager.GetPasskeysAsync(_user);
         _passkeyCount = passkeys.Count;
@@ -336,7 +365,7 @@
         {
             _user.PreferredLanguage = previousLanguage;
             _savingLanguage = false;
-            SetError(L["Language_SaveError", string.Join(" ", result.Errors.Select(error => error.Description))]);
+            SetLanguageError(L["Language_SaveError", string.Join(" ", result.Errors.Select(error => error.Description))]);
             return;
         }
 
@@ -351,7 +380,7 @@
         if (_user is null || _savingNotifications) return;
 
         _savingNotifications = true;
-        _statusMessage = "";
+        _notificationStatusMessage = "";
         StateHasChanged();
 
         try
@@ -360,11 +389,11 @@
                 channel |= _userNotificationChannel & NotificationDeliveryChannel.Push;
             _userNotificationChannel = channel;
             await NotificationService.SetUserPreferenceAsync(_user.Id, channel, _pushContentMode);
-            SetSuccess(L["Notifications_SaveSuccess"]);
+            SetNotificationSuccess(L["Notifications_SaveSuccess"]);
         }
         catch (Exception ex)
         {
-            SetError(L["Err_Generic", ex.Message]);
+            SetNotificationError(L["Err_Generic", ex.Message]);
         }
         finally
         {
@@ -398,13 +427,13 @@
         try
         {
             await NotificationService.SetUserPreferenceAsync(_user.Id, _userNotificationChannel, _pushContentMode);
-            SetSuccess(L["Push_SaveSuccess"]);
+            SetNotificationSuccess(L["Push_SaveSuccess"]);
         }
         catch (Exception ex)
         {
             _userNotificationChannel = rollbackChannel;
             _pushContentMode = rollbackMode;
-            SetError(L["Settings_SaveError", ex.Message]);
+            SetNotificationError(L["Settings_SaveError", ex.Message]);
         }
         finally { _savingNotifications = false; }
     }
@@ -418,7 +447,7 @@
 
         _saving = true;
         _activeAction = "password";
-        _statusMessage = "";
+        _passwordStatusMessage = "";
         StateHasChanged();
 
         try
@@ -428,11 +457,11 @@
             {
                 _user = await UserManager.FindByIdAsync(_user.Id);
                 _oldPassword = _newPassword = _confirmPassword = "";
-                SetSuccess(L["Account_PasswordChanged"]);
+                SetPasswordSuccess(L["Account_PasswordChanged"]);
             }
             else
             {
-                SetError(string.Join(" ", result.Errors.Select(e => e.Description)));
+                SetPasswordError(string.Join(" ", result.Errors.Select(e => e.Description)));
             }
         }
         finally
@@ -451,13 +480,13 @@
 
         _saving = true;
         _activeAction = "email";
-        _statusMessage = "";
+        _emailStatusMessage = "";
         StateHasChanged();
 
         try
         {
             var userId = await UserManager.GetUserIdAsync(_user);
-            var code   = await UserManager.GenerateChangeEmailTokenAsync(_user, _newEmail);
+            var code = await UserManager.GenerateChangeEmailTokenAsync(_user, _newEmail);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             var callbackUrl = Navigation.GetUriWithQueryParameters(
@@ -467,11 +496,11 @@
             await EmailSender.SendConfirmationLinkAsync(_user, _newEmail, callbackUrl);
 
             _newEmail = "";
-            SetSuccess(L["Account_ConfirmationLinkSent"]);
+            SetEmailSuccess(L["Account_ConfirmationLinkSent"]);
         }
         catch
         {
-            SetError(L["Account_EmailChangeError"]);
+            SetEmailError(L["Account_EmailChangeError"]);
         }
         finally
         {
@@ -488,7 +517,7 @@
         try
         {
             var userId = await UserManager.GetUserIdAsync(_user);
-            var code   = await UserManager.GenerateEmailConfirmationTokenAsync(_user);
+            var code = await UserManager.GenerateEmailConfirmationTokenAsync(_user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             var callbackUrl = Navigation.GetUriWithQueryParameters(
@@ -496,15 +525,54 @@
                 new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
 
             await EmailSender.SendConfirmationLinkAsync(_user, _currentEmail, callbackUrl);
-            SetSuccess(L["Account_ConfirmationEmailSent"]);
+            SetEmailSuccess(L["Account_ConfirmationEmailSent"]);
         }
         catch
         {
-            SetError(L["Account_ConfirmationEmailSendError"]);
+            SetEmailError(L["Account_ConfirmationEmailSendError"]);
         }
         StateHasChanged();
     }
 
-    private void SetSuccess(string msg) { _statusMessage = msg; _isError = false; }
-    private void SetError(string msg)   { _statusMessage = msg; _isError = true; }
+    private void SetLanguageError(string msg)
+    {
+        _languageStatusMessage = msg;
+        _languageIsError = true;
+    }
+
+    private void SetEmailSuccess(string msg)
+    {
+        _emailStatusMessage = msg;
+        _emailIsError = false;
+    }
+
+    private void SetEmailError(string msg)
+    {
+        _emailStatusMessage = msg;
+        _emailIsError = true;
+    }
+
+    private void SetPasswordSuccess(string msg)
+    {
+        _passwordStatusMessage = msg;
+        _passwordIsError = false;
+    }
+
+    private void SetPasswordError(string msg)
+    {
+        _passwordStatusMessage = msg;
+        _passwordIsError = true;
+    }
+
+    private void SetNotificationSuccess(string msg)
+    {
+        _notificationStatusMessage = msg;
+        _notificationIsError = false;
+    }
+
+    private void SetNotificationError(string msg)
+    {
+        _notificationStatusMessage = msg;
+        _notificationIsError = true;
+    }
 }
