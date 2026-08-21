@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Services
+@using Klassenbibliothek.AutomationPlugins
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
 @inject ITodoAutomationService AutomationService
@@ -181,11 +182,27 @@
                     {
                         <div class="grid items-start gap-3 border-b border-slate-100 pb-3 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.4fr)_auto]">
                             <select class="@SelectClass"
-                                    value="@action.Type"
+                                    value="@ActionSelectionValue(action)"
                                     @onchange="e => ChangeActionType(action, e)">
-                                @foreach (var type in Enum.GetValues<TodoAutomationActionType>())
+                                <optgroup label="Sessage">
+                                @foreach (var type in Enum.GetValues<TodoAutomationActionType>().Where(type => type != TodoAutomationActionType.PluginAction))
                                 {
-                                    <option value="@type">@ActionLabel(type)</option>
+                                    <option value="builtin:@type">@ActionLabel(type)</option>
+                                }
+                                </optgroup>
+                                @if (_pluginActions.Count > 0)
+                                {
+                                    <optgroup label="Plugins">
+                                    @foreach (var pluginAction in _pluginActions)
+                                    {
+                                        <option value="plugin:@pluginAction.Id">@pluginAction.PluginName: @pluginAction.Name</option>
+                                    }
+                                    </optgroup>
+                                }
+                                @if (action.Type == TodoAutomationActionType.PluginAction
+                                    && !_pluginActions.Any(plugin => string.Equals(plugin.Id, action.PluginActionId, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    <option value="plugin:@action.PluginActionId">Plugin nicht verfügbar: @action.PluginActionId</option>
                                 }
                             </select>
                             <div>@ActionEditor(action)</div>
@@ -215,6 +232,7 @@
 
     private const string SelectClass = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
     private readonly List<TodoAutomationRuleEntity> _rules = [];
+    private readonly List<AutomationPluginActionDescriptor> _pluginActions = [];
     private TodoAutomationRuleEntity? _editingRule;
     private bool _loading = true;
     private bool _saving;
@@ -229,8 +247,15 @@
         _error = string.Empty;
         try
         {
+            var rulesTask = AutomationService.GetRulesAsync(UserId, List.Id);
+            var pluginsTask = AutomationService.GetPluginActionsAsync(UserId, List.Id);
+            await Task.WhenAll(rulesTask, pluginsTask);
             _rules.Clear();
-            _rules.AddRange(await AutomationService.GetRulesAsync(UserId, List.Id));
+            _rules.AddRange(await rulesTask);
+            _pluginActions.Clear();
+            _pluginActions.AddRange((await pluginsTask)
+                .OrderBy(action => action.PluginName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(action => action.Name, StringComparer.OrdinalIgnoreCase));
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _loading = false; }
@@ -315,10 +340,38 @@
 
     private void ChangeActionType(TodoAutomationActionEntity action, ChangeEventArgs args)
     {
-        if (!Enum.TryParse<TodoAutomationActionType>(args.Value?.ToString(), out var type))
+        var selection = args.Value?.ToString() ?? string.Empty;
+        if (selection.StartsWith("plugin:", StringComparison.Ordinal))
+        {
+            var pluginActionId = selection["plugin:".Length..];
+            var descriptor = _pluginActions.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, pluginActionId, StringComparison.OrdinalIgnoreCase));
+            if (descriptor is null)
+                return;
+            action.Type = TodoAutomationActionType.PluginAction;
+            action.PluginActionId = descriptor.Id;
+            action.CustomFieldId = null;
+            action.FieldKey = null;
+            action.LabelId = null;
+            action.Value = null;
+            action.ConfigurationJson = JsonSerializer.Serialize(new AutomationPluginActionConfiguration
+            {
+                Values = descriptor.Inputs
+                    .Select(input => (input.Key, Value: InitialPluginInputValue(input)))
+                    .Where(input => input.Value is not null)
+                    .ToDictionary(input => input.Key, input => input.Value, StringComparer.OrdinalIgnoreCase)
+            });
+            return;
+        }
+
+        var builtIn = selection.StartsWith("builtin:", StringComparison.Ordinal)
+            ? selection["builtin:".Length..]
+            : selection;
+        if (!Enum.TryParse<TodoAutomationActionType>(builtIn, out var type) || type == TodoAutomationActionType.PluginAction)
             return;
 
         action.Type = type;
+        action.PluginActionId = null;
         action.CustomFieldId = null;
         action.FieldKey = null;
         action.LabelId = null;
@@ -495,11 +548,107 @@
             case TodoAutomationActionType.RequestApproval:
                 RenderAssigneeSelect(builder, ref seq, action.Value, value => action.Value = value);
                 break;
+            case TodoAutomationActionType.PluginAction:
+                RenderPluginActionEditor(builder, ref seq, action);
+                break;
         }
     };
 
     private static TodoAutomationConditionEntity CloneCondition(TodoAutomationConditionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, Value = x.Value };
-    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, LabelId = x.LabelId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
+    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, LabelId = x.LabelId, PluginActionId = x.PluginActionId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
+
+    private void RenderPluginActionEditor(
+        Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder,
+        ref int seq,
+        TodoAutomationActionEntity action)
+    {
+        var descriptor = _pluginActions.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, action.PluginActionId, StringComparison.OrdinalIgnoreCase));
+        if (descriptor is null)
+        {
+            RenderHint(builder, ref seq, "Diese Plugin-Aktion ist auf dem Server nicht verfügbar.");
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(descriptor.Description))
+            RenderHint(builder, ref seq, descriptor.Description);
+        var configuration = AutomationPluginActionConfiguration.Parse(action.ConfigurationJson);
+        foreach (var input in descriptor.Inputs)
+        {
+            configuration.Values.TryGetValue(input.Key, out var value);
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "mb-3 space-y-1");
+            builder.OpenElement(seq++, "label");
+            builder.AddAttribute(seq++, "class", "block text-xs font-semibold uppercase tracking-wide text-slate-500");
+            builder.AddContent(seq++, input.Required ? $"{input.Label} *" : input.Label);
+            builder.CloseElement();
+
+            switch (input.Type)
+            {
+                case AutomationPluginInputType.MultilineText:
+                    RenderTextArea(builder, ref seq, value, next => SetPluginInput(action, input.Key, next), input.Description ?? string.Empty);
+                    break;
+                case AutomationPluginInputType.Number:
+                    RenderTextInput(builder, ref seq, value, next => SetPluginInput(action, input.Key, next), input.Description ?? string.Empty, "number");
+                    break;
+                case AutomationPluginInputType.Boolean:
+                    RenderStringSelect(builder, ref seq, ["true", "false"], value ?? input.DefaultValue ?? "false",
+                        next => SetPluginInput(action, input.Key, next), next => LocalizedBoolean(next == "true"));
+                    break;
+                case AutomationPluginInputType.Choice:
+                    RenderStringSelect(builder, ref seq, (input.Options ?? []).Select(option => option.Value), value ?? input.DefaultValue,
+                        next => SetPluginInput(action, input.Key, next),
+                        next => (input.Options ?? []).FirstOrDefault(option => option.Value == next)?.Label ?? next);
+                    break;
+                case AutomationPluginInputType.Column:
+                    RenderStringSelect(builder, ref seq, List.Columns, value ?? input.DefaultValue,
+                        next => SetPluginInput(action, input.Key, next));
+                    break;
+                case AutomationPluginInputType.Person:
+                    RenderAssigneeSelect(builder, ref seq, value, next => SetPluginInput(action, input.Key, next));
+                    break;
+                case AutomationPluginInputType.Secret:
+                    RenderTextInput(builder, ref seq, value, next => SetPluginInput(action, input.Key, next),
+                        configuration.ConfiguredSecrets.Contains(input.Key, StringComparer.OrdinalIgnoreCase)
+                            ? "Geheimnis ist gespeichert (leer lassen zum Beibehalten)"
+                            : input.Description ?? "Geheimnis",
+                        "password");
+                    if (configuration.ConfiguredSecrets.Contains(input.Key, StringComparer.OrdinalIgnoreCase))
+                    {
+                        builder.OpenElement(seq++, "button");
+                        builder.AddAttribute(seq++, "type", "button");
+                        builder.AddAttribute(seq++, "class", "text-xs text-red-600 hover:underline");
+                        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => ClearPluginSecret(action, input.Key)));
+                        builder.AddContent(seq++, "Gespeichertes Geheimnis entfernen");
+                        builder.CloseElement();
+                    }
+                    break;
+                default:
+                    RenderTextInput(builder, ref seq, value, next => SetPluginInput(action, input.Key, next), input.Description ?? string.Empty);
+                    break;
+            }
+
+            if (!string.IsNullOrWhiteSpace(input.Description) && input.Type != AutomationPluginInputType.Secret)
+                RenderHint(builder, ref seq, input.Description);
+            builder.CloseElement();
+        }
+    }
+
+    private static void SetPluginInput(TodoAutomationActionEntity action, string key, string? value)
+    {
+        var configuration = AutomationPluginActionConfiguration.Parse(action.ConfigurationJson);
+        configuration.Values[key] = value;
+        action.ConfigurationJson = JsonSerializer.Serialize(configuration);
+    }
+
+    private static void ClearPluginSecret(TodoAutomationActionEntity action, string key)
+    {
+        var configuration = AutomationPluginActionConfiguration.Parse(action.ConfigurationJson);
+        configuration.Values.Remove(key);
+        configuration.ConfiguredSecrets.RemoveAll(configured => string.Equals(configured, key, StringComparison.OrdinalIgnoreCase));
+        configuration.ProtectedSecrets.Remove(key);
+        action.ConfigurationJson = JsonSerializer.Serialize(configuration);
+    }
     private void RenderWebhookEditor(
         Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder,
         ref int seq,
@@ -613,8 +762,30 @@
     {
         TodoAutomationActionType.SetApprover => LocalizedApprovalText("set-approver"),
         TodoAutomationActionType.RequestApproval => LocalizedApprovalText("request"),
+        TodoAutomationActionType.PluginAction => "Plugin-Aktion",
         _ => T((AutomationText)((int)AutomationText.ActionSetColor + (int)value))
     };
+
+    private static string ActionSelectionValue(TodoAutomationActionEntity action)
+        => action.Type == TodoAutomationActionType.PluginAction
+            ? $"plugin:{action.PluginActionId}"
+            : $"builtin:{action.Type}";
+
+    private string? InitialPluginInputValue(AutomationPluginInputDefinition input)
+    {
+        if (input.DefaultValue is not null)
+            return input.DefaultValue;
+        if (!input.Required)
+            return null;
+        return input.Type switch
+        {
+            AutomationPluginInputType.Boolean => "false",
+            AutomationPluginInputType.Choice => input.Options?.FirstOrDefault()?.Value,
+            AutomationPluginInputType.Column => List.Columns.FirstOrDefault(),
+            AutomationPluginInputType.Person => FirstEligibleParticipantUserId(),
+            _ => null
+        };
+    }
 
     private string? FirstEligibleParticipantUserId()
         => (List.Participants ?? [])

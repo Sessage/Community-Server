@@ -1,11 +1,14 @@
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Services;
+using Klassenbibliothek.AutomationPlugins;
 
 namespace TodoSuite.Server.Services;
 
 /// <summary>No-op event sink used by Community so core task operations stay independent of Enterprise automation.</summary>
 public sealed class CommunityAutomationService : ITodoAutomationService
 {
+    public Task<IReadOnlyList<AutomationPluginActionDescriptor>> GetPluginActionsAsync(string userId, Guid listId, CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<AutomationPluginActionDescriptor>>([]);
     public Task<IReadOnlyList<TodoAutomationRuleEntity>> GetRulesAsync(string userId, Guid listId, CancellationToken cancellationToken = default)
         => Task.FromResult<IReadOnlyList<TodoAutomationRuleEntity>>([]);
     public Task<TodoAutomationRuleEntity> SaveRuleAsync(string userId, Guid listId, TodoAutomationRuleEntity rule, CancellationToken cancellationToken = default)

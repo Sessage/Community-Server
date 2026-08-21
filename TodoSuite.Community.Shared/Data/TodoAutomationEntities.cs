@@ -46,7 +46,8 @@ public enum TodoAutomationActionType
     SetImportant = 11,
     ClearAssignee = 12,
     SetApprover = 13,
-    RequestApproval = 14
+    RequestApproval = 14,
+    PluginAction = 15
 }
 
 public class TodoAutomationRuleEntity
@@ -91,6 +92,7 @@ public class TodoAutomationActionEntity
     public Guid? CustomFieldId { get; set; }
     [MaxLength(100)] public string? FieldKey { get; set; }
     public Guid? LabelId { get; set; }
+    [MaxLength(300)] public string? PluginActionId { get; set; }
     [MaxLength(4000)] public string? Value { get; set; }
     public string ConfigurationJson { get; set; } = "{}";
 

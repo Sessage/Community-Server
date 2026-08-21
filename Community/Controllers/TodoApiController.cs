@@ -59,7 +59,7 @@ public class TodoApiController : ControllerBase
     public async Task<IActionResult> DecideApproval(
         Guid listId,
         Guid taskId,
-        [FromBody] ApprovalDecisionRequest request,
+        [FromBody] TodoApprovalDecisionRequest request,
         [FromServices] ITodoTaskService taskService,
         CancellationToken ct)
     {
@@ -103,5 +103,5 @@ public class TodoApiController : ControllerBase
         return string.IsNullOrWhiteSpace(id) ? "gast" : id;
     }
 
-    public sealed record ApprovalDecisionRequest(bool Approved);
+    public sealed record TodoApprovalDecisionRequest(bool Approved);
 }

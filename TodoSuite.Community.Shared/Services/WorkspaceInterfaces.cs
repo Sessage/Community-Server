@@ -1,4 +1,5 @@
 using Klassenbibliothek.Data;
+using Klassenbibliothek.AutomationPlugins;
 
 namespace Klassenbibliothek.Services;
 
@@ -91,6 +92,7 @@ public interface ITodoTaskService
 /// <summary>Stores and executes list automation rules behind a product-neutral contract.</summary>
 public interface ITodoAutomationService
 {
+    Task<IReadOnlyList<AutomationPluginActionDescriptor>> GetPluginActionsAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TodoAutomationRuleEntity>> GetRulesAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task<TodoAutomationRuleEntity> SaveRuleAsync(string userId, Guid listId, TodoAutomationRuleEntity rule, CancellationToken cancellationToken = default);
     Task<bool> DeleteRuleAsync(string userId, Guid listId, Guid ruleId, CancellationToken cancellationToken = default);
