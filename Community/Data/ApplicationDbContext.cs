@@ -52,6 +52,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TodoFormFieldEntity> TodoFormFields => Set<TodoFormFieldEntity>();
     public DbSet<TodoFormSubmissionKeyEntity> TodoFormSubmissionKeys => Set<TodoFormSubmissionKeyEntity>();
     public DbSet<ListEmailImportConfigurationEntity> ListEmailImportConfigurations => Set<ListEmailImportConfigurationEntity>();
+    public DbSet<ListEmailImportedMessageEntity> ListEmailImportedMessages => Set<ListEmailImportedMessageEntity>();
     public DbSet<TodoAutomationRuleEntity> TodoAutomationRules => Set<TodoAutomationRuleEntity>();
     public DbSet<TodoAutomationConditionEntity> TodoAutomationConditions => Set<TodoAutomationConditionEntity>();
     public DbSet<TodoAutomationActionEntity> TodoAutomationActions => Set<TodoAutomationActionEntity>();
@@ -437,6 +438,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(x => x.List)
                 .WithMany()
                 .HasForeignKey(x => x.ListId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ListEmailImportedMessageEntity>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.FolderName).HasMaxLength(512);
+            entity.HasIndex(x => new { x.ConfigurationId, x.FolderName, x.UidValidity, x.MessageUid }).IsUnique();
+            entity.HasIndex(x => x.TaskId).IsUnique();
+            entity.HasOne(x => x.Configuration)
+                .WithMany()
+                .HasForeignKey(x => x.ConfigurationId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

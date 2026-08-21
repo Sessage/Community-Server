@@ -44,7 +44,7 @@ public static class CustomFieldSelectOptions
         if (!string.IsNullOrWhiteSpace(selected)
             && result.All(option => !string.Equals(option.Item1, selected, StringComparison.OrdinalIgnoreCase)))
         {
-            result.Insert(0, (selected, $"{selected} (nicht mehr verfuegbar)"));
+            result.Insert(0, (selected, $"{selected} (nicht mehr verfügbar)"));
         }
 
         return result;

@@ -139,6 +139,7 @@ public sealed class TodoAutomationWebhookConfiguration
 
     public IReadOnlyList<string> GetSelectedFields()
     {
+        SelectedFields ??= [];
         if (SelectedFields.Count > 0)
             return SelectedFields;
 

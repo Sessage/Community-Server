@@ -317,6 +317,17 @@ public class MobileSyncController : ControllerBase
         return deleted ? Ok() : NotFound();
     }
 
+    [HttpPost("lists/{listId:guid}/transfer-ownership")]
+    public async Task<ActionResult> TransferListOwnership(
+        Guid listId,
+        [FromBody] TransferListOwnershipRequest request,
+        [FromServices] ITodoListService listService,
+        CancellationToken token)
+    {
+        await listService.TransferListOwnershipAsync(ResolveUserId(), listId, request.NewOwnerUserIdOrEmail, token);
+        return Ok();
+    }
+
     [HttpPost("lists/{listId:guid}/tasks/{taskId:guid}/approval")]
     public async Task<ActionResult<TodoTaskEntity>> DecideApproval(
         Guid listId,
@@ -476,7 +487,7 @@ public class MobileSyncController : ControllerBase
         }
         catch (FormatException)
         {
-            return BadRequest("Upload konnte nicht gelesen werden: ungueltiger Dateiinhalt.");
+            return BadRequest("Upload konnte nicht gelesen werden: ungültiger Dateiinhalt.");
         }
 
         if (bytes.Length <= 0 || bytes.Length > MaxAttachmentSizeBytes)
@@ -679,7 +690,7 @@ public class MobileSyncController : ControllerBase
             {
                 try { System.IO.File.Delete(path); } catch { }
                 try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
-                return BadRequest("Upload ist groesser als erwartet.");
+                return BadRequest("Upload ist größer als erwartet.");
             }
 
             if (request.ChunkNumber < request.TotalChunks)
@@ -775,7 +786,7 @@ public class MobileSyncController : ControllerBase
             {
                 try { System.IO.File.Delete(path); } catch { }
                 try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
-                return BadRequest("Upload ist groesser als erwartet.");
+                return BadRequest("Upload ist größer als erwartet.");
             }
 
             return await CompleteChunkUploadAsync(
@@ -1691,6 +1702,7 @@ public class MobileSyncController : ControllerBase
     /* -------- DTOs -------- */
 
     public record CreateListFromTemplateRequest(string Name);
+    public record TransferListOwnershipRequest(string NewOwnerUserIdOrEmail);
     public record AddCommentRequest(string Message, Guid? Id = null);
     public record GroupNameRequest(string Name, bool IsPortfolio = false, Guid? Id = null);
     public record GroupPortfolioRequest(bool IsPortfolio);

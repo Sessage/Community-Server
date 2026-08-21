@@ -420,7 +420,7 @@ public static class CommunityApplication
                 {
                     throw new InvalidOperationException(
                         "Es existiert kein Admin-Benutzer. Setze InitialAdmin:Password bzw. INITIAL_ADMIN_PASSWORD " +
-                        "oder aktiviere InitialAdmin:WritePasswordFile bewusst fuer das Bootstrap-Passwort.");
+                        "oder aktiviere InitialAdmin:WritePasswordFile bewusst für das Bootstrap-Passwort.");
                 }
         
                 var password = string.IsNullOrWhiteSpace(configuredPassword)
@@ -622,7 +622,7 @@ public static class CommunityApplication
             {
                 app.Logger.LogWarning(ex, "Invalid mobile API request.");
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Die Anfrage ist ungueltig.");
+                await context.Response.WriteAsync("Die Anfrage ist ungültig.");
             }
             catch (InvalidOperationException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {

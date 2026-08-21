@@ -179,7 +179,7 @@ public class MobileAuthController : ControllerBase
         if (!valid)
         {
             _attemptProtection.RecordFailure(HttpContext, subject);
-            return Unauthorized(new ErrorResponse("Der Authenticator-Code ist ungueltig."));
+            return Unauthorized(new ErrorResponse("Der Authenticator-Code ist ungültig."));
         }
 
         var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");

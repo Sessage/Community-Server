@@ -125,7 +125,15 @@ public sealed class AutomationPluginActionConfiguration
     {
         try
         {
-            return JsonSerializer.Deserialize<AutomationPluginActionConfiguration>(json ?? "{}") ?? new();
+            var configuration = JsonSerializer.Deserialize<AutomationPluginActionConfiguration>(json ?? "{}") ?? new();
+            configuration.Values = configuration.Values is null
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : new(configuration.Values, StringComparer.OrdinalIgnoreCase);
+            configuration.ConfiguredSecrets ??= [];
+            configuration.ProtectedSecrets = configuration.ProtectedSecrets is null
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : new(configuration.ProtectedSecrets, StringComparer.OrdinalIgnoreCase);
+            return configuration;
         }
         catch (JsonException)
         {

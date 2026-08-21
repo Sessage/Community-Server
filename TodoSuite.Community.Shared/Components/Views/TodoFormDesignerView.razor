@@ -921,8 +921,8 @@
             TodoFormFieldValidationType.DateBefore => "Datum <",
             TodoFormFieldValidationType.DateOnOrAfter => "Datum >=",
             TodoFormFieldValidationType.DateOnOrBefore => "Datum <=",
-            TodoFormFieldValidationType.MinLength => "Mindestlaenge",
-            TodoFormFieldValidationType.MaxLength => "Maximallaenge",
+            TodoFormFieldValidationType.MinLength => "Mindestlänge",
+            TodoFormFieldValidationType.MaxLength => "Maximallänge",
             TodoFormFieldValidationType.Regex => "Muster",
             _ => type.ToString()
         };
@@ -932,7 +932,7 @@
         {
             TodoFormFieldValidationType.DateAfter or TodoFormFieldValidationType.DateBefore or TodoFormFieldValidationType.DateOnOrAfter or TodoFormFieldValidationType.DateOnOrBefore => "YYYY-MM-DD",
             TodoFormFieldValidationType.MinLength or TodoFormFieldValidationType.MaxLength => "Anzahl",
-            TodoFormFieldValidationType.Regex => "Regulaerer Ausdruck",
+            TodoFormFieldValidationType.Regex => "Regulärer Ausdruck",
             _ => "Optional"
         };
 

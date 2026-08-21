@@ -79,9 +79,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
                 return existing;
         }
 
-        var targetCol = string.IsNullOrWhiteSpace(task.Column)
-            ? (list.Columns.FirstOrDefault() ?? "Backlog")
-            : task.Column;
+        var targetCol = TodoTaskInputValidation.ResolveColumn(list, task.Column);
+        var assignee = TodoTaskInputValidation.ResolveAssignee(list, task.Assignee, nameof(task));
 
         var nextListOrder = (await db.TodoTasks
             .Where(t => t.ListId == listId && t.DeletedAt == null && !t.Done)
@@ -103,7 +102,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             DueDate = task.DueDate,
             Done = task.Done,
             IsImportant = task.IsImportant,
-            Assignee = task.Assignee,
+            Assignee = assignee,
             Recurrence = task.Recurrence,
             CustomRecurrence = task.CustomRecurrence,
             Column = targetCol,
@@ -195,10 +194,10 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         entity.DueDate = task.DueDate;
         entity.Done = task.Done;
         entity.IsImportant = task.IsImportant;
-        entity.Assignee = task.Assignee;
+        entity.Assignee = TodoTaskInputValidation.ResolveAssignee(list, task.Assignee, nameof(task));
         entity.Recurrence = task.Recurrence;
         entity.CustomRecurrence = task.CustomRecurrence;
-        entity.Column = task.Column;
+        entity.Column = TodoTaskInputValidation.ResolveColumn(list, task.Column);
         entity.CardColor = string.IsNullOrWhiteSpace(task.CardColor) ? null : task.CardColor.Trim();
         entity.CardColorMode = task.CardColorMode;
         var customFieldValues = CustomFieldsEnabled
@@ -823,6 +822,20 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         if (string.IsNullOrWhiteSpace(normalized))
             return normalized;
 
+        if (field.Type == TodoCustomFieldType.Number
+            && !decimal.TryParse(normalized, System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture, out _))
+            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ benötigt eine Zahl.");
+        if (field.Type == TodoCustomFieldType.Date
+            && !DateOnly.TryParse(normalized, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out _))
+            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ benötigt ein gültiges Datum.");
+        if (field.Type == TodoCustomFieldType.Checkbox && !bool.TryParse(normalized, out _))
+            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ benötigt Ja oder Nein.");
+        if (field.Type is TodoCustomFieldType.Dropdown or TodoCustomFieldType.MultiSelect
+            && !CustomFieldSelectOptions.ContainsValue(field, normalized))
+            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ enthält eine ungültige Auswahl.");
+
         if (field.Type == TodoCustomFieldType.MultiSelect)
             return CustomFieldMultiSelectValues.Serialize(CustomFieldMultiSelectValues.Parse(normalized));
 
@@ -840,9 +853,10 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         var legacyMatch = sourceTasks.FirstOrDefault(task =>
             string.Equals((task.Title ?? "").Trim(), normalized, StringComparison.OrdinalIgnoreCase));
 
-        return legacyMatch is null
-            ? normalized
-            : CustomFieldSelectOptions.TaskValue(legacyMatch.Id);
+        if (legacyMatch is not null)
+            return CustomFieldSelectOptions.TaskValue(legacyMatch.Id);
+
+        throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ verweist auf keine vorhandene Aufgabe.");
     }
 
     private static void ApplyCustomFieldValues(TodoTaskEntity entity, IReadOnlyList<NormalizedCustomFieldValue> incoming)

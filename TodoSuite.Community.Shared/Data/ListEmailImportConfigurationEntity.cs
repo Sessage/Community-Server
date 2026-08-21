@@ -36,3 +36,21 @@ public class ListEmailImportConfigurationEntity
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }
+
+public class ListEmailImportedMessageEntity
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public Guid ConfigurationId { get; set; }
+    public ListEmailImportConfigurationEntity? Configuration { get; set; }
+
+    [Required]
+    public string FolderName { get; set; } = "INBOX";
+
+    public uint UidValidity { get; set; }
+    public uint MessageUid { get; set; }
+
+    public Guid TaskId { get; set; } = Guid.NewGuid();
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? CompletedAtUtc { get; set; }
+}
