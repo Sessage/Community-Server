@@ -300,6 +300,7 @@
 
         condition.Type = type;
         condition.CustomFieldId = null;
+        condition.FieldKey = null;
         condition.Value = type switch
         {
             TodoAutomationConditionType.FromColumnEquals or TodoAutomationConditionType.ToColumnEquals
@@ -309,7 +310,7 @@
             _ => null
         };
         if (type is TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty)
-            condition.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+            condition.FieldKey = "description";
     }
 
     private void ChangeActionType(TodoAutomationActionEntity action, ChangeEventArgs args)
@@ -319,6 +320,7 @@
 
         action.Type = type;
         action.CustomFieldId = null;
+        action.FieldKey = null;
         action.LabelId = null;
         action.ConfigurationJson = "{}";
         action.Value = type switch
@@ -326,10 +328,12 @@
             TodoAutomationActionType.SetCardColor => "#2563EB",
             TodoAutomationActionType.MoveToColumn => List.Columns.FirstOrDefault(),
             TodoAutomationActionType.SetImportant => "true",
+            TodoAutomationActionType.SetApprover or TodoAutomationActionType.RequestApproval
+                => FirstEligibleParticipantUserId(),
             _ => null
         };
         if (type is TodoAutomationActionType.SetCustomField or TodoAutomationActionType.ClearCustomField)
-            action.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+            action.FieldKey = "description";
         if (type == TodoAutomationActionType.AddLabel)
             action.LabelId = List.Labels.FirstOrDefault()?.Id;
         EnsureActionConfiguration(action);
@@ -341,8 +345,8 @@
             && string.IsNullOrWhiteSpace(condition.Value))
             condition.Value = List.Columns.FirstOrDefault();
         if (condition.Type is TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty
-            && condition.CustomFieldId is null)
-            condition.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+            && string.IsNullOrWhiteSpace(ResolveFieldKey(condition.FieldKey, condition.CustomFieldId)))
+            condition.FieldKey = "description";
     }
 
     private void EnsureActionConfiguration(TodoAutomationActionEntity action)
@@ -354,10 +358,13 @@
         if (action.Type == TodoAutomationActionType.SetImportant && string.IsNullOrWhiteSpace(action.Value))
             action.Value = "true";
         if (action.Type is TodoAutomationActionType.SetCustomField or TodoAutomationActionType.ClearCustomField
-            && action.CustomFieldId is null)
-            action.CustomFieldId = List.CustomFields.FirstOrDefault()?.Id;
+            && string.IsNullOrWhiteSpace(ResolveFieldKey(action.FieldKey, action.CustomFieldId)))
+            action.FieldKey = "description";
         if (action.Type == TodoAutomationActionType.AddLabel && action.LabelId is null)
             action.LabelId = List.Labels.FirstOrDefault()?.Id;
+        if (action.Type is TodoAutomationActionType.SetApprover or TodoAutomationActionType.RequestApproval
+            && string.IsNullOrWhiteSpace(action.Value))
+            action.Value = FirstEligibleParticipantUserId();
         if (action.Type == TodoAutomationActionType.PostWebhook)
         {
             var configuration = action.GetWebhookConfiguration();
@@ -425,8 +432,10 @@
         }
         if (condition.Type is TodoAutomationConditionType.CustomFieldEquals or TodoAutomationConditionType.CustomFieldIsEmpty)
         {
-            RenderFieldSelect(builder, ref seq, condition.CustomFieldId, value => condition.CustomFieldId = value);
+            RenderFieldSelect(builder, ref seq, ResolveFieldKey(condition.FieldKey, condition.CustomFieldId), value => SetConditionField(condition, value));
             if (condition.Type == TodoAutomationConditionType.CustomFieldIsEmpty) return;
+            RenderFieldValueEditor(builder, ref seq, ResolveFieldKey(condition.FieldKey, condition.CustomFieldId), condition.Value, value => condition.Value = value);
+            return;
         }
         if (condition.Type is TodoAutomationConditionType.FromColumnEquals or TodoAutomationConditionType.ToColumnEquals)
             RenderStringSelect(builder, ref seq, List.Columns, condition.Value, value => condition.Value = value);
@@ -460,11 +469,11 @@
                     value => CardColorModeLabel(value == nameof(TaskCardColorMode.Full)));
                 break;
             case TodoAutomationActionType.SetCustomField:
-                RenderFieldSelect(builder, ref seq, action.CustomFieldId, value => action.CustomFieldId = value);
-                RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.NewValue));
+                RenderFieldSelect(builder, ref seq, ResolveFieldKey(action.FieldKey, action.CustomFieldId), value => SetActionField(action, value));
+                RenderFieldValueEditor(builder, ref seq, ResolveFieldKey(action.FieldKey, action.CustomFieldId), action.Value, value => action.Value = value);
                 break;
             case TodoAutomationActionType.ClearCustomField:
-                RenderFieldSelect(builder, ref seq, action.CustomFieldId, value => action.CustomFieldId = value);
+                RenderFieldSelect(builder, ref seq, ResolveFieldKey(action.FieldKey, action.CustomFieldId), value => SetActionField(action, value), clearableOnly: true);
                 break;
             case TodoAutomationActionType.AddLabel:
                 RenderGuidSelect(builder, ref seq, List.Labels.Select(x => (x.Id, x.Title)), action.LabelId, value => action.LabelId = value);
@@ -482,13 +491,15 @@
                 RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.NotificationText));
                 break;
             case TodoAutomationActionType.SetAssignee:
-                RenderTextInput(builder, ref seq, action.Value, value => action.Value = value, T(AutomationText.UserOrEmail));
+            case TodoAutomationActionType.SetApprover:
+            case TodoAutomationActionType.RequestApproval:
+                RenderAssigneeSelect(builder, ref seq, action.Value, value => action.Value = value);
                 break;
         }
     };
 
-    private static TodoAutomationConditionEntity CloneCondition(TodoAutomationConditionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, Value = x.Value };
-    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, LabelId = x.LabelId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
+    private static TodoAutomationConditionEntity CloneCondition(TodoAutomationConditionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, Value = x.Value };
+    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, LabelId = x.LabelId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
     private void RenderWebhookEditor(
         Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder,
         ref int seq,
@@ -589,9 +600,42 @@
         ("cardColor", T(AutomationText.FieldCardColor))
     ];
 
-    private string TriggerLabel(TodoAutomationTriggerType value) => T((AutomationText)((int)AutomationText.TriggerTaskCreated + (int)value));
+    private string TriggerLabel(TodoAutomationTriggerType value) => value switch
+    {
+        TodoAutomationTriggerType.TaskCreatedByForm => LocalizedTriggerSource(form: true),
+        TodoAutomationTriggerType.TaskCreatedByEmail => LocalizedTriggerSource(form: false),
+        TodoAutomationTriggerType.ApprovalGranted => LocalizedApprovalText("trigger-approved"),
+        TodoAutomationTriggerType.ApprovalRejected => LocalizedApprovalText("trigger-rejected"),
+        _ => T((AutomationText)((int)AutomationText.TriggerTaskCreated + (int)value))
+    };
     private string ConditionLabel(TodoAutomationConditionType value) => T((AutomationText)((int)AutomationText.ConditionFromColumn + (int)value));
-    private string ActionLabel(TodoAutomationActionType value) => T((AutomationText)((int)AutomationText.ActionSetColor + (int)value));
+    private string ActionLabel(TodoAutomationActionType value) => value switch
+    {
+        TodoAutomationActionType.SetApprover => LocalizedApprovalText("set-approver"),
+        TodoAutomationActionType.RequestApproval => LocalizedApprovalText("request"),
+        _ => T((AutomationText)((int)AutomationText.ActionSetColor + (int)value))
+    };
+
+    private string? FirstEligibleParticipantUserId()
+        => (List.Participants ?? [])
+            .FirstOrDefault(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
+            ?.UserId?.Trim();
+
+    private static string LocalizedApprovalText(string key)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return (language, key) switch
+        {
+            ("de", "trigger-approved") => "Genehmigung erfolgt",
+            ("de", "trigger-rejected") => "Genehmigung abgelehnt",
+            ("de", "set-approver") => "Genehmiger setzen",
+            ("de", "request") => "Genehmigung anfordern",
+            (_, "trigger-approved") => "Approval granted",
+            (_, "trigger-rejected") => "Approval rejected",
+            (_, "set-approver") => "Set approver",
+            _ => "Request approval"
+        };
+    }
     private static string CardColorModeLabel(bool full)
     {
         var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
@@ -612,10 +656,221 @@
         };
     }
 
-    private void RenderFieldSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, Guid? value, Action<Guid?> changed)
-        => RenderGuidSelect(b, ref s, List.CustomFields.Select(x => (x.Id, x.Name)), value, changed);
+    private static string? ResolveFieldKey(string? fieldKey, Guid? customFieldId)
+        => !string.IsNullOrWhiteSpace(fieldKey)
+            ? fieldKey.Trim()
+            : customFieldId is null ? null : $"custom:{customFieldId.Value:D}";
+
+    private static bool TryParseCustomFieldKey(string? fieldKey, out Guid customFieldId)
+    {
+        customFieldId = Guid.Empty;
+        return !string.IsNullOrWhiteSpace(fieldKey)
+               && fieldKey.StartsWith("custom:", StringComparison.OrdinalIgnoreCase)
+               && Guid.TryParse(fieldKey[7..], out customFieldId);
+    }
+
+    private void SetConditionField(TodoAutomationConditionEntity condition, string? fieldKey)
+    {
+        condition.FieldKey = fieldKey;
+        condition.CustomFieldId = TryParseCustomFieldKey(fieldKey, out var id) ? id : null;
+        condition.Value = fieldKey switch
+        {
+            "column" => List.Columns.FirstOrDefault(),
+            "done" or "important" => "true",
+            "assignee" => FirstAssigneeUserId(),
+            "cardColor" => "#2563EB",
+            _ => null
+        };
+    }
+
+    private void SetActionField(TodoAutomationActionEntity action, string? fieldKey)
+    {
+        action.FieldKey = fieldKey;
+        action.CustomFieldId = TryParseCustomFieldKey(fieldKey, out var id) ? id : null;
+        action.Value = fieldKey switch
+        {
+            "column" => List.Columns.FirstOrDefault(),
+            "done" or "important" => "true",
+            "assignee" => FirstAssigneeUserId(),
+            "startDate" or "dueDate" => DateTime.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            "cardColor" => "#2563EB",
+            _ => null
+        };
+    }
+
+    private string? FirstAssigneeUserId()
+        => (List.Participants ?? [])
+            .Where(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
+            .OrderBy(p => string.IsNullOrWhiteSpace(p.DisplayName) ? p.Email : p.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(p => p.UserId!.Trim())
+            .FirstOrDefault();
+
+    private static string LocalizedTriggerSource(bool form)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return (language, form) switch
+        {
+            ("de", true) => "Aufgabe durch Formular erstellt",
+            ("de", false) => "Aufgabe durch E-Mail erstellt",
+            ("es", true) => "Tarea creada mediante formulario",
+            ("es", false) => "Tarea creada mediante correo electrónico",
+            ("fr", true) => "Tâche créée via un formulaire",
+            ("fr", false) => "Tâche créée via un e-mail",
+            ("hi", true) => "फ़ॉर्म द्वारा कार्य बनाया गया",
+            ("hi", false) => "ई-मेल द्वारा कार्य बनाया गया",
+            ("zh", true) => "任务通过表单创建",
+            ("zh", false) => "任务通过电子邮件创建",
+            (_, true) => "Task created by form",
+            (_, false) => "Task created by email"
+        };
+    }
+
+    private static string LocalizedFieldGroup(bool custom)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return (language, custom) switch
+        {
+            ("de", false) => "Standardfelder",
+            ("de", true) => "Benutzerdefinierte Felder",
+            ("es", false) => "Campos estándar",
+            ("es", true) => "Campos personalizados",
+            ("fr", false) => "Champs standard",
+            ("fr", true) => "Champs personnalisés",
+            ("hi", false) => "मानक फ़ील्ड",
+            ("hi", true) => "कस्टम फ़ील्ड",
+            ("zh", false) => "标准字段",
+            ("zh", true) => "自定义字段",
+            (_, false) => "Standard fields",
+            (_, true) => "Custom fields"
+        };
+    }
+
+    private static string LocalizedBoolean(bool value)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return (language, value) switch
+        {
+            ("de", true) => "Ja", ("de", false) => "Nein",
+            ("es", true) => "Sí", ("es", false) => "No",
+            ("fr", true) => "Oui", ("fr", false) => "Non",
+            ("hi", true) => "हाँ", ("hi", false) => "नहीं",
+            ("zh", true) => "是", ("zh", false) => "否",
+            (_, true) => "Yes", (_, false) => "No"
+        };
+    }
+
+    private IEnumerable<(string Key, string Label)> StandardFieldOptions(bool clearableOnly)
+    {
+        if (!clearableOnly) yield return ("title", T(AutomationText.FieldTitle));
+        yield return ("description", T(AutomationText.FieldDescription));
+        if (!clearableOnly) yield return ("column", T(AutomationText.FieldColumn));
+        yield return ("done", T(AutomationText.FieldDone));
+        yield return ("important", T(AutomationText.FieldImportant));
+        yield return ("assignee", T(AutomationText.FieldAssignee));
+        yield return ("startDate", T(AutomationText.FieldStartDate));
+        yield return ("dueDate", T(AutomationText.FieldDueDate));
+        yield return ("cardColor", T(AutomationText.FieldCardColor));
+    }
+
+    private void RenderFieldSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? value, Action<string?> changed, bool clearableOnly = false)
+    {
+        b.OpenElement(s++, "select");
+        b.AddAttribute(s++, "class", SelectClass);
+        b.AddAttribute(s++, "value", value);
+        b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString())));
+        b.OpenElement(s++, "option");
+        b.AddAttribute(s++, "value", "");
+        b.AddContent(s++, T(AutomationText.PleaseSelect));
+        b.CloseElement();
+
+        b.OpenElement(s++, "optgroup");
+        b.AddAttribute(s++, "label", LocalizedFieldGroup(custom: false));
+        foreach (var field in StandardFieldOptions(clearableOnly))
+        {
+            b.OpenElement(s++, "option");
+            b.AddAttribute(s++, "value", field.Key);
+            b.AddContent(s++, field.Label);
+            b.CloseElement();
+        }
+        b.CloseElement();
+
+        if (List.CustomFields.Count > 0)
+        {
+            b.OpenElement(s++, "optgroup");
+            b.AddAttribute(s++, "label", LocalizedFieldGroup(custom: true));
+            foreach (var field in List.CustomFields.OrderBy(x => x.SortOrder).ThenBy(x => x.Name))
+            {
+                b.OpenElement(s++, "option");
+                b.AddAttribute(s++, "value", $"custom:{field.Id:D}");
+                b.AddContent(s++, field.Name);
+                b.CloseElement();
+            }
+            b.CloseElement();
+        }
+        b.CloseElement();
+    }
+
+    private void RenderFieldValueEditor(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? fieldKey, string? value, Action<string?> changed)
+    {
+        switch (fieldKey)
+        {
+            case "column":
+                RenderStringSelect(b, ref s, List.Columns, value, changed);
+                break;
+            case "done":
+            case "important":
+                RenderStringSelect(b, ref s, ["true", "false"], value ?? "true", changed,
+                    item => LocalizedBoolean(item == "true"));
+                break;
+            case "assignee":
+                RenderAssigneeSelect(b, ref s, value, changed);
+                break;
+            case "startDate":
+            case "dueDate":
+                RenderTextInput(b, ref s, value, changed, "", "date");
+                break;
+            case "cardColor":
+                RenderTextInput(b, ref s, string.IsNullOrWhiteSpace(value) ? "#2563EB" : value, changed, "", "color");
+                break;
+            case "description":
+                RenderTextArea(b, ref s, value, changed, T(AutomationText.NewValue));
+                break;
+            default:
+                RenderTextInput(b, ref s, value, changed, T(AutomationText.NewValue));
+                break;
+        }
+    }
+    private void RenderAssigneeSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? value, Action<string?> changed)
+    {
+        var participants = (List.Participants ?? [])
+            .Where(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
+            .GroupBy(p => p.UserId!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .OrderBy(p => string.IsNullOrWhiteSpace(p.DisplayName) ? p.Email : p.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        b.OpenElement(s++, "select");
+        b.AddAttribute(s++, "class", SelectClass);
+        b.AddAttribute(s++, "value", value);
+        b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString())));
+        b.OpenElement(s++, "option");
+        b.AddAttribute(s++, "value", "");
+        b.AddContent(s++, T(AutomationText.PleaseSelect));
+        b.CloseElement();
+        foreach (var participant in participants)
+        {
+            b.OpenElement(s++, "option");
+            b.AddAttribute(s++, "value", participant.UserId);
+            b.AddContent(s++, !string.IsNullOrWhiteSpace(participant.DisplayName)
+                ? participant.DisplayName
+                : (!string.IsNullOrWhiteSpace(participant.Email) ? participant.Email : participant.UserId));
+            b.CloseElement();
+        }
+        b.CloseElement();
+    }
     private static void RenderHint(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string text) { b.OpenElement(s++, "span"); b.AddAttribute(s++, "class", "text-sm text-slate-500"); b.AddContent(s++, text); b.CloseElement(); }
     private void RenderTextInput(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? value, Action<string?> changed, string placeholder, string type = "text") { b.OpenElement(s++, "input"); b.AddAttribute(s++, "type", type); b.AddAttribute(s++, "class", SelectClass); b.AddAttribute(s++, "value", value); b.AddAttribute(s++, "placeholder", placeholder); b.AddAttribute(s++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString()))); b.CloseElement(); }
+    private void RenderTextArea(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? value, Action<string?> changed, string placeholder) { b.OpenElement(s++, "textarea"); b.AddAttribute(s++, "class", $"{SelectClass} min-h-24"); b.AddAttribute(s++, "value", value); b.AddAttribute(s++, "placeholder", placeholder); b.AddAttribute(s++, "oninput", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString()))); b.CloseElement(); }
     private void RenderStringSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, IEnumerable<string> items, string? value, Action<string?> changed, Func<string, string>? label = null) { b.OpenElement(s++, "select"); b.AddAttribute(s++, "class", SelectClass); b.AddAttribute(s++, "value", value); b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(e.Value?.ToString()))); foreach (var item in items) { b.OpenElement(s++, "option"); b.AddAttribute(s++, "value", item); b.AddContent(s++, label?.Invoke(item) ?? item); b.CloseElement(); } b.CloseElement(); }
     private void RenderGuidSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, IEnumerable<(Guid Id, string Name)> items, Guid? value, Action<Guid?> changed) { b.OpenElement(s++, "select"); b.AddAttribute(s++, "class", SelectClass); b.AddAttribute(s++, "value", value?.ToString()); b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => changed(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null))); b.OpenElement(s++, "option"); b.AddAttribute(s++, "value", ""); b.AddContent(s++, T(AutomationText.PleaseSelect)); b.CloseElement(); foreach (var item in items) { b.OpenElement(s++, "option"); b.AddAttribute(s++, "value", item.Id.ToString()); b.AddContent(s++, item.Name); b.CloseElement(); } b.CloseElement(); }
 

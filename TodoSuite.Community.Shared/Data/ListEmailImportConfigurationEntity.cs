@@ -29,6 +29,8 @@ public class ListEmailImportConfigurationEntity
 
     public bool Enabled { get; set; } = true;
 
+    public int IntervalMinutes { get; set; } = 15;
+
     public DateTime? LastImportAtUtc { get; set; }
     public string? LastError { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;

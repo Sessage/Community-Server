@@ -266,6 +266,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             });
         }
 
+        var stepCreatedAtById = entity.Steps
+            .ToDictionary(step => step.Id, step => step.CreatedAtUtc);
         entity.Steps.Clear();
         foreach (var step in task.Steps ?? new List<TodoStepEntity>())
         {
@@ -278,6 +280,9 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
                 Id = step.Id == Guid.Empty ? Guid.NewGuid() : step.Id,
                 Title = title,
                 IsCompleted = step.IsCompleted,
+                CreatedAtUtc = stepCreatedAtById.TryGetValue(step.Id, out var existingCreatedAt)
+                    ? existingCreatedAt
+                    : step.CreatedAtUtc,
                 TaskId = entity.Id
             });
         }
@@ -458,6 +463,87 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         entity.SyncVersion = entity.ContentVersion;
 
         return entity;
+    }
+
+    /// <inheritdoc />
+    public async Task<TodoTaskEntity?> DecideApprovalAsync(
+        string userId,
+        Guid listId,
+        Guid taskId,
+        bool approved,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
+        if (list is null)
+            return null;
+
+        var task = await db.TodoTasks
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == listId && t.DeletedAt == null, cancellationToken);
+        if (task is null)
+            return null;
+
+        var normalizedUserId = (userId ?? string.Empty).Trim();
+        var isAcceptedParticipant = string.Equals(list.OwnerId, normalizedUserId, StringComparison.OrdinalIgnoreCase)
+            || list.Participants.Any(p => !p.InvitationPending
+                && string.Equals(p.UserId, normalizedUserId, StringComparison.OrdinalIgnoreCase));
+        if (!isAcceptedParticipant
+            || !string.Equals(task.ApproverUserId, normalizedUserId, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("Nur der ausgewählte Genehmiger darf diese Entscheidung treffen.");
+        if (task.ApprovalStatus != TodoApprovalStatus.Pending)
+            throw new InvalidOperationException("Für diese Aufgabe steht keine Genehmigung aus.");
+
+        var previousTask = SnapshotForAutomation(task);
+        task.ApprovalStatus = approved ? TodoApprovalStatus.Approved : TodoApprovalStatus.Rejected;
+        task.ApprovalDecisionAtUtc = DateTime.UtcNow;
+        task.ApprovalDecisionByUserId = normalizedUserId;
+        task.ContentVersion++;
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new WorkspaceConcurrencyException("Die Genehmigung wurde zwischenzeitlich bereits bearbeitet.");
+        }
+
+        var trigger = approved
+            ? TodoAutomationTriggerType.ApprovalGranted
+            : TodoAutomationTriggerType.ApprovalRejected;
+        await _automationService.ExecuteAsync(
+            new TodoAutomationContext(listId, list.Name, normalizedUserId, task, previousTask, trigger),
+            cancellationToken);
+
+        await _notificationService.NotifyTaskEventAsync(
+            normalizedUserId,
+            listId,
+            task.Id,
+            approved ? NotificationEventType.ApprovalGranted : NotificationEventType.ApprovalRejected,
+            approved ? "Genehmigung erfolgt" : "Genehmigung abgelehnt",
+            approved
+                ? $"Die Aufgabe „{task.Title}“ wurde genehmigt."
+                : $"Die Aufgabe „{task.Title}“ wurde abgelehnt.",
+            task.Assignee,
+            cancellationToken);
+
+        await NotifyListUpdatedAsync(listId, cancellationToken);
+        await NotifyTaskUpdatesAsync(listId, task.Id, cancellationToken);
+
+        var result = await db.TodoTasks
+            .AsNoTracking()
+            .Include(t => t.Attachments)
+            .Include(t => t.Steps)
+            .Include(t => t.Comments)
+            .Include(t => t.Members)
+            .Include(t => t.Watchers)
+            .Include(t => t.LabelLinks)
+            .Include(t => t.CustomFieldValues)
+            .FirstAsync(t => t.Id == taskId && t.ListId == listId, cancellationToken);
+        result.MemberUserIds = result.Members.Select(member => member.UserId).ToList();
+        return result;
     }
 
     /// <inheritdoc />
@@ -822,6 +908,12 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             Done = task.Done,
             IsImportant = task.IsImportant,
             Assignee = task.Assignee,
+            ApproverUserId = task.ApproverUserId,
+            ApprovalStatus = task.ApprovalStatus,
+            ApprovalRequestedAtUtc = task.ApprovalRequestedAtUtc,
+            ApprovalRequestedByUserId = task.ApprovalRequestedByUserId,
+            ApprovalDecisionAtUtc = task.ApprovalDecisionAtUtc,
+            ApprovalDecisionByUserId = task.ApprovalDecisionByUserId,
             StartDate = task.StartDate,
             DueDate = task.DueDate,
             CardColor = task.CardColor,

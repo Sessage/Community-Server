@@ -317,6 +317,24 @@ public class MobileSyncController : ControllerBase
         return deleted ? Ok() : NotFound();
     }
 
+    [HttpPost("lists/{listId:guid}/tasks/{taskId:guid}/approval")]
+    public async Task<ActionResult<TodoTaskEntity>> DecideApproval(
+        Guid listId,
+        Guid taskId,
+        [FromBody] ApprovalDecisionRequest request,
+        [FromServices] ITodoTaskService taskService,
+        [FromServices] ITodoListService listService,
+        CancellationToken token)
+    {
+        var userId = ResolveUserId();
+        var updated = await taskService.DecideApprovalAsync(userId, listId, taskId, request.Approved, token);
+        if (updated is null) return NotFound();
+        var refreshed = (await listService.GetListAsync(userId, listId, token))?.Tasks.FirstOrDefault(task => task.Id == taskId) ?? updated;
+        refreshed.SyncToken = MobileSyncFingerprint.ForTask(refreshed);
+        refreshed.SyncVersion = refreshed.ContentVersion;
+        return Ok(refreshed);
+    }
+
     [HttpPut("lists/{listId:guid}/custom-fields/reorder")]
     public async Task<ActionResult> ReorderCustomFields(
         Guid listId,
@@ -1692,6 +1710,7 @@ public class MobileSyncController : ControllerBase
     public record BoardNotificationRuleRequest(NotificationRecipientGroup Groups);
     public record SetDoneColumnRequest(bool IsDone);
     public record SetWatchingRequest(bool Watching);
+    public record ApprovalDecisionRequest(bool Approved);
     public record MoveTaskRequest(Guid ToListId, string? DesiredTargetColumn);
     public record LabelRequest(string Title, string? BackgroundColor, Guid? Id = null);
     public record CreateTodoFormRequest(string Name);

@@ -30,7 +30,9 @@ public sealed class NotificationService : INotificationService
         NotificationEventType.CommentAdded,
         NotificationEventType.CommentDeleted,
         NotificationEventType.AttachmentAdded,
-        NotificationEventType.AttachmentDeleted
+        NotificationEventType.AttachmentDeleted,
+        NotificationEventType.ApprovalGranted,
+        NotificationEventType.ApprovalRejected
     ];
 
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
@@ -256,6 +258,56 @@ public sealed class NotificationService : INotificationService
                     preference?.PushContentMode ?? PushNotificationContentMode.Anonymous,
                     ct);
             }
+        }
+    }
+
+    /// <summary>
+    /// Delivers a mandatory workflow notification to exactly one user. Approval requests must
+    /// not depend on optional board recipient rules or on the actor being a different person.
+    /// </summary>
+    public async Task NotifyUserAsync(
+        string recipientUserId,
+        Guid listId,
+        Guid? taskId,
+        NotificationEventType eventType,
+        string title,
+        string message,
+        CancellationToken ct = default)
+    {
+        var recipient = recipientUserId.Trim();
+        if (recipient.Length == 0)
+            return;
+
+        await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
+        var canRead = await db.TodoLists
+            .Where(l => l.Id == listId && l.DeletedAt == null)
+            .AnyAsync(l => l.OwnerId == recipient
+                || l.Participants.Any(p => !p.InvitationPending && p.UserId == recipient), ct);
+        if (!canRead)
+            return;
+
+        db.UserNotifications.Add(new UserNotificationEntity
+        {
+            UserId = recipient,
+            ListId = listId,
+            TaskId = taskId,
+            EventType = eventType,
+            Title = title,
+            Message = message,
+            CreatedAtUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+
+        await _hubContext.Clients.Group(TodoHub.UserGroup(recipient)).SendAsync(TodoHub.BrowserNotification, ct);
+        await TrySendEmailAsync(db, recipient, title, message, listId, taskId, ct);
+
+        var preference = await db.UserNotificationPreferences.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == recipient, ct);
+        if (preference is not null && (preference.Channel & NotificationDeliveryChannel.Push) != 0)
+        {
+            await _push.SendAsync(
+                recipient, title, message, listId, taskId, eventType,
+                preference.PushContentMode, ct);
         }
     }
 

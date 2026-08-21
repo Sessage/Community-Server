@@ -431,12 +431,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(x => x.TargetColumn).HasMaxLength(256);
             entity.Property(x => x.EncryptedPassword).HasColumnType("text");
             entity.Property(x => x.LastError).HasColumnType("text");
+            entity.Property(x => x.IntervalMinutes).HasDefaultValue(15);
             entity.HasIndex(x => x.ListId).IsUnique();
 
             entity.HasOne(x => x.List)
                 .WithMany()
                 .HasForeignKey(x => x.ListId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<TodoCommentEntity>(entity =>
+        {
+            entity.Property(x => x.AuthorUserId).HasMaxLength(450);
+            entity.HasIndex(x => new { x.TaskId, x.AuthorUserId });
         });
 
         builder.Entity<TodoAutomationRuleEntity>(entity =>
@@ -457,6 +464,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<TodoAutomationConditionEntity>(entity =>
         {
             entity.HasKey(x => x.Id);
+            entity.Property(x => x.FieldKey).HasMaxLength(100);
             entity.Property(x => x.Value).HasMaxLength(1000);
             entity.HasIndex(x => new { x.RuleId, x.SortOrder });
         });
@@ -464,6 +472,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<TodoAutomationActionEntity>(entity =>
         {
             entity.HasKey(x => x.Id);
+            entity.Property(x => x.FieldKey).HasMaxLength(100);
             entity.Property(x => x.Value).HasMaxLength(4000);
             entity.Property(x => x.ConfigurationJson).HasColumnType("text");
             entity.HasIndex(x => new { x.RuleId, x.SortOrder });

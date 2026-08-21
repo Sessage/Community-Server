@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Mail;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.SignalR;
 using Klassenbibliothek.Data;
+using Klassenbibliothek.Hubs;
 using Klassenbibliothek.Services;
 using QRCoder;
 
@@ -13,15 +15,18 @@ public class ListSharingService : IListSharingService
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
     private readonly SmtpOptions _smtp;
     private readonly IConfiguration _cfg;
+    private readonly IHubContext<TodoHubEndpoint> _hubContext;
 
     public ListSharingService(
         IDbContextFactory<ApplicationDbContext> dbFactory,
         IOptions<SmtpOptions> smtpOptions,
-        IConfiguration cfg)
+        IConfiguration cfg,
+        IHubContext<TodoHubEndpoint> hubContext)
     {
         _dbFactory = dbFactory;
         _smtp = smtpOptions.Value;
         _cfg = cfg;
+        _hubContext = hubContext;
     }
 
     public async Task<(bool Success, string Message, string? Link)> CreateShareLinkAsync(
@@ -246,6 +251,7 @@ public class ListSharingService : IListSharingService
             participant.DisplayName = disp;
             PortfolioAccessCoordinator.SetDirectAccess(participant, invite.Role, invitationPending: false);
             await db.SaveChangesAsync();
+            await NotifyListMembershipChangedAsync(listId);
             return (true, "Liste wurde hinzugefügt.");
         }
 
@@ -265,6 +271,7 @@ public class ListSharingService : IListSharingService
         try
         {
             await db.SaveChangesAsync();
+            await NotifyListMembershipChangedAsync(listId);
             return (true, "Liste wurde hinzugefügt.");
         }
         catch (DbUpdateException ex)
@@ -474,6 +481,11 @@ public class ListSharingService : IListSharingService
 
     private string BuildShareUrl(Guid listId, string token)
         => $"{GetBaseUrl()}/share/list/{listId}?token={token}";
+
+    private Task NotifyListMembershipChangedAsync(Guid listId)
+        => _hubContext.Clients
+            .Group(TodoHub.ListGroup(listId))
+            .SendAsync(TodoHub.ListsUpdated, listId);
 
     private string GetBaseUrl()
     {

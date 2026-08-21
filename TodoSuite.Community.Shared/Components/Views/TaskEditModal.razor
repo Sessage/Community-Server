@@ -376,7 +376,7 @@
                                                 else
                                                 {
                                                     <div class="space-y-2">
-                                                        @foreach (var step in (_editableTask?.Steps ?? Enumerable.Empty<TodoStepEntity>()).OrderBy(s => s.CreatedAtUtc))
+                                                        @foreach (var step in (_editableTask?.Steps ?? Enumerable.Empty<TodoStepEntity>()).OrderBy(s => s.CreatedAtUtc).ThenBy(s => s.Id))
                                                         {
                                                             <div class="flex items-center gap-2">
                                                                 <FluentCheckbox Value="@step.IsCompleted"
@@ -679,6 +679,35 @@
                                                     }
                                                 </InputSelect>
                                             </div>
+
+                                            @if (_editableTask.ApprovalStatus != TodoApprovalStatus.None
+                                                || !string.IsNullOrWhiteSpace(_editableTask.ApproverUserId))
+                                            {
+                                                <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                                    <div class="text-xs uppercase tracking-wide text-slate-500">@ApprovalUiText("title")</div>
+                                                    <div class="text-sm font-medium text-slate-800">@ApprovalStatusLabel(_editableTask.ApprovalStatus)</div>
+                                                    @if (!string.IsNullOrWhiteSpace(_editableTask.ApproverUserId))
+                                                    {
+                                                        <div class="text-xs text-slate-600">@ApprovalUiText("approver"): @ApproverDisplay(_editableTask.ApproverUserId)</div>
+                                                    }
+                                                    @if (_editableTask.ApprovalStatus == TodoApprovalStatus.Pending
+                                                        && string.Equals(_editableTask.ApproverUserId, _userId, StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        <div class="flex flex-wrap gap-2 pt-1">
+                                                            <FluentButton Appearance="Appearance.Accent" Disabled="@_approvalBusy" OnClick="() => DecideApprovalAsync(true)">
+                                                                @ApprovalUiText("approve")
+                                                            </FluentButton>
+                                                            <FluentButton Appearance="Appearance.Neutral" Disabled="@_approvalBusy" OnClick="() => DecideApprovalAsync(false)">
+                                                                @ApprovalUiText("reject")
+                                                            </FluentButton>
+                                                        </div>
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(_approvalError))
+                                                    {
+                                                        <div class="text-xs text-red-600">@_approvalError</div>
+                                                    }
+                                                </div>
+                                            }
 
                                             <!-- ✅ Mitglieder (nur wenn Inhalt ODER per Menü eingeblendet) -->
                                             @if (_showMembersSection || HasMembers)
@@ -1335,6 +1364,9 @@
 
     private sealed record AssigneeOption(string UserId, string Display);
     private List<AssigneeOption> _assigneeOptions = new();
+    private bool _approvalBusy;
+    private string? _approvalError;
+    private string _assigneeParticipantFingerprint = string.Empty;
 
     private sealed record MemberOption(string UserId, string Display);
     private List<MemberOption> _memberOptions = new();
@@ -2074,6 +2106,10 @@
         {
             ApplyRequestedTab();
             SyncSectionVisibilityFromData();
+
+            var participantFingerprint = GetParticipantFingerprint(List);
+            if (!string.Equals(_assigneeParticipantFingerprint, participantFingerprint, StringComparison.Ordinal))
+                _ = InvokeAsync(LoadAssigneeOptionsAsync);
         }
     }
 
@@ -2233,6 +2269,7 @@
 
             _assigneeOptions = assigneeOptions;
             _memberOptions = memberOptions;
+            _assigneeParticipantFingerprint = GetParticipantFingerprint(list);
 
             if (_editableTask is not null &&
                 !string.IsNullOrWhiteSpace(_editableTask.Assignee) &&
@@ -2713,6 +2750,9 @@
 
     private bool IsOwnComment(TodoCommentEntity comment)
     {
+        if (!string.IsNullOrWhiteSpace(comment.AuthorUserId))
+            return EqualsUserKey(comment.AuthorUserId, _userId);
+
         var author = (comment.Author ?? "").Trim();
         return !string.IsNullOrWhiteSpace(author)
                && (EqualsUserKey(author, _currentUserDisplayName)
@@ -2723,6 +2763,12 @@
         => !string.IsNullOrWhiteSpace(left)
            && !string.IsNullOrWhiteSpace(right)
            && string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static string GetParticipantFingerprint(TodoListEntity? list)
+        => string.Join('|', (list?.Participants ?? [])
+            .Where(p => !p.InvitationPending)
+            .OrderBy(p => p.Id)
+            .Select(p => $"{p.Id:N}:{p.UserId}:{p.DisplayName}:{p.Email}"));
 
     private async Task HandleCommentKeyDown(KeyboardEventArgs e)
     {
@@ -2976,6 +3022,82 @@
         }
     }
 
+    private async Task DecideApprovalAsync(bool approved)
+    {
+        if (_editableTask is null || _approvalBusy)
+            return;
+
+        _approvalBusy = true;
+        _approvalError = null;
+        try
+        {
+            if (_dirty)
+                await SaveTaskInternalAsync();
+            CancelPendingAutosave();
+            var updated = await TaskService.DecideApprovalAsync(_userId, ListId, _editableTask.Id, approved);
+            if (updated is null)
+            {
+                _approvalError = ApprovalUiText("not-found");
+                return;
+            }
+
+            _suppressAutosave = true;
+            _editableTask = CloneTask(updated);
+            _suppressAutosave = false;
+            SyncSectionVisibilityFromData();
+
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(updated);
+        }
+        catch (Exception ex)
+        {
+            _approvalError = ex.Message;
+        }
+        finally
+        {
+            _approvalBusy = false;
+        }
+    }
+
+    private string ApproverDisplay(string? userId)
+        => _assigneeOptions.FirstOrDefault(x => string.Equals(x.UserId, userId, StringComparison.OrdinalIgnoreCase))?.Display
+           ?? userId
+           ?? "-";
+
+    private static string ApprovalStatusLabel(TodoApprovalStatus status) => status switch
+    {
+        TodoApprovalStatus.Pending => ApprovalUiText("pending"),
+        TodoApprovalStatus.Approved => ApprovalUiText("approved"),
+        TodoApprovalStatus.Rejected => ApprovalUiText("rejected"),
+        _ => ApprovalUiText("none")
+    };
+
+    private static string ApprovalUiText(string key)
+    {
+        var de = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "de";
+        return (de, key) switch
+        {
+            (true, "title") => "Genehmigung",
+            (true, "approver") => "Genehmiger",
+            (true, "approve") => "Genehmigen",
+            (true, "reject") => "Ablehnen",
+            (true, "pending") => "Ausstehend",
+            (true, "approved") => "Genehmigt",
+            (true, "rejected") => "Abgelehnt",
+            (true, "none") => "Nicht angefordert",
+            (true, "not-found") => "Die Aufgabe wurde nicht gefunden.",
+            (false, "title") => "Approval",
+            (false, "approver") => "Approver",
+            (false, "approve") => "Approve",
+            (false, "reject") => "Reject",
+            (false, "pending") => "Pending",
+            (false, "approved") => "Approved",
+            (false, "rejected") => "Rejected",
+            (false, "none") => "Not requested",
+            _ => "The task was not found."
+        };
+    }
+
     private static TodoTaskEntity CloneTask(TodoTaskEntity task)
     {
         return new TodoTaskEntity
@@ -2994,6 +3116,12 @@
             Done = task.Done,
             IsImportant = task.IsImportant,
             Assignee = task.Assignee,
+            ApproverUserId = task.ApproverUserId,
+            ApprovalStatus = task.ApprovalStatus,
+            ApprovalRequestedAtUtc = task.ApprovalRequestedAtUtc,
+            ApprovalRequestedByUserId = task.ApprovalRequestedByUserId,
+            ApprovalDecisionAtUtc = task.ApprovalDecisionAtUtc,
+            ApprovalDecisionByUserId = task.ApprovalDecisionByUserId,
             Recurrence = task.Recurrence,
             CustomRecurrence = task.CustomRecurrence,
             Column = task.Column,
@@ -3020,9 +3148,9 @@
 
             Attachments = task.Attachments.Select(a => new TodoAttachmentEntity { Id = a.Id, FileName = a.FileName, Url = a.Url }).ToList(),
             Steps = (task.Steps ?? new List<TodoStepEntity>())
-            .Select(s => new TodoStepEntity { Id = s.Id, Title = s.Title, IsCompleted = s.IsCompleted })
+            .Select(s => new TodoStepEntity { Id = s.Id, Title = s.Title, IsCompleted = s.IsCompleted, CreatedAtUtc = s.CreatedAtUtc, TaskId = task.Id })
             .ToList(),
-            Comments = task.Comments.Select(c => new TodoCommentEntity { Id = c.Id, Message = c.Message, Author = c.Author, CreatedAt = c.CreatedAt }).ToList()
+            Comments = task.Comments.Select(c => new TodoCommentEntity { Id = c.Id, Message = c.Message, Author = c.Author, AuthorUserId = c.AuthorUserId, CreatedAt = c.CreatedAt, TaskId = task.Id }).ToList()
             ,
             CustomFieldValues = (task.CustomFieldValues ?? new List<TodoTaskCustomFieldValueEntity>())
                 .Select(v => new TodoTaskCustomFieldValueEntity { Id = v.Id, TaskId = task.Id, FieldId = v.FieldId, Value = v.Value })

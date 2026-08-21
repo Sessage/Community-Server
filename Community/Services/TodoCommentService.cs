@@ -86,6 +86,7 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
             TaskId = taskId,
             Message = msg,
             Author = authorName,
+            AuthorUserId = userId,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -108,6 +109,7 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
             Id = entity.Id,
             Message = entity.Message,
             Author = entity.Author,
+            AuthorUserId = entity.AuthorUserId,
             CreatedAt = entity.CreatedAt,
             TaskId = entity.TaskId
         };
@@ -137,6 +139,22 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
             .FirstOrDefaultAsync(c => c.Id == commentId && c.TaskId == taskId, cancellationToken);
 
         if (comment is null) return false;
+
+        var participantDisplayName = (list.Participants
+            .FirstOrDefault(p => EqualsUserKey(p.UserId, userId) || EqualsUserKey(p.Email, userId))?
+            .DisplayName ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(participantDisplayName))
+        {
+            var (_, displayName) = await GetUserProfileAsync(db, userId, cancellationToken);
+            participantDisplayName = (displayName ?? "").Trim();
+        }
+
+        var isOwnComment = EqualsUserKey(comment.AuthorUserId, userId)
+                           || (string.IsNullOrWhiteSpace(comment.AuthorUserId)
+                               && (EqualsUserKey(comment.Author, userId)
+                                   || EqualsUserKey(comment.Author, participantDisplayName)));
+        if (!isOwnComment)
+            throw new UnauthorizedAccessException("Nur eigene Kommentare können gelöscht werden.");
 
         db.Remove(comment);
         await db.SaveChangesAsync(cancellationToken);

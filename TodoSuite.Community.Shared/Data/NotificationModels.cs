@@ -15,7 +15,10 @@ public enum NotificationEventType
     CommentAdded = 7,
     CommentDeleted = 8,
     AttachmentAdded = 9,
-    AttachmentDeleted = 10
+    AttachmentDeleted = 10,
+    ApprovalRequested = 11,
+    ApprovalGranted = 12,
+    ApprovalRejected = 13
 }
 
 [Flags]

@@ -1008,13 +1008,23 @@
         <FluentDialogBody>
             <div class="space-y-4">
                 <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-                    Ungelesene E-Mails aus dem gewählten IMAP-Ordner werden als Aufgaben importiert. Der Betreff wird zur Aufgabenbezeichnung, der E-Mail-Text zur Beschreibung. Importierte E-Mails werden als gelesen markiert und nicht gelöscht. Der automatische Import läuft standardmäßig alle 15 Minuten; der Abstand kann zentral in der appsettings.json geändert werden.
+                    Ungelesene E-Mails aus dem gewählten IMAP-Ordner werden als Aufgaben importiert. Der Betreff wird zur Aufgabenbezeichnung, der E-Mail-Text zur Beschreibung. Importierte E-Mails werden als gelesen markiert und nicht gelöscht.
                 </div>
 
                 <label class="flex items-center gap-2 text-sm">
                     <input type="checkbox" class="accent-slate-700" @bind="_emailImportEnabled" />
                     <span>Import für diese Liste aktivieren</span>
                 </label>
+
+                <div class="space-y-1">
+                    <div class="text-sm text-slate-600">Abrufintervall in Minuten</div>
+                    <input type="number" class="w-full rounded-lg border border-slate-200 p-2"
+                           min="1"
+                           step="1"
+                           @bind="_emailImportIntervalMinutes"
+                           @bind:event="oninput" />
+                    <div class="text-xs text-slate-500">Mindestens 1 Minute, standardmäßig 15 Minuten.</div>
+                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div class="md:col-span-2 space-y-1">
@@ -1288,6 +1298,7 @@
     private bool _emailImportHasConfiguration;
     private bool _emailImportTestSucceeded;
     private int _emailImportPort = 993;
+    private int _emailImportIntervalMinutes = 15;
     private string _emailImportHost = "";
     private string _emailImportUserName = "";
     private string _emailImportPassword = "";
@@ -1893,6 +1904,7 @@
             {
                 _emailImportHasConfiguration = true;
                 _emailImportEnabled = config.Enabled;
+                _emailImportIntervalMinutes = Math.Max(1, config.IntervalMinutes);
                 _emailImportHost = config.Host;
                 _emailImportPort = config.Port;
                 _emailImportUseSsl = config.UseSsl;
@@ -2043,6 +2055,7 @@
     private ListEmailImportSaveRequest BuildEmailImportRequest()
         => new(
             _emailImportEnabled,
+            Math.Max(1, _emailImportIntervalMinutes),
             _emailImportHost,
             _emailImportPort,
             _emailImportUseSsl,
@@ -2060,6 +2073,7 @@
         _emailImportHasConfiguration = false;
         _emailImportTestSucceeded = false;
         _emailImportPort = 993;
+        _emailImportIntervalMinutes = 15;
         _emailImportHost = "";
         _emailImportUserName = "";
         _emailImportPassword = "";
@@ -2130,6 +2144,9 @@
             NotificationEventType.CommentDeleted => L["Notifications_CommentDeleted"],
             NotificationEventType.AttachmentAdded => L["Notifications_AttachmentAdded"],
             NotificationEventType.AttachmentDeleted => L["Notifications_AttachmentDeleted"],
+            NotificationEventType.ApprovalRequested => "Genehmigung angefordert",
+            NotificationEventType.ApprovalGranted => "Genehmigung erfolgt",
+            NotificationEventType.ApprovalRejected => "Genehmigung abgelehnt",
             _ => eventType.ToString()
         };
 
@@ -2351,6 +2368,12 @@
         existing.Done = updatedTask.Done;
         existing.IsImportant = updatedTask.IsImportant;
         existing.Assignee = updatedTask.Assignee;
+        existing.ApproverUserId = updatedTask.ApproverUserId;
+        existing.ApprovalStatus = updatedTask.ApprovalStatus;
+        existing.ApprovalRequestedAtUtc = updatedTask.ApprovalRequestedAtUtc;
+        existing.ApprovalRequestedByUserId = updatedTask.ApprovalRequestedByUserId;
+        existing.ApprovalDecisionAtUtc = updatedTask.ApprovalDecisionAtUtc;
+        existing.ApprovalDecisionByUserId = updatedTask.ApprovalDecisionByUserId;
         existing.Recurrence = updatedTask.Recurrence;
         existing.CustomRecurrence = updatedTask.CustomRecurrence;
         existing.Column = updatedTask.Column;

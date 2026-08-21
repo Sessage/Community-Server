@@ -55,6 +55,18 @@ public class TodoApiController : ControllerBase
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    [HttpPost("lists/{listId:guid}/tasks/{taskId:guid}/approval")]
+    public async Task<IActionResult> DecideApproval(
+        Guid listId,
+        Guid taskId,
+        [FromBody] ApprovalDecisionRequest request,
+        [FromServices] ITodoTaskService taskService,
+        CancellationToken ct)
+    {
+        var updated = await taskService.DecideApprovalAsync(ResolveUserId(), listId, taskId, request.Approved, ct);
+        return updated is null ? NotFound() : Ok(updated);
+    }
+
     [HttpPost("lists/{listId:guid}/tasks/{taskId:guid}/attachments")]
     [RequestSizeLimit(MaxAttachmentSizeBytes + 1024 * 1024)]
     public async Task<IActionResult> AddAttachment(Guid listId, Guid taskId, [FromServices] ITodoAttachmentService attachmentService, CancellationToken ct)
@@ -90,4 +102,6 @@ public class TodoApiController : ControllerBase
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         return string.IsNullOrWhiteSpace(id) ? "gast" : id;
     }
+
+    public sealed record ApprovalDecisionRequest(bool Approved);
 }

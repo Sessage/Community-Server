@@ -34,6 +34,7 @@ public interface ITodoListService
 
 public record ListEmailImportConfigurationDto(
     bool Enabled,
+    int IntervalMinutes,
     string Host,
     int Port,
     bool UseSsl,
@@ -46,6 +47,7 @@ public record ListEmailImportConfigurationDto(
 
 public record ListEmailImportSaveRequest(
     bool Enabled,
+    int IntervalMinutes,
     string Host,
     int Port,
     bool UseSsl,
@@ -80,6 +82,7 @@ public interface ITodoTaskService
     Task<TodoTaskEntity?> UpdateTaskAsync(string userId, Guid listId, TodoTaskEntity task, CancellationToken cancellationToken = default);
     Task<bool> DeleteTaskAsync(string userId, Guid listId, Guid taskId, CancellationToken cancellationToken = default);
     Task<TodoTaskEntity?> MoveTaskToListAsync(string userId, Guid fromListId, Guid toListId, Guid taskId, string? desiredTargetColumn = null, CancellationToken cancellationToken = default);
+    Task<TodoTaskEntity?> DecideApprovalAsync(string userId, Guid listId, Guid taskId, bool approved, CancellationToken cancellationToken = default);
     Task ReorderListAsync(string userId, Guid listId, IReadOnlyList<Guid> orderedTaskIds, CancellationToken cancellationToken = default);
     Task ReorderKanbanColumnAsync(string userId, Guid listId, string column, IReadOnlyList<Guid> orderedTaskIds, CancellationToken cancellationToken = default);
     Task<bool> SetTaskWatchingAsync(string userId, Guid listId, Guid taskId, bool watching, CancellationToken cancellationToken = default);
@@ -111,6 +114,7 @@ public interface INotificationService
     Task DeleteNotificationAsync(string userId, Guid notificationId, CancellationToken ct = default);
     Task DeleteAllNotificationsAsync(string userId, CancellationToken ct = default);
     Task NotifyTaskEventAsync(string actorUserId, Guid listId, Guid? taskId, NotificationEventType eventType, string title, string message, string? assigneeUserId = null, CancellationToken ct = default);
+    Task NotifyUserAsync(string recipientUserId, Guid listId, Guid? taskId, NotificationEventType eventType, string title, string message, CancellationToken ct = default);
 }
 
 /// <summary>

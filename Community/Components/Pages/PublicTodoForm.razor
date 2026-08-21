@@ -734,13 +734,13 @@
 
             if (file.Size > MaxAttachmentSizeBytes)
             {
-                _attachmentError = $"Die Datei \"{file.Name}\" ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.";
+                _attachmentError = $"Die Datei \"{file.Name}\" ist zu groß. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.";
                 return false;
             }
 
             if (!IsAllowedAttachment(file.Name, file.ContentType, _form.AllowedAttachmentTypes))
             {
-                _attachmentError = $"Der Dateityp von \"{file.Name}\" ist fuer dieses Formular nicht erlaubt.";
+                _attachmentError = $"Der Dateityp von \"{file.Name}\" ist für dieses Formular nicht erlaubt.";
                 return false;
             }
         }
@@ -768,7 +768,7 @@
         {
             string? attachmentMessage = null;
             if (field.IsRequired && _attachments.Count == 0)
-                attachmentMessage = $"Bitte fuellen Sie das Feld \"{DisplayLabel(field)}\" aus.";
+                attachmentMessage = $"Bitte füllen Sie das Feld \"{DisplayLabel(field)}\" aus.";
 
             if (string.IsNullOrWhiteSpace(attachmentMessage))
             {
@@ -796,7 +796,7 @@
     private string? ValidateFieldValue(TodoFormFieldEntity field, string value)
     {
         if (field.IsRequired && IsMissingRequiredValue(field, value))
-            return $"Bitte fuellen Sie das Feld \"{DisplayLabel(field)}\" aus.";
+            return $"Bitte füllen Sie das Feld \"{DisplayLabel(field)}\" aus.";
 
         if (string.IsNullOrWhiteSpace(value))
             return null;
@@ -805,7 +805,7 @@
         {
             if (!IsRuleSatisfied(rule, value))
                 return string.IsNullOrWhiteSpace(rule.Message)
-                    ? $"Bitte pruefen Sie das Feld \"{DisplayLabel(field)}\"."
+                    ? $"Bitte prüfen Sie das Feld \"{DisplayLabel(field)}\"."
                     : rule.Message.Trim();
         }
 

@@ -11,7 +11,11 @@ public enum TodoAutomationTriggerType
     ColumnChanged = 2,
     TaskCompleted = 3,
     TaskReopened = 4,
-    AssigneeChanged = 5
+    AssigneeChanged = 5,
+    TaskCreatedByForm = 6,
+    TaskCreatedByEmail = 7,
+    ApprovalGranted = 8,
+    ApprovalRejected = 9
 }
 
 public enum TodoAutomationConditionType
@@ -40,7 +44,9 @@ public enum TodoAutomationActionType
     SendNotification = 9,
     PostWebhook = 10,
     SetImportant = 11,
-    ClearAssignee = 12
+    ClearAssignee = 12,
+    SetApprover = 13,
+    RequestApproval = 14
 }
 
 public class TodoAutomationRuleEntity
@@ -71,6 +77,7 @@ public class TodoAutomationConditionEntity
     public TodoAutomationConditionType Type { get; set; }
     public int SortOrder { get; set; }
     public Guid? CustomFieldId { get; set; }
+    [MaxLength(100)] public string? FieldKey { get; set; }
     [MaxLength(1000)] public string? Value { get; set; }
 }
 
@@ -82,6 +89,7 @@ public class TodoAutomationActionEntity
     public TodoAutomationActionType Type { get; set; }
     public int SortOrder { get; set; }
     public Guid? CustomFieldId { get; set; }
+    [MaxLength(100)] public string? FieldKey { get; set; }
     public Guid? LabelId { get; set; }
     [MaxLength(4000)] public string? Value { get; set; }
     public string ConfigurationJson { get; set; } = "{}";

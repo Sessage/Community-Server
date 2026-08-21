@@ -12,6 +12,8 @@ public class TodoCommentEntity
 
     public string? Author { get; set; }
 
+    public string? AuthorUserId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey(nameof(Task))]

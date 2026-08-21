@@ -4,6 +4,14 @@ using System.Text.Json.Serialization;
 
 namespace Klassenbibliothek.Data;
 
+public enum TodoApprovalStatus
+{
+    None = 0,
+    Pending = 1,
+    Approved = 2,
+    Rejected = 3
+}
+
 public class TodoTaskEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -47,6 +55,15 @@ public class TodoTaskEntity
     public int KanbanSortOrder { get; set; }
 
     public string? Assignee { get; set; }
+
+    /// <summary>The accepted list participant who is allowed to decide the current approval.</summary>
+    public string? ApproverUserId { get; set; }
+    public TodoApprovalStatus ApprovalStatus { get; set; }
+    public DateTime? ApprovalRequestedAtUtc { get; set; }
+    public string? ApprovalRequestedByUserId { get; set; }
+    public DateTime? ApprovalDecisionAtUtc { get; set; }
+    public string? ApprovalDecisionByUserId { get; set; }
+
     public List<TodoTaskMemberEntity> Members { get; set; } = new();
     public List<TodoTaskWatcherEntity> Watchers { get; set; } = new();
 
