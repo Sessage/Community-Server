@@ -153,7 +153,11 @@
                              id="@GetColumnScrollDomId(colKey)">
 
                             <!-- ✅ Host: hat data-col (echter Spaltenname) + data-colkey (nur DOM) -->
-                            <div class="space-y-3 pb-3 kanban-sortable min-h-[40px]"
+                            <!-- Der Sortable-Host füllt mindestens den gesamten sichtbaren
+                                 Kartenbereich. Freie Fläche unterhalb der letzten Karte (und
+                                 die komplette Fläche leerer Spalten) ist dadurch ein echtes
+                                 Drop-Ziel; SortableJS hängt dort abgelegte Karten ans Ende an. -->
+                            <div class="space-y-3 pb-3 kanban-sortable min-h-full"
                                  id="@GetColumnHostDomId(colKey)"
                                  data-col="@col"
                                  data-colkey="@colKey">

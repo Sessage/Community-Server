@@ -47,6 +47,7 @@ window.todoUi = window.todoUi || {};
 
     let _columnsHostEl = null;
     let _columnsSortable = null;
+    let _highlightedColumnEl = null;
 
     const _cardSortables = [];
 
@@ -207,14 +208,42 @@ window.todoUi = window.todoUi || {};
         return (hostEl?.getAttribute("data-col") || "").trim();
     }
 
+    function clearColumnHighlights() {
+        // Der zuletzt bekannte Zustand reicht im Normalfall. Die zusätzliche Suche
+        // entfernt defensiv verwaiste Klassen aus unterbrochenen oder sehr schnellen
+        // Cross-Column-Drags, bei denen kein passendes onMove/onEnd mehr ankommt.
+        if (_highlightedColumnEl) {
+            try { _highlightedColumnEl.classList.remove("kanban-drop-target"); } catch { }
+            _highlightedColumnEl = null;
+        }
+
+        const scope = _columnsHostEl || _boardEl || document;
+        scope.querySelectorAll(".kanban-column.kanban-drop-target").forEach(el => {
+            try { el.classList.remove("kanban-drop-target"); } catch { }
+        });
+    }
+
     function highlightColumn(hostEl, on) {
         if (!hostEl) return;
         // hostEl ist .kanban-sortable
         const colCard = hostEl.closest(".kanban-column");
         if (!colCard) return;
 
-        if (on) colCard.classList.add("kanban-drop-target");
-        else colCard.classList.remove("kanban-drop-target");
+        if (on) {
+            // Zu jedem Zeitpunkt darf genau eine Zielspalte markiert sein. SortableJS
+            // meldet beim Wechsel A -> B -> C in evt.from weiterhin A; ohne eigenen
+            // Zustand bliebe deshalb die nur überfahrene Spalte B dauerhaft markiert.
+            if (_highlightedColumnEl !== colCard) {
+                clearColumnHighlights();
+                colCard.classList.add("kanban-drop-target");
+                _highlightedColumnEl = colCard;
+            }
+            return;
+        }
+
+        colCard.classList.remove("kanban-drop-target");
+        if (_highlightedColumnEl === colCard)
+            _highlightedColumnEl = null;
     }
 
     function autoScrollX(container, clientX) {
@@ -337,6 +366,8 @@ window.todoUi = window.todoUi || {};
     }
 
     function cleanupSortableGhosts() {
+        clearColumnHighlights();
+
         // 1) Nur echte Body-Fallback-Klone entfernen.
         //    Nicht global ".sortable-*" entfernen: in WebView/Sortable-Randfällen kann diese
         //    Klasse kurzzeitig am realen Karten-Element hängen, was sonst echte Aufgaben
@@ -427,9 +458,6 @@ window.todoUi = window.todoUi || {};
             unlockNativeScrollForDrag();
             clearDragWatchdog();
             clearPendingReset();
-
-            if (evt?.from) highlightColumn(evt.from, false);
-            if (evt?.to) highlightColumn(evt.to, false);
 
             cleanupSortableGhosts();
             await safeInvoke("SetDragging", false);
@@ -543,6 +571,7 @@ window.todoUi = window.todoUi || {};
                 // Daher nur dann finalisieren, wenn kein Button mehr gedrückt ist.
                 if (!draggingActive) {
                     unlockNativeScrollForDrag();
+                    clearColumnHighlights();
                     return;
                 }
 
@@ -557,6 +586,7 @@ window.todoUi = window.todoUi || {};
             onCancel: async (evt) => {
                 if (!draggingActive) {
                     unlockNativeScrollForDrag();
+                    clearColumnHighlights();
                     return;
                 }
 
