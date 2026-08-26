@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
 using Klassenbibliothek.Data;
@@ -1030,7 +1031,10 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             throw new UnauthorizedAccessException($"Reihenfolge (Kanban) kann nicht gespeichert werden (Liste='{list.Name}', User='{userId}').");
 
         var tasksInColumn = await db.TodoTasks
-            .Where(t => t.ListId == listId && t.DeletedAt == null && !t.Done && t.Column == column)
+            // Kanban-Done-Spalten enthalten absichtlich Done=true-Aufgaben und sind
+            // genauso frei sortierbar wie aktive Spalten. Der frühere !t.Done-Filter
+            // ließ ihre Reihenfolge nach einem Reload unverändert erscheinen.
+            .Where(t => t.ListId == listId && t.DeletedAt == null && t.Column == column)
             .ToDictionaryAsync(t => t.Id, cancellationToken);
 
         for (int i = 0; i < orderedTaskIds.Count; i++)

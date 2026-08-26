@@ -561,10 +561,19 @@
     private const int ClickBlockAfterDragMs = 250;
     private static readonly TimeSpan IgnoreLateDragStartWindow = TimeSpan.FromMilliseconds(600);
 
-    // Speichert die vom letzten Drop resultierende Kartenreihenfolge pro Spalte.
-    // Wird in OnParametersSet auf das neue List-Objekt übertragen, damit der
-    // optimistische UI-Stand nach einem Parent-Reload nicht kurz zurückspringt.
+    // Speichert den aktuellen optimistischen Board-Stand pro Spalte. Er wird bei
+    // jedem OnParametersSet auf ein neues List-Objekt übertragen und erst entfernt,
+    // wenn der letzte eingereihte Drop vollständig persistiert wurde.
     private Dictionary<string, string[]>? _pendingColOrder;
+
+    // Drops werden in der Reihenfolge ihrer Entstehung persistiert. Parallele
+    // Update-/Reorder-Aufrufe können sonst in umgekehrter Reihenfolge fertig werden
+    // und einen neueren Drop serverseitig wieder mit einer älteren Reihenfolge
+    // überschreiben. Die Task-Kette hält die UI weiterhin vollständig asynchron.
+    private readonly SequentialAsyncOperationQueue _kanbanPersistenceQueue = new();
+    private long _latestKanbanPersistenceSequence;
+    private readonly HashSet<Guid> _kanbanListsRequiringResync = [];
+    private readonly Dictionary<(Guid ListId, Guid TaskId), (string? SyncToken, long? SyncVersion)> _persistedTaskSyncStates = new();
 
     private bool IsTaskSelected(Guid taskId) => _selectedTaskIds.Contains(taskId);
 
@@ -705,6 +714,8 @@
             _pointerMoved = false;
             _lastListId = List.Id;
             _pendingColOrder = null; // gehört zur alten Liste, nicht übertragen
+            _persistedTaskSyncStates.Clear();
+            Interlocked.Increment(ref _latestKanbanPersistenceSequence); // alte Queue-Einträge invalidieren
         }
 
         // Optimistischen Drop-Stand auf das frisch geladene List-Objekt übertragen,
@@ -726,7 +737,6 @@
                     }
                 }
             }
-            _pendingColOrder = null;
         }
 
         // SortMode-Wechsel MUSS vor dem Render verarbeitet werden,
@@ -1347,14 +1357,17 @@
             if (!string.Equals(fromCol, toCol, StringComparison.Ordinal))
                 ApplyKanbanOrdersStrict(fromCol, fromIds);
 
-            // Reihenfolge merken, damit OnParametersSet sie nach dem Parent-Reload
-            // auf das neue List-Objekt übertragen kann (verhindert Zurückspringen).
-            _pendingColOrder = new Dictionary<string, string[]>(StringComparer.Ordinal)
-            {
-                [toCol] = toIds
-            };
-            if (!string.Equals(fromCol, toCol, StringComparison.Ordinal))
-                _pendingColOrder[fromCol] = fromIds;
+            // Den vollständigen optimistischen Board-Stand halten, bis auch der letzte
+            // eingereihte Drop gespeichert ist. Ein Parent-Render zwischen zwei Drops
+            // kann damit weder eine ältere Quell- noch Zielspalte zurückspielen.
+            _pendingColOrder = CaptureKanbanOrderSnapshot();
+
+            var sequence = Interlocked.Increment(ref _latestKanbanPersistenceSequence);
+            var listId = List.Id;
+            var listName = List.Name;
+            var movedSnapshot = CloneTaskForKanbanPersistence(moved);
+            var fromIdsSnapshot = fromIds.ToArray();
+            var toIdsSnapshot = toIds.ToArray();
 
             // ✅ Optimistisches UI-Update sofort anzeigen – JS-Callback kehrt JETZT zurück.
             // Persistence (HTTP + SQLite) läuft im Hintergrund und blockiert weder den
@@ -1364,7 +1377,15 @@
             // genau diese Zeit ein.
             StateHasChanged();
             BeginDropPersistence();
-            _ = PersistKanbanDropAsync(moved, fromCol, toCol, fromIds, toIds);
+            QueueKanbanPersistence(() => PersistKanbanDropAsync(
+                sequence,
+                listId,
+                listName,
+                movedSnapshot,
+                fromCol,
+                toCol,
+                fromIdsSnapshot,
+                toIdsSnapshot));
             return Task.CompletedTask;
         }
 
@@ -1380,9 +1401,20 @@
 
         moved.KanbanSortOrder = max + 1;
 
+        var moveSequence = Interlocked.Increment(ref _latestKanbanPersistenceSequence);
+        var moveListId = List.Id;
+        var moveListName = List.Name;
+        var moveSnapshot = CloneTaskForKanbanPersistence(moved);
+
         StateHasChanged();
         BeginDropPersistence();
-        _ = PersistKanbanMoveAsync(moved, fromCol, toCol);
+        QueueKanbanPersistence(() => PersistKanbanMoveAsync(
+            moveSequence,
+            moveListId,
+            moveListName,
+            moveSnapshot,
+            fromCol,
+            toCol));
         return Task.CompletedTask;
     }
 
@@ -1391,51 +1423,83 @@
     /// Wird nach dem optimistischen UI-Update fire-and-forget aufgerufen,
     /// damit der JS-Callback sofort zurückkehren kann.
     /// </summary>
-    private async Task PersistKanbanDropAsync(TodoTaskEntity moved, string fromCol, string toCol, string[] fromIds, string[] toIds)
+    private async Task PersistKanbanDropAsync(
+        long sequence,
+        Guid listId,
+        string listName,
+        TodoTaskEntity moved,
+        string fromCol,
+        string toCol,
+        string[] fromIds,
+        string[] toIds)
     {
         try
         {
+            ApplyLatestPersistedSyncState(listId, moved);
+
             // Jede Operation bekommt ein eigenes Timeout, damit ein langsamer UpdateTask-Aufruf
             // nicht das Timeout der nachfolgenden Reorder-Aufrufe aufbraucht. Die mobilen Services
             // haben außerdem einen eigenen Fallback (MarkServerUnreachable + SQLite-Queue), der
             // unabhängig vom hier übergebenen Token arbeitet.
             using var ctsUpdate = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            await TaskService.UpdateTaskAsync(_userId, List.Id, moved, ctsUpdate.Token);
+            var updated = await TaskService.UpdateTaskAsync(_userId, listId, moved, ctsUpdate.Token)
+                ?? throw new InvalidOperationException($"Task '{moved.Id}' was not found while persisting a Kanban drop.");
+            RememberPersistedSyncState(listId, updated);
 
             using var ctsReorderTo = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            await TaskService.ReorderKanbanColumnAsync(_userId, List.Id, toCol, ParseGuids(toIds), ctsReorderTo.Token);
+            await TaskService.ReorderKanbanColumnAsync(_userId, listId, toCol, ParseGuids(toIds), ctsReorderTo.Token);
             if (!string.Equals(fromCol, toCol, StringComparison.Ordinal))
             {
                 using var ctsReorderFrom = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                await TaskService.ReorderKanbanColumnAsync(_userId, List.Id, fromCol, ParseGuids(fromIds), ctsReorderFrom.Token);
+                await TaskService.ReorderKanbanColumnAsync(_userId, listId, fromCol, ParseGuids(fromIds), ctsReorderFrom.Token);
             }
 
-            // Ab jetzt ist der vollständige Drop auf dem Server gespeichert. Der folgende
-            // Reload darf deshalb den finalen Automatisierungszustand übernehmen, etwa wenn
-            // eine Regel die Karte anschließend in eine weitere Spalte verschoben hat.
-            _pendingColOrder = null;
+            if (IsLatestKanbanPersistence(sequence, listId))
+            {
+                // Erst der letzte Queue-Eintrag repräsentiert den vollständigen aktuellen
+                // Board-Stand. Frühere Einträge dürfen weder den Snapshot löschen noch
+                // einen Reload mit einem Zwischenstand auslösen.
+                _pendingColOrder = null;
 
-            // Nur wenn online: Parent holt frische Serverdaten.
-            if (IsOnline)
-                await OnChanged.InvokeAsync();
+                // Nur wenn online: Parent holt frische Serverdaten. Ein notwendiger Resync
+                // aus einem früheren harten Fehler wird nach Ablauf der Queue mit erledigt.
+                if (IsOnline)
+                    await OnChanged.InvokeAsync();
 
-            if (!_disposed)
+                if (_kanbanListsRequiringResync.Remove(listId))
+                    RequestKanbanResync();
+            }
+
+            if (!_disposed && List.Id == listId)
                 await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             if (_disposed) return;
 
-            _error = IsLikelyTimeoutOrOffline(ex)
-                ? string.Format(L["Err_KanbanDropOffline"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message)
-                : string.Format(L["Err_KanbanDropFailed"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message);
+            var likelyTimeoutOrOffline = IsLikelyTimeoutOrOffline(ex);
+            if (!likelyTimeoutOrOffline)
+                _kanbanListsRequiringResync.Add(listId);
+
+            // Ein alter Queue-Eintrag darf nach einem Listenwechsel weder eine
+            // Fehlermeldung noch einen Resync in die inzwischen geöffnete Liste tragen.
+            if (List.Id != listId)
+                return;
+
+            _error = likelyTimeoutOrOffline
+                ? string.Format(L["Err_KanbanDropOffline"].Value, listName, moved.Id, fromCol, toCol, ex.Message)
+                : string.Format(L["Err_KanbanDropFailed"].Value, listName, moved.Id, fromCol, toCol, ex.Message);
 
             // Bei Timeout/Offline den optimistischen UI-Stand nicht durch Resync zurückspringen lassen.
-            if (!IsLikelyTimeoutOrOffline(ex))
+            if (!likelyTimeoutOrOffline)
             {
-                _pendingColOrder = null;
-                await OnChanged.InvokeAsync();
-                RequestKanbanResync();
+                if (IsLatestKanbanPersistence(sequence, listId))
+                {
+                    _pendingColOrder = null;
+                    await OnChanged.InvokeAsync();
+                    RequestKanbanResync();
+                    _kanbanListsRequiringResync.Remove(listId);
+                }
             }
 
             await InvokeAsync(StateHasChanged);
@@ -1450,31 +1514,57 @@
     /// <summary>
     /// Persistiert eine Spalten-Verschiebung (nicht-Custom-Modus) im Hintergrund.
     /// </summary>
-    private async Task PersistKanbanMoveAsync(TodoTaskEntity moved, string fromCol, string toCol)
+    private async Task PersistKanbanMoveAsync(
+        long sequence,
+        Guid listId,
+        string listName,
+        TodoTaskEntity moved,
+        string fromCol,
+        string toCol)
     {
         try
         {
+            ApplyLatestPersistedSyncState(listId, moved);
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            await TaskService.UpdateTaskAsync(_userId, List.Id, moved, cts.Token);
+            var updated = await TaskService.UpdateTaskAsync(_userId, listId, moved, cts.Token)
+                ?? throw new InvalidOperationException($"Task '{moved.Id}' was not found while persisting a Kanban move.");
+            RememberPersistedSyncState(listId, updated);
 
-            if (IsOnline)
-                await OnChanged.InvokeAsync();
+            if (IsLatestKanbanPersistence(sequence, listId))
+            {
+                if (IsOnline)
+                    await OnChanged.InvokeAsync();
 
-            if (!_disposed)
+                if (_kanbanListsRequiringResync.Remove(listId))
+                    RequestKanbanResync();
+            }
+
+            if (!_disposed && List.Id == listId)
                 await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             if (_disposed) return;
 
-            _error = IsLikelyTimeoutOrOffline(ex)
-                ? string.Format(L["Err_KanbanMoveOffline"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message)
-                : string.Format(L["Err_KanbanMoveFailed"].Value, List.Name, moved.Id, fromCol, toCol, ex.Message);
+            var likelyTimeoutOrOffline = IsLikelyTimeoutOrOffline(ex);
+            if (!likelyTimeoutOrOffline)
+                _kanbanListsRequiringResync.Add(listId);
 
-            if (!IsLikelyTimeoutOrOffline(ex))
+            if (List.Id != listId)
+                return;
+
+            _error = likelyTimeoutOrOffline
+                ? string.Format(L["Err_KanbanMoveOffline"].Value, listName, moved.Id, fromCol, toCol, ex.Message)
+                : string.Format(L["Err_KanbanMoveFailed"].Value, listName, moved.Id, fromCol, toCol, ex.Message);
+
+            if (!likelyTimeoutOrOffline)
             {
-                await OnChanged.InvokeAsync();
-                RequestKanbanResync();
+                if (IsLatestKanbanPersistence(sequence, listId))
+                {
+                    await OnChanged.InvokeAsync();
+                    RequestKanbanResync();
+                    _kanbanListsRequiringResync.Remove(listId);
+                }
             }
 
             await InvokeAsync(StateHasChanged);
@@ -1484,6 +1574,170 @@
             if (!_disposed)
                 await EndDropPersistenceAsync();
         }
+    }
+
+    private void QueueKanbanPersistence(Func<Task> operation)
+    {
+        _ = _kanbanPersistenceQueue.Enqueue(operation);
+    }
+
+    private bool IsLatestKanbanPersistence(long sequence, Guid listId)
+        => sequence == Interlocked.Read(ref _latestKanbanPersistenceSequence)
+           && List.Id == listId;
+
+    private void ApplyLatestPersistedSyncState(Guid listId, TodoTaskEntity task)
+    {
+        if (!_persistedTaskSyncStates.TryGetValue((listId, task.Id), out var state))
+            return;
+
+        task.SyncToken = state.SyncToken;
+        task.SyncVersion = state.SyncVersion;
+    }
+
+    private void RememberPersistedSyncState(Guid listId, TodoTaskEntity updated)
+    {
+        if (updated.SyncToken is null && !updated.SyncVersion.HasValue)
+            return;
+
+        _persistedTaskSyncStates[(listId, updated.Id)] = (updated.SyncToken, updated.SyncVersion);
+
+        // Auch das aktuell sichtbare Objekt aktualisieren. Bereits eingereihte Snapshots
+        // erhalten den Stand über ApplyLatestPersistedSyncState; spätere Drops klonen ihn
+        // direkt aus dem sichtbaren Objekt.
+        if (List.Id != listId)
+            return;
+
+        var current = List.Tasks.FirstOrDefault(task => task.Id == updated.Id);
+        if (current is null)
+            return;
+
+        current.SyncToken = updated.SyncToken;
+        current.SyncVersion = updated.SyncVersion;
+    }
+
+    private Dictionary<string, string[]> CaptureKanbanOrderSnapshot()
+    {
+        var snapshot = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        foreach (var col in List.Columns ?? [])
+        {
+            snapshot[col] = List.Tasks
+                .Where(task => string.Equals(task.Column, col, StringComparison.Ordinal))
+                .OrderBy(task => task.KanbanSortOrder)
+                .ThenBy(task => task.CreatedAtUtc)
+                .Select(task => task.Id.ToString())
+                .ToArray();
+        }
+
+        return snapshot;
+    }
+
+    private static TodoTaskEntity CloneTaskForKanbanPersistence(TodoTaskEntity task)
+    {
+        var memberUserIds = task.MemberUserIds is { Count: > 0 }
+            ? task.MemberUserIds
+            : (task.Members ?? []).Select(member => member.UserId).ToList();
+
+        return new TodoTaskEntity
+        {
+            Id = task.Id,
+            SyncToken = task.SyncToken,
+            SyncVersion = task.SyncVersion,
+            ContentVersion = task.ContentVersion,
+            Title = task.Title,
+            Description = task.Description,
+            StartDate = task.StartDate,
+            DueDate = task.DueDate,
+            ReminderAtUtc = task.ReminderAtUtc,
+            ReminderSentAtUtc = task.ReminderSentAtUtc,
+            Done = task.Done,
+            IsImportant = task.IsImportant,
+            CardColor = task.CardColor,
+            CardColorMode = task.CardColorMode,
+            ListSortOrder = task.ListSortOrder,
+            KanbanSortOrder = task.KanbanSortOrder,
+            Assignee = task.Assignee,
+            ApproverUserId = task.ApproverUserId,
+            ApprovalStatus = task.ApprovalStatus,
+            ApprovalRequestedAtUtc = task.ApprovalRequestedAtUtc,
+            ApprovalRequestedByUserId = task.ApprovalRequestedByUserId,
+            ApprovalDecisionAtUtc = task.ApprovalDecisionAtUtc,
+            ApprovalDecisionByUserId = task.ApprovalDecisionByUserId,
+            Recurrence = task.Recurrence,
+            CustomRecurrence = task.CustomRecurrence,
+            Column = task.Column,
+            ListId = task.ListId,
+            CreatedAtUtc = task.CreatedAtUtc,
+            DeletedAt = task.DeletedAt,
+            DeletedByUserId = task.DeletedByUserId,
+            MemberUserIds = memberUserIds
+                .Select(value => (value ?? string.Empty).Trim())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            Members = (task.Members ?? [])
+                .Select(member => new TodoTaskMemberEntity
+                {
+                    Id = member.Id,
+                    TaskId = task.Id,
+                    UserId = member.UserId
+                })
+                .ToList(),
+            Watchers = (task.Watchers ?? [])
+                .Select(watcher => new TodoTaskWatcherEntity
+                {
+                    Id = watcher.Id,
+                    TaskId = task.Id,
+                    UserId = watcher.UserId,
+                    CreatedAtUtc = watcher.CreatedAtUtc
+                })
+                .ToList(),
+            LabelLinks = (task.LabelLinks ?? [])
+                .Select(link => new TodoTaskLabelEntity
+                {
+                    TaskId = task.Id,
+                    LabelId = link.LabelId
+                })
+                .ToList(),
+            Attachments = (task.Attachments ?? [])
+                .Select(attachment => new TodoAttachmentEntity
+                {
+                    Id = attachment.Id,
+                    TaskId = task.Id,
+                    FileName = attachment.FileName,
+                    Url = attachment.Url
+                })
+                .ToList(),
+            Steps = (task.Steps ?? [])
+                .Select(step => new TodoStepEntity
+                {
+                    Id = step.Id,
+                    TaskId = task.Id,
+                    Title = step.Title,
+                    IsCompleted = step.IsCompleted,
+                    CreatedAtUtc = step.CreatedAtUtc
+                })
+                .ToList(),
+            Comments = (task.Comments ?? [])
+                .Select(comment => new TodoCommentEntity
+                {
+                    Id = comment.Id,
+                    TaskId = task.Id,
+                    Message = comment.Message,
+                    Author = comment.Author,
+                    AuthorUserId = comment.AuthorUserId,
+                    CreatedAt = comment.CreatedAt
+                })
+                .ToList(),
+            CustomFieldValues = (task.CustomFieldValues ?? [])
+                .Select(value => new TodoTaskCustomFieldValueEntity
+                {
+                    Id = value.Id,
+                    TaskId = task.Id,
+                    FieldId = value.FieldId,
+                    Value = value.Value
+                })
+                .ToList()
+        };
     }
 
     private static bool IsLikelyTimeoutOrOffline(Exception ex)
