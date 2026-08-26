@@ -5,6 +5,7 @@
 @inject IJSRuntime JS
 @using Klassenbibliothek.Data
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@implements IAsyncDisposable
 
 <div class="flex flex-col h-full min-h-0">
 
@@ -314,7 +315,19 @@
     private bool _needsSortableResync = false;
     private DateTime _lastDragEndUtc = DateTime.MinValue;
     private long _latestDragToken = 0;
-    private bool _deferredDragEndNotificationToParent = false;
+
+    // Ein Drop darf den Parent-Reload erst freigeben, wenn alle zuvor ausgelösten
+    // Sortierungen gespeichert sind. Ein Zähler ist nötig, weil SortableJS direkt
+    // nach onEnd wieder einen weiteren Drag zulässt.
+    private int _pendingReorderPersistenceCount;
+    public bool IsDraggingFromSortable => _isDragging || _pendingReorderPersistenceCount > 0;
+
+    // Reorder-Aufrufe müssen in derselben Reihenfolge beim Service ankommen, in der
+    // die Drops entstanden sind. Andernfalls kann eine langsamere alte Anfrage einen
+    // neueren Drop serverseitig wieder überschreiben.
+    private readonly SequentialAsyncOperationQueue _listReorderPersistenceQueue = new();
+    private long _latestListReorderPersistenceSequence;
+    private Guid? _reorderListId;
 
     // Speichert die vom letzten Drag-Drop resultierende Aufgabenreihenfolge.
     // Solange der Parent noch alte SortOrder-Werte liefert, rendert die View
@@ -363,21 +376,35 @@
     [JSInvokable]
     public async Task SetDraggingWithToken(bool value, long token)
     {
-        if (token < _latestDragToken) return;
-        _latestDragToken = token;
-        // Ein frischer Token belegt einen echten neuen Drag-Start.
-        if (value) _lastDragEndUtc = DateTime.MinValue;
+        if (value)
+        {
+            // true desselben Tokens kann als verspäteter fire-and-forget-onStart erst
+            // nach FinishListDragWithOrder eintreffen und darf den Drag nicht reaktivieren.
+            if (token <= _latestDragToken) return;
+            _latestDragToken = token;
+            _lastDragEndUtc = DateTime.MinValue;
+        }
+        else
+        {
+            if (token < _latestDragToken) return;
+            _latestDragToken = token;
+        }
+
         await ApplyDraggingStateAsync(value);
     }
 
     /// <summary>
     /// Kombiniert Drag-Ende und Reorder in einem einzigen Blazor-Aufruf.
-    /// Dadurch ist _pendingOrder bereits gesetzt, bevor ApplyDraggingStateAsync(false)
-    /// via OnDraggingChanged den Parent-Re-render auslöst – kein Zurückspringen mehr.
+    /// Dadurch steht die optimistische Reihenfolge fest, bevor lokales Rendering wieder
+    /// erlaubt wird. Der Parent bleibt bis zur letzten Persistierung gesperrt.
     /// </summary>
     [JSInvokable]
     public async Task FinishListDragWithOrder(long token, string[] orderedTaskIds)
     {
+        var persistenceRegistered = false;
+        var sequence = 0L;
+        var listId = Guid.Empty;
+
         if (token < _latestDragToken) return;
         _latestDragToken = token;
 
@@ -389,10 +416,17 @@
 
         try
         {
-            var ids = new List<Guid>(orderedTaskIds.Length);
-            foreach (var s in orderedTaskIds)
-                if (Guid.TryParse(s, out var g))
-                    ids.Add(g);
+            var ids = orderedTaskIds
+                .Select(value => Guid.TryParse(value, out var parsed) ? parsed : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+            {
+                await ApplyDraggingStateAsync(false);
+                return;
+            }
 
             // Lokal patchen (optimistisch) — BEVOR OnDraggingChanged den Parent-Reload auslöst
             for (int i = 0; i < ids.Count; i++)
@@ -405,20 +439,39 @@
             // damit OnParametersSet beim Parent-Reload die korrekte Reihenfolge findet.
             SetPendingOrder(ids);
 
-            // Drag-State absichtlich NOCH NICHT beenden:
-            // Solange Persistierung/Parent-Reload laufen, blockt ShouldRender() Zwischen-Frames,
-            // die sonst kurz die alte Reihenfolge zeigen könnten.
-            _deferredDragEndNotificationToParent = true;
+            sequence = Interlocked.Increment(ref _latestListReorderPersistenceSequence);
+            listId = List.Id;
+            var orderSnapshot = ids.ToArray();
 
-            _ = PersistListReorderAsync(ids);
+            // Der echte DOM-Drag ist beendet und die optimistische Reihenfolge steht fest.
+            // Lokal wieder rendern erlauben; der Parent bleibt über den Pending-Zähler bis
+            // zum Ende der letzten Persistierung gegen Zwischen-Reloads gesperrt.
+            BeginReorderPersistence();
+            persistenceRegistered = true;
+            await ApplyDraggingStateAsync(false, notifyParent: false);
+            QueueListReorderPersistence(sequence, listId, orderSnapshot);
+            persistenceRegistered = false; // EndReorderPersistenceAsync läuft nun in der Queue.
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
-            _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
-            _deferredDragEndNotificationToParent = false;
-            await ApplyDraggingStateAsync(false);
-            RequestSortableResync();
-            await InvokeAsync(StateHasChanged);
+            var isCurrentOperation = sequence == 0 || IsLatestListReorderPersistence(sequence, listId);
+            if (isCurrentOperation)
+            {
+                _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
+                SetPendingOrder(null);
+            }
+
+            if (token >= _latestDragToken)
+                await ApplyDraggingStateAsync(false, notifyParent: !persistenceRegistered);
+            if (persistenceRegistered)
+                await EndReorderPersistenceAsync();
+
+            if (isCurrentOperation)
+            {
+                RequestSortableResync();
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
@@ -448,15 +501,25 @@
         }
 
         if (notifyParent && OnDraggingChanged.HasDelegate)
-            await OnDraggingChanged.InvokeAsync(value);
+            await OnDraggingChanged.InvokeAsync(value || _pendingReorderPersistenceCount > 0);
     }
 
-    private async Task FlushDeferredDragEndNotificationAsync()
+    private void BeginReorderPersistence()
     {
-        if (!_deferredDragEndNotificationToParent) return;
-        _deferredDragEndNotificationToParent = false;
+        _pendingReorderPersistenceCount++;
 
-        if (OnDraggingChanged.HasDelegate)
+        // Erneut true melden, auch wenn der onStart-Interop noch unterwegs ist. So kann
+        // ein sehr schneller Drop den Parent niemals vor der Persistierung freigeben.
+        if (_pendingReorderPersistenceCount == 1 && OnDraggingChanged.HasDelegate)
+            _ = OnDraggingChanged.InvokeAsync(true);
+    }
+
+    private async Task EndReorderPersistenceAsync()
+    {
+        if (_pendingReorderPersistenceCount > 0)
+            _pendingReorderPersistenceCount--;
+
+        if (_pendingReorderPersistenceCount == 0 && !_isDragging && OnDraggingChanged.HasDelegate)
             await OnDraggingChanged.InvokeAsync(false);
     }
 
@@ -499,6 +562,13 @@
 
     protected override void OnParametersSet()
     {
+        if (_reorderListId != List.Id)
+        {
+            _reorderListId = List.Id;
+            SetPendingOrder(null);
+            Interlocked.Increment(ref _latestListReorderPersistenceSequence);
+        }
+
         if (_lastSelectionMode && !SelectionMode)
         {
             _selectedTaskIds.Clear();
@@ -597,7 +667,10 @@
 
     public async ValueTask DisposeAsync()
     {
+        var notifyParent = IsDraggingFromSortable;
         _disposed = true;
+        _isDragging = false;
+        _pendingReorderPersistenceCount = 0;
         StopDragWatchdog();
         try
         {
@@ -607,6 +680,11 @@
         catch { /* ign */ }
 
         _dotNetRef?.Dispose();
+
+        if (notifyParent && OnDraggingChanged.HasDelegate)
+        {
+            try { await OnDraggingChanged.InvokeAsync(false); } catch { }
+        }
     }
 
     // ====== Datenquellen (Trennung: offen / erledigt) ======
@@ -785,12 +863,19 @@
     {
         if (SortMode != ListSortMode.Custom) return;
 
+        var persistenceRegistered = false;
+        var sequence = 0L;
+        var listId = Guid.Empty;
         try
         {
-            var ids = new List<Guid>(orderedTaskIds.Length);
-            foreach (var s in orderedTaskIds)
-                if (Guid.TryParse(s, out var g))
-                    ids.Add(g);
+            var ids = orderedTaskIds
+                .Select(value => Guid.TryParse(value, out var parsed) ? parsed : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList();
+
+            if (ids.Count == 0)
+                return;
 
             // Lokal patchen (optimistisch)
             for (int i = 0; i < ids.Count; i++)
@@ -803,26 +888,66 @@
             // im UI nicht kurz auf die alte Reihenfolge zurückspringen.
             SetPendingOrder(ids);
 
+            sequence = Interlocked.Increment(ref _latestListReorderPersistenceSequence);
+            listId = List.Id;
+            var orderSnapshot = ids.ToArray();
+
+            BeginReorderPersistence();
+            persistenceRegistered = true;
+            QueueListReorderPersistence(sequence, listId, orderSnapshot);
+            persistenceRegistered = false;
+
             // ✅ Optimistisches UI-Update sofort anzeigen – Persistence läuft im Hintergrund.
             await InvokeAsync(StateHasChanged);
-
-            _ = PersistListReorderAsync(ids);
         }
         catch (Exception ex)
         {
-            _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
-            RequestSortableResync();
-            await InvokeAsync(StateHasChanged);
+            var isCurrentOperation = sequence == 0 || IsLatestListReorderPersistence(sequence, listId);
+            if (isCurrentOperation)
+            {
+                _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
+                SetPendingOrder(null);
+            }
+
+            if (persistenceRegistered)
+                await EndReorderPersistenceAsync();
+
+            if (isCurrentOperation)
+            {
+                RequestSortableResync();
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
-    private async Task PersistListReorderAsync(List<Guid> ids)
+    private void QueueListReorderPersistence(
+        long sequence,
+        Guid listId,
+        IReadOnlyList<Guid> orderedTaskIds)
+    {
+        _ = _listReorderPersistenceQueue.Enqueue(
+            () => PersistListReorderAsync(sequence, listId, orderedTaskIds));
+    }
+
+    private bool IsLatestListReorderPersistence(long sequence, Guid listId)
+        => sequence == Interlocked.Read(ref _latestListReorderPersistenceSequence)
+           && List.Id == listId;
+
+    private async Task PersistListReorderAsync(
+        long sequence,
+        Guid listId,
+        IReadOnlyList<Guid> orderedTaskIds)
     {
         try
         {
-            await TaskService.ReorderListAsync(_userId, List.Id, ids);
+            await TaskService.ReorderListAsync(_userId, listId, orderedTaskIds);
+
+            // Zwischenstände werden bewusst nicht neu geladen. Nur der neueste Drop
+            // darf den optimistischen Stand mit dem Server abgleichen.
+            if (!IsLatestListReorderPersistence(sequence, listId))
+                return;
+
             await OnChanged.InvokeAsync();
-            await FlushDeferredDragEndNotificationAsync();
 
             // ✅ WICHTIG: Sortable DOM ist manipuliert -> immer resyncen
             RequestSortableResync();
@@ -832,14 +957,24 @@
         catch (Exception ex)
         {
             if (_disposed) return;
+
+            // Ein Fehler eines überholten Drops darf den neueren optimistischen Stand
+            // weder verwerfen noch mit einer alten Fehlermeldung überschreiben.
+            if (!IsLatestListReorderPersistence(sequence, listId))
+                return;
+
             _error = string.Format(L["Err_ListViewReorder"].Value, ex.Message);
-            _pendingOrder = null;
+            SetPendingOrder(null);
             await OnChanged.InvokeAsync();
-            await FlushDeferredDragEndNotificationAsync();
 
             // ✅ auch hier: DOM wieder “sauber”
             RequestSortableResync();
             await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            if (!_disposed)
+                await EndReorderPersistenceAsync();
         }
     }
 
@@ -893,6 +1028,9 @@
 
     private async Task PersistOpenOrderAfterDoneChangeAsync()
     {
+        var sequence = 0L;
+        var listId = Guid.Empty;
+
         try
         {
             // offene Tasks nach aktueller Custom-Reihenfolge (ListSortOrder) neu durchnummerieren
@@ -908,13 +1046,33 @@
                 ids.Add(open[i].Id);
             }
 
-            await TaskService.ReorderListAsync(_userId, List.Id, ids);
+            // Auch die durch eine Done-Änderung ausgelöste Neuindizierung läuft durch
+            // dieselbe Queue. So kann sie weder einen vorherigen Drop überholen noch
+            // von einem gleichzeitig gestarteten späteren Drop überholt werden.
+            sequence = Interlocked.Increment(ref _latestListReorderPersistenceSequence);
+            listId = List.Id;
+            var orderSnapshot = ids.ToArray();
+            SetPendingOrder(ids);
+
+            await _listReorderPersistenceQueue.Enqueue(
+                () => TaskService.ReorderListAsync(_userId, listId, orderSnapshot));
+
+            if (!IsLatestListReorderPersistence(sequence, listId))
+                return;
 
             // Sortable muss danach neu syncen; ein Host-Rebuild wäre auf iOS sichtbar.
             RequestSortableResync(rebuildHost: false);
         }
         catch (Exception ex)
         {
+            if (sequence > 0)
+            {
+                if (!IsLatestListReorderPersistence(sequence, listId))
+                    return;
+
+                SetPendingOrder(null);
+            }
+
             _error = string.Format(L["Err_ListViewDoneReorder"].Value, ex.Message);
         }
     }

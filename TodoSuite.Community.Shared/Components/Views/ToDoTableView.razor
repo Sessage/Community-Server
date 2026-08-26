@@ -275,6 +275,7 @@ else
     [Parameter] public bool EnableCustomFields { get; set; }
     [Parameter] public bool SelectionMode { get; set; }
     [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
+    [Parameter] public EventCallback<bool> OnDraggingChanged { get; set; }
 
     private readonly HashSet<string> _hiddenColumns = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _filters = new(StringComparer.OrdinalIgnoreCase);
@@ -301,6 +302,15 @@ else
     private readonly SemaphoreSlim _addPersistLock = new(1, 1);
     private List<Guid>? _pendingTaskOrder;
     private Dictionary<Guid, int>? _pendingTaskOrderIndex;
+    private bool _isTaskDragging;
+    private DateTime _lastTaskDragEndUtc = DateTime.MinValue;
+    private long _latestTaskDragToken;
+    private int _pendingTaskReorderPersistenceCount;
+    private readonly SequentialAsyncOperationQueue _taskReorderPersistenceQueue = new();
+    private long _latestTaskReorderPersistenceSequence;
+    private static readonly TimeSpan IgnoreLateTaskDragStartWindow = TimeSpan.FromMilliseconds(600);
+
+    public bool IsDraggingFromSortable => _isTaskDragging || _pendingTaskReorderPersistenceCount > 0;
 
     private IReadOnlyList<TableColumn> BaseColumns
     {
@@ -464,6 +474,8 @@ else
             _columnOrderListId = List?.Id;
             _sortableInitialized = false;
             _columnOrder = List?.TableColumnOrder?.ToList() ?? new();
+            SetPendingTaskOrder(null);
+            Interlocked.Increment(ref _latestTaskReorderPersistenceSequence);
             LoadHiddenColumnsFromList();
         }
         else if (List?.TableColumnOrder is { Count: > 0 } persistedOrder
@@ -479,6 +491,8 @@ else
         EnsureColumnOrder();
         SyncPendingTaskOrderWithIncomingList();
     }
+
+    protected override bool ShouldRender() => !_isTaskDragging;
 
     private void SetPendingTaskOrder(List<Guid>? ids)
     {
@@ -589,17 +603,150 @@ else
     }
 
     [JSInvokable]
+    public Task SetTableTaskDragging(bool dragging)
+        => ApplyTableTaskDraggingStateAsync(dragging);
+
+    [JSInvokable]
+    public async Task SetTableTaskDraggingWithToken(bool dragging, long token)
+    {
+        if (dragging)
+        {
+            if (token <= _latestTaskDragToken)
+                return;
+
+            _latestTaskDragToken = token;
+            _lastTaskDragEndUtc = DateTime.MinValue;
+        }
+        else
+        {
+            if (token < _latestTaskDragToken)
+                return;
+
+            _latestTaskDragToken = token;
+        }
+
+        await ApplyTableTaskDraggingStateAsync(dragging);
+    }
+
+    [JSInvokable]
+    public async Task FinishTableTaskDragWithOrder(long token, string[] orderedTaskIds)
+    {
+        if (token < _latestTaskDragToken)
+            return;
+
+        _latestTaskDragToken = token;
+
+        if (List is null || !CanReorderTasks)
+        {
+            await ApplyTableTaskDraggingStateAsync(false);
+            return;
+        }
+
+        var persistenceRegistered = false;
+        var sequence = 0L;
+        var listId = Guid.Empty;
+        try
+        {
+            var ids = ParseOrderedTaskIds(orderedTaskIds);
+            if (ids.Count == 0)
+            {
+                await ApplyTableTaskDraggingStateAsync(false);
+                return;
+            }
+
+            ApplyOptimisticTableTaskOrder(ids);
+
+            sequence = Interlocked.Increment(ref _latestTaskReorderPersistenceSequence);
+            listId = List.Id;
+            var orderSnapshot = ids.ToArray();
+
+            BeginTableTaskReorderPersistence();
+            persistenceRegistered = true;
+            await ApplyTableTaskDraggingStateAsync(false, notifyParent: false);
+            QueueTableTaskReorderPersistence(sequence, listId, orderSnapshot);
+            persistenceRegistered = false; // Die Queue übernimmt die Freigabe im finally.
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            var isCurrentOperation = sequence == 0 || IsLatestTableTaskReorderPersistence(sequence, listId);
+            if (isCurrentOperation)
+            {
+                _addError = ex.Message;
+                SetPendingTaskOrder(null);
+            }
+
+            if (token >= _latestTaskDragToken)
+                await ApplyTableTaskDraggingStateAsync(false, notifyParent: !persistenceRegistered);
+            if (persistenceRegistered)
+                await EndTableTaskReorderPersistenceAsync();
+
+            if (isCurrentOperation)
+            {
+                RequestTaskSortableResync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    // Abwärtskompatibler Callback für bereits geladene ältere JavaScript-Bundles.
+    [JSInvokable]
     public async Task OnTableTasksReordered(string[] orderedTaskIds)
     {
         if (List is null || !CanReorderTasks)
             return;
 
-        var ids = orderedTaskIds
+        var persistenceRegistered = false;
+        var sequence = 0L;
+        var listId = Guid.Empty;
+        try
+        {
+            var ids = ParseOrderedTaskIds(orderedTaskIds);
+
+            if (ids.Count == 0)
+                return;
+
+            ApplyOptimisticTableTaskOrder(ids);
+            sequence = Interlocked.Increment(ref _latestTaskReorderPersistenceSequence);
+            listId = List.Id;
+            var orderSnapshot = ids.ToArray();
+
+            BeginTableTaskReorderPersistence();
+            persistenceRegistered = true;
+            QueueTableTaskReorderPersistence(sequence, listId, orderSnapshot);
+            persistenceRegistered = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            var isCurrentOperation = sequence == 0 || IsLatestTableTaskReorderPersistence(sequence, listId);
+            if (isCurrentOperation)
+            {
+                _addError = ex.Message;
+                SetPendingTaskOrder(null);
+            }
+
+            if (persistenceRegistered)
+                await EndTableTaskReorderPersistenceAsync();
+
+            if (isCurrentOperation)
+            {
+                RequestTaskSortableResync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private static List<Guid> ParseOrderedTaskIds(IEnumerable<string> orderedTaskIds)
+        => orderedTaskIds
             .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
             .Where(id => id != Guid.Empty)
+            .Distinct()
             .ToList();
 
-        if (ids.Count == 0)
+    private void ApplyOptimisticTableTaskOrder(IReadOnlyList<Guid> ids)
+    {
+        if (List is null)
             return;
 
         for (var i = 0; i < ids.Count; i++)
@@ -609,19 +756,69 @@ else
                 task.ListSortOrder = i;
         }
 
-        SetPendingTaskOrder(ids);
-        await InvokeAsync(StateHasChanged);
-        _ = PersistTableTaskReorderAsync(ids);
+        SetPendingTaskOrder(ids.ToList());
     }
 
-    private async Task PersistTableTaskReorderAsync(List<Guid> ids)
+    private async Task ApplyTableTaskDraggingStateAsync(bool dragging, bool notifyParent = true)
+    {
+        if (_disposed)
+            return;
+
+        if (dragging && _lastTaskDragEndUtc != DateTime.MinValue
+            && DateTime.UtcNow - _lastTaskDragEndUtc < IgnoreLateTaskDragStartWindow)
+        {
+            return;
+        }
+
+        _isTaskDragging = dragging;
+        if (!dragging)
+            _lastTaskDragEndUtc = DateTime.UtcNow;
+
+        if (notifyParent && OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(dragging || _pendingTaskReorderPersistenceCount > 0);
+    }
+
+    private void BeginTableTaskReorderPersistence()
+    {
+        _pendingTaskReorderPersistenceCount++;
+        if (_pendingTaskReorderPersistenceCount == 1 && OnDraggingChanged.HasDelegate)
+            _ = OnDraggingChanged.InvokeAsync(true);
+    }
+
+    private async Task EndTableTaskReorderPersistenceAsync()
+    {
+        if (_pendingTaskReorderPersistenceCount > 0)
+            _pendingTaskReorderPersistenceCount--;
+
+        if (_pendingTaskReorderPersistenceCount == 0 && !_isTaskDragging && OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(false);
+    }
+
+    private void QueueTableTaskReorderPersistence(
+        long sequence,
+        Guid listId,
+        IReadOnlyList<Guid> orderedTaskIds)
+    {
+        _ = _taskReorderPersistenceQueue.Enqueue(
+            () => PersistTableTaskReorderAsync(sequence, listId, orderedTaskIds));
+    }
+
+    private bool IsLatestTableTaskReorderPersistence(long sequence, Guid listId)
+        => sequence == Interlocked.Read(ref _latestTaskReorderPersistenceSequence)
+           && List?.Id == listId;
+
+    private async Task PersistTableTaskReorderAsync(
+        long sequence,
+        Guid listId,
+        IReadOnlyList<Guid> orderedTaskIds)
     {
         try
         {
-            if (List is null)
+            await TaskService.ReorderListAsync(_userId, listId, orderedTaskIds);
+
+            if (!IsLatestTableTaskReorderPersistence(sequence, listId))
                 return;
 
-            await TaskService.ReorderListAsync(_userId, List.Id, ids);
             await OnChanged.InvokeAsync();
             if (_disposed)
                 return;
@@ -634,11 +831,19 @@ else
             if (_disposed)
                 return;
 
+            if (!IsLatestTableTaskReorderPersistence(sequence, listId))
+                return;
+
             _addError = ex.Message;
             SetPendingTaskOrder(null);
             await OnChanged.InvokeAsync();
             RequestTaskSortableResync();
             await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            if (!_disposed)
+                await EndTableTaskReorderPersistenceAsync();
         }
     }
 
@@ -1253,13 +1458,22 @@ else
     }
 
     private bool FilterActive => Filter?.IsActive() == true;
+    private bool ColumnFilterActive => _filters.Values.Any(value => !string.IsNullOrWhiteSpace(value));
 
     private string GetFilter(string key) => _filters.TryGetValue(key, out var value) ? value : "";
     private void SetFilter(string key, string? value) => _filters[key] = value ?? "";
     private void SetSort(string key, bool ascending) { _sortColumn = key; _sortAscending = ascending; }
     private void ResetSort() { _sortColumn = null; _sortAscending = true; }
 
-    private bool CanReorderTasks => List is not null && string.IsNullOrWhiteSpace(_sortColumn) && !FilterActive && !SelectionMode && CanWriteToList();
+    // Ein DOM-Snapshot einer gefilterten Teilmenge darf niemals als vollständige
+    // Listenreihenfolge persistiert werden, sonst würden ausgeblendete Aufgaben ans
+    // Ende verschoben. Reordering ist daher nur in der ungefilterten Custom-Ansicht aktiv.
+    private bool CanReorderTasks => List is not null
+                                    && string.IsNullOrWhiteSpace(_sortColumn)
+                                    && !FilterActive
+                                    && !ColumnFilterActive
+                                    && !SelectionMode
+                                    && CanWriteToList();
     private bool CanReorderTask(TodoTaskEntity task) => CanReorderTasks && !task.Done && task.DeletedAt == null;
 
     private bool IsTaskSelected(Guid taskId) => _selectedTaskIds.Contains(taskId);
@@ -1512,7 +1726,10 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        var notifyParent = IsDraggingFromSortable;
         _disposed = true;
+        _isTaskDragging = false;
+        _pendingTaskReorderPersistenceCount = 0;
         if (_columnPickerHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "todo-table-column-picker"); } catch { }
 
@@ -1525,6 +1742,11 @@ else
             try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableTasks", _taskRowsHost); } catch { }
         }
         _dotNetRef?.Dispose();
+
+        if (notifyParent && OnDraggingChanged.HasDelegate)
+        {
+            try { await OnDraggingChanged.InvokeAsync(false); } catch { }
+        }
     }
 
     private sealed record TableColumn(string Key, string Title, bool Sortable, bool Hideable, bool Reorderable, Func<TodoTaskEntity, string> Value, TodoCustomFieldDefinitionEntity? CustomField = null);

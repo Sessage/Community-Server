@@ -386,12 +386,14 @@
                             }
                             else if (_view == BoardView.Table)
                             {
-                                <ToDoTableView List="_list"
+                                <ToDoTableView @ref="_tableViewRef"
+                                               List="_list"
                                                EnableCustomFields="@ProductFeatures.IsEnabled(ProductFeatureIds.Forms)"
                                                Filter="_filter"
                                                AvailableLists="_lists"
                                                @bind-SelectionMode="_selectionMode"
                                                OnChanged="ReloadAsync"
+                                               OnDraggingChanged="OnDraggingChangedAsync"
                                                OnTaskUpdated="HandleTaskUpdated"
                                                OnTaskSelected="OpenTaskDetails"
                                                OnTaskOpenRequested="OpenTaskFromTable"
@@ -1351,6 +1353,7 @@
     private bool _reloadQueued;
     private bool _listLoading = true;
     private global::Klassenbibliothek.Components.Views.ToDoListView? _listViewRef;
+    private global::Klassenbibliothek.Components.Views.ToDoTableView? _tableViewRef;
 
     // ===== SignalR Hub =====
     private HubConnection? _hubConnection;
@@ -1359,6 +1362,11 @@
 
     // Reload-Queue (damit Dragging nicht kaputt geht)
     private bool _reloadQueuedForce;
+
+    private bool IsAnyDragActive()
+        => _isDragging
+           || (_listViewRef?.IsDraggingFromSortable ?? false)
+           || (_tableViewRef?.IsDraggingFromSortable ?? false);
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -1631,7 +1639,7 @@
     {
         _isDragging = dragging;
 
-        if (!_isDragging && _reloadQueued)
+        if (!IsAnyDragActive() && _reloadQueued)
         {
             _reloadQueued = false;
             var force = _reloadQueuedForce;
@@ -1655,7 +1663,7 @@
     private async Task ReloadAsyncCore(bool force, bool? showLoading = null)
     {
         // ✅ Während Dragging nie reloaden – auch nicht "force"
-        if (_isDragging)
+        if (IsAnyDragActive())
         {
             _reloadQueued = true;
             _reloadQueuedForce = _reloadQueuedForce || force;

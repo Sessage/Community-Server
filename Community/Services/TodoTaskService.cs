@@ -766,11 +766,13 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         {
             foreach (var id in orderedTaskIds)
             {
-                if (!openDict.TryGetValue(id, out var t))
+                // Doppelte oder fremde IDs dürfen weder Lücken erzeugen noch dieselbe
+                // Aufgabe mehrfach neu nummerieren. Der Endpunkt bleibt damit auch bei
+                // einem beschädigten/veralteten DOM-Snapshot deterministisch.
+                if (!openDict.TryGetValue(id, out var t) || !seen.Add(id))
                     continue;
 
                 t.ListSortOrder = i++;
-                seen.Add(id);
             }
         }
 
