@@ -35,6 +35,7 @@
                     <!-- Done Toggle -->
                     <FluentButton Appearance="Appearance.Stealth"
                                   Class="task-edit-icon-button"
+                                  Disabled="@(!CanWriteToList() || _saveInProgress)"
                                   Title="@(_editableTask.Done ? L["Task_Done_Title_Undo"] : L["Task_Done_Title_Mark"])"
                                   OnClick="() => ToggleDoneAsync(_editableTask)">
                         @if (_editableTask.Done)
@@ -50,6 +51,7 @@
                     <div class="task-edit-title-field flex flex-1 min-w-0 items-center">
                         <InputTextArea class="task-edit-title-input w-full text-xl font-semibold border-none outline-none focus:outline-hidden bg-transparent"
                                        rows="1"
+                                       disabled="@(!CanWriteToList())"
                                        Value="@_editableTask.Title"
                                        ValueChanged="@(v => OnTitleChanged(v))"
                                        ValueExpression="@(() => _editableTask.Title)" />
@@ -63,6 +65,7 @@
                     <div class="relative" @onclick:stopPropagation="true">
                         <FluentButton Appearance="Appearance.Neutral"
                                       Class="task-edit-add-button"
+                                      Disabled="@(!CanWriteToList())"
                                       Title="@L["Task_AddToCard"]"
                                       OnClick="ToggleAddMenu">
                             <span class="inline-flex items-center gap-2">
@@ -135,6 +138,7 @@
                     <!-- Watcher -->
                     <FluentButton Appearance="Appearance.Stealth"
                                   Class="task-edit-icon-button"
+                                  Disabled="@_watchBusy"
                                   Title="@(IsWatchingTask ? L["Task_Watch_Stop"] : L["Task_Watch_Start"])"
                                   OnClick="ToggleTaskWatchingAsync">
                         @if (IsWatchingTask)
@@ -150,6 +154,7 @@
                     <!-- Important -->
                     <FluentButton Appearance="Appearance.Stealth"
                                   Class="task-edit-icon-button"
+                                  Disabled="@(!CanWriteToList() || _saveInProgress)"
                                   Title="@(_editableTask.IsImportant ? L["Task_Important_Title_Remove"] : L["Task_Important_Title_Mark"])"
                                   OnClick="() => ToggleImportantAsync(_editableTask)">
                         @if (_editableTask.IsImportant)
@@ -168,6 +173,7 @@
                     <div class="relative">
                         <FluentButton Appearance="Appearance.Stealth"
                                       Class="task-edit-icon-button"
+                                      Disabled="@(!CanWriteToList())"
                                       Title="@L["Task_Options"]"
                                       OnClick="ToggleActions">
                             <FluentIcon Value="@(new Icons.Filled.Size24.MoreHorizontal())" />
@@ -203,7 +209,10 @@
                     </div>
 
                     <!-- Close -->
-                    <FluentButton Appearance="Appearance.Stealth" Class="task-edit-icon-button task-edit-close-button" OnClick="OnClose">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="task-edit-icon-button task-edit-close-button"
+                                  Disabled="@_closeBusy"
+                                  OnClick="RequestCloseAsync">
                         <FluentIcon Value="@(new Icons.Filled.Size24.Dismiss())" />
                     </FluentButton>
                 </div>
@@ -943,6 +952,7 @@
                                                                 <div class="comment-meta">
                                                                     <span>@ToBrowserLocalTime(comment.CreatedAt).ToString("HH:mm")</span>
                                                                     <button class="comment-remove-button"
+                                                                            disabled="@(!CanWriteToList() || _commentsBeingRemoved.Contains(comment.Id))"
                                                                             @onclick="@(() => RemoveCommentAsync(comment))"
                                                                             title="@L["Task_Comments_RemoveTitle"]">✕</button>
                                                                 </div>
@@ -1073,6 +1083,7 @@
                                                     <div class="file-name">
                                                         <button type="button"
                                                                 class="text-left text-sky-700 hover:text-sky-900 hover:underline"
+                                                                disabled="@_attachmentsBeingDownloaded.Contains(attachment.Id)"
                                                                 title="@L["Task_Attachment_Download"]"
                                                                 @onclick="(() => DownloadAttachmentAsync(attachment))">
                                                             @attachment.FileName
@@ -1081,10 +1092,14 @@
                                                 </div>
 
                                                 <div class="file-actions">
-                                                    <FluentButton Appearance="Appearance.Stealth"
-                                                                  OnClick="@(() => RemoveAttachmentAsync(attachment))">
-                                                        <FluentIcon Value="@(new Icons.Filled.Size20.Delete())" />
-                                                    </FluentButton>
+                                                    @if (CanWriteToList())
+                                                    {
+                                                        <FluentButton Appearance="Appearance.Stealth"
+                                                                      Disabled="@_attachmentsBeingRemoved.Contains(attachment.Id)"
+                                                                      OnClick="@(() => RemoveAttachmentAsync(attachment))">
+                                                            <FluentIcon Value="@(new Icons.Filled.Size20.Delete())" />
+                                                        </FluentButton>
+                                                    }
                                                 </div>
 
                                             </div>
@@ -1203,7 +1218,7 @@
 
                     <div class="pt-2 flex justify-end">
                         <FluentButton Appearance="Appearance.Accent"
-                                      Disabled="@(_editableTask is null || !IsMoveTargetDifferentList)"
+                                      Disabled="@(_editableTask is null || !CanWriteToList() || !IsMoveTargetDifferentList || _moveBusy)"
                                       OnClick="MoveTaskAsync">
                             @L["Task_Move_Btn"]
                         </FluentButton>
@@ -1340,7 +1355,7 @@
 
     private bool CanWriteToList()
     {
-        if (List is null) return true;
+        if (List is null || List.Id != ListId) return false;
 
         var uid = (_userId ?? "").Trim();
         if (string.IsNullOrWhiteSpace(uid)) return false;
@@ -1352,7 +1367,7 @@
             (!string.IsNullOrWhiteSpace(x.UserId) && string.Equals(x.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
             || (!string.IsNullOrWhiteSpace(x.Email) && string.Equals(x.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
 
-        if (p is null) return false;
+        if (p is null || p.InvitationPending) return false;
         return p.Role != ListRole.Observer;
     }
 
@@ -1365,6 +1380,7 @@
     private sealed record AssigneeOption(string UserId, string Display);
     private List<AssigneeOption> _assigneeOptions = new();
     private bool _approvalBusy;
+    private bool _watchBusy;
     private string? _approvalError;
     private string _assigneeParticipantFingerprint = string.Empty;
 
@@ -1385,6 +1401,11 @@
     private bool _dirty = false;
     private bool _saveInProgress = false;
     private int _editRevision = 0;
+    private int _taskContextVersion;
+    private bool _closeBusy;
+    private bool _moveBusy;
+    private bool _deleteBusy;
+    private bool _checklistBusy;
 
     // ✅ Add-Menü (Zu Karte hinzufügen)
     private bool _addMenuOpen = false;
@@ -1459,7 +1480,7 @@
         _addMenuOpen = false;
         _showDatesSection = true;
 
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         if (_editableTask.StartDate is null)
             _editableTask.StartDate = DateTime.Today;
@@ -1477,7 +1498,7 @@
         _addMenuOpen = false;
         _showReminderSection = true;
 
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         // Default: heute 09:00 lokal, aber nur wenn noch keine Erinnerung gesetzt ist
         if (_editableTask.ReminderAtUtc is null)
@@ -1494,7 +1515,7 @@
     // ✅ Entfernen-Buttons / Clear-Handler
     private void ClearLabels()
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.LabelLinks ??= new List<TodoTaskLabelEntity>();
         _editableTask.LabelLinks.Clear();
@@ -1509,7 +1530,7 @@
     private async Task ClearChecklistAsync()
     {
         _error = "";
-        if (_editableTask is null) return;
+        if (_editableTask is null || _checklistBusy || !CanWriteToList()) return;
 
         _editableTask.Steps ??= new List<TodoStepEntity>();
 
@@ -1524,30 +1545,41 @@
 
         try
         {
+            _checklistBusy = true;
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
             var ok = await JS.InvokeAsync<bool>(
                 "confirm",
                 L["Err_TaskChecklistClearConfirm"].Value.Replace("\\n", "\n"));
 
             if (!ok) return;
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
+            if (!await FlushPendingTaskEditsAsync()) return;
 
             _stepMenuOpenFor = null;
 
             var steps = _editableTask.Steps.ToList();
             foreach (var s in steps)
             {
-                var removed = await StepService.RemoveStepAsync(_userId, ListId, _editableTask.Id, s.Id);
+                var removed = await StepService.RemoveStepAsync(_userId, listId, taskId, s.Id, _taskContextCts.Token);
+                if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
                 if (!removed)
                 {
                     _error = string.Format(L["Err_TaskChecklistClearStep"].Value, s.Title, s.Id);
                     break;
                 }
+
+                var localStep = _editableTask.Steps.FirstOrDefault(step => step.Id == s.Id);
+                if (localStep is not null)
+                    _editableTask.Steps.Remove(localStep);
             }
 
-            // Lokal leeren (UI)
-            _editableTask.Steps.Clear();
-
-            _showChecklistSection = false;
-            _showAddStep = false;
+            if (_editableTask.Steps.Count == 0)
+            {
+                _showChecklistSection = false;
+                _showAddStep = false;
+            }
 
             if (OnTaskUpdated.HasDelegate)
                 await OnTaskUpdated.InvokeAsync(_editableTask);
@@ -1555,17 +1587,22 @@
             SyncSectionVisibilityFromData();
             await InvokeAsync(StateHasChanged);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_TaskChecklistClear"].Value, ex.Message);
             await InvokeAsync(StateHasChanged);
+        }
+        finally
+        {
+            _checklistBusy = false;
         }
     }
 
 
     private async Task ClearMembers()
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.MemberUserIds ??= new List<string>();
         _editableTask.MemberUserIds.Clear();
@@ -1579,7 +1616,7 @@
 
     private void ClearDateOnly()
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.StartDate = null;
         _editableTask.DueDate = null;
@@ -1592,7 +1629,7 @@
 
     private void ClearReminderOnly()
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.ReminderAtUtc = null;
         _reminderLocalDate = null;
@@ -1608,7 +1645,7 @@
     public async Task CloseFromOutsideClick()
     {
         if (_isDisposed || !IsDialogOpen) return;
-        if (_isUploading) return;
+        if (_isUploading || _attachmentsBeingDownloaded.Count > 0 || _moveBusy || _deleteBusy || _approvalBusy || _closeBusy) return;
 
         if (_cardStyleOpen)
         {
@@ -1624,8 +1661,28 @@
             return;
         }
 
-        if (OnClose.HasDelegate)
-            await OnClose.InvokeAsync();
+        await RequestCloseAsync();
+    }
+
+    private async Task RequestCloseAsync()
+    {
+        if (_isDisposed || _closeBusy || _isUploading || _attachmentsBeingDownloaded.Count > 0 || _moveBusy || _deleteBusy || _approvalBusy)
+            return;
+
+        _closeBusy = true;
+        try
+        {
+            CancelPendingAutosave();
+            if (_dirty && !await SaveTaskInternalAsync())
+                return;
+
+            if (OnClose.HasDelegate)
+                await OnClose.InvokeAsync();
+        }
+        finally
+        {
+            _closeBusy = false;
+        }
     }
 
     private async Task SyncOutsideClickCloseHookAsync()
@@ -1706,6 +1763,7 @@
     private int _appliedInitialTabVersion = -1;
 
     private HubConnection? _hubConnection;
+    private Guid _hubSubscribedListId;
 
     /* Schritte */
     private bool _showAddStep = false;
@@ -1715,15 +1773,20 @@
     /* Kommentare */
     private string _newCommentMessage = "";
     private bool _commentSubmitting;
+    private readonly HashSet<Guid> _commentsBeingRemoved = [];
 
     /* Upload */
     private ElementReference _scrollHost;
     private const long MaxUploadBytes = 25 * 1024 * 1024;
     private bool _isUploading = false;
     private readonly List<string> _uploadErrors = new();
+    private readonly HashSet<Guid> _attachmentsBeingRemoved = [];
+    private readonly HashSet<Guid> _attachmentsBeingDownloaded = [];
 
     /* Lifecycle-Schutz */
     private bool _isDisposed = false;
+    private readonly CancellationTokenSource _lifetimeCts = new();
+    private CancellationTokenSource _taskContextCts = new();
 
     // Autosave
     private CancellationTokenSource? _autosaveCts;
@@ -1811,7 +1874,8 @@
         _confirmTaskTitle = taskTitle ?? "";
         _confirmActionText = actionText;
         _confirmAppearance = appearance;
-        _confirmTcs = new TaskCompletionSource<bool>();
+        _confirmTcs?.TrySetResult(false);
+        _confirmTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         _confirmDialogOpen = true;
         StateHasChanged();
         return _confirmTcs.Task;
@@ -1925,13 +1989,20 @@
     private async Task MoveTaskAsync()
     {
         _error = "";
-        if (_editableTask is null) return;
+        if (_editableTask is null || _moveBusy || !CanWriteToList()) return;
 
         if (_moveTargetListId == Guid.Empty || _moveTargetListId == ListId)
             return;
 
         try
         {
+            _moveBusy = true;
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var sourceListId = ListId;
+            var targetListId = _moveTargetListId;
+            var targetColumn = _moveTargetColumn;
+
             var ok = await ShowConfirmDialogAsync(
                 L["Task_Move_Title"].Value,
                 "Aufgabe wirklich verschieben?",
@@ -1939,19 +2010,22 @@
                 "Verschieben",
                 Appearance.Accent);
             if (!ok) return;
-
-            if (_dirty)
-                await SaveTaskInternalAsync();
+            if (!IsCurrentTaskContext(contextVersion, taskId, sourceListId)) return;
 
             CancelPendingAutosave();
-            _dirty = false;
+            if (_dirty && !await SaveTaskInternalAsync())
+                return;
+            if (!IsCurrentTaskContext(contextVersion, taskId, sourceListId)) return;
 
             var moved = await TaskService.MoveTaskToListAsync(
                 _userId,
-                fromListId: ListId,
-                toListId: _moveTargetListId,
-                taskId: _editableTask.Id,
-                desiredTargetColumn: _moveTargetColumn);
+                fromListId: sourceListId,
+                toListId: targetListId,
+                taskId: taskId,
+                desiredTargetColumn: targetColumn,
+                cancellationToken: _taskContextCts.Token);
+
+            if (!IsCurrentTaskContext(contextVersion, taskId, sourceListId)) return;
 
             if (moved is null)
             {
@@ -1959,9 +2033,9 @@
                 return;
             }
 
-            moved.ListId = _moveTargetListId;
-            if (!string.IsNullOrWhiteSpace(_moveTargetColumn))
-                moved.Column = _moveTargetColumn;
+            moved.ListId = targetListId;
+            if (!string.IsNullOrWhiteSpace(targetColumn))
+                moved.Column = targetColumn;
 
             if (OnTaskMoved.HasDelegate)
                 await OnTaskMoved.InvokeAsync(moved);
@@ -1970,9 +2044,14 @@
 
             await OnClose.InvokeAsync();
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_TaskMove"].Value, ex.Message);
+        }
+        finally
+        {
+            _moveBusy = false;
         }
     }
 
@@ -2033,7 +2112,7 @@
 
     private void RemoveMember(string userId)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.MemberUserIds ??= new List<string>();
         var existing = _editableTask.MemberUserIds
@@ -2052,6 +2131,8 @@
 
         if (Task is null)
         {
+            if (_editableTask is not null || _taskId is not null)
+                BeginNewTaskContext();
             _editableTask = null;
             _taskId = null;
             _labelPickerOpen = false;
@@ -2066,6 +2147,7 @@
 
         if (_taskId != Task.Id || _editableTask is null)
         {
+            BeginNewTaskContext();
             _suppressAutosave = true;
             _editableTask = CloneTask(Task);
 
@@ -2154,6 +2236,7 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try { await SyncOutsideClickCloseHookAsync(); } catch { }
+        try { await EnsureHubSubscriptionAsync(); } catch { }
 
         if (firstRender)
         {
@@ -2196,7 +2279,7 @@
 
     private void SetCardColor(string? hex)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.CardColor = hex;
         if (!string.IsNullOrWhiteSpace(hex) && _editableTask.CardColorMode == 0)
@@ -2207,7 +2290,7 @@
 
     private void SetCardColorMode(TaskCardColorMode mode)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
         _editableTask.CardColorMode = mode;
         ScheduleAutosave(200);
     }
@@ -2217,11 +2300,21 @@
 
     private async Task ToggleTaskWatchingAsync()
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || _watchBusy) return;
 
+        var contextVersion = _taskContextVersion;
+        var taskId = _editableTask.Id;
+        var listId = ListId;
+        var token = _taskContextCts.Token;
         var watch = !IsWatchingTask;
-        if (await TaskService.SetTaskWatchingAsync(_userId, ListId, _editableTask.Id, watch))
+        _watchBusy = true;
+        try
         {
+            if (CanWriteToList() && !await FlushPendingTaskEditsAsync()) return;
+            if (!await TaskService.SetTaskWatchingAsync(_userId, listId, taskId, watch, token)
+                || !IsCurrentTaskContext(contextVersion, taskId, listId))
+                return;
+
             _editableTask.Watchers ??= new List<TodoTaskWatcherEntity>();
             var existing = _editableTask.Watchers.FirstOrDefault(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase));
             if (watch && existing is null)
@@ -2230,17 +2323,27 @@
                 _editableTask.Watchers.Remove(existing);
 
             if (OnTaskUpdated.HasDelegate)
-                await OnTaskUpdated.InvokeAsync(_editableTask);
+                await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _watchBusy = false; }
     }
 
     private async Task LoadAssigneeOptionsAsync()
     {
+        if (_editableTask is null) return;
+        var contextVersion = _taskContextVersion;
+        var taskId = _editableTask.Id;
+        var listId = ListId;
+        var token = _taskContextCts.Token;
+
         try
         {
-            var list = List?.Id == ListId
+            var list = List?.Id == listId
                 ? List
-                : await ListService.GetListAsync(_userId, ListId);
+                : await ListService.GetListAsync(_userId, listId, token);
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
 
             var assigneeOptions = new List<AssigneeOption>();
             var memberOptions = new List<MemberOption>();
@@ -2252,7 +2355,7 @@
                     candidates.AddRange(list.Participants);
 
                 var normalized = candidates
-                    .Where(p => !string.IsNullOrWhiteSpace(p.UserId) && !LooksLikeEmail(p.UserId))
+                    .Where(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId) && !LooksLikeEmail(p.UserId))
                     .GroupBy(p => p.UserId!, StringComparer.OrdinalIgnoreCase)
                     .Select(g =>
                     {
@@ -2298,13 +2401,15 @@
 
             await InvokeAsync(StateHasChanged);
 
-            var listsAll = await ListService.GetListOptionsAsync(_userId);
+            var listsAll = await ListService.GetListOptionsAsync(_userId, token);
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
 
             _listOptions = listsAll
                 .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(l => new ListOption(l.Id, l.Name))
                 .ToList();
         }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch
         {
             // bewusst still
@@ -2327,7 +2432,7 @@
 
     private void ScheduleAutosave(int debounceMs = 500)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
         if (_suppressAutosave) return;
 
         _dirty = true;
@@ -2339,6 +2444,9 @@
         var token = _autosaveCts.Token;
 
         var revisionAtSchedule = _editRevision;
+        var contextAtSchedule = _taskContextVersion;
+        var taskIdAtSchedule = _editableTask.Id;
+        var listIdAtSchedule = ListId;
 
         _ = global::System.Threading.Tasks.Task.Run(async () =>
         {
@@ -2349,6 +2457,7 @@
                 if (_isDisposed) return;
 
                 if (revisionAtSchedule != _editRevision) return;
+                if (!IsCurrentTaskContext(contextAtSchedule, taskIdAtSchedule, listIdAtSchedule)) return;
 
                 await InvokeAsync(SaveTaskInternalAsync);
             }
@@ -2364,25 +2473,42 @@
         _autosaveCts = null;
     }
 
-    private async Task SaveTaskInternalAsync()
+    private async Task<bool> FlushPendingTaskEditsAsync()
     {
-        if (_editableTask is null) return;
-        if (!_dirty) return;
-        if (_isDisposed) return;
+        CancelPendingAutosave();
+        return !_dirty || await SaveTaskInternalAsync();
+    }
+
+    private async Task<bool> SaveTaskInternalAsync()
+    {
+        if (_editableTask is null || !_dirty) return true;
+        if (_isDisposed || !CanWriteToList()) return false;
+
+        var contextVersion = _taskContextVersion;
+        var taskId = _editableTask.Id;
+        var listId = ListId;
+        var contextToken = _taskContextCts.Token;
 
         var gateEntered = false;
 
         try
         {
-            await _saveGate.WaitAsync();
+            await _saveGate.WaitAsync(contextToken);
             gateEntered = true;
         }
-        catch (ObjectDisposedException)
+        catch (OperationCanceledException)
         {
-            return;
+            return false;
+        }
+
+        if (!IsCurrentTaskContext(contextVersion, taskId, listId))
+        {
+            _saveGate.Release();
+            return false;
         }
 
         _saveInProgress = true;
+        var saved = false;
 
         try
         {
@@ -2399,9 +2525,18 @@
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var updated = await TaskService.UpdateTaskAsync(_userId, ListId, snapshot);
+            var updated = await TaskService.UpdateTaskAsync(_userId, listId, snapshot, contextToken);
 
-            if (updated is not null && saveRevision == _editRevision)
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId))
+                return false;
+
+            if (updated is null)
+            {
+                _error = L["Err_TaskDeleteNotFound"].Value;
+                return false;
+            }
+
+            if (saveRevision == _editRevision)
             {
                 _suppressAutosave = true;
                 _editableTask = CloneTask(updated);
@@ -2409,6 +2544,17 @@
                 // a response whose navigation collection still reflects the pre-save state.
                 // The successfully submitted snapshot is authoritative for this edit revision.
                 _editableTask.MemberUserIds = snapshot.MemberUserIds.ToList();
+                _editableTask.Members = snapshot.MemberUserIds
+                    .Select(userId => updated.Members?.FirstOrDefault(member =>
+                            string.Equals(member.UserId, userId, StringComparison.OrdinalIgnoreCase))
+                        ?? new TodoTaskMemberEntity { TaskId = taskId, UserId = userId })
+                    .Select(member => new TodoTaskMemberEntity
+                    {
+                        Id = member.Id,
+                        TaskId = taskId,
+                        UserId = member.UserId
+                    })
+                    .ToList();
                 _suppressAutosave = false;
 
                 _dirty = false;
@@ -2416,32 +2562,48 @@
                 SyncSectionVisibilityFromData();
 
                 if (OnTaskUpdated.HasDelegate)
-                    await OnTaskUpdated.InvokeAsync(updated);
+                    await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
             }
+            else if (_editableTask is not null)
+            {
+                // A newer local edit happened while this request was running. Keep those fields,
+                // but advance the optimistic-concurrency metadata before saving the newer revision.
+                _editableTask.SyncToken = updated.SyncToken;
+                _editableTask.SyncVersion = updated.SyncVersion;
+                _editableTask.ContentVersion = updated.ContentVersion;
+                ScheduleAutosave(50);
+            }
+
+            saved = true;
         }
+        catch (OperationCanceledException) when (contextToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            _error = string.Format(L["Err_TaskSave"].Value, ex.Message);
+            if (IsCurrentTaskContext(contextVersion, taskId, listId))
+                _error = string.Format(L["Err_TaskSave"].Value, ex.Message);
         }
         finally
         {
-            _saveInProgress = false;
+            if (IsCurrentTaskContext(contextVersion, taskId, listId))
+                _saveInProgress = false;
             if (gateEntered)
                 _saveGate.Release();
         }
+
+        return saved && !_dirty;
     }
 
     // Field handlers
-    private void OnTitleChanged(string? v) { if (_editableTask is null) return; _editableTask.Title = v ?? ""; ScheduleAutosave(); }
-    private void OnDescriptionChanged(string? v) { if (_editableTask is null) return; _editableTask.Description = v; ScheduleAutosave(); }
-    private void OnColumnChanged(string? v) { if (_editableTask is null) return; _editableTask.Column = v ?? _editableTask.Column; ScheduleAutosave(200); }
+    private void OnTitleChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Title = v ?? ""; ScheduleAutosave(); }
+    private void OnDescriptionChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Description = v; ScheduleAutosave(); }
+    private void OnColumnChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Column = v ?? _editableTask.Column; ScheduleAutosave(200); }
 
-    private void OnStartDateChanged(DateTime? v) { if (_editableTask is null) return; _editableTask.StartDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
-    private void OnDueDateChanged(DateTime? v) { if (_editableTask is null) return; _editableTask.DueDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
+    private void OnStartDateChanged(DateTime? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.StartDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
+    private void OnDueDateChanged(DateTime? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.DueDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
 
     private void OnAssigneeUserChanged(string? userId)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         var trimmed = (userId ?? "").Trim();
         _editableTask.Assignee = string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
@@ -2449,8 +2611,8 @@
         ScheduleAutosave(200);
     }
 
-    private void OnRecurrenceChanged(RecurrencePattern v) { if (_editableTask is null) return; _editableTask.Recurrence = v; ScheduleAutosave(200); }
-    private void OnCustomRecurrenceChanged(string? v) { if (_editableTask is null) return; _editableTask.CustomRecurrence = v; ScheduleAutosave(); }
+    private void OnRecurrenceChanged(RecurrencePattern v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Recurrence = v; ScheduleAutosave(200); }
+    private void OnCustomRecurrenceChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.CustomRecurrence = v; ScheduleAutosave(); }
 
     // Members
     private bool IsMemberSelected(string userId)
@@ -2459,7 +2621,7 @@
 
     private void ToggleMember(string userId)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         var trimmed = (userId ?? "").Trim();
         if (string.IsNullOrWhiteSpace(trimmed) || LooksLikeEmail(trimmed)) return;
@@ -2499,7 +2661,7 @@
 
     private void ToggleLabelSelection(Guid labelId)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _editableTask.LabelLinks ??= new List<TodoTaskLabelEntity>();
 
@@ -2515,7 +2677,7 @@
 
     private void RemoveLabel(Guid labelId)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
         var existing = _editableTask.LabelLinks.FirstOrDefault(x => x.LabelId == labelId);
         if (existing is null) return;
 
@@ -2575,23 +2737,27 @@
     private void CancelAddStep() { _showAddStep = false; _newStepTitle = ""; }
     private void ToggleStepMenu(Guid stepId) => _stepMenuOpenFor = _stepMenuOpenFor == stepId ? null : stepId;
 
-    private void OnStepTitleChanged(TodoStepEntity step, string? value) { step.Title = value ?? ""; ScheduleAutosave(); }
-    private void OnStepCompletedChanged(TodoStepEntity step, bool v) { step.IsCompleted = v; ScheduleAutosave(200); }
+    private void OnStepTitleChanged(TodoStepEntity step, string? value) { if (!CanWriteToList()) return; step.Title = value ?? ""; ScheduleAutosave(); }
+    private void OnStepCompletedChanged(TodoStepEntity step, bool v) { if (!CanWriteToList()) return; step.IsCompleted = v; ScheduleAutosave(200); }
 
     private async Task OnNewStepKeyDown(KeyboardEventArgs e)
     {
         if (e.Key != "Enter" || e.ShiftKey) return;
 
         var title = (_newStepTitle ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(title) || _editableTask is null) return;
+        if (string.IsNullOrWhiteSpace(title) || _editableTask is null || !CanWriteToList()) return;
 
         try
         {
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            if (!await FlushPendingTaskEditsAsync()) return;
             _newStepTitle = "";
             _showAddStep = false;
 
-            var added = await StepService.AddStepAsync(_userId, ListId, _editableTask.Id, title);
-            if (added is not null)
+            var added = await StepService.AddStepAsync(_userId, listId, taskId, title, _taskContextCts.Token);
+            if (added is not null && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
                 _editableTask.Steps.Add(added);
                 if (OnTaskUpdated.HasDelegate)
@@ -2600,6 +2766,7 @@
                 SyncSectionVisibilityFromData();
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_StepSave"].Value, ex.Message);
@@ -2611,20 +2778,27 @@
     private async Task DeleteStepAsync(TodoStepEntity step)
     {
         _stepMenuOpenFor = null;
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         try
         {
-            var ok = await StepService.RemoveStepAsync(_userId, ListId, _editableTask.Id, step.Id);
-            if (ok)
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            if (!await FlushPendingTaskEditsAsync()) return;
+            var ok = await StepService.RemoveStepAsync(_userId, listId, taskId, step.Id, _taskContextCts.Token);
+            if (ok && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
-                _editableTask.Steps.Remove(step);
+                var localStep = _editableTask.Steps.FirstOrDefault(s => s.Id == step.Id);
+                if (localStep is not null)
+                    _editableTask.Steps.Remove(localStep);
                 if (OnTaskUpdated.HasDelegate)
                     await OnTaskUpdated.InvokeAsync(_editableTask);
 
                 SyncSectionVisibilityFromData();
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_StepDelete"].Value, ex.Message);
@@ -2634,7 +2808,7 @@
     private async Task MakeStepTaskAsync(TodoStepEntity step)
     {
         _stepMenuOpenFor = null;
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         var title = (step.Title ?? "").Trim();
         if (string.IsNullOrWhiteSpace(title))
@@ -2645,6 +2819,10 @@
 
         try
         {
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            if (!await FlushPendingTaskEditsAsync()) return;
             var newTask = new TodoTaskEntity
             {
                 Id = Guid.NewGuid(),
@@ -2655,10 +2833,18 @@
                 ListSortOrder = 0
             };
 
-            await TaskService.AddTaskAsync(_userId, ListId, newTask);
+            var addedTask = await TaskService.AddTaskAsync(_userId, listId, newTask, _taskContextCts.Token);
+            if (addedTask is null || !IsCurrentTaskContext(contextVersion, taskId, listId))
+                return;
 
-            var ok = await StepService.RemoveStepAsync(_userId, ListId, _editableTask.Id, step.Id);
-            if (ok) _editableTask.Steps.Remove(step);
+            var ok = await StepService.RemoveStepAsync(_userId, listId, taskId, step.Id, _taskContextCts.Token);
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
+            if (ok)
+            {
+                var localStep = _editableTask.Steps.FirstOrDefault(s => s.Id == step.Id);
+                if (localStep is not null)
+                    _editableTask.Steps.Remove(localStep);
+            }
 
             if (OnTaskUpdated.HasDelegate)
                 await OnTaskUpdated.InvokeAsync(_editableTask);
@@ -2668,6 +2854,7 @@
 
             SyncSectionVisibilityFromData();
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_StepMakeTask"].Value, ex.Message);
@@ -2677,21 +2864,21 @@
     /* Erinnerung */
     private void OnReminderDateChanged(DateTime? date)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
         _reminderLocalDate = date;
         ApplyReminderLocalToTask();
     }
 
     private void OnReminderTimeChanged(ChangeEventArgs e)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
         _reminderLocalTime = (e?.Value?.ToString() ?? "09:00").Trim();
         ApplyReminderLocalToTask();
     }
 
     private void ApplyReminderLocalToTask()
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
 
         _showReminderSection = true;
 
@@ -2779,22 +2966,27 @@
     private async Task AddCommentAsync()
     {
         _error = "";
-        if (_commentSubmitting || _editableTask is null || string.IsNullOrWhiteSpace(_newCommentMessage)) return;
+        if (_commentSubmitting || _editableTask is null || !CanWriteToList() || string.IsNullOrWhiteSpace(_newCommentMessage)) return;
 
         try
         {
             _commentSubmitting = true;
             var message = _newCommentMessage.Trim();
-            var added = await CommentService.AddCommentAsync(_userId, ListId, _editableTask.Id, message);
-            _newCommentMessage = "";
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            if (!await FlushPendingTaskEditsAsync()) return;
+            var added = await CommentService.AddCommentAsync(_userId, listId, taskId, message, _taskContextCts.Token);
 
-            if (added is not null)
+            if (added is not null && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
+                _newCommentMessage = "";
                 _editableTask.Comments.Add(added);
                 if (OnTaskUpdated.HasDelegate)
                     await OnTaskUpdated.InvokeAsync(_editableTask);
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_CommentSave"].Value, ex.Message);
@@ -2808,21 +3000,32 @@
     private async Task RemoveCommentAsync(TodoCommentEntity comment)
     {
         _error = "";
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList() || !_commentsBeingRemoved.Add(comment.Id)) return;
 
         try
         {
-            var ok = await CommentService.RemoveCommentAsync(_userId, ListId, _editableTask.Id, comment.Id);
-            if (ok)
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            if (!await FlushPendingTaskEditsAsync()) return;
+            var ok = await CommentService.RemoveCommentAsync(_userId, listId, taskId, comment.Id, _taskContextCts.Token);
+            if (ok && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
-                _editableTask.Comments.Remove(comment);
+                var localComment = _editableTask.Comments.FirstOrDefault(c => c.Id == comment.Id);
+                if (localComment is not null)
+                    _editableTask.Comments.Remove(localComment);
                 if (OnTaskUpdated.HasDelegate)
                     await OnTaskUpdated.InvokeAsync(_editableTask);
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_CommentDelete"].Value, ex.Message);
+        }
+        finally
+        {
+            _commentsBeingRemoved.Remove(comment.Id);
         }
     }
 
@@ -2831,7 +3034,12 @@
     {
         _error = "";
         _uploadErrors.Clear();
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
+
+        var contextVersion = _taskContextVersion;
+        var taskId = _editableTask.Id;
+        var listId = ListId;
+        if (!await FlushPendingTaskEditsAsync()) return;
 
         IReadOnlyList<IBrowserFile> files;
         try
@@ -2854,11 +3062,13 @@
             foreach (var file in files)
             {
                 if (_isDisposed) break;
-                var fileError = await UploadOneAsync(file);
+                if (!IsCurrentTaskContext(contextVersion, taskId, listId)) break;
+                var fileError = await UploadOneAsync(file, contextVersion, taskId, listId);
                 if (fileError is not null)
                     _uploadErrors.Add(fileError);
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_Upload"].Value, ex.Message);
@@ -2871,9 +3081,9 @@
         }
     }
 
-    private async Task<string?> UploadOneAsync(IBrowserFile file)
+    private async Task<string?> UploadOneAsync(IBrowserFile file, int contextVersion, Guid taskId, Guid listId)
     {
-        if (_editableTask is null) return null;
+        if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return null;
 
         try
         {
@@ -2881,17 +3091,18 @@
 
             var added = await AttachmentService.AddAttachmentAsync(
                 _userId,
-                ListId,
-                _editableTask.Id,
+                listId,
+                taskId,
                 file.Name,
-                stream);
+                stream,
+                _taskContextCts.Token);
 
-            if (added is not null)
+            if (added is not null && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
-                _editableTask.Attachments.Add(added);
+                _editableTask!.Attachments.Add(added);
 
                 if (OnTaskUpdated.HasDelegate)
-                    await OnTaskUpdated.InvokeAsync(_editableTask);
+                    await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
             }
 
             return null;
@@ -2899,6 +3110,10 @@
         catch (IOException)
         {
             return string.Format(L["Err_UploadFileTooLarge"].Value, file.Name, MaxUploadBytes / 1024 / 1024);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
         }
         catch (Exception ex)
         {
@@ -2909,32 +3124,48 @@
     private async Task RemoveAttachmentAsync(TodoAttachmentEntity attachment)
     {
         _error = "";
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList() || !_attachmentsBeingRemoved.Add(attachment.Id)) return;
 
         try
         {
-            var ok = await AttachmentService.RemoveAttachmentAsync(_userId, ListId, _editableTask.Id, attachment.Id);
-            if (ok)
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            if (!await FlushPendingTaskEditsAsync()) return;
+            var ok = await AttachmentService.RemoveAttachmentAsync(_userId, listId, taskId, attachment.Id, _taskContextCts.Token);
+            if (ok && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
-                _editableTask.Attachments.Remove(attachment);
+                var localAttachment = _editableTask.Attachments.FirstOrDefault(a => a.Id == attachment.Id);
+                if (localAttachment is not null)
+                    _editableTask.Attachments.Remove(localAttachment);
                 if (OnTaskUpdated.HasDelegate)
                     await OnTaskUpdated.InvokeAsync(_editableTask);
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_AttachmentRemove"].Value, ex.Message);
+        }
+        finally
+        {
+            _attachmentsBeingRemoved.Remove(attachment.Id);
         }
     }
 
     private async Task DownloadAttachmentAsync(TodoAttachmentEntity attachment)
     {
         _error = "";
-        if (_editableTask is null) return;
+        if (_editableTask is null || !_attachmentsBeingDownloaded.Add(attachment.Id)) return;
 
         try
         {
-            var result = await AttachmentService.GetAttachmentStreamAsync(_userId, ListId, attachment.Id);
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            var token = _taskContextCts.Token;
+            var result = await AttachmentService.GetAttachmentStreamAsync(_userId, listId, attachment.Id, token);
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
             if (result is null)
             {
                 _error = L["Err_DownloadNotFound"].Value;
@@ -2942,14 +3173,21 @@
             }
 
             await using var stream = result.Value.Stream;
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            var base64 = Convert.ToBase64String(ms.ToArray());
-            await JS.InvokeVoidAsync("todoUi.downloadFileFromBase64", result.Value.FileName, "application/octet-stream", base64);
+            using var streamReference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync(
+                "todoUi.downloadFileFromStream",
+                result.Value.FileName,
+                "application/octet-stream",
+                streamReference);
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_Download"].Value, ex.Message);
+        }
+        finally
+        {
+            _attachmentsBeingDownloaded.Remove(attachment.Id);
         }
     }
 
@@ -2965,7 +3203,7 @@
             {
                 if (_isDisposed) return;
                 if (listId != ListId || _taskId != taskId) return;
-                if (_saveInProgress || _dirty) return;
+                if (_saveInProgress || _dirty || _commentSubmitting || _commentsBeingRemoved.Count > 0) return;
                 try { await InvokeAsync(RefreshTaskAsync); } catch { }
             });
 
@@ -2973,13 +3211,24 @@
             {
                 if (_isDisposed) return;
                 if (listId != ListId || _taskId != taskId) return;
-                if (_saveInProgress || _dirty) return;
+                if (_saveInProgress || _dirty || _isUploading || _attachmentsBeingRemoved.Count > 0) return;
                 try { await InvokeAsync(RefreshTaskAsync); } catch { }
             });
 
-            await _hubConnection.StartAsync();
-            await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
-            await _hubConnection.SendAsync(TodoHub.SubscribeToList, ListId);
+            _hubConnection.Reconnected += async _ =>
+            {
+                _hubSubscribedListId = Guid.Empty;
+                try
+                {
+                    await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId, _lifetimeCts.Token);
+                    await EnsureHubSubscriptionAsync();
+                }
+                catch { }
+            };
+
+            await _hubConnection.StartAsync(_lifetimeCts.Token);
+            await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId, _lifetimeCts.Token);
+            await EnsureHubSubscriptionAsync();
         }
         catch
         {
@@ -2992,8 +3241,13 @@
         if (_taskId is null) return;
         if (_saveInProgress || _dirty) return;
 
-        var list = await ListService.GetListAsync(_userId, ListId);
-        var updated = list?.Tasks.FirstOrDefault(t => t.Id == _taskId);
+        var contextVersion = _taskContextVersion;
+        var taskId = _taskId.Value;
+        var listId = ListId;
+        var token = _taskContextCts.Token;
+        var list = await ListService.GetListAsync(_userId, listId, token);
+        if (!IsCurrentTaskContext(contextVersion, taskId, listId) || _saveInProgress || _dirty) return;
+        var updated = list?.Tasks.FirstOrDefault(t => t.Id == taskId);
 
         if (updated is not null)
         {
@@ -3016,11 +3270,62 @@
             SyncSectionVisibilityFromData();
 
             if (OnTaskUpdated.HasDelegate)
-                await OnTaskUpdated.InvokeAsync(updated);
+                await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
 
             StateHasChanged();
         }
     }
+
+    private async Task EnsureHubSubscriptionAsync()
+    {
+        if (_hubConnection?.State != HubConnectionState.Connected || ListId == Guid.Empty || _hubSubscribedListId == ListId)
+            return;
+
+        var listId = ListId;
+        await _hubConnection.SendAsync(TodoHub.SubscribeToList, listId, _lifetimeCts.Token);
+        _hubSubscribedListId = listId;
+    }
+
+    private void BeginNewTaskContext()
+    {
+        CancelPendingAutosave();
+        try { _taskContextCts.Cancel(); } catch { }
+        _taskContextCts.Dispose();
+        _taskContextCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
+        _taskContextVersion++;
+        _editRevision = 0;
+        _dirty = false;
+        _error = "";
+        _approvalError = null;
+        _newCommentMessage = "";
+        _commentSubmitting = false;
+        _commentsBeingRemoved.Clear();
+        _uploadErrors.Clear();
+        _attachmentsBeingRemoved.Clear();
+        _attachmentsBeingDownloaded.Clear();
+        _showAddStep = false;
+        _newStepTitle = "";
+        _stepMenuOpenFor = null;
+        _actionsOpen = false;
+        _moveDialogOpen = false;
+        _cardStyleOpen = false;
+        _confirmDialogOpen = false;
+        _confirmTcs?.TrySetResult(false);
+        _confirmTcs = null;
+        _closeBusy = false;
+        _moveBusy = false;
+        _deleteBusy = false;
+        _checklistBusy = false;
+        _approvalBusy = false;
+        _watchBusy = false;
+        _saveInProgress = false;
+    }
+
+    private bool IsCurrentTaskContext(int contextVersion, Guid taskId, Guid listId)
+        => !_isDisposed
+           && contextVersion == _taskContextVersion
+           && _editableTask?.Id == taskId
+           && ListId == listId;
 
     private async Task DecideApprovalAsync(bool approved)
     {
@@ -3031,10 +3336,16 @@
         _approvalError = null;
         try
         {
-            if (_dirty)
-                await SaveTaskInternalAsync();
             CancelPendingAutosave();
-            var updated = await TaskService.DecideApprovalAsync(_userId, ListId, _editableTask.Id, approved);
+            if (_dirty && !await SaveTaskInternalAsync())
+                return;
+
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
+            var token = _taskContextCts.Token;
+            var updated = await TaskService.DecideApprovalAsync(_userId, listId, taskId, approved, token);
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
             if (updated is null)
             {
                 _approvalError = ApprovalUiText("not-found");
@@ -3047,8 +3358,9 @@
             SyncSectionVisibilityFromData();
 
             if (OnTaskUpdated.HasDelegate)
-                await OnTaskUpdated.InvokeAsync(updated);
+                await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _approvalError = ex.Message;
@@ -3105,6 +3417,11 @@
             Id = task.Id,
             SyncToken = task.SyncToken,
             SyncVersion = task.SyncVersion,
+            ContentVersion = task.ContentVersion,
+            ListId = task.ListId,
+            CreatedAtUtc = task.CreatedAtUtc,
+            DeletedAt = task.DeletedAt,
+            DeletedByUserId = task.DeletedByUserId,
             Title = task.Title,
             Description = task.Description,
             StartDate = task.StartDate,
@@ -3132,10 +3449,16 @@
             ListSortOrder = task.ListSortOrder,
             KanbanSortOrder = task.KanbanSortOrder,
 
-            MemberUserIds = (task.MemberUserIds ?? new List<string>())
+            MemberUserIds = (task.MemberUserIds is { Count: > 0 } memberIds
+                    ? memberIds
+                    : (task.Members ?? new List<TodoTaskMemberEntity>()).Select(m => m.UserId).ToList())
                 .Select(x => (x ?? "").Trim())
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+
+            Members = (task.Members ?? new List<TodoTaskMemberEntity>())
+                .Select(m => new TodoTaskMemberEntity { Id = m.Id, TaskId = task.Id, UserId = m.UserId })
                 .ToList(),
 
             Watchers = (task.Watchers ?? new List<TodoTaskWatcherEntity>())
@@ -3146,11 +3469,14 @@
                 .Select(x => new TodoTaskLabelEntity { TaskId = task.Id, LabelId = x.LabelId })
                 .ToList(),
 
-            Attachments = task.Attachments.Select(a => new TodoAttachmentEntity { Id = a.Id, FileName = a.FileName, Url = a.Url }).ToList(),
+            Attachments = (task.Attachments ?? new List<TodoAttachmentEntity>())
+                .Select(a => new TodoAttachmentEntity { Id = a.Id, TaskId = task.Id, FileName = a.FileName, Url = a.Url })
+                .ToList(),
             Steps = (task.Steps ?? new List<TodoStepEntity>())
             .Select(s => new TodoStepEntity { Id = s.Id, Title = s.Title, IsCompleted = s.IsCompleted, CreatedAtUtc = s.CreatedAtUtc, TaskId = task.Id })
             .ToList(),
-            Comments = task.Comments.Select(c => new TodoCommentEntity { Id = c.Id, Message = c.Message, Author = c.Author, AuthorUserId = c.AuthorUserId, CreatedAt = c.CreatedAt, TaskId = task.Id }).ToList()
+            Comments = (task.Comments ?? new List<TodoCommentEntity>())
+                .Select(c => new TodoCommentEntity { Id = c.Id, Message = c.Message, Author = c.Author, AuthorUserId = c.AuthorUserId, CreatedAt = c.CreatedAt, TaskId = task.Id }).ToList()
             ,
             CustomFieldValues = (task.CustomFieldValues ?? new List<TodoTaskCustomFieldValueEntity>())
                 .Select(v => new TodoTaskCustomFieldValueEntity { Id = v.Id, TaskId = task.Id, FieldId = v.FieldId, Value = v.Value })
@@ -3166,7 +3492,7 @@
 
     private void OnCustomFieldChanged(TodoCustomFieldDefinitionEntity field, object? rawValue)
     {
-        if (_editableTask is null) return;
+        if (_editableTask is null || !CanWriteToList()) return;
         _editableTask.CustomFieldValues ??= new List<TodoTaskCustomFieldValueEntity>();
 
         var value = field.Type == TodoCustomFieldType.Checkbox
@@ -3206,10 +3532,14 @@
     private async Task DeleteTaskWithConfirmAsync()
     {
         _error = "";
-        if (_editableTask is null) return;
+        if (_editableTask is null || _deleteBusy || !CanWriteToList()) return;
 
         try
         {
+            _deleteBusy = true;
+            var contextVersion = _taskContextVersion;
+            var taskId = _editableTask.Id;
+            var listId = ListId;
             var ok = await ShowConfirmDialogAsync(
                 L["Task_DeleteTask"].Value,
                 "Aufgabe wirklich löschen?",
@@ -3217,47 +3547,66 @@
                 "Löschen",
                 Appearance.Accent);
             if (!ok) return;
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
 
             CancelPendingAutosave();
-            _dirty = false;
 
-            var deleted = await TaskService.DeleteTaskAsync(_userId, ListId, _editableTask.Id);
+            var deleted = await TaskService.DeleteTaskAsync(_userId, listId, taskId, _taskContextCts.Token);
+            if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
             if (!deleted)
             {
                 _error = L["Err_TaskDeleteNotFound"].Value;
                 return;
             }
 
+            _dirty = false;
+
             if (OnListChanged.HasDelegate)
                 await OnListChanged.InvokeAsync();
 
             await OnClose.InvokeAsync();
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _error = string.Format(L["Err_TaskDelete"].Value, ex.Message);
+        }
+        finally
+        {
+            _deleteBusy = false;
         }
     }
 
     private async Task ToggleDoneAsync(TodoTaskEntity t)
     {
         _error = "";
+        if (!CanWriteToList() || _saveInProgress) return;
         t.Done = !t.Done;
+        CancelPendingAutosave();
         _dirty = true;
+        _editRevision++;
         await SaveTaskInternalAsync();
     }
 
     private async Task ToggleImportantAsync(TodoTaskEntity t)
     {
         _error = "";
+        if (!CanWriteToList() || _saveInProgress) return;
         t.IsImportant = !t.IsImportant;
+        CancelPendingAutosave();
         _dirty = true;
+        _editRevision++;
         await SaveTaskInternalAsync();
     }
 
     public async ValueTask DisposeAsync()
     {
         _isDisposed = true;
+
+        _confirmTcs?.TrySetResult(false);
+        _confirmTcs = null;
+        try { _taskContextCts.Cancel(); } catch { }
+        try { _lifetimeCts.Cancel(); } catch { }
 
         try
         {
@@ -3278,5 +3627,7 @@
         }
 
         try { _selfRef?.Dispose(); } catch { }
+        try { _taskContextCts.Dispose(); } catch { }
+        try { _lifetimeCts.Dispose(); } catch { }
     }
 }

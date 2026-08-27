@@ -478,6 +478,27 @@ window.todoUi = window.todoUi || {};
             console.error("Dateidownload fehlgeschlagen", e);
         }
     };
+
+    window.todoUi.downloadFileFromStream = async function (fileName, mimeType, contentStreamReference) {
+        let url = null;
+        try {
+            const buffer = await contentStreamReference.arrayBuffer();
+            const blob = new Blob([buffer], { type: mimeType || "application/octet-stream" });
+            url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fileName || "download";
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (e) {
+            console.error("Dateidownload fehlgeschlagen", e);
+            throw e;
+        } finally {
+            if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+    };
     window.todoUi.showNotification = function (title, body) {
         if (!("Notification" in window)) return;
         if (Notification.permission !== "granted") return;

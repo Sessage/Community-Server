@@ -543,6 +543,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .Include(t => t.CustomFieldValues)
             .FirstAsync(t => t.Id == taskId && t.ListId == listId, cancellationToken);
         result.MemberUserIds = result.Members.Select(member => member.UserId).ToList();
+        result.SyncVersion = result.ContentVersion;
         return result;
     }
 
