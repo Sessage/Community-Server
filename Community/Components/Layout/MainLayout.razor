@@ -50,8 +50,9 @@
 </div>
 
 @code {
-    private bool _showMobileNavigation = true;
+    private bool _showMobileNavigation;
     private bool _navCollapsed = false;
+    private bool _disposed;
     private Action _toggleNavCallback => ToggleNavCollapse;
 
     private void ToggleNavCollapse()
@@ -60,27 +61,25 @@
         StateHasChanged();
     }
 
-    private bool IsListRoute =>
-        Navigation.ToBaseRelativePath(Navigation.Uri)
-                  .StartsWith("list", StringComparison.OrdinalIgnoreCase);
+    private bool IsListRoute
+    {
+        get
+        {
+            var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+            var suffixIndex = relativePath.IndexOfAny(['?', '#']);
+            if (suffixIndex >= 0)
+                relativePath = relativePath[..suffixIndex];
 
-    private static bool IsContentRoute(string relativePath) =>
-        relativePath.StartsWith("list", StringComparison.OrdinalIgnoreCase) ||
-        relativePath == "" ||
-        relativePath.StartsWith("calendar", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("trash", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("dashboards", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("portfolio", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("search", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("konto", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("profile", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("access-tokens", StringComparison.OrdinalIgnoreCase) ||
-        relativePath.StartsWith("admin", StringComparison.OrdinalIgnoreCase);
+            relativePath = relativePath.Trim('/');
+            return relativePath.Equals("list", StringComparison.OrdinalIgnoreCase)
+                || relativePath.StartsWith("list/", StringComparison.OrdinalIgnoreCase);
+        }
+    }
 
     private string MobileShellClass =>
         _showMobileNavigation ? "mobile-nav-visible" : "mobile-content-visible";
 
-    private bool ShowMobileListHeader => !_showMobileNavigation && IsContentRoute(Navigation.ToBaseRelativePath(Navigation.Uri));
+    private bool ShowMobileListHeader => !_showMobileNavigation;
 
     private string MobileHeaderLabel =>
         IsListRoute ? "Listen" : "Menü";
@@ -88,19 +87,22 @@
     protected override void OnInitialized()
     {
         Navigation.LocationChanged += HandleLocationChanged;
-        _showMobileNavigation = !IsContentRoute(Navigation.ToBaseRelativePath(Navigation.Uri));
     }
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        var relativePath = Navigation.ToBaseRelativePath(e.Location);
+        if (_disposed) return;
 
-        // Bei jeder bekannten Inhaltsroute wird auf Mobilgeräten die Navigation
-        // ausgeblendet und die Zielseite sichtbar. Das gilt damit auch für
-        // Konto, Profilbild, API-Zugriffstoken und Administration.
-        _showMobileNavigation = !IsContentRoute(relativePath);
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
 
-        _ = InvokeAsync(StateHasChanged);
+            // Jede Navigation führt zu Inhalt. Dadurch funktionieren auch neue Routen
+            // und Fehlerseiten, ohne in einer zentralen Positivliste gepflegt zu werden.
+            _showMobileNavigation = false;
+            _errorBoundary?.Recover();
+            StateHasChanged();
+        });
     }
 
     private Task ShowMobileNavigation()
@@ -114,5 +116,9 @@
 
     private void RecoverFromError() => _errorBoundary?.Recover();
 
-    public void Dispose() => Navigation.LocationChanged -= HandleLocationChanged;
+    public void Dispose()
+    {
+        _disposed = true;
+        Navigation.LocationChanged -= HandleLocationChanged;
+    }
 }

@@ -138,7 +138,7 @@
 
     private async Task SaveProfilePictureAsync()
     {
-        if (_cropper is null || !_imageReady) return;
+        if (_saving || _cropper is null || !_imageReady) return;
 
         _saving = true;
         _statusMessage = "";
@@ -167,9 +167,9 @@
                 SetError(response.Error ?? "Unbekannter Fehler beim Speichern.");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            SetError($"Fehler: {ex.Message}");
+            SetError("Das Profilbild konnte nicht gespeichert werden.");
         }
         finally
         {
@@ -180,6 +180,8 @@
 
     private async Task DeleteProfilePictureAsync()
     {
+        if (_saving || string.IsNullOrWhiteSpace(_currentPictureUrl)) return;
+
         _saving = true;
         _statusMessage = "";
         StateHasChanged();
@@ -197,9 +199,9 @@
                 SetError(result.Error ?? "Fehler beim Entfernen.");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            SetError($"Fehler: {ex.Message}");
+            SetError("Das Profilbild konnte nicht entfernt werden.");
         }
         finally
         {

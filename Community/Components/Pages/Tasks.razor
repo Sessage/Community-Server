@@ -10,6 +10,8 @@
 @using System.Security.Claims;
 @using Microsoft.AspNetCore.Authorization
 
+<PageTitle>@L["Page_Tasks_Title"]</PageTitle>
+
 <div class="flex flex-col h-full min-h-0 space-y-4">
     <div class="p-4">
         <div class="text-xs uppercase text-slate-500">@L["Page_Tasks_Section"]</div>
@@ -23,6 +25,10 @@
             <FluentProgressRing Style="width:20px;height:20px;" />
             <span>@L["Lbl_Loading"]</span>
         </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="mx-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">@_error</div>
     }
     else if (_taskList.Tasks.Count == 0)
     {
@@ -67,6 +73,7 @@
     private TodoListEntity? _selectedList;
     private Guid _selectedListId;
     private bool _loading = true;
+    private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
@@ -82,6 +89,7 @@
     private async Task LoadAssignedTasksAsync()
     {
         _loading = true;
+        _error = null;
         await InvokeAsync(StateHasChanged);
 
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -136,6 +144,10 @@
                     _selectedListId = Guid.Empty;
                 }
             }
+        }
+        catch
+        {
+            _error = "Die Aufgaben konnten nicht geladen werden. Bitte versuche es erneut.";
         }
         finally
         {

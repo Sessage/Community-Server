@@ -247,31 +247,38 @@
     {
         _loading = true;
         StateHasChanged();
-
-        var allUsers = UserManager.Users.ToList();
-        var result = new List<UserViewModel>();
-
-        foreach (var u in allUsers)
+        try
         {
-            if (!string.IsNullOrWhiteSpace(_searchTerm) &&
-                !(u.Email?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                  u.UserName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                  u.DisplayName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true))
-                continue;
+            var allUsers = UserManager.Users.ToList();
+            var result = new List<UserViewModel>();
 
-            var isAdmin = await UserManager.IsInRoleAsync(u, "Admin");
-            result.Add(new UserViewModel
+            foreach (var u in allUsers)
             {
-                Id = u.Id,
-                UserName = u.UserName,
-                Email = u.Email,
-                DisplayName = u.DisplayName,
-                IsAdmin = isAdmin
-            });
-        }
+                if (!string.IsNullOrWhiteSpace(_searchTerm) &&
+                    !(u.Email?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                      u.UserName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                      u.DisplayName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true))
+                    continue;
 
-        _users = result.OrderBy(u => u.Email, StringComparer.OrdinalIgnoreCase).ToList();
-        _loading = false;
+                var isAdmin = await UserManager.IsInRoleAsync(u, "Admin");
+                result.Add(new UserViewModel
+                {
+                    Id = u.Id, UserName = u.UserName, Email = u.Email,
+                    DisplayName = u.DisplayName, IsAdmin = isAdmin
+                });
+            }
+
+            _users = result.OrderBy(u => u.Email, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Benutzerliste konnte nicht geladen werden.");
+            ShowMessage("Die Benutzerliste konnte nicht geladen werden.", true);
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
     private async Task OnSearchInput(ChangeEventArgs e)
@@ -282,6 +289,8 @@
 
     private async Task SaveUserAsync()
     {
+        if (_saving) return;
+
         _saving = true;
         _message = string.Empty;
         StateHasChanged();
@@ -413,20 +422,33 @@
 
     private async Task ExecuteDeleteAsync()
     {
-        if (_deleteTarget == null) return;
+        if (_deleteTarget == null || _saving) return;
 
-        var user = await UserManager.FindByIdAsync(_deleteTarget.Id);
-        if (user != null)
+        var target = _deleteTarget;
+        _saving = true;
+        try
         {
-            var result = await UserManager.DeleteAsync(user);
-            if (result.Succeeded)
-                ShowMessage($"Benutzer {_deleteTarget.Email} wurde gelöscht.", isError: false);
-            else
-                ShowMessage(string.Join(" ", result.Errors.Select(e => e.Description)), isError: true);
+            var user = await UserManager.FindByIdAsync(target.Id);
+            if (user != null)
+            {
+                var result = await UserManager.DeleteAsync(user);
+                if (result.Succeeded)
+                    ShowMessage($"Benutzer {target.Email} wurde gelöscht.", isError: false);
+                else
+                    ShowMessage(IdentityErrors(result), isError: true);
+            }
+            _deleteTarget = null;
+            await LoadUsersAsync();
         }
-
-        _deleteTarget = null;
-        await LoadUsersAsync();
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Benutzer {UserId} konnte nicht gelöscht werden.", target.Id);
+            ShowMessage("Der Benutzer konnte nicht gelöscht werden.", true);
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private void ShowMessage(string msg, bool isError)

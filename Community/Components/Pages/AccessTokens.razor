@@ -65,7 +65,7 @@
             <div class="flex gap-2">
                 <input type="text"
                        class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                       placeholder="Name des Tokens, z.B. „Meine App""
+                       placeholder="Name des Tokens, z. B. „Meine App“"
                        maxlength="200"
                        @bind="_newTokenName"
                        @onkeydown="OnInputKeyDown" />
@@ -117,12 +117,17 @@
                                     }
                                 </div>
                             </div>
-                            <button type="button"
-                                    class="shrink-0 rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
-                                    @onclick="@(() => DeleteTokenAsync(token.Id))"
-                                    disabled="@_saving">
-                                Löschen
-                            </button>
+                            @if (_deleteTokenId == token.Id)
+                            {
+                                <div class="flex shrink-0 gap-1">
+                                    <button type="button" class="rounded-xl border border-slate-200 px-2 py-1.5 text-xs" @onclick="CancelDelete" disabled="@_saving">Abbrechen</button>
+                                    <button type="button" class="rounded-xl border border-red-300 bg-red-50 px-2 py-1.5 text-xs text-red-700" @onclick="@(() => DeleteTokenAsync(token.Id))" disabled="@_saving">Bestätigen</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <button type="button" class="shrink-0 rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50" @onclick="@(() => _deleteTokenId = token.Id)" disabled="@_saving">Löschen</button>
+                            }
                         </li>
                     }
                 </ul>
@@ -141,6 +146,7 @@
     private bool _saving;
     private string _statusMessage = "";
     private bool _isError;
+    private Guid? _deleteTokenId;
 
     private List<TokenItem> _tokens = [];
 
@@ -152,7 +158,15 @@
         _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
                ?? authState.User.FindFirst("sub")?.Value;
 
-        await LoadTokensAsync();
+        try
+        {
+            await LoadTokensAsync();
+        }
+        catch
+        {
+            _statusMessage = "Die Zugriffstoken konnten nicht geladen werden.";
+            _isError = true;
+        }
     }
 
     private async Task LoadTokensAsync()
@@ -169,10 +183,11 @@
 
     private async Task CreateTokenAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newTokenName) || _userId is null) return;
+        if (_saving || string.IsNullOrWhiteSpace(_newTokenName) || _userId is null) return;
 
         _saving = true;
         _statusMessage = "";
+        _isError = false;
         StateHasChanged();
 
         try
@@ -208,9 +223,9 @@
 
             await LoadTokensAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            _statusMessage = $"Fehler: {ex.Message}";
+            _statusMessage = "Der Zugriffstoken konnte nicht erstellt werden.";
             _isError = true;
         }
         finally
@@ -222,9 +237,11 @@
 
     private async Task DeleteTokenAsync(Guid id)
     {
-        if (_userId is null) return;
+        if (_saving || _userId is null) return;
 
         _saving = true;
+        _statusMessage = "";
+        _isError = false;
         StateHasChanged();
 
         try
@@ -241,14 +258,15 @@
 
             await LoadTokensAsync();
         }
-        catch (Exception ex)
+        catch
         {
-            _statusMessage = $"Fehler: {ex.Message}";
+            _statusMessage = "Der Zugriffstoken konnte nicht gelöscht werden.";
             _isError = true;
         }
         finally
         {
             _saving = false;
+            _deleteTokenId = null;
             StateHasChanged();
         }
     }
@@ -256,9 +274,17 @@
     private async Task CopyNewTokenAsync()
     {
         if (_newToken is null) return;
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newToken);
-        _copied = true;
-        StateHasChanged();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newToken);
+            _copied = true;
+            _statusMessage = "";
+        }
+        catch
+        {
+            _statusMessage = "Der Token konnte nicht in die Zwischenablage kopiert werden.";
+            _isError = true;
+        }
     }
 
     private async Task OnInputKeyDown(KeyboardEventArgs e)
@@ -266,4 +292,6 @@
         if (e.Key == "Enter")
             await CreateTokenAsync();
     }
+
+    private void CancelDelete() => _deleteTokenId = null;
 }

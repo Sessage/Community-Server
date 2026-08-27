@@ -1,5 +1,6 @@
 ﻿@page "/Error"
 @using System.Diagnostics
+@inject IWebHostEnvironment Environment
 
 <PageTitle>@L["Page_Error_Title"]</PageTitle>
 
@@ -13,14 +14,15 @@
     </p>
 }
 
-<h3>@L["Page_Error_DevMode"]</h3>
-<p>
-    @L["Page_Error_DevModeHint"]
-</p>
-<p>
-    <strong>@L["Page_Error_DevModeWarning"]</strong>
-    @L["Page_Error_DevModeEnvVar"]
-</p>
+@if (Environment.IsDevelopment())
+{
+    <h3>@L["Page_Error_DevMode"]</h3>
+    <p>@L["Page_Error_DevModeHint"]</p>
+    <p>
+        <strong>@L["Page_Error_DevModeWarning"]</strong>
+        @L["Page_Error_DevModeEnvVar"]
+    </p>
+}
 
 @code{
     [CascadingParameter]

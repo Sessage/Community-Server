@@ -7,6 +7,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Nav
 @inject IListSharingService SharingService
+@inject ILogger<ShareListAccept> Logger
 
 @attribute [AllowAnonymous]
 
@@ -45,25 +46,24 @@
     private string _error = "";
     private string _info = "";
     private bool _busy;
-    private bool _handled;
+    private string? _handledRequest;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        _busy = true;
-        _error = "";
-        _info = "";
-
-        if (_handled) return;
-        _handled = true;
-
         try
         {
-            // Token aus Query
             var uri = Nav.ToAbsoluteUri(Nav.Uri);
             var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
-
             var token = query.TryGetValue("token", out var t) ? t.ToString() : "";
             token = (token ?? "").Trim();
+            var requestKey = $"{ListId:N}:{token}";
+            if (string.Equals(_handledRequest, requestKey, StringComparison.Ordinal))
+                return;
+
+            _handledRequest = requestKey;
+            _busy = true;
+            _error = "";
+            _info = "";
 
             if (string.IsNullOrWhiteSpace(token))
             {
@@ -77,8 +77,8 @@
 
             if (user?.Identity?.IsAuthenticated != true)
             {
-                // ✅ nach Login wieder hierher zurück (inkl. token)
-                var returnUrl = Uri.EscapeDataString(Nav.Uri);
+                var localReturnUrl = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+                var returnUrl = Uri.EscapeDataString(localReturnUrl);
                 Nav.NavigateTo($"Account/Login?returnUrl={returnUrl}", forceLoad: true);
                 return;
             }
@@ -103,12 +103,12 @@
 
             _info = message;
 
-            // ✅ zur Liste navigieren
             Nav.NavigateTo($"/list/{ListId}");
         }
         catch (Exception ex)
         {
-            _error = $"Share-Link konnte nicht angenommen werden. Details: {ex.Message}";
+            Logger.LogError(ex, "Could not accept share link for list {ListId}.", ListId);
+            _error = "Der Share-Link konnte nicht angenommen werden. Bitte versuche es erneut.";
         }
         finally
         {

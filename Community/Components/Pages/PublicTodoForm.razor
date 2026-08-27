@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.Components.Rendering
 @using System.Security.Claims
 @using System.Security.Cryptography
+@using System.Globalization
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Services
 @inject ITodoFormService FormService
@@ -22,6 +23,10 @@
         @if (_loading)
         {
             <div class="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">@L["PublicForm_Loading"]</div>
+        }
+        else if (_form is null && !string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-800" role="alert">@_error</div>
         }
         else if (_form is null)
         {
@@ -174,6 +179,8 @@
     private DateTime _issuedAtUtc;
     private string? _userId;
     private readonly List<IBrowserFile> _attachments = new();
+    private string? _loadedSlug;
+    private long _loadVersion;
 
     private IEnumerable<TodoFormFieldEntity> OrderedFields =>
         (_form?.Fields ?? []).OrderBy(f => f.SortOrder);
@@ -197,21 +204,52 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _issuedAtUtc = DateTime.UtcNow;
-        _submissionKey = RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
-
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
         _userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? auth.User.FindFirstValue(ClaimTypes.Email);
+    }
 
-        _form = await FormService.GetFormForSubmissionAsync(Slug, _userId);
-        if (_form is not null)
+    protected override async Task OnParametersSetAsync()
+    {
+        var slug = Slug.Trim();
+        if (string.Equals(slug, _loadedSlug, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _loadedSlug = slug;
+        var version = ++_loadVersion;
+        _loading = true;
+        _form = null;
+        _values.Clear();
+        _fieldErrors.Clear();
+        _attachments.Clear();
+        _submitted = false;
+        _passwordVerified = false;
+        _password = _honeypot = _message = _error = _attachmentError = string.Empty;
+        _issuedAtUtc = DateTime.UtcNow;
+        _submissionKey = RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
+
+        try
         {
-            foreach (var field in OrderedFields)
-                _values.TryAdd(FieldKey(field), "");
-        }
+            var form = await FormService.GetFormForSubmissionAsync(slug, _userId);
+            if (version != _loadVersion) return;
 
-        _loading = false;
+            _form = form;
+            if (_form is not null)
+            {
+                foreach (var field in OrderedFields)
+                    _values.TryAdd(FieldKey(field), "");
+            }
+        }
+        catch
+        {
+            if (version == _loadVersion)
+                _error = "Das Formular konnte nicht geladen werden. Bitte versuchen Sie es erneut.";
+        }
+        finally
+        {
+            if (version == _loadVersion)
+                _loading = false;
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -264,9 +302,9 @@
             _submissionKey = RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
             await FocusElementAsync("public-form-heading");
         }
-        catch (Exception ex)
+        catch
         {
-            _error = L["PublicForm_PasswordCheckError", ex.Message];
+            _error = L["PublicForm_PasswordCheckError", ""];
             await FocusElementAsync("public-form-password");
         }
         finally
@@ -326,9 +364,9 @@
                 await FocusElementAsync("public-form-error");
             }
         }
-        catch (Exception ex)
+        catch
         {
-            _error = L["PublicForm_SubmitError", ex.Message];
+            _error = L["PublicForm_SubmitError", ""];
             await FocusElementAsync("public-form-error");
         }
         finally
@@ -813,9 +851,13 @@
     }
 
     private static bool IsRuleSatisfied(TodoFormFieldValidationRule rule, string value)
-        => rule.Type switch
+    {
+        try
         {
-            TodoFormFieldValidationType.Number => decimal.TryParse(value, out _),
+            return rule.Type switch
+            {
+            TodoFormFieldValidationType.Number => decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _)
+                || decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out _),
             TodoFormFieldValidationType.Integer => long.TryParse(value, out _),
             TodoFormFieldValidationType.Email => System.Text.RegularExpressions.Regex.IsMatch(value, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"),
             TodoFormFieldValidationType.Iban => IsValidIban(value),
@@ -825,9 +867,19 @@
             TodoFormFieldValidationType.DateOnOrBefore => DateCompare(value, rule.CompareValue, (input, limit) => input <= limit),
             TodoFormFieldValidationType.MinLength => int.TryParse(rule.CompareValue, out var min) && value.Length >= min,
             TodoFormFieldValidationType.MaxLength => int.TryParse(rule.CompareValue, out var max) && value.Length <= max,
-            TodoFormFieldValidationType.Regex => !string.IsNullOrWhiteSpace(rule.CompareValue) && System.Text.RegularExpressions.Regex.IsMatch(value, rule.CompareValue),
+            TodoFormFieldValidationType.Regex => !string.IsNullOrWhiteSpace(rule.CompareValue) && System.Text.RegularExpressions.Regex.IsMatch(value, rule.CompareValue, System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1)),
             _ => true
-        };
+            };
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
+        {
+            return false;
+        }
+    }
 
     private static bool DateCompare(string value, string? compareValue, Func<DateTime, DateTime, bool> predicate)
         => DateTime.TryParse(value, out var input)

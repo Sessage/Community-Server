@@ -6,6 +6,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject NavigationRefreshNotifier NavigationRefresh
+@inject ILogger<SharePortfolioAccept> Logger
 
 <PageTitle>Portfolio-Einladung</PageTitle>
 <div class="mx-auto max-w-xl p-6">
@@ -21,15 +22,44 @@
     [Parameter] public Guid PortfolioId { get; set; }
     [SupplyParameterFromQuery(Name = "token")] public string? Token { get; set; }
     private bool _busy = true; private bool _success; private string _message = "";
-    protected override async Task OnInitializedAsync()
+    private string? _handledRequest;
+
+    protected override async Task OnParametersSetAsync()
     {
-        var state = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? state.User.FindFirst("sub")?.Value;
-        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(Token)) { _message = "Einladung ist unvollständig."; _busy = false; return; }
-        (_success, _message) = await SharingService.AcceptAsync(userId, PortfolioId, Token);
-        if (_success)
-            await NavigationRefresh.RequestRefreshAsync();
-        _busy = false;
+        var token = Token?.Trim() ?? string.Empty;
+        var requestKey = $"{PortfolioId:N}:{token}";
+        if (string.Equals(_handledRequest, requestKey, StringComparison.Ordinal))
+            return;
+
+        _handledRequest = requestKey;
+        _busy = true;
+        _success = false;
+        _message = string.Empty;
+
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? state.User.FindFirst("sub")?.Value;
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+            {
+                _message = "Einladung ist unvollständig.";
+                return;
+            }
+
+            (_success, _message) = await SharingService.AcceptAsync(userId, PortfolioId, token);
+            if (_success)
+                await NavigationRefresh.RequestRefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not accept portfolio invitation for {PortfolioId}.", PortfolioId);
+            _message = "Die Einladung konnte nicht angenommen werden. Bitte versuche es erneut.";
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
     private void OpenPortfolio() => Navigation.NavigateTo($"/portfolio/{PortfolioId}");
 }

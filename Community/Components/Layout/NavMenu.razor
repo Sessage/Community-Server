@@ -73,7 +73,7 @@
                             <button type="button"
                                     class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 min-w-0"
                                     @onmousedown:preventDefault
-                                    @onmousedown="() => NavigateToSearchResult(item)">
+                                    @onclick="() => NavigateToSearchResult(item)">
                                 <FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" Color="Color.Accent" />
                                 <span class="truncate text-sm">@item.Title</span>
                             </button>
@@ -88,7 +88,7 @@
                             <button type="button"
                                     class="w-full text-left px-3 py-2 hover:bg-slate-50 flex flex-col min-w-0"
                                     @onmousedown:preventDefault
-                                    @onmousedown="() => NavigateToSearchResult(item)">
+                                    @onclick="() => NavigateToSearchResult(item)">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Neutral" />
                                     <span class="truncate text-sm">@item.Title</span>
@@ -112,7 +112,7 @@
                             <button type="button"
                                     class="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 flex items-center gap-2"
                                     @onmousedown:preventDefault
-                                    @onmousedown="ShowAllSearchResults">
+                                    @onclick="ShowAllSearchResults">
                                 <FluentIcon Value="@(new Icons.Regular.Size16.ArrowRight())" Color="Color.Accent" />
                                 @L["Search_ShowAll"]
                             </button>
@@ -685,6 +685,7 @@
     private List<SearchResultItem> _searchListResults = new();
     private List<SearchResultItem> _searchTaskResults = new();
     private CancellationTokenSource? _searchDebounce;
+    private long _searchRequestVersion;
 
     // Group UI state
     private readonly HashSet<Guid> _collapsedGroups = new();
@@ -721,6 +722,10 @@
     private int _navRenderVersion;
     private int _pendingSortOps;
     private bool _isDragging;
+    private DateTime _lastDragEndUtc = DateTime.MinValue;
+    private System.Threading.Timer? _dragWatchdogTimer;
+    private static readonly TimeSpan DragWatchdogTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan IgnoreLateDragStartWindow = TimeSpan.FromMilliseconds(600);
 
     private HubConnection? _hubConnection;
     private CancellationTokenSource? _hubCts;
@@ -734,7 +739,12 @@
 
     private string ListNavClass(Guid listId)
     {
-        var isActive = Navigation.Uri.EndsWith($"/list/{listId}", StringComparison.OrdinalIgnoreCase);
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var suffixIndex = relativePath.IndexOfAny(['?', '#']);
+        if (suffixIndex >= 0)
+            relativePath = relativePath[..suffixIndex];
+
+        var isActive = relativePath.Trim('/').Equals($"list/{listId}", StringComparison.OrdinalIgnoreCase);
         return isActive
             ? "flex p-1 text-gray-700 rounded-lg bg-slate-100 nav-list-item w-full text-left"
             : "flex p-1 text-gray-700 rounded-lg hover:bg-slate-50 nav-list-item w-full text-left";
@@ -763,6 +773,11 @@
     private async Task OnSearchInput(ChangeEventArgs e)
     {
         _searchQuery = e.Value?.ToString() ?? "";
+        var requestVersion = ++_searchRequestVersion;
+
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+        _searchDebounce = null;
 
         if (string.IsNullOrWhiteSpace(_searchQuery))
         {
@@ -775,9 +790,9 @@
 
         _searchOpen = true;
 
-        _searchDebounce?.Cancel();
         _searchDebounce = new CancellationTokenSource();
         var token = _searchDebounce.Token;
+        var query = _searchQuery;
 
         try
         {
@@ -788,7 +803,7 @@
             return;
         }
 
-        await RunNavSearchAsync();
+        await RunNavSearchAsync(query, requestVersion);
     }
 
     private async Task OnSearchKeyDown(KeyboardEventArgs e)
@@ -806,6 +821,10 @@
 
     private async Task ClearSearchAsync()
     {
+        _searchRequestVersion++;
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+        _searchDebounce = null;
         _searchQuery = "";
         _searchOpen = false;
         _searchResults.Clear();
@@ -814,28 +833,37 @@
         await Task.CompletedTask;
     }
 
-    private async Task RunNavSearchAsync()
+    private async Task RunNavSearchAsync(string query, long requestVersion)
     {
         _searchLoading = true;
-        StateHasChanged();
+        await SafeStateHasChangedAsync();
 
         try
         {
-            var all = await SearchService.SearchAsync(_userId, _searchQuery);
+            var all = await SearchService.SearchAsync(_userId, query);
+            if (_disposed || requestVersion != _searchRequestVersion)
+                return;
+
             _searchResults = all.ToList();
             _searchListResults = _searchResults.Where(r => r.Kind == SearchResultKind.List).ToList();
             _searchTaskResults = _searchResults.Where(r => r.Kind == SearchResultKind.Task).ToList();
         }
         catch
         {
+            if (_disposed || requestVersion != _searchRequestVersion)
+                return;
+
             _searchResults.Clear();
             _searchListResults.Clear();
             _searchTaskResults.Clear();
         }
         finally
         {
-            _searchLoading = false;
-            StateHasChanged();
+            if (!_disposed && requestVersion == _searchRequestVersion)
+            {
+                _searchLoading = false;
+                await SafeStateHasChangedAsync();
+            }
         }
     }
 
@@ -858,8 +886,9 @@
     {
         // Small delay to allow click events inside the dropdown to fire first
         await Task.Delay(150);
+        if (_disposed) return;
         _searchOpen = false;
-        StateHasChanged();
+        await SafeStateHasChangedAsync();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -1029,7 +1058,6 @@
     private void RequestNavResync()
     {
         _navSortableInitialized = false;
-        _isDragging = false;
         _navRenderVersion++;
     }
 
@@ -1500,20 +1528,66 @@
     public void OnNavDragStarted()
     {
         if (_disposed) return;
+
+        // SortableJS startet den .NET-Aufruf fire-and-forget. Bei sehr kurzen
+        // Drags kann dieser deshalb erst nach dem bereits verarbeiteten Ende ankommen.
+        if (_lastDragEndUtc != DateTime.MinValue
+            && (DateTime.UtcNow - _lastDragEndUtc) < IgnoreLateDragStartWindow)
+        {
+            return;
+        }
+
         _isDragging = true;
+        StartDragWatchdog();
     }
 
     [JSInvokable]
     public void OnNavDragAborted()
     {
         if (_disposed) return;
+        CompleteNavDrag();
+    }
+
+    private void CompleteNavDrag()
+    {
         _isDragging = false;
+        _lastDragEndUtc = DateTime.UtcNow;
+        StopDragWatchdog();
+    }
+
+    private void StartDragWatchdog()
+    {
+        _dragWatchdogTimer?.Dispose();
+        _dragWatchdogTimer = new System.Threading.Timer(
+            _ => OnDragWatchdogFired(),
+            null,
+            DragWatchdogTimeout,
+            System.Threading.Timeout.InfiniteTimeSpan);
+    }
+
+    private void StopDragWatchdog()
+    {
+        _dragWatchdogTimer?.Dispose();
+        _dragWatchdogTimer = null;
+    }
+
+    private void OnDragWatchdogFired()
+    {
+        if (!_isDragging || _disposed) return;
+
+        _ = InvokeAsync(() =>
+        {
+            if (_disposed) return;
+            CompleteNavDrag();
+            StateHasChanged();
+        });
     }
 
     [JSInvokable]
     public async Task OnCircuitReconnected()
     {
         if (_disposed) return;
+        CompleteNavDrag();
         _navSortableInitialized = false;
         await LoadNavigationAsync();
     }
@@ -1527,7 +1601,7 @@
     {
         if (_disposed) return;
         _error = "";
-        _isDragging = false;
+        CompleteNavDrag();
         _pendingSortOps++;
         try
         {
@@ -1584,7 +1658,7 @@
     {
         if (_disposed) return;
         _error = "";
-        _isDragging = false;
+        CompleteNavDrag();
         _pendingSortOps++;
         try
         {
@@ -1630,7 +1704,7 @@
     {
         if (_disposed) return;
         _error = "";
-        _isDragging = false;
+        CompleteNavDrag();
         _pendingSortOps++;
         try
         {
@@ -1709,7 +1783,7 @@
     {
         if (_disposed) return;
         _error = "";
-        _isDragging = false;
+        CompleteNavDrag();
         _pendingSortOps++;
         try
         {
@@ -1970,6 +2044,11 @@
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        StopDragWatchdog();
+        _searchRequestVersion++;
+        try { _searchDebounce?.Cancel(); } catch { }
+        _searchDebounce?.Dispose();
+        _searchDebounce = null;
         Navigation.LocationChanged -= OnLocationChanged;
         NavigationRefresh.RefreshRequested -= OnNavigationRefreshRequestedAsync;
 

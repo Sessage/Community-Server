@@ -72,6 +72,7 @@
                             </div>
                             <FluentButton Appearance="Appearance.Outline"
                                           Title="@L["Page_Trash_RestoreList"]"
+                                          Disabled="@(_restoringListId.HasValue)"
                                           OnClick="@(() => RestoreListAsync(list.Id))">
                                 <div class="flex">
                                     <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
@@ -90,6 +91,7 @@
     private string _userId = "gast";
     private string _error = "";
     private bool _loading = true;
+    private Guid? _restoringListId;
 
     private List<TodoListEntity> _deletedLists = new();
 
@@ -128,6 +130,9 @@
 
     private async Task RestoreListAsync(Guid listId)
     {
+        if (_restoringListId.HasValue) return;
+
+        _restoringListId = listId;
         _error = "";
         try
         {
@@ -137,6 +142,10 @@
         catch (Exception ex)
         {
             _error = string.Format(L["Err_ListRestore"], ex.Message);
+        }
+        finally
+        {
+            _restoringListId = null;
         }
     }
 

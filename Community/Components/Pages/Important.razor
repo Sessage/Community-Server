@@ -1,6 +1,9 @@
 @page "/important"
 @inject ITodoListService ListService
 @inject AuthenticationStateProvider AuthStateProvider
+@using System.Security.Claims
+
+<PageTitle>@L["Page_Important_Title"]</PageTitle>
 
 <div class="space-y-4">
     <div>
@@ -9,7 +12,15 @@
         <p class="text-sm text-slate-600">@L["Page_Important_Description"]</p>
     </div>
 
-    @if (_tasks.Count == 0)
+    @if (_loading)
+    {
+        <div class="text-slate-500">@L["Lbl_Loading"]</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">@_error</div>
+    }
+    else if (_tasks.Count == 0)
     {
         <div class="text-slate-500">@L["Page_Important_Empty"]</div>
     }
@@ -34,17 +45,32 @@
 @code {
     private record TaskView(string ListName, string Title, string? Description);
     private List<TaskView> _tasks = new();
+    private bool _loading = true;
+    private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userId = auth.User?.Identity?.Name ?? "gast";
-        var lists = await ListService.GetListsAsync(userId);
+        var userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? auth.User.FindFirstValue("sub")
+            ?? "gast";
 
-        _tasks = lists
-            .SelectMany(l => l.Tasks
-                .Where(t => t.IsImportant)
-                .Select(t => new TaskView(l.Name, t.Title, t.Description)))
-            .ToList();
+        try
+        {
+            var lists = await ListService.GetListsAsync(userId);
+            _tasks = lists
+                .SelectMany(l => l.Tasks
+                    .Where(t => t.IsImportant)
+                    .Select(t => new TaskView(l.Name, t.Title, t.Description)))
+                .ToList();
+        }
+        catch
+        {
+            _error = "Wichtige Aufgaben konnten nicht geladen werden.";
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 }

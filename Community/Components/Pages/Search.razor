@@ -8,6 +8,9 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
 @using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+
+<PageTitle>@L["Search_Title"]</PageTitle>
 
 <div class="space-y-6">
     <div>
@@ -22,8 +25,9 @@
             <input class="flex-1 outline-none text-base bg-transparent"
                    type="search"
                    placeholder="@L["Search_Placeholder"]"
-                   value="@_query"
-                   @onchange="OnQueryChange"
+                   @bind="_query"
+                   @bind:event="oninput"
+                   @onchange="OnQueryCommit"
                    @onkeydown="OnKeyDown"
                    autofocus />
             @if (!string.IsNullOrEmpty(_query))
@@ -38,6 +42,10 @@
     @if (_loading)
     {
         <div class="text-slate-500">@L["Lbl_Loading"]</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">@_error</div>
     }
     else if (_searched && string.IsNullOrWhiteSpace(_query))
     {
@@ -120,6 +128,9 @@
     private string _query = "";
     private bool _loading;
     private bool _searched;
+    private string? _error;
+    private string? _lastProcessedQuery;
+    private long _searchVersion;
     private List<SearchResultItem> _results = new();
     private List<SearchResultItem> _listResults = new();
     private List<SearchResultItem> _taskResults = new();
@@ -129,58 +140,56 @@
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        _userId = auth.User?.Identity?.Name ?? "gast";
-
-        if (!string.IsNullOrWhiteSpace(QueryParam))
-        {
-            _query = QueryParam;
-            await RunSearchAsync();
-        }
+        _userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? auth.User.FindFirstValue("sub")
+            ?? "gast";
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (QueryParam != _query && !string.IsNullOrWhiteSpace(QueryParam))
-        {
-            _query = QueryParam;
-            await RunSearchAsync();
-        }
+        var query = QueryParam?.Trim() ?? string.Empty;
+        if (string.Equals(query, _lastProcessedQuery, StringComparison.Ordinal))
+            return;
+
+        _lastProcessedQuery = query;
+        _query = query;
+        await RunSearchAsync(query);
     }
 
-    private async Task OnQueryChange(ChangeEventArgs e)
-    {
-        _query = e.Value?.ToString() ?? "";
-        Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_query)}", replace: true);
-        await RunSearchAsync();
-    }
+    private void OnQueryCommit(ChangeEventArgs _) => NavigateToQuery();
 
-    private async Task OnKeyDown(KeyboardEventArgs e)
+    private void OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
-        {
-            Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_query)}", replace: true);
-            await RunSearchAsync();
-        }
+            NavigateToQuery();
     }
 
-    private async Task ClearSearch()
+    private void ClearSearch()
     {
         _query = "";
-        _results.Clear();
-        _listResults.Clear();
-        _taskResults.Clear();
-        _searched = false;
         Navigation.NavigateTo("/search", replace: true);
-        await Task.CompletedTask;
     }
 
-    private async Task RunSearchAsync()
+    private void NavigateToQuery()
     {
-        if (string.IsNullOrWhiteSpace(_query))
+        _query = _query.Trim();
+        var target = string.IsNullOrWhiteSpace(_query)
+            ? "/search"
+            : $"/search?q={Uri.EscapeDataString(_query)}";
+        Navigation.NavigateTo(target, replace: true);
+    }
+
+    private async Task RunSearchAsync(string query)
+    {
+        var version = ++_searchVersion;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(query))
         {
             _results.Clear();
             _listResults.Clear();
             _taskResults.Clear();
+            _loading = false;
             _searched = true;
             return;
         }
@@ -191,16 +200,32 @@
 
         try
         {
-            var all = await SearchService.SearchAsync(_userId, _query);
+            var all = await SearchService.SearchAsync(_userId, query);
+            if (version != _searchVersion)
+                return;
+
             _results = all.ToList();
             _listResults = _results.Where(r => r.Kind == SearchResultKind.List).ToList();
             _taskResults = _results.Where(r => r.Kind == SearchResultKind.Task).ToList();
         }
+        catch
+        {
+            if (version == _searchVersion)
+            {
+                _results.Clear();
+                _listResults.Clear();
+                _taskResults.Clear();
+                _error = "Die Suche konnte nicht geladen werden. Bitte versuche es erneut.";
+            }
+        }
         finally
         {
-            _loading = false;
-            _searched = true;
-            StateHasChanged();
+            if (version == _searchVersion)
+            {
+                _loading = false;
+                _searched = true;
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 

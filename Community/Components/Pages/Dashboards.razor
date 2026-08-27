@@ -50,6 +50,10 @@
                      OnExportPdf="ExportPdfAsync" />
 
     <section class="p-4 min-h-0 overflow-auto space-y-4">
+        @if (!string.IsNullOrWhiteSpace(_exportError))
+        {
+            <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">@_exportError</div>
+        }
         <div class="flex justify-end" @onclick:stopPropagation="true">
             <FloatingDropdown @ref="_viewDropdown" AlignEnd="true">
                 <ChildContent>
@@ -191,6 +195,8 @@
     private bool _isWidgetDialogOpen;
     private DashboardView _view = DashboardView.List;
     private string _saveState = string.Empty;
+    private bool _hasPendingSave;
+    private long _dashboardEditVersion;
     private CancellationTokenSource? _autoSaveCts;
 
     private ElementReference _widgetContainer;
@@ -226,6 +232,11 @@
     protected override async Task OnParametersSetAsync()
     {
         if (!_initialized || _loadedPortfolioId == PortfolioId) return;
+        if (_hasPendingSave)
+        {
+            _autoSaveCts?.Cancel();
+            await SaveDashboardAsync(ignoreCurrentRoutePermission: true);
+        }
         _loadedPortfolioId = PortfolioId;
         _lists = await ListService.GetListsAsync(_userId);
         await ReloadDashboardsAsync();
@@ -244,7 +255,7 @@
             {
                 _dashboards.Add(portfolioDashboard);
                 _activeDashboardId = portfolioDashboard.Id;
-                SelectDashboard(portfolioDashboard.Id);
+                await SelectDashboard(portfolioDashboard.Id);
             }
             return;
         }
@@ -262,11 +273,17 @@
             : null;
 
         selected ??= _dashboards.First();
-        SelectDashboard(selected.Id);
+        await SelectDashboard(selected.Id);
     }
 
-    private void SelectDashboard(Guid id)
+    private async Task SelectDashboard(Guid id)
     {
+        if (_activeDashboardId.HasValue && _activeDashboardId != id && _hasPendingSave)
+        {
+            _autoSaveCts?.Cancel();
+            await SaveDashboardAsync();
+        }
+
         _activeDashboardId = id;
         _activeDashboard = _dashboards.First(x => x.Id == id);
         _filterDraft = _activeDashboard.GetFilter();
@@ -299,7 +316,7 @@
             GroupBy = DashboardGroupBy.List
         });
         _dashboards.Add(created);
-        SelectDashboard(created.Id);
+        await SelectDashboard(created.Id);
     }
 
     private async Task DeleteDashboardAsync()
@@ -307,7 +324,9 @@
         if (PortfolioId.HasValue) return;
         if (_activeDashboard is null) return;
         _isSettingsDialogOpen = false;
+        _autoSaveCts?.Cancel();
         await DashboardService.DeleteDashboardAsync(_userId, _activeDashboard.Id);
+        _hasPendingSave = false;
         await ReloadDashboardsAsync();
     }
 
@@ -525,6 +544,10 @@
 
     public async ValueTask DisposeAsync()
     {
+        _autoSaveCts?.Cancel();
+        if (_hasPendingSave)
+            await SaveDashboardAsync(ignoreCurrentRoutePermission: true);
+
         if (_createHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "dashboard-create-dlg"); } catch { }
         if (_filterHookActive)
@@ -537,7 +560,6 @@
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "portfolio-share-dlg"); } catch { }
         try { await JS.InvokeVoidAsync("todoUi.disposeDashboardSortable"); } catch { }
         _dotNetRef?.Dispose();
-        _autoSaveCts?.Cancel();
     }
 
     // ── Autosave ──────────────────────────────────────────────────────────
@@ -546,6 +568,8 @@
     {
         if (!CanEditDashboard) return;
         _saveState = L["Dashboard_Autosave_Pending"];
+        _hasPendingSave = true;
+        _dashboardEditVersion++;
         _autoSaveCts?.Cancel();
         _autoSaveCts = new CancellationTokenSource();
         var token = _autoSaveCts.Token;
@@ -557,18 +581,31 @@
         catch (OperationCanceledException) { }
     }
 
-    private async Task SaveDashboardAsync()
+    private async Task SaveDashboardAsync(bool ignoreCurrentRoutePermission = false)
     {
-        if (_activeDashboard is null || !CanEditDashboard) return;
-        _activeDashboard.SetFilter(_filterDraft);
-        var updated = await DashboardService.UpdateDashboardAsync(_userId, _activeDashboard);
-        if (updated is not null)
+        if (_activeDashboard is null || (!ignoreCurrentRoutePermission && !CanEditDashboard)) return;
+        var dashboard = _activeDashboard;
+        var editVersion = _dashboardEditVersion;
+        dashboard.SetFilter(_filterDraft.Clone());
+        try
         {
-            var idx = _dashboards.FindIndex(x => x.Id == updated.Id);
-            if (idx >= 0) _dashboards[idx] = updated;
-            SelectDashboard(updated.Id);
-            _saveState = $"{L["Dashboard_Autosave_Saved"]}: {DateTime.Now:HH:mm:ss}";
+            var updated = await DashboardService.UpdateDashboardAsync(_userId, dashboard);
+            if (updated is not null && editVersion == _dashboardEditVersion)
+            {
+                var idx = _dashboards.FindIndex(x => x.Id == updated.Id);
+                if (idx >= 0) _dashboards[idx] = updated;
+                if (_activeDashboardId == updated.Id)
+                {
+                    _activeDashboard = updated;
+                    _filterDraft = updated.GetFilter();
+                    RecalculateVisibleItems();
+                }
+                _hasPendingSave = false;
+                _saveState = $"{L["Dashboard_Autosave_Saved"]}: {DateTime.Now:HH:mm:ss}";
+            }
+            else if (updated is null) _saveState = "Speichern fehlgeschlagen";
         }
+        catch { _saveState = "Speichern fehlgeschlagen"; }
     }
 
     // ── Visible items ─────────────────────────────────────────────────────
@@ -861,36 +898,50 @@
         return (int)Math.Round((double)_visibleItems.Count(x => x.Task.Done) / _visibleItems.Count * 100, MidpointRounding.AwayFromZero);
     }
 
+    private string _exportError = "";
+
     private void CloseOverlays() => _sortsOpen = false;
 
     // ── Export ────────────────────────────────────────────────────────────
 
     private async Task ExportJsonAsync()
     {
-        var payload = JsonSerializer.Serialize(_visibleItems.Select(ToExportRow), new JsonSerializerOptions { WriteIndented = true });
-        await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("json"), payload, "application/json");
+        _exportError = "";
+        try
+        {
+            var payload = JsonSerializer.Serialize(_visibleItems.Select(ToExportRow), new JsonSerializerOptions { WriteIndented = true });
+            await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("json"), payload, "application/json");
+        }
+        catch { _exportError = "Der JSON-Export ist fehlgeschlagen."; }
     }
 
     private async Task ExportCsvAsync()
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("Task,List,Column,DueDate,Done,Important");
-        foreach (var item in _visibleItems)
+        _exportError = "";
+        try
         {
-            sb.AppendLine(string.Join(",", new[]
+            var sb = new StringBuilder();
+            sb.AppendLine("Task,List,Column,DueDate,Done,Important");
+            foreach (var item in _visibleItems)
             {
-                CsvEscape(item.Task.Title), CsvEscape(item.List.Name), CsvEscape(item.Task.Column),
-                item.Task.DueDate?.ToString("yyyy-MM-dd") ?? string.Empty,
-                item.Task.Done ? "true" : "false",
-                item.Task.IsImportant ? "true" : "false"
-            }));
+                sb.AppendLine(string.Join(",", new[]
+                {
+                    CsvEscape(item.Task.Title), CsvEscape(item.List.Name), CsvEscape(item.Task.Column),
+                    item.Task.DueDate?.ToString("yyyy-MM-dd") ?? string.Empty,
+                    item.Task.Done ? "true" : "false", item.Task.IsImportant ? "true" : "false"
+                }));
+            }
+            await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("csv"), "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
         }
-        await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("csv"), "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
+        catch { _exportError = "Der CSV-Export ist fehlgeschlagen."; }
     }
 
     private async Task ExportPdfAsync()
     {
-        var rows = string.Join("", _visibleItems.Select(i =>
+        _exportError = "";
+        try
+        {
+            var rows = string.Join("", _visibleItems.Select(i =>
             $"<tr><td>{System.Net.WebUtility.HtmlEncode(i.Task.Title)}</td>" +
             $"<td>{System.Net.WebUtility.HtmlEncode(i.List.Name)}</td>" +
             $"<td>{System.Net.WebUtility.HtmlEncode(i.Task.Column)}</td>" +
@@ -899,7 +950,9 @@
                    $"<style>body{{font-family:Arial;padding:16px}}table{{width:100%;border-collapse:collapse}}th,td{{border:1px solid #ddd;padding:8px;text-align:left}}</style></head>" +
                    $"<body><h2>{System.Net.WebUtility.HtmlEncode(_activeDashboard?.Name ?? "Dashboard")}</h2>" +
                    $"<table><thead><tr><th>Task</th><th>List</th><th>Column</th><th>Due</th></tr></thead><tbody>{rows}</tbody></table></body></html>";
-        await JS.InvokeVoidAsync("todoUi.printContent", html);
+            await JS.InvokeVoidAsync("todoUi.printContent", html);
+        }
+        catch { _exportError = "Der PDF-Export ist fehlgeschlagen."; }
     }
 
     private object ToExportRow((TodoListEntity List, TodoTaskEntity Task) item) => new

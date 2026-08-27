@@ -1,20 +1,36 @@
-.nav-pill {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    font-size: 0.95rem;
-    color: #0f172a;
-    text-decoration: none;
-    transition: background-color 150ms ease, color 150ms ease;
+.body-only-shell {
+    padding-top: env(safe-area-inset-top, 0);
+    padding-right: env(safe-area-inset-right, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0);
 }
 
-.nav-pill:hover {
-    background-color: #e2e8f0;
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    inset: auto 1rem 1rem 1rem;
+    z-index: 10000;
+    padding: 0.875rem 3rem 0.875rem 1rem;
+    border: 1px solid #fca5a5;
+    border-radius: 0.75rem;
+    background: #fef2f2;
+    color: #991b1b;
+    box-shadow: 0 10px 25px rgb(15 23 42 / 0.15);
 }
 
-.nav-pill.active {
-    background-color: #0f172a;
-    color: #ffffff;
+#blazor-error-ui .reload {
+    margin-left: 0.5rem;
+    color: inherit;
+    font-weight: 600;
+}
+
+#blazor-error-ui .dismiss {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
 }

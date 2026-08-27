@@ -5,6 +5,8 @@
 @inject ITodoListService ListService
 @inject AuthenticationStateProvider AuthStateProvider
 
+<PageTitle>@L["Page_MyDay_Title"]</PageTitle>
+
 <div class="space-y-4">
     <div>
         <div class="text-xs uppercase text-slate-500">@L["Page_MyDay_Section"]</div>
@@ -12,7 +14,15 @@
         <p class="text-sm text-slate-600">@L["Page_MyDay_Description"]</p>
     </div>
 
-    @if (_lists.Count == 0)
+    @if (_loading)
+    {
+        <div class="text-slate-500">@L["Lbl_Loading"]</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">@_error</div>
+    }
+    else if (_lists.Count == 0)
     {
         <div class="text-slate-500">@L["Page_MyDay_Empty"]</div>
     }
@@ -36,6 +46,8 @@
 
 @code {
     private List<TodoListEntity> _lists = new();
+    private bool _loading = true;
+    private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
@@ -49,41 +61,54 @@
 
     private async Task LoadMyDayAsync()
     {
-        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = auth.User;
+        _loading = true;
+        _error = null;
 
-        // ✅ so wie in deiner Board-Komponente
-        var userId =
-            user.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? user.FindFirstValue("sub")
-            ?? "gast";
+        try
+        {
+            var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = auth.User;
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user.FindFirstValue("sub")
+                ?? "gast";
+            var userKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { userId };
+            AddUserKey(userKeys, user.FindFirstValue(ClaimTypes.Email));
+            AddUserKey(userKeys, user.FindFirstValue(ClaimTypes.Upn));
+            AddUserKey(userKeys, user.Identity?.Name);
 
-        var lists = await ListService.GetListsAsync(userId);
+            var lists = await ListService.GetAssignedTaskListsAsync(userId, userKeys);
+            _lists = BuildMyDayLists(lists);
+        }
+        catch
+        {
+            _error = "Mein Tag konnte nicht geladen werden. Bitte versuche es erneut.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static void AddUserKey(ISet<string> keys, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) keys.Add(value.Trim());
+    }
+
+    private static List<TodoListEntity> BuildMyDayLists(IEnumerable<TodoListEntity> lists)
+    {
         var today = DateTime.Today;
-
-        _lists = lists
-            .Select(list => new TodoListEntity
-            {
-                Id = list.Id,
-                OwnerId = list.OwnerId,
-                Name = list.Name,
-                Columns = list.Columns,
-                Labels = list.Labels,
-                DefaultView = list.DefaultView,
-                Participants = list.Participants,
-                NavigationGroupId = list.NavigationGroupId,
-                NavigationGroup = list.NavigationGroup,
-                NavigationSortOrder = list.NavigationSortOrder,
-
-                Tasks = list.Tasks
-                    .Where(t => !t.Done)
-                    .Where(t => t.DueDate.HasValue && t.DueDate.Value.Date <= today)
-                    // ✅ Assignee ist UserId (GUID) -> passt jetzt
-                    .Where(t => !string.IsNullOrWhiteSpace(t.Assignee)
-                                && string.Equals(t.Assignee.Trim(), userId, StringComparison.OrdinalIgnoreCase))
-                    .ToList()
-            })
-            .Where(l => l.Tasks.Count > 0)
+        return lists.Select(list => CopyWithTasks(list, list.Tasks
+                .Where(t => !t.Done && t.DueDate.HasValue && t.DueDate.Value.Date <= today)
+                .ToList()))
+            .Where(list => list.Tasks.Count > 0)
             .ToList();
     }
+
+    private static TodoListEntity CopyWithTasks(TodoListEntity list, List<TodoTaskEntity> tasks) => new()
+    {
+        Id = list.Id, OwnerId = list.OwnerId, Name = list.Name, Columns = list.Columns,
+        Labels = list.Labels, DefaultView = list.DefaultView, Participants = list.Participants,
+        NavigationGroupId = list.NavigationGroupId, NavigationGroup = list.NavigationGroup,
+        NavigationSortOrder = list.NavigationSortOrder, Tasks = tasks
+    };
 }
