@@ -63,7 +63,6 @@
                 <div class="text-sm whitespace-nowrap">
                     @{
                         var total = _list?.Tasks?.Count ?? 0;
-                        var filtered = total; // optional: könntest du in Workspace berechnen, wenn du willst
                     }
                     <div class="text-sm whitespace-nowrap">
                         <span class="inline-flex items-center rounded-md px-2 py-1"
@@ -93,7 +92,7 @@
                 {
                     <FluentButton Appearance="Appearance.Stealth"
                                   Style="@(_selectionMode ? "background-color:#dbeafe;color:#1d4ed8;" : null)"
-                                  Disabled="@(_list is null)"
+                                  Disabled="@(_list is null || WorkspaceInteractionBlocked)"
                                   Title="@L["Bulk_SelectTasks"]"
                                   aria-pressed="@_selectionMode"
                                   OnClick="ToggleBulkSelection">
@@ -109,7 +108,7 @@
                 }
 
                 <FluentButton Appearance="Appearance.Stealth"
-                              Disabled="@(_list is null)"
+                              Disabled="@(_list is null || WorkspaceInteractionBlocked || _listWatchingBusy)"
                               Title="@(IsWatchingList ? L["Workspace_StopWatching"] : L["Workspace_StartWatching"])"
                               OnClick="ToggleListWatchingAsync">
                     @if (IsWatchingList)
@@ -125,6 +124,7 @@
                 <FloatingDropdown @ref="_viewDropdown">
                     <ChildContent>
                         <button type="button"
+                                disabled="@(_list is null || WorkspaceInteractionBlocked)"
                                 class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
                             <span>@CurrentViewLabel</span>
                             <span aria-hidden="true">▾</span>
@@ -155,6 +155,7 @@
                 <!-- Papierkorb: Gelöschte Aufgaben wiederherstellen -->
                 <div class="relative">
                     <FluentButton Appearance="Appearance.Stealth"
+                                  Disabled="@(_list is null || WorkspaceInteractionBlocked || !CanWriteCurrentList())"
                                   Title="@L["Page_Workspace_RestoreTasks"]"
                                   OnClick="OpenRestoreTasksDialog">
                         <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
@@ -163,17 +164,19 @@
 
                 <div class="relative">
                     <FluentButton Appearance="Appearance.Stealth"
+                                  Disabled="@(_list is null || WorkspaceInteractionBlocked)"
                                   Title="@L["Page_Workspace_FilterTitle"]"
                                   OnClick="OpenFilterDialog">
                         <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Filter())" />
                     </FluentButton>
                 </div>
 
-                @if (_view != BoardView.Table && _view != BoardView.Forms)
+                @if (_view is BoardView.List or BoardView.Kanban)
                 {
                 <!-- Actions Dropdown (ohne FluentMenu) -->
                 <div class="relative">
                     <FluentButton Appearance="Appearance.Stealth"
+                                  Disabled="@(_list is null || WorkspaceInteractionBlocked)"
                                   Title="@L["Nav_Options"]"
                                   @onclick="ToggleSorts">
                         <FluentIcon Value="@(new Icons.Regular.Size20.ArrowSort())" />
@@ -216,11 +219,12 @@
                 </div>
                 }
 
-                @if (CanAdminCurrentList())
+                @if (!_listLoading && CanAdminCurrentList())
                 {
                 <!-- Actions Dropdown (ohne FluentMenu) -->
                 <div class="relative">
                     <FluentButton Appearance="Appearance.Stealth"
+                                  Disabled="@WorkspaceInteractionBlocked"
                                   Title="@L["Nav_Options"]"
                                   @onclick="ToggleActions">
                         ⋯
@@ -301,9 +305,9 @@
 
                 <!-- Share -->
                 <!-- Share (nur Admin) -->
-                @if (_list is not null && CanAdminCurrentList())
+                @if (!_listLoading && _list is not null && CanAdminCurrentList())
                 {
-                    <FluentButton Appearance="Appearance.Accent" OnClick="OpenShareDialog">
+                    <FluentButton Appearance="Appearance.Accent" OnClick="OpenShareDialog" Disabled="@WorkspaceInteractionBlocked">
                         @L["Workspace_Share"]
                     </FluentButton>
                 }
@@ -369,6 +373,7 @@
                             {
 
                                 <ToDoKanbanView @key="_view"
+                                                @ref="_kanbanViewRef"
                                                 List="_list"
                                                 Filter="_filter"
                                                 SortMode="_kanbanSortMode"
@@ -458,7 +463,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Workspace_RenameList"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog">✕</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog" Disabled="@_renameBusy">✕</FluentButton>
 
             </div>
         </FluentDialogHeader>
@@ -472,8 +477,8 @@
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="RenameAsync" Disabled="@(_list is null)">@L["Btn_Save"]</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog" Disabled="@_renameBusy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="RenameAsync" Disabled="@(_renameBusy || _listLoading || _list is null)">@L["Btn_Save"]</FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
 }
@@ -538,7 +543,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold text-red-700">@L["Workspace_DeleteList"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteDialog">✕</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteDialog" Disabled="@_deleteBusy">✕</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -550,8 +555,8 @@
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteDialog">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteAsync" Disabled="@(_list is null)">
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDeleteDialog" Disabled="@_deleteBusy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteAsync" Disabled="@(_list is null || _deleteBusy)">
                 @L["Btn_Delete"]
             </FluentButton>
         </FluentDialogFooter>
@@ -616,7 +621,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Workspace_ChangeBackground"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseBackgroundDialog">✕</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseBackgroundDialog" Disabled="@_backgroundBusy">✕</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -628,8 +633,8 @@
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseBackgroundDialog">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="SaveBackgroundAsync" Disabled="@(_list is null)">@L["Btn_Save"]</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseBackgroundDialog" Disabled="@_backgroundBusy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveBackgroundAsync" Disabled="@(_backgroundBusy || _listLoading || _list is null)">@L["Btn_Save"]</FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
 }
@@ -673,6 +678,7 @@
                                 </div>
                             </div>
                             <FluentButton Appearance="Appearance.Outline"
+                                           Disabled="@_restoringTaskIds.Contains(task.Id)"
                                            Title="@L["Workspace_RestoreTask"]"
                                           OnClick="@(() => RestoreTaskAsync(task.Id))">
                                           <div class="flex">
@@ -860,7 +866,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Workspace_CopyList"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCopyDialog">✕</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCopyDialog" Disabled="@_copyBusy">✕</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -879,9 +885,9 @@
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCopyDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseCopyDialog" Disabled="@_copyBusy">@L["Btn_Cancel"]</FluentButton>
             <FluentButton Appearance="Appearance.Accent" OnClick="CopyListAsync"
-                          Disabled="@(_list is null || string.IsNullOrWhiteSpace(_copyName))">
+                          Disabled="@(_list is null || _copyBusy || string.IsNullOrWhiteSpace(_copyName))">
                 @L["Workspace_CopyAction"]
             </FluentButton>
         </FluentDialogFooter>
@@ -895,7 +901,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Workspace_SaveAsTemplate"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseTemplateDialog">✕</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseTemplateDialog" Disabled="@_templateBusy">✕</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -929,9 +935,9 @@
             }
             else
             {
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseTemplateDialog">@L["Btn_Cancel"]</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseTemplateDialog" Disabled="@_templateBusy">@L["Btn_Cancel"]</FluentButton>
                 <FluentButton Appearance="Appearance.Accent" OnClick="SaveAsTemplateAsync"
-                              Disabled="@(_list is null || string.IsNullOrWhiteSpace(_templateName))">
+                              Disabled="@(_list is null || _templateBusy || string.IsNullOrWhiteSpace(_templateName))">
                     @L["Btn_Save"]
                 </FluentButton>
             }
@@ -1001,7 +1007,7 @@
                     <div class="font-semibold">E-Mail-Import</div>
                     <div class="text-sm text-slate-500">@_list.Name</div>
                 </div>
-                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseEmailImportDialog">
+                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseEmailImportDialog" Disabled="@_emailImportBusy">
                     <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
                 </FluentButton>
             </div>
@@ -1165,7 +1171,7 @@
                 Entfernen
             </FluentButton>
             <div class="flex-1"></div>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEmailImportDialog">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEmailImportDialog" Disabled="@_emailImportBusy">@L["Btn_Cancel"]</FluentButton>
             <FluentButton Appearance="Appearance.Accent" OnClick="SaveEmailImportConfigurationAsync" Disabled="@(_emailImportBusy || !EmailImportCanSave)">
                 @L["Btn_Save"]
             </FluentButton>
@@ -1188,7 +1194,7 @@
                     <div class="text-lg font-semibold text-slate-900">@L["Workspace_Notifications"]</div>
                     <div class="text-sm text-slate-500 truncate">@_list.Name</div>
                 </div>
-                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseNotificationSettingsDialog">
+                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseNotificationSettingsDialog" Disabled="@NotificationRulesBusy">
                     <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
                 </FluentButton>
             </div>
@@ -1228,6 +1234,7 @@
                                     {
                                         <td class="px-2 py-2 text-center">
                                             <FluentCheckbox Value="@HasNotificationGroup(rule, group)"
+                                                            Disabled="@_savingNotificationRuleEvents.Contains(rule.EventType)"
                                                             ValueChanged="@(v => SetNotificationRuleGroupAsync(rule.EventType, group, v))" />
                                         </td>
                                     }
@@ -1287,13 +1294,16 @@
     private bool _sortsOpen;
 
     private bool _renameOpen;
+    private bool _renameBusy;
     private string _renameValue = "";
 
     private bool _deleteOpen;
+    private bool _deleteBusy;
 
     private bool _shareOpen;
     private bool _emailImportOpen;
     private bool _emailImportBusy;
+    private long _emailImportOperationVersion;
     private bool _emailImportEnabled = true;
     private bool _emailImportUseSsl = true;
     private bool _emailImportHasPassword;
@@ -1319,10 +1329,9 @@
     private bool EmailImportCanTest => !string.IsNullOrWhiteSpace(_emailImportHost) && !string.IsNullOrWhiteSpace(_emailImportUserName);
     private bool EmailImportCanSave => EmailImportCanTest && (_emailImportHasPassword || !string.IsNullOrWhiteSpace(_emailImportPassword));
     private bool _notificationSettingsOpen;
-    private bool _notificationsOpen;
-    private int _unreadNotifications;
-    private List<UserNotificationEntity> _latestNotifications = new();
     private List<BoardNotificationRuleEntity> _notificationRules = new();
+    private readonly HashSet<NotificationEventType> _savingNotificationRuleEvents = [];
+    private bool NotificationRulesBusy => _savingNotificationRuleEvents.Count > 0;
     private static readonly NotificationRecipientGroup[] NotificationGroups =
     [
         NotificationRecipientGroup.Admins,
@@ -1353,12 +1362,35 @@
     private bool _reloadQueued;
     private bool _listLoading = true;
     private global::Klassenbibliothek.Components.Views.ToDoListView? _listViewRef;
+    private global::Klassenbibliothek.Components.Views.ToDoKanbanView? _kanbanViewRef;
     private global::Klassenbibliothek.Components.Views.ToDoTableView? _tableViewRef;
+
+    // Preferences are list-scoped. Reloading task data must not reset a view/sort
+    // choice that the user has just made for the same list.
+    private Guid _prefsLoadedForListId;
+    private long _viewPreferenceVersion;
+    private readonly SemaphoreSlim _preferenceSaveLock = new(1, 1);
+    private bool _listWatchingBusy;
+
+    // A newer reload supersedes an older one. This prevents a slow response for a
+    // previous route/list from overwriting newer workspace state.
+    private CancellationTokenSource? _reloadCts;
+    private CancellationTokenSource? _hubReloadDebounceCts;
+    private readonly CancellationTokenSource _disposeCts = new();
+    private bool _disposed;
+
+    // Route parameters are applied only when they actually changed. Otherwise a
+    // parent render with taskId=null could close a task opened locally in the view.
+    private bool _routeParametersInitialized;
+    private Guid? _lastRouteListId;
+    private Guid? _lastRouteTaskId;
 
     // ===== SignalR Hub =====
     private HubConnection? _hubConnection;
     private Guid? _subscribedListId;
-    private bool _hubStarted;
+    private bool _hubInitialized;
+    private bool _hubStartRetryScheduled;
+    private readonly SemaphoreSlim _hubSubscriptionLock = new(1, 1);
 
     // Reload-Queue (damit Dragging nicht kaputt geht)
     private bool _reloadQueuedForce;
@@ -1366,11 +1398,16 @@
     private bool IsAnyDragActive()
         => _isDragging
            || (_listViewRef?.IsDraggingFromSortable ?? false)
+           || (_kanbanViewRef?.IsDraggingFromSortable ?? false)
            || (_tableViewRef?.IsDraggingFromSortable ?? false);
+
+    private bool WorkspaceInteractionBlocked => _listLoading || IsAnyDragActive();
 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_disposed) return;
+
         _selfRef ??= DotNetObjectReference.Create(this);
 
         _shareHookActive = await UpdateDialogHookAsync(_shareOpen, "workspace-share-dlg", _shareHookActive);
@@ -1409,18 +1446,25 @@
     [JSInvokable]
     public async Task CloseFromOutsideClick()
     {
+        if (_disposed) return;
+
         _shareOpen = false;
-        _renameOpen = false;
-        _deleteOpen = false;
+        if (!_renameBusy) _renameOpen = false;
+        if (!_deleteBusy) _deleteOpen = false;
         _labelsOpen = false;
-        _backgroundOpen = false;
+        if (!_backgroundBusy) _backgroundOpen = false;
         _filterOpen = false;
-        _restoreTasksOpen = false;
-        _copyOpen = false;
-        _templateOpen = false;
+        CloseRestoreTasksDialog();
+        if (!_copyBusy) _copyOpen = false;
+        if (!_templateBusy) _templateOpen = false;
         _exportOpen = false;
-        _emailImportOpen = false;
-        _notificationSettingsOpen = false;
+        if (!_emailImportBusy)
+        {
+            InvalidateEmailImportOperation();
+            _emailImportOpen = false;
+        }
+        if (!NotificationRulesBusy)
+            _notificationSettingsOpen = false;
         await InvokeAsync(StateHasChanged);
     }
 
@@ -1444,7 +1488,6 @@
         }
         _selectedTaskId = TaskId;
         await ReloadAsync();
-        await RefreshNotificationsAsync();
 
         await StartHubAsync();
         await EnsureListSubscriptionAsync();
@@ -1452,160 +1495,287 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        var taskRouteChanged = !_routeParametersInitialized || _lastRouteTaskId != TaskId;
+        var routeChanged = !_routeParametersInitialized
+                           || _lastRouteListId != ListId
+                           || _lastRouteTaskId != TaskId;
+
+        _routeParametersInitialized = true;
+        _lastRouteListId = ListId;
+        _lastRouteTaskId = TaskId;
+
+        if (!routeChanged)
+            return;
+
+        if (taskRouteChanged)
+        {
+            _selectedTaskInitialTabId = TaskId.HasValue ? "details" : null;
+            _selectedTaskInitialTabVersion++;
+        }
+
         if (ListId.HasValue && _lists.Count > 0)
         {
             var match = _lists.FirstOrDefault(x => x.Id == ListId.Value);
             if (match is not null)
             {
                 var listChanged = _selectedListId != match.Id;
-                _list = match;
-                _selectedListId = match.Id;
 
                 if (listChanged)
                 {
+                    ResetListScopedUiState(keepSelectedTaskId: true);
+                    _selectedListId = match.Id;
                     _selectedTaskId = TaskId;
                     await ReloadForListChangeAsync();
                 }
-                else if (TaskId.HasValue && TaskId != _selectedTaskId)
+                else
                 {
-                    _selectedTaskId = TaskId;
-                    _selectedTask = _list?.Tasks.FirstOrDefault(t => t.Id == TaskId.Value);
+                    SynchronizeTaskSelectionFromRoute();
                 }
             }
             else if (_selectedListId != ListId.Value)
             {
                 // List not in cache yet (e.g. just created) – reload to fetch fresh data
+                ResetListScopedUiState(keepSelectedTaskId: true);
                 _selectedListId = ListId.Value;
                 _selectedTaskId = TaskId;
                 await ReloadForListChangeAsync();
             }
         }
+        else if (!ListId.HasValue)
+        {
+            SynchronizeTaskSelectionFromRoute();
+        }
     }
     /* Hub */
     private async Task StartHubAsync()
     {
-        if (_hubStarted) return;
+        if (_disposed) return;
 
-        _hubConnection = await HubConnectionFactory.CreateAsync();
-        if (_hubConnection is null)
-            return;
-
-        // ✅ Wenn sich eine Liste ändert -> nur reload, wenn wir diese Liste gerade offen haben
-        _hubConnection.On<Guid>(TodoHub.ListsUpdated, async (listId) =>
+        try
         {
-            if (listId != _selectedListId) return;
-
-            await InvokeAsync(async () =>
+            if (_hubConnection is null)
             {
-                // nicht "force", weil Dragging-Queue sonst übergangen würde
-                await ReloadAsyncCore(force: false);
-                StateHasChanged();
-            });
-        });
+                _hubConnection = await HubConnectionFactory.CreateAsync(_disposeCts.Token);
+                if (_hubConnection is null)
+                    return;
+            }
 
-        // ✅ Wenn ein Kommentar oder Anhang sich ändert -> Liste neu laden (Kommentar-/Anhang-Zähler aktualisieren)
-        _hubConnection.On<Guid, Guid>(TodoHub.TaskCommentsUpdated, async (listId, taskId) =>
-        {
-            if (listId != _selectedListId) return;
-
-            await InvokeAsync(async () =>
+            if (!_hubInitialized)
             {
-                await ReloadAsyncCore(force: false);
-                StateHasChanged();
-            });
-        });
+                RegisterHubHandlers(_hubConnection);
+                _hubInitialized = true;
+            }
 
-        _hubConnection.On<Guid, Guid>(TodoHub.TaskAttachmentsUpdated, async (listId, taskId) =>
-        {
-            if (listId != _selectedListId) return;
-
-            await InvokeAsync(async () =>
+            if (_hubConnection.State is HubConnectionState.Connected
+                or HubConnectionState.Connecting
+                or HubConnectionState.Reconnecting)
             {
-                await ReloadAsyncCore(force: false);
-                StateHasChanged();
-            });
-        });
+                return;
+            }
 
-        _hubConnection.On(TodoHub.BrowserNotification, async () =>
+            await _hubConnection.StartAsync(_disposeCts.Token);
+            await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId, _disposeCts.Token);
+            await EnsureListSubscriptionAsync(_disposeCts.Token);
+        }
+        catch (OperationCanceledException) when (_disposeCts.IsCancellationRequested)
         {
-            await InvokeAsync(async () =>
-            {
-                await RefreshNotificationsAsync();
-                StateHasChanged();
-            });
-        });
-
-        _hubConnection.On<string, string, Guid>(TodoHub.ReminderTriggered, async (title, body, taskId) =>
+            // Normal during component disposal.
+        }
+        catch
         {
-            await InvokeAsync(async () =>
-            {
-                try { await JS.InvokeVoidAsync("todoUi.showNotification", title, body); } catch { }
+            // Automatic reconnect only applies after an established connection.
+            // Retry an initial outage without blocking the usable workspace.
+            ScheduleHubStartRetry();
+        }
+    }
 
-                await RefreshNotificationsAsync();
+    private void ScheduleHubStartRetry()
+    {
+        if (_disposed || _hubStartRetryScheduled) return;
 
-                if (_selectedListId != Guid.Empty)
-                    await ReloadAsyncCore(force: false);
+        _hubStartRetryScheduled = true;
+        _ = RetryHubStartAsync();
+    }
 
-                StateHasChanged();
-            });
-        });
-
-        // ✅ Reconnect: User + List subscriptions erneut setzen
-        _hubConnection.Reconnected += async _ =>
+    private async Task RetryHubStartAsync()
+    {
+        try
         {
+            await Task.Delay(TimeSpan.FromSeconds(5), _disposeCts.Token);
+            if (_disposed) return;
+
+            _hubStartRetryScheduled = false;
+            await InvokeAsync(StartHubAsync);
+        }
+        catch (OperationCanceledException) when (_disposeCts.IsCancellationRequested)
+        {
+            // Normal during component disposal.
+        }
+        catch when (_disposed)
+        {
+            // Component was disposed while the retry was dispatched.
+        }
+        finally
+        {
+            if (_disposed)
+                _hubStartRetryScheduled = false;
+        }
+    }
+
+    private void RegisterHubHandlers(HubConnection connection)
+    {
+        // Content updates for the currently open list.
+        connection.On<Guid>(TodoHub.ListsUpdated, listId =>
+            listId == _selectedListId
+                ? ScheduleHubReloadAsync(force: false)
+                : Task.CompletedTask);
+
+        // Navigation/share/permission changes are broadcast without a list id.
+        // They can remove access to the current list and therefore require a reload.
+        connection.On(TodoHub.ListsUpdated, () => ScheduleHubReloadAsync(force: false));
+
+        connection.On<Guid, Guid>(TodoHub.TaskCommentsUpdated, (listId, _) =>
+            listId == _selectedListId
+                ? ScheduleHubReloadAsync(force: false)
+                : Task.CompletedTask);
+
+        connection.On<Guid, Guid>(TodoHub.TaskAttachmentsUpdated, (listId, _) =>
+            listId == _selectedListId
+                ? ScheduleHubReloadAsync(force: false)
+                : Task.CompletedTask);
+
+        connection.On<string, string, Guid>(TodoHub.ReminderTriggered, async (title, body, _) =>
+        {
+            if (_disposed) return;
+
             try
             {
-                await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
+                await InvokeAsync(async () =>
+                {
+                    try { await JS.InvokeVoidAsync("todoUi.showNotification", title, body); } catch { }
+                    StateHasChanged();
+                });
 
                 if (_selectedListId != Guid.Empty)
-                {
-                    await _hubConnection.SendAsync(TodoHub.SubscribeToList, _selectedListId);
-                    _subscribedListId = _selectedListId;
-                }
+                    await ScheduleHubReloadAsync(force: false);
+            }
+            catch when (_disposed) { }
+        });
+
+        connection.Reconnected += async _ =>
+        {
+            if (_disposed) return;
+
+            try
+            {
+                await connection.SendAsync(TodoHub.SubscribeToUser, _userId, _disposeCts.Token);
+                _subscribedListId = null;
+                await EnsureListSubscriptionAsync(_disposeCts.Token);
+                await ScheduleHubReloadAsync(force: true);
             }
             catch { }
         };
 
-        await _hubConnection.StartAsync();
-        await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId);
-
-        _hubStarted = true;
+        connection.Closed += _ =>
+        {
+            _subscribedListId = null;
+            ScheduleHubStartRetry();
+            return Task.CompletedTask;
+        };
     }
 
-    private async Task EnsureListSubscriptionAsync()
+    private async Task EnsureListSubscriptionAsync(CancellationToken cancellationToken = default)
     {
-        if (_hubConnection is null) return;
-        if (_hubConnection.State != HubConnectionState.Connected) return;
+        var lockTaken = false;
+        try
+        {
+            await _hubSubscriptionLock.WaitAsync(cancellationToken);
+            lockTaken = true;
+            await EnsureListSubscriptionCoreAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Superseded reload or component disposal.
+        }
+        finally
+        {
+            if (lockTaken)
+                _hubSubscriptionLock.Release();
+        }
+    }
+
+    private async Task EnsureListSubscriptionCoreAsync(CancellationToken cancellationToken)
+    {
+        var connection = _hubConnection;
+        if (_disposed || connection is null) return;
+        if (connection.State != HubConnectionState.Connected) return;
+
+        var targetListId = _selectedListId;
 
         // keine Liste offen -> ggf. abmelden
-        if (_selectedListId == Guid.Empty)
+        if (targetListId == Guid.Empty)
         {
             if (_subscribedListId is not null)
             {
-                try { await _hubConnection.SendAsync(TodoHub.UnsubscribeFromList, _subscribedListId.Value); } catch { }
+                try
+                {
+                    await connection.SendAsync(TodoHub.UnsubscribeFromList, _subscribedListId.Value, cancellationToken);
+                }
+                catch { }
                 _subscribedListId = null;
             }
             return;
         }
 
         // schon korrekt subscribed
-        if (_subscribedListId == _selectedListId) return;
+        if (_subscribedListId == targetListId) return;
 
         // alte List-Gruppe verlassen
         if (_subscribedListId is not null)
         {
-            try { await _hubConnection.SendAsync(TodoHub.UnsubscribeFromList, _subscribedListId.Value); } catch { }
+            try
+            {
+                await connection.SendAsync(TodoHub.UnsubscribeFromList, _subscribedListId.Value, cancellationToken);
+            }
+            catch { }
+            _subscribedListId = null;
         }
 
         // neue List-Gruppe beitreten
-        await _hubConnection.SendAsync(TodoHub.SubscribeToList, _selectedListId);
-        _subscribedListId = _selectedListId;
+        try
+        {
+            await connection.SendAsync(TodoHub.SubscribeToList, targetListId, cancellationToken);
+            if (!_disposed && _selectedListId == targetListId)
+            {
+                _subscribedListId = targetListId;
+            }
+            else
+            {
+                // A concurrent route change can supersede this subscribe while it
+                // is in flight. Do not leave the connection in a stale list group.
+                try { await connection.SendAsync(TodoHub.UnsubscribeFromList, targetListId, cancellationToken); } catch { }
+            }
+        }
+        catch { }
     }
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed) return;
+
+        _disposed = true;
+        try { _disposeCts.Cancel(); } catch { }
+
+        var reloadCts = Interlocked.Exchange(ref _reloadCts, null);
+        try { reloadCts?.Cancel(); } catch { }
+
+        var debounceCts = Interlocked.Exchange(ref _hubReloadDebounceCts, null);
+        try { debounceCts?.Cancel(); } catch { }
+
         if (_hubConnection is not null)
-            await _hubConnection.DisposeAsync();
+        {
+            try { await _hubConnection.DisposeAsync(); } catch { }
+        }
 
         if (_shareHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-share-dlg"); } catch { }
@@ -1633,6 +1803,36 @@
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-notifications-dlg"); } catch { }
 
         _selfRef?.Dispose();
+        reloadCts?.Dispose();
+        debounceCts?.Dispose();
+        _disposeCts.Dispose();
+    }
+
+    private async Task ScheduleHubReloadAsync(bool force)
+    {
+        if (_disposed) return;
+
+        var current = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _hubReloadDebounceCts, current);
+        try { previous?.Cancel(); } catch { }
+        previous?.Dispose();
+
+        try
+        {
+            // One user action can emit list, comment and attachment events. Collapse
+            // that burst into one database roundtrip and one component render.
+            await Task.Delay(200, current.Token);
+            if (current.IsCancellationRequested || _disposed) return;
+
+            await InvokeAsync(() => ReloadAsyncCore(force));
+        }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        catch when (_disposed) { }
+        finally
+        {
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _hubReloadDebounceCts, null, current), current))
+                current.Dispose();
+        }
     }
     /* Dragging in ListView */
     private async Task OnDraggingChangedAsync(bool dragging)
@@ -1662,17 +1862,18 @@
 
     private async Task ReloadAsyncCore(bool force, bool? showLoading = null)
     {
-        // ✅ Während Dragging nie reloaden – auch nicht "force"
-        if (IsAnyDragActive())
-        {
-            _reloadQueued = true;
-            _reloadQueuedForce = _reloadQueuedForce || force;
-            return;
-        }
+        if (_disposed) return;
 
-        _error = "";
+        // ✅ Während Dragging nie reloaden – auch nicht "force"
+        if (QueueReloadIfDragging(force)) return;
+
         var requestedListId = ListId ?? (_selectedListId != Guid.Empty ? _selectedListId : null);
         var shouldShowLoading = showLoading ?? (_list is null || (requestedListId.HasValue && _list.Id != requestedListId.Value));
+        var preferenceVersionAtStart = _viewPreferenceVersion;
+        var reloadCts = BeginReload();
+        var cancellationToken = reloadCts.Token;
+
+        _error = "";
         if (shouldShowLoading)
         {
             _listLoading = true;
@@ -1681,130 +1882,313 @@
 
         try
         {
-            _lists = (await ListService.GetWorkspaceListsAsync(_userId, requestedListId)).ToList();
+            var loadedLists = (await ListService
+                .GetWorkspaceListsAsync(_userId, requestedListId, cancellationToken))
+                .ToList();
 
-            if (_shareOpen && !CanAdminCurrentList())
-                _shareOpen = false;
+            if (!IsCurrentReload(reloadCts)) return;
+            if (QueueReloadIfDragging(force)) return;
 
-            if (_lists.Count == 0)
+            if (loadedLists.Count == 0)
             {
+                ResetListScopedUiState();
+                _lists = loadedLists;
                 _list = null;
                 _selectedListId = Guid.Empty;
+                _prefsLoadedForListId = Guid.Empty;
 
                 // ✅ Subscription ggf. aufräumen
-                await EnsureListSubscriptionAsync();
+                _ = EnsureListSubscriptionAsync(_disposeCts.Token);
                 return;
             }
 
-            if (ListId.HasValue)
-                _selectedListId = ListId.Value;
-            else if (_selectedListId == Guid.Empty)
-                _selectedListId = _lists[0].Id;
+            var nextSelectedListId = requestedListId.HasValue
+                && loadedLists.Any(candidate => candidate.Id == requestedListId.Value)
+                    ? requestedListId.Value
+                    : loadedLists[0].Id;
+            var nextList = loadedLists.First(candidate => candidate.Id == nextSelectedListId);
+            var listChanged = _list?.Id != nextList.Id;
 
-            _list = _lists.FirstOrDefault(x => x.Id == _selectedListId) ?? _lists[0];
-            _selectedListId = _list.Id;
+            BoardView? preferredView = null;
+            var preferredListSortMode = _listSortMode;
+            var preferredKanbanSortMode = _kanbanSortMode;
+            var preferencesLoaded = _prefsLoadedForListId == nextList.Id;
 
-            // ✅ Hier nach Auswahl/Load in die richtige Hub-Gruppe
-            await EnsureListSubscriptionAsync();
-
-            var keepFormsView = _view == BoardView.Forms;
-
-            // Preferences...
-            try
+            if (!preferencesLoaded)
             {
-                var pref = await ListPreferencesService.GetListPreferencesAsync(_userId, _list.Id);
-                if (pref is not null && !keepFormsView)
+                try
                 {
-                    _view = pref.LastView switch
+                    var pref = await ListPreferencesService
+                        .GetListPreferencesAsync(_userId, nextList.Id, cancellationToken);
+
+                    if (!IsCurrentReload(reloadCts)) return;
+
+                    if (pref is not null)
                     {
-                        DefaultListView.Kanban => BoardView.Kanban,
-                        DefaultListView.Calendar => BoardView.Calendar,
-                        DefaultListView.Tabelle => BoardView.Table,
-                        DefaultListView.Forms => BoardView.Forms,
-                        _ => BoardView.List
-                    };
-                    _listSortMode = pref.ListSortMode;
-                    _kanbanSortMode = pref.KanbanSortMode;
+                        preferredView = MapBoardView(pref.LastView);
+                        preferredListSortMode = pref.ListSortMode;
+                        preferredKanbanSortMode = pref.KanbanSortMode;
+                    }
+                    else
+                    {
+                        preferredView = MapBoardView(nextList.DefaultView);
+                    }
+
+                    preferencesLoaded = true;
                 }
-                else if (!keepFormsView)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    _view = _list.DefaultView switch
-                    {
-                        DefaultListView.Kanban => BoardView.Kanban,
-                        DefaultListView.Calendar => BoardView.Calendar,
-                        DefaultListView.Tabelle => BoardView.Table,
-                        DefaultListView.Forms => BoardView.Forms,
-                        _ => BoardView.List
-                    };
+                    return;
+                }
+                catch
+                {
+                    // Task data remains usable. Preference loading is retried by a later reload.
                 }
             }
-            catch { }
 
-            if (_selectedTaskId.HasValue && _list is not null)
+            if (!IsCurrentReload(reloadCts)) return;
+            if (QueueReloadIfDragging(force)) return;
+
+            if (listChanged)
+                ResetListScopedUiState(keepSelectedTaskId: true);
+
+            _lists = loadedLists;
+            _list = nextList;
+            _selectedListId = nextList.Id;
+
+            if (!CanAdminCurrentList())
+                CloseAdminDialogs();
+
+            if (preferencesLoaded)
             {
-                _selectedTask = _list.Tasks.FirstOrDefault(task => task.Id == _selectedTaskId.Value);
-                if (_selectedTask is null) _selectedTaskId = null;
+                _prefsLoadedForListId = nextList.Id;
+
+                // A view/sort click that happened while preferences were loading wins.
+                if (_viewPreferenceVersion == preferenceVersionAtStart && preferredView.HasValue)
+                {
+                    _view = preferredView.Value;
+                    _listSortMode = preferredListSortMode;
+                    _kanbanSortMode = preferredKanbanSortMode;
+                }
             }
+
+            SynchronizeSelectedTaskFromCurrentList();
+            if (TaskId.HasValue && _selectedTask is null)
+                ClearTaskRouteParameter();
+
+            // Subscription updates are state-independent UI side work. Do not yield
+            // after committing the new list, otherwise a new drag could begin and a
+            // later continuation could render the committed state mid-gesture.
+            _ = EnsureListSubscriptionAsync(_disposeCts.Token);
+
+            // An inaccessible/deleted route otherwise keeps requesting the missing id
+            // forever and shows the loader on every refresh. Canonicalize to the list
+            // that the authorized service selected as fallback.
+            if (ListId.HasValue && ListId.Value != nextList.Id && IsCurrentReload(reloadCts))
+                Nav.NavigateTo($"/list/{nextList.Id}", replace: true);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Superseded by a newer reload or disposed.
         }
         catch (Exception ex)
         {
-            _error = $"Beim Laden ist ein Fehler aufgetreten. Benutzer: '{_userId}'. Details: {ex.Message}";
+            if (IsCurrentReload(reloadCts))
+                _error = $"Beim Laden ist ein Fehler aufgetreten. Benutzer: '{_userId}'. Details: {ex.Message}";
         }
         finally
         {
-            if (shouldShowLoading)
+            if (IsCurrentReload(reloadCts))
+            {
                 _listLoading = false;
+
+                if (!_disposed)
+                    await InvokeAsync(StateHasChanged);
+            }
+
+            CompleteReload(reloadCts);
         }
+    }
+
+    private CancellationTokenSource BeginReload()
+    {
+        var current = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
+        var previous = Interlocked.Exchange(ref _reloadCts, current);
+        try { previous?.Cancel(); } catch { }
+        return current;
+    }
+
+    private bool QueueReloadIfDragging(bool force)
+    {
+        if (!IsAnyDragActive()) return false;
+
+        _reloadQueued = true;
+        _reloadQueuedForce = _reloadQueuedForce || force;
+        return true;
+    }
+
+    private bool IsCurrentReload(CancellationTokenSource reloadCts)
+        => !_disposed
+           && !reloadCts.IsCancellationRequested
+           && ReferenceEquals(Volatile.Read(ref _reloadCts), reloadCts);
+
+    private void CompleteReload(CancellationTokenSource reloadCts)
+    {
+        Interlocked.CompareExchange(ref _reloadCts, null, reloadCts);
+        reloadCts.Dispose();
+    }
+
+    private BoardView MapBoardView(DefaultListView view)
+        => view switch
+        {
+            DefaultListView.Kanban => BoardView.Kanban,
+            DefaultListView.Calendar => BoardView.Calendar,
+            DefaultListView.Tabelle => BoardView.Table,
+            DefaultListView.Forms when ProductFeatures.IsEnabled(ProductFeatureIds.Forms) => BoardView.Forms,
+            _ => BoardView.List
+        };
+
+    private void SynchronizeTaskSelectionFromRoute()
+    {
+        _selectedTaskId = TaskId;
+        SynchronizeSelectedTaskFromCurrentList();
+        if (TaskId.HasValue && _selectedTask is null)
+            ClearTaskRouteParameter();
+    }
+
+    private void SynchronizeSelectedTaskFromCurrentList()
+    {
+        if (!_selectedTaskId.HasValue || _list is null)
+        {
+            _selectedTask = null;
+            return;
+        }
+
+        _selectedTask = (_list.Tasks ?? []).FirstOrDefault(task => task.Id == _selectedTaskId.Value);
+        if (_selectedTask is null)
+        {
+            _selectedTaskId = null;
+            _selectedTaskInitialTabId = null;
+        }
+    }
+
+    private void ResetListScopedUiState(bool keepSelectedTaskId = false)
+    {
+        _actionsOpen = false;
+        _sortsOpen = false;
+        _selectionMode = false;
+
+        _renameOpen = false;
+        _deleteOpen = false;
+        _shareOpen = false;
+        _labelsOpen = false;
+        _customFieldsOpen = false;
+        _automationOpen = false;
+        _backgroundOpen = false;
+        InvalidateRestoreTasksLoad();
+        _restoreTasksOpen = false;
+        _filterOpen = false;
+        _copyOpen = false;
+        _templateOpen = false;
+        _exportOpen = false;
+        InvalidateEmailImportOperation();
+        _emailImportOpen = false;
+        _notificationSettingsOpen = false;
+
+        _deletedTasks.Clear();
+        _restoringTaskIds.Clear();
+        _filter = new TodoTaskFilter();
+        _filterDraft = new TodoTaskFilter();
+
+        _selectedTask = null;
+        if (!keepSelectedTaskId)
+        {
+            _selectedTaskId = null;
+            _selectedTaskInitialTabId = null;
+            _selectedTaskInitialTabVersion++;
+        }
+    }
+
+    private void CloseAdminDialogs()
+    {
+        _actionsOpen = false;
+        _renameOpen = false;
+        _deleteOpen = false;
+        _shareOpen = false;
+        _labelsOpen = false;
+        _customFieldsOpen = false;
+        _automationOpen = false;
+        _backgroundOpen = false;
+        _copyOpen = false;
+        _templateOpen = false;
+        _exportOpen = false;
+        InvalidateEmailImportOperation();
+        _emailImportOpen = false;
+        _notificationSettingsOpen = false;
     }
 
 
     private async Task SwitchView(BoardView v)
     {
+        if (WorkspaceInteractionBlocked || _list is null) return;
+
+        if (v == BoardView.Forms && !ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
+            return;
+
+        var listId = _list.Id;
+
         if (_viewDropdown is not null)
         {
             await _viewDropdown.CloseAsync();
         }
 
+        if (_disposed || WorkspaceInteractionBlocked || _list?.Id != listId) return;
+
         _view = v;
+        var preferenceVersion = ++_viewPreferenceVersion;
+        _prefsLoadedForListId = listId;
         _selectionMode = false;
 
         // Auswahl beim View-Wechsel zurücksetzen
         _selectedTaskId = null;
         _selectedTask = null;
+        ClearTaskRouteParameter();
 
         CloseOverlays();
 
-        // ✅ Persistieren (nur wenn Liste vorhanden)
-        if (_list is not null)
+        var prefView = _view switch
         {
-            var prefView = _view switch
-            {
-                BoardView.Kanban => DefaultListView.Kanban,
-                BoardView.Calendar => DefaultListView.Calendar,
-                BoardView.Table => DefaultListView.Tabelle,
-                BoardView.Forms => DefaultListView.Forms,
-                _ => DefaultListView.Liste
-            };
+            BoardView.Kanban => DefaultListView.Kanban,
+            BoardView.Calendar => DefaultListView.Calendar,
+            BoardView.Table => DefaultListView.Tabelle,
+            BoardView.Forms => DefaultListView.Forms,
+            _ => DefaultListView.Liste
+        };
 
-            // View speichern, Sortmodes beibehalten
-            await ListPreferencesService.SetListPreferencesAsync(
-                _userId,
-                _list.Id,
-                prefView,
-                _listSortMode,
-                _kanbanSortMode);
-        }
+        await PersistListPreferencesAsync(
+            listId,
+            prefView,
+            _listSortMode,
+            _kanbanSortMode,
+            preferenceVersion,
+            "Ansicht");
 
-        await InvokeAsync(StateHasChanged);
+        if (!_disposed)
+            await InvokeAsync(StateHasChanged);
     }
 
     private void ToggleBulkSelection()
-        => _selectionMode = !_selectionMode;
+    {
+        if (!WorkspaceInteractionBlocked && _list is not null)
+            _selectionMode = !_selectionMode;
+    }
 
 
     private async Task SetSortAsync(ListSortMode mode)
     {
-        if (_list is null) return;
+        if (WorkspaceInteractionBlocked || _list is null) return;
+
+        var listId = _list.Id;
 
         if (_view == BoardView.List) _listSortMode = mode;
         else if (_view == BoardView.Kanban) _kanbanSortMode = mode;
@@ -1814,17 +2198,59 @@
             return;
         }
 
+        var preferenceVersion = ++_viewPreferenceVersion;
+        _prefsLoadedForListId = listId;
+
         CloseOverlays();
 
-        // ✅ Persistieren (Sort nur für die betroffene View ändern)
-        await ListPreferencesService.SetListPreferencesAsync(
-            _userId,
-            _list.Id,
-            null, // View unverändert
+        await PersistListPreferencesAsync(
+            listId,
+            null,
             _listSortMode,
-            _kanbanSortMode);
+            _kanbanSortMode,
+            preferenceVersion,
+            "Sortierung");
 
-        await InvokeAsync(StateHasChanged);
+        if (!_disposed)
+            await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task PersistListPreferencesAsync(
+        Guid listId,
+        DefaultListView? view,
+        ListSortMode listSortMode,
+        ListSortMode kanbanSortMode,
+        long preferenceVersion,
+        string settingName)
+    {
+        var lockTaken = false;
+        try
+        {
+            await _preferenceSaveLock.WaitAsync(_disposeCts.Token);
+            lockTaken = true;
+
+            await ListPreferencesService.SetListPreferencesAsync(
+                _userId,
+                listId,
+                view,
+                listSortMode,
+                kanbanSortMode,
+                _disposeCts.Token);
+        }
+        catch (OperationCanceledException) when (_disposeCts.IsCancellationRequested)
+        {
+            // Normal during component disposal.
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed && _list?.Id == listId && _viewPreferenceVersion == preferenceVersion)
+                _error = $"{settingName} konnte nicht gespeichert werden. Details: {ex.Message}";
+        }
+        finally
+        {
+            if (lockTaken)
+                _preferenceSaveLock.Release();
+        }
     }
 
 
@@ -1845,69 +2271,47 @@
 
     private async Task ToggleListWatchingAsync()
     {
-        if (_list is null) return;
+        if (_listWatchingBusy || WorkspaceInteractionBlocked || _list is null) return;
+
+        var listId = _list.Id;
         var watch = !IsWatchingList;
-        if (await ListService.SetListWatchingAsync(_userId, _list.Id, watch))
-            await ReloadAsyncForce();
-    }
+        _listWatchingBusy = true;
 
-    private async Task RefreshNotificationsAsync()
-    {
-        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
-        if (_notificationsOpen)
-            _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
-    }
-
-    private async Task ToggleNotificationsPanelAsync()
-    {
-        _notificationsOpen = !_notificationsOpen;
-        if (_notificationsOpen)
-            await RefreshNotificationsAsync();
-    }
-
-    private void CloseNotificationsPanel()
-        => _notificationsOpen = false;
-
-    private async Task MarkNotificationsReadAsync()
-    {
-        await NotificationService.MarkAllReadAsync(_userId);
-        _unreadNotifications = 0;
-        _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
-    }
-
-    private async Task DeleteNotificationAsync(Guid notificationId)
-    {
-        await NotificationService.DeleteNotificationAsync(_userId, notificationId);
-        _latestNotifications.RemoveAll(n => n.Id == notificationId);
-        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
-    }
-
-    private async Task DeleteAllNotificationsAsync()
-    {
-        await NotificationService.DeleteAllNotificationsAsync(_userId);
-        _latestNotifications.Clear();
-        _unreadNotifications = 0;
-    }
-
-    private async Task OpenNotificationAsync(UserNotificationEntity notification)
-    {
-        _notificationsOpen = false;
-        if (notification.TaskId.HasValue)
-            Nav.NavigateTo($"/list/{notification.ListId}?taskId={notification.TaskId.Value}");
-        else
-            Nav.NavigateTo($"/list/{notification.ListId}");
-        await Task.CompletedTask;
+        try
+        {
+            var updated = await ListService.SetListWatchingAsync(_userId, listId, watch, _disposeCts.Token);
+            if (updated && !_disposed && _list?.Id == listId)
+                await ReloadAsyncForce();
+        }
+        catch (OperationCanceledException) when (_disposeCts.IsCancellationRequested)
+        {
+            // Normal during component disposal.
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed && _list?.Id == listId)
+                _error = $"Beobachtungsstatus konnte nicht gespeichert werden. Details: {ex.Message}";
+        }
+        finally
+        {
+            _listWatchingBusy = false;
+        }
     }
 
     private async Task OpenEmailImportDialogAsync()
     {
         _actionsOpen = false;
-        if (_list is null || !CanAdminCurrentList()) return;
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
+        var listId = _list.Id;
 
         ResetEmailImportDraft();
+        var operationVersion = _emailImportOperationVersion;
         try
         {
-            var config = await EmailImportService.GetConfigurationAsync(_userId, _list.Id);
+            var config = await EmailImportService.GetConfigurationAsync(_userId, listId);
+            if (!IsCurrentEmailImportContext(listId, operationVersion) || _listLoading || !CanAdminCurrentList()) return;
+
             if (config is not null)
             {
                 _emailImportHasConfiguration = true;
@@ -1932,15 +2336,31 @@
         }
         catch (Exception ex)
         {
-            _error = $"E-Mail-Konfiguration konnte nicht geladen werden. Details: {ex.Message}";
+            if (IsCurrentEmailImportContext(listId, operationVersion))
+                _error = $"E-Mail-Konfiguration konnte nicht geladen werden. Details: {ex.Message}";
         }
     }
 
-    private void CloseEmailImportDialog() => _emailImportOpen = false;
+    private void CloseEmailImportDialog()
+    {
+        if (_emailImportBusy) return;
+
+        CompleteEmailImportDialog();
+    }
+
+    private void CompleteEmailImportDialog()
+    {
+        InvalidateEmailImportOperation();
+        _emailImportOpen = false;
+    }
 
     private async Task TestEmailImportConnectionAsync()
     {
-        if (_list is null || !CanAdminCurrentList()) return;
+        if (_emailImportBusy || _listLoading || _list is null || !CanAdminCurrentList()) return;
+
+        var listId = _list.Id;
+        var request = BuildEmailImportRequest();
+        var operationVersion = ++_emailImportOperationVersion;
 
         _emailImportBusy = true;
         _emailImportBusyText = "Verbindung wird geprüft...";
@@ -1950,7 +2370,9 @@
 
         try
         {
-            var result = await EmailImportService.TestConnectionAsync(_userId, _list.Id, BuildEmailImportRequest());
+            var result = await EmailImportService.TestConnectionAsync(_userId, listId, request);
+            if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
+
             _emailImportStatus = result.Message;
             _emailImportTestSucceeded = result.Success;
 
@@ -1965,17 +2387,22 @@
         }
         catch (Exception ex)
         {
-            _emailImportStatus = $"Verbindung fehlgeschlagen: {ex.Message}";
+            if (IsCurrentEmailImportContext(listId, operationVersion) && _emailImportOpen)
+                _emailImportStatus = $"Verbindung fehlgeschlagen: {ex.Message}";
         }
         finally
         {
-            _emailImportBusy = false;
+            if (operationVersion == _emailImportOperationVersion)
+                _emailImportBusy = false;
         }
     }
 
     private async Task RunEmailImportNowAsync()
     {
-        if (_list is null || !CanAdminCurrentList()) return;
+        if (_emailImportBusy || _listLoading || _list is null || !CanAdminCurrentList()) return;
+
+        var listId = _list.Id;
+        var operationVersion = ++_emailImportOperationVersion;
 
         _emailImportBusy = true;
         _emailImportBusyText = "Neue E-Mails werden geprüft...";
@@ -1985,7 +2412,9 @@
 
         try
         {
-            var result = await EmailImportService.ImportListAsync(_userId, _list.Id);
+            var result = await EmailImportService.ImportListAsync(_userId, listId);
+            if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
+
             _emailImportCreatedTasks = result.ImportedTasks.ToList();
             _emailImportLastError = result.Error;
 
@@ -2005,17 +2434,23 @@
         }
         catch (Exception ex)
         {
-            _emailImportStatus = $"Import fehlgeschlagen: {ex.Message}";
+            if (IsCurrentEmailImportContext(listId, operationVersion) && _emailImportOpen)
+                _emailImportStatus = $"Import fehlgeschlagen: {ex.Message}";
         }
         finally
         {
-            _emailImportBusy = false;
+            if (operationVersion == _emailImportOperationVersion)
+                _emailImportBusy = false;
         }
     }
 
     private async Task SaveEmailImportConfigurationAsync()
     {
-        if (_list is null || !CanAdminCurrentList()) return;
+        if (_emailImportBusy || _listLoading || _list is null || !CanAdminCurrentList()) return;
+
+        var listId = _list.Id;
+        var request = BuildEmailImportRequest();
+        var operationVersion = ++_emailImportOperationVersion;
 
         _emailImportBusy = true;
         _emailImportBusyText = "Konfiguration wird gespeichert...";
@@ -2024,39 +2459,50 @@
 
         try
         {
-            await EmailImportService.SaveConfigurationAsync(_userId, _list.Id, BuildEmailImportRequest());
-            _emailImportOpen = false;
+            await EmailImportService.SaveConfigurationAsync(_userId, listId, request);
+            if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
+
+            CompleteEmailImportDialog();
             await ReloadAsync();
         }
         catch (Exception ex)
         {
-            _emailImportStatus = $"Speichern fehlgeschlagen: {ex.Message}";
+            if (IsCurrentEmailImportContext(listId, operationVersion) && _emailImportOpen)
+                _emailImportStatus = $"Speichern fehlgeschlagen: {ex.Message}";
         }
         finally
         {
-            _emailImportBusy = false;
+            if (operationVersion == _emailImportOperationVersion)
+                _emailImportBusy = false;
         }
     }
 
     private async Task DeleteEmailImportConfigurationAsync()
     {
-        if (_list is null || !CanAdminCurrentList()) return;
+        if (_emailImportBusy || _listLoading || _list is null || !CanAdminCurrentList()) return;
+
+        var listId = _list.Id;
+        var operationVersion = ++_emailImportOperationVersion;
 
         _emailImportBusy = true;
         _emailImportBusyText = "Konfiguration wird entfernt...";
         _emailImportCreatedTasks.Clear();
         try
         {
-            await EmailImportService.DeleteConfigurationAsync(_userId, _list.Id);
-            _emailImportOpen = false;
+            await EmailImportService.DeleteConfigurationAsync(_userId, listId);
+            if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
+
+            CompleteEmailImportDialog();
         }
         catch (Exception ex)
         {
-            _emailImportStatus = $"Entfernen fehlgeschlagen: {ex.Message}";
+            if (IsCurrentEmailImportContext(listId, operationVersion) && _emailImportOpen)
+                _emailImportStatus = $"Entfernen fehlgeschlagen: {ex.Message}";
         }
         finally
         {
-            _emailImportBusy = false;
+            if (operationVersion == _emailImportOperationVersion)
+                _emailImportBusy = false;
         }
     }
 
@@ -2074,7 +2520,7 @@
 
     private void ResetEmailImportDraft()
     {
-        _emailImportBusy = false;
+        InvalidateEmailImportOperation();
         _emailImportEnabled = true;
         _emailImportUseSsl = true;
         _emailImportHasPassword = false;
@@ -2094,6 +2540,17 @@
         _emailImportFolders = new List<string> { "INBOX" };
         _emailImportCreatedTasks = new();
     }
+
+    private void InvalidateEmailImportOperation()
+    {
+        _emailImportOperationVersion++;
+        _emailImportBusy = false;
+    }
+
+    private bool IsCurrentEmailImportContext(Guid listId, long operationVersion)
+        => !_disposed
+           && _list?.Id == listId
+           && operationVersion == _emailImportOperationVersion;
 
     private void EnsureEmailImportTargetColumn()
         => _emailImportTargetColumn = ResolveEmailImportTargetColumn(_emailImportTargetColumn);
@@ -2117,25 +2574,67 @@
     private async Task OpenNotificationSettingsDialog()
     {
         _actionsOpen = false;
-        if (_list is null || !CanAdminCurrentList()) return;
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
 
-        _notificationRules = (await NotificationService.GetBoardRulesAsync(_userId, _list.Id)).ToList();
-        _notificationSettingsOpen = true;
+        var listId = _list.Id;
+        try
+        {
+            var rules = (await NotificationService.GetBoardRulesAsync(_userId, listId, _disposeCts.Token)).ToList();
+            if (_disposed || _listLoading || _list?.Id != listId || !CanAdminCurrentList()) return;
+
+            _notificationRules = rules;
+            _notificationSettingsOpen = true;
+        }
+        catch (OperationCanceledException) when (_disposeCts.IsCancellationRequested)
+        {
+            // Normal during component disposal.
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed && _list?.Id == listId)
+                _error = $"Benachrichtigungseinstellungen konnten nicht geladen werden. Details: {ex.Message}";
+        }
     }
 
-    private void CloseNotificationSettingsDialog() => _notificationSettingsOpen = false;
+    private void CloseNotificationSettingsDialog()
+    {
+        if (!NotificationRulesBusy)
+            _notificationSettingsOpen = false;
+    }
 
     private static bool HasNotificationGroup(BoardNotificationRuleEntity rule, NotificationRecipientGroup group)
         => (rule.RecipientGroups & group) != 0;
 
     private async Task SetNotificationRuleGroupAsync(NotificationEventType eventType, NotificationRecipientGroup group, bool enabled)
     {
-        if (_list is null) return;
-        var rule = _notificationRules.FirstOrDefault(r => r.EventType == eventType);
-        if (rule is null) return;
+        if (_listLoading || _list is null || !CanAdminCurrentList()) return;
+        if (!_savingNotificationRuleEvents.Add(eventType)) return;
 
-        rule.RecipientGroups = enabled ? rule.RecipientGroups | group : rule.RecipientGroups & ~group;
-        await NotificationService.SetBoardRuleAsync(_userId, _list.Id, eventType, rule.RecipientGroups);
+        var listId = _list.Id;
+        var rule = _notificationRules.FirstOrDefault(r => r.EventType == eventType);
+        if (rule is null)
+        {
+            _savingNotificationRuleEvents.Remove(eventType);
+            return;
+        }
+
+        var previousGroups = rule.RecipientGroups;
+        rule.RecipientGroups = enabled ? previousGroups | group : previousGroups & ~group;
+
+        try
+        {
+            await NotificationService.SetBoardRuleAsync(_userId, listId, eventType, rule.RecipientGroups);
+        }
+        catch (Exception ex)
+        {
+            rule.RecipientGroups = previousGroups;
+            if (!_disposed && _list?.Id == listId)
+                _error = $"Benachrichtigungsregel konnte nicht gespeichert werden. Details: {ex.Message}";
+        }
+        finally
+        {
+            _savingNotificationRuleEvents.Remove(eventType);
+        }
     }
 
     private string NotificationEventLabel(NotificationEventType eventType)
@@ -2236,7 +2735,7 @@
         var hash = 0;
         foreach (var c in userId.Trim())
             hash = unchecked(hash * 31 + c);
-        return colors[Math.Abs(hash) % colors.Length];
+        return colors[(int)((uint)hash % (uint)colors.Length)];
     }
 
     private static string? GetCalendarAssigneeProfilePictureUrl(string? userId)
@@ -2246,23 +2745,31 @@
 
     private bool PassesCalendarFilter(TodoTaskEntity task)
     {
-        var now = DateTime.UtcNow;
         var query = (_filter.Query ?? string.Empty).Trim();
         if (!string.IsNullOrWhiteSpace(query)
-            && !($"{task.Title} {task.Description} {task.Column}".Contains(query, StringComparison.OrdinalIgnoreCase)))
+            && !$"{task.Title} {task.Description}".Contains(query, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
         if (_filter.Done is not null && task.Done != _filter.Done.Value) return false;
-        if (_filter.NoDueDate && task.DueDate is not null) return false;
-        if (_filter.Overdue && (task.DueDate is null || task.DueDate >= now)) return false;
-        if (_filter.DueNextDay && (task.DueDate is null || task.DueDate > now.AddDays(1) || task.DueDate < now)) return false;
-        if (_filter.DueNextWeek && (task.DueDate is null || task.DueDate > now.AddDays(7) || task.DueDate < now)) return false;
-        if (_filter.DueNextMonth && (task.DueDate is null || task.DueDate > now.AddDays(30) || task.DueDate < now)) return false;
+        if (_filter.NoDueDate || _filter.Overdue || _filter.DueNextDay || _filter.DueNextWeek || _filter.DueNextMonth)
+        {
+            var today = DateTime.Today;
+            var due = task.DueDate?.Date;
+            var dueMatches =
+                (_filter.NoDueDate && due is null) ||
+                (_filter.Overdue && due is not null && due.Value < today) ||
+                (_filter.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1)) ||
+                (_filter.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7)) ||
+                (_filter.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
+
+            if (!dueMatches) return false;
+        }
+
         if (_filter.NoMembers && (task.MemberUserIds?.Count ?? 0) > 0) return false;
-        if (_filter.AssignedToMe && !(task.MemberUserIds?.Contains(_userId) ?? false)) return false;
-        if (_filter.NoAssignee && (!string.IsNullOrWhiteSpace(task.Assignee) || (task.MemberUserIds?.Count ?? 0) > 0)) return false;
+        if (_filter.AssignedToMe && !string.Equals(task.Assignee?.Trim(), _userId, StringComparison.OrdinalIgnoreCase)) return false;
+        if (_filter.NoAssignee && !string.IsNullOrWhiteSpace(task.Assignee)) return false;
         if (_filter.MemberUserIds.Count > 0 && !(task.MemberUserIds ?? []).Any(memberId => _filter.MemberUserIds.Contains(memberId))) return false;
         if (_filter.LabelIds.Count > 0 && !(task.LabelLinks ?? []).Any(link => _filter.LabelIds.Contains(link.LabelId))) return false;
 
@@ -2291,10 +2798,15 @@
             : "w-full text-left px-3 py-2 hover:bg-slate-50";
 
     private void ToggleActions()
-        => _actionsOpen = !_actionsOpen;
+    {
+        if (!WorkspaceInteractionBlocked)
+            _actionsOpen = !_actionsOpen;
+    }
 
     private void ToggleSorts()
     {
+        if (WorkspaceInteractionBlocked) return;
+
         if (_view == BoardView.Calendar)
         {
             _sortsOpen = false;
@@ -2309,18 +2821,13 @@
         _actionsOpen = false;
         _sortsOpen = false;
         _filterOpen = false;
-        _restoreTasksOpen = false;
-        _notificationsOpen = false;
+        if (_restoreTasksOpen || _restoreTasksLoading)
+            CloseRestoreTasksDialog();
     }
 
 
     private void OpenTaskDetails(TodoTaskEntity task)
-    {
-        _selectedTaskInitialTabVersion++;
-        _selectedTaskId = task.Id;
-        _selectedTask = task;
-        _selectedTaskInitialTabId = "details";
-    }
+        => OpenTaskInTab(task, "details");
 
     private void OpenTaskDetailsFromTable(TodoTaskEntity task)
         => OpenTaskInTab(task, "details");
@@ -2340,6 +2847,7 @@
         _selectedTaskInitialTabId = NormalizeTaskModalTabId(tabId);
         _selectedTaskId = task.Id;
         _selectedTask = task;
+        SetTaskRouteParameter(task.Id);
     }
 
     private static string NormalizeTaskModalTabId(string? tabId)
@@ -2356,25 +2864,53 @@
         _selectedTask = null;
         _selectedTaskInitialTabId = null;
         _selectedTaskInitialTabVersion++;
+        ClearTaskRouteParameter();
+    }
+
+    private void ClearTaskRouteParameter()
+    {
+        if (!TaskId.HasValue || _selectedListId == Guid.Empty)
+            return;
+
+        TaskId = null;
+        _lastRouteTaskId = null;
+        Nav.NavigateTo($"/list/{_selectedListId}", replace: true);
+    }
+
+    private void SetTaskRouteParameter(Guid taskId)
+    {
+        if (_selectedListId == Guid.Empty || TaskId == taskId)
+            return;
+
+        TaskId = taskId;
+        _lastRouteTaskId = taskId;
+        Nav.NavigateTo($"/list/{_selectedListId}?taskId={taskId}", replace: true);
     }
 
     private void HandleTaskUpdated(TodoTaskEntity updatedTask)
     {
-        if (_selectedTaskId == updatedTask.Id)
-            _selectedTask = updatedTask;
-
         if (_list?.Tasks is null) return;
 
         var existing = _list.Tasks.FirstOrDefault(t => t.Id == updatedTask.Id);
         if (existing is null) return;
 
-        // Felder patchen (Referenz bleibt gleich)
+        // Patch the complete aggregate while keeping the list's object reference.
+        // Cards and the open modal then see the same state until the next reload.
+        existing.SyncToken = updatedTask.SyncToken;
+        existing.SyncVersion = updatedTask.SyncVersion;
+        existing.ContentVersion = updatedTask.ContentVersion;
         existing.Title = updatedTask.Title;
         existing.Description = updatedTask.Description;
         existing.StartDate = updatedTask.StartDate;
         existing.DueDate = updatedTask.DueDate;
+        existing.ReminderAtUtc = updatedTask.ReminderAtUtc;
+        existing.ReminderSentAtUtc = updatedTask.ReminderSentAtUtc;
         existing.Done = updatedTask.Done;
         existing.IsImportant = updatedTask.IsImportant;
+        existing.CardColor = updatedTask.CardColor;
+        existing.CardColorMode = updatedTask.CardColorMode;
+        existing.ListSortOrder = updatedTask.ListSortOrder;
+        existing.KanbanSortOrder = updatedTask.KanbanSortOrder;
         existing.Assignee = updatedTask.Assignee;
         existing.ApproverUserId = updatedTask.ApproverUserId;
         existing.ApprovalStatus = updatedTask.ApprovalStatus;
@@ -2385,13 +2921,35 @@
         existing.Recurrence = updatedTask.Recurrence;
         existing.CustomRecurrence = updatedTask.CustomRecurrence;
         existing.Column = updatedTask.Column;
+        existing.ListId = updatedTask.ListId;
+        existing.CreatedAtUtc = updatedTask.CreatedAtUtc;
+        existing.DeletedAt = updatedTask.DeletedAt;
+        existing.DeletedByUserId = updatedTask.DeletedByUserId;
 
-        // Children ersetzen (ok)
-        existing.Attachments = updatedTask.Attachments;
-        existing.Comments = updatedTask.Comments;
-        existing.Steps = updatedTask.Steps;
-        existing.Watchers = updatedTask.Watchers;
-        existing.CustomFieldValues = updatedTask.CustomFieldValues;
+        var knownLabels = (existing.LabelLinks ?? [])
+            .Where(link => link.Label is not null)
+            .GroupBy(link => link.LabelId)
+            .ToDictionary(group => group.Key, group => group.First().Label!);
+        existing.LabelLinks = (updatedTask.LabelLinks ?? [])
+            .Select(link => new TodoTaskLabelEntity
+            {
+                TaskId = existing.Id,
+                LabelId = link.LabelId,
+                Label = link.Label
+                        ?? knownLabels.GetValueOrDefault(link.LabelId)
+                        ?? (_list.Labels ?? []).FirstOrDefault(label => label.Id == link.LabelId)
+            })
+            .ToList();
+        existing.Members = updatedTask.Members ?? [];
+        existing.MemberUserIds = updatedTask.MemberUserIds ?? [];
+        existing.Attachments = updatedTask.Attachments ?? [];
+        existing.Comments = updatedTask.Comments ?? [];
+        existing.Steps = updatedTask.Steps ?? [];
+        existing.Watchers = updatedTask.Watchers ?? [];
+        existing.CustomFieldValues = updatedTask.CustomFieldValues ?? [];
+
+        if (_selectedTaskId == updatedTask.Id)
+            _selectedTask = existing;
 
         // ✅ Sortable neu synchronisieren
         _listViewRef?.RequestSortableResync();
@@ -2405,55 +2963,89 @@
 
     private void OpenRenameDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _renameValue = _list?.Name ?? "";
         _renameOpen = true;
     }
 
     private void CloseRenameDialog()
-        => _renameOpen = false;
+    {
+        if (!_renameBusy)
+            _renameOpen = false;
+    }
 
     private async Task RenameAsync()
     {
-        if (_list is null) return;
+        if (_renameBusy || WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
+        var list = _list;
 
         var newName = (_renameValue ?? "").Trim();
         if (string.IsNullOrWhiteSpace(newName))
         {
-            _error = $"Listenname darf nicht leer sein. Liste: '{_list.Name}'.";
+            _error = $"Listenname darf nicht leer sein. Liste: '{list.Name}'.";
             _renameOpen = false;
             return;
         }
 
+        _renameBusy = true;
         try
         {
-            await ListService.RenameListAsync(_userId, _list.Id, newName);
+            await ListService.RenameListAsync(_userId, list.Id, newName);
+            if (_disposed || _list?.Id != list.Id) return;
+
             _renameOpen = false;
             await ReloadAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Liste konnte nicht umbenannt werden. Liste: '{_list.Name}'. Details: {ex.Message}";
-            _renameOpen = false;
+            if (!_disposed && _list?.Id == list.Id)
+            {
+                _error = $"Liste konnte nicht umbenannt werden. Liste: '{list.Name}'. Details: {ex.Message}";
+                _renameOpen = false;
+            }
+        }
+        finally
+        {
+            _renameBusy = false;
         }
     }
 
     private void OpenDeleteDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _deleteOpen = true;
     }
 
     private void CloseDeleteDialog()
-        => _deleteOpen = false;
+    {
+        if (!_deleteBusy)
+            _deleteOpen = false;
+    }
 
     private async Task DeleteAsync()
     {
-        if (_list is null) return;
+        if (_deleteBusy || WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
+        var list = _list;
+        _deleteBusy = true;
 
         try
         {
-            await ListService.DeleteListAsync(_userId, _list.Id);
+            var deleted = await ListService.DeleteListAsync(_userId, list.Id);
+            if (_disposed || _list?.Id != list.Id) return;
+
+            if (!deleted)
+            {
+                _error = $"Liste konnte nicht gelöscht werden. Liste: '{list.Name}' wurde nicht gefunden oder bereits gelöscht.";
+                _deleteOpen = false;
+                return;
+            }
+
             _deleteOpen = false;
 
             // zurück zur Startseite / erste Liste
@@ -2462,12 +3054,18 @@
             _selectedTask = null;
 
             Nav.NavigateTo("/");
-            await ReloadAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Liste konnte nicht gelöscht werden. Liste: '{_list.Name}'. Details: {ex.Message}";
-            _deleteOpen = false;
+            if (!_disposed && _list?.Id == list.Id)
+            {
+                _error = $"Liste konnte nicht gelöscht werden. Liste: '{list.Name}'. Details: {ex.Message}";
+                _deleteOpen = false;
+            }
+        }
+        finally
+        {
+            _deleteBusy = false;
         }
     }
 
@@ -2475,6 +3073,8 @@
 
     private void OpenShareDialog()
 {
+    if (WorkspaceInteractionBlocked) return;
+
     CloseOverlays();
 
     if (_list is null || !CanAdminCurrentList())
@@ -2505,6 +3105,26 @@
             )) == true;
     }
 
+    private bool CanWriteCurrentList()
+    {
+        if (_list is null) return false;
+
+        var uid = (_userId ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+
+        if (string.Equals((_list.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var participant = _list.Participants?.FirstOrDefault(candidate =>
+            !candidate.InvitationPending
+            && (
+                (!string.IsNullOrWhiteSpace(candidate.UserId) && string.Equals(candidate.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(candidate.Email) && string.Equals(candidate.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase))
+            ));
+
+        return participant is not null && participant.Role != ListRole.Observer;
+    }
+
     /* Filter */
     private bool _filterOpen;
     private TodoTaskFilter _filter = new();
@@ -2512,6 +3132,8 @@
 
     private void OpenFilterDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null) return;
+
         CloseOverlays();
         _filterDraft = CloneFilter(_filter);
         _filterOpen = true;
@@ -2579,12 +3201,6 @@
         else _filterDraft.LabelIds.Remove(id);
     }
 
-    private void ToggleMemberKey(string key, ChangeEventArgs e)
-    {
-        var on = e?.Value is bool b && b;
-        if (on) _filterDraft.MemberKeys.Add(key);
-        else _filterDraft.MemberKeys.Remove(key);
-    }
     private bool IsMemberChecked(string userId)
     => _filterDraft.MemberUserIds.Contains(userId);
 
@@ -2597,16 +3213,6 @@
             _filterDraft.MemberUserIds.Add(userId);
         else
             _filterDraft.MemberUserIds.Remove(userId);
-    }
-
-    private Task SetMemberCheckedAsync(string userId, bool value)
-    {
-        if (value)
-            _filterDraft.MemberUserIds.Add(userId);
-        else
-            _filterDraft.MemberUserIds.Remove(userId);
-
-        return Task.CompletedTask;
     }
 
     private void OnAssignedToMeChanged(ChangeEventArgs e)
@@ -2639,6 +3245,8 @@
     private bool _labelsOpen;
     private void OpenLabelsDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _labelsOpen = true;
     }
@@ -2652,6 +3260,8 @@
     private bool _customFieldsOpen;
     private void OpenCustomFieldsDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _customFieldsOpen = true;
     }
@@ -2662,6 +3272,8 @@
     private bool _automationOpen;
     private void OpenAutomationDialog()
     {
+        if (WorkspaceInteractionBlocked) return;
+
         CloseOverlays();
         if (_list is not null && CanAdminCurrentList())
             _automationOpen = true;
@@ -2672,6 +3284,7 @@
 
     /* Background */
     private bool _backgroundOpen;
+    private bool _backgroundBusy;
     private string? _backgroundDraft;
 
     private static readonly IReadOnlyList<string> _backgroundPalette = new[]
@@ -2685,28 +3298,46 @@
 
     private void OpenBackgroundDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _backgroundDraft = _list?.BackgroundColor;
         _backgroundOpen = true;
     }
 
     private void CloseBackgroundDialog()
-        => _backgroundOpen = false;
+    {
+        if (!_backgroundBusy)
+            _backgroundOpen = false;
+    }
 
     private async Task SaveBackgroundAsync()
     {
-        if (_list is null) return;
+        if (_backgroundBusy || WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
 
+        var listId = _list.Id;
+        var background = _backgroundDraft;
+
+        _backgroundBusy = true;
         try
         {
-            await ListService.SetBackgroundColorAsync(_userId, _list.Id, _backgroundDraft);
+            await ListService.SetBackgroundColorAsync(_userId, listId, background);
+            if (_disposed || _list?.Id != listId) return;
+
             _backgroundOpen = false;
             await ReloadAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Hintergrundfarbe konnte nicht gespeichert werden. Details: {ex.Message}";
-            _backgroundOpen = false;
+            if (!_disposed && _list?.Id == listId)
+            {
+                _error = $"Hintergrundfarbe konnte nicht gespeichert werden. Details: {ex.Message}";
+                _backgroundOpen = false;
+            }
+        }
+        finally
+        {
+            _backgroundBusy = false;
         }
     }
     /* Ende Background */
@@ -2714,50 +3345,91 @@
     /* Papierkorb: Aufgaben wiederherstellen */
     private bool _restoreTasksOpen;
     private bool _restoreTasksLoading;
+    private long _restoreTasksLoadVersion;
     private List<TodoTaskEntity> _deletedTasks = new();
+    private readonly HashSet<Guid> _restoringTaskIds = [];
 
     private async Task OpenRestoreTasksDialog()
     {
-        if (_list is null) return;
+        if (_restoreTasksLoading || WorkspaceInteractionBlocked || _list is null || !CanWriteCurrentList()) return;
+        var listId = _list.Id;
+
         CloseOverlays();
+        var loadVersion = ++_restoreTasksLoadVersion;
         _restoreTasksOpen = true;
         _restoreTasksLoading = true;
 
         try
         {
-            _deletedTasks = (await TrashService.GetDeletedTasksAsync(_userId, _list.Id)).ToList();
+            var deletedTasks = (await TrashService.GetDeletedTasksAsync(_userId, listId)).ToList();
+            if (!IsCurrentRestoreTasksLoad(listId, loadVersion) || _listLoading || !CanWriteCurrentList()) return;
+
+            _deletedTasks = deletedTasks;
         }
         catch (Exception ex)
         {
-            _error = $"Gelöschte Aufgaben konnten nicht geladen werden. Details: {ex.Message}";
-            _restoreTasksOpen = false;
+            if (IsCurrentRestoreTasksLoad(listId, loadVersion))
+            {
+                _error = $"Gelöschte Aufgaben konnten nicht geladen werden. Details: {ex.Message}";
+                _restoreTasksOpen = false;
+            }
         }
         finally
         {
-            _restoreTasksLoading = false;
+            if (loadVersion == _restoreTasksLoadVersion)
+                _restoreTasksLoading = false;
         }
     }
 
     private void CloseRestoreTasksDialog()
     {
+        InvalidateRestoreTasksLoad();
         _restoreTasksOpen = false;
         _deletedTasks.Clear();
     }
 
+    private void InvalidateRestoreTasksLoad()
+    {
+        _restoreTasksLoadVersion++;
+        _restoreTasksLoading = false;
+    }
+
+    private bool IsCurrentRestoreTasksLoad(Guid listId, long loadVersion)
+        => !_disposed
+           && _list?.Id == listId
+           && loadVersion == _restoreTasksLoadVersion;
+
     private async Task RestoreTaskAsync(Guid taskId)
     {
-        if (_list is null) return;
+        if (WorkspaceInteractionBlocked || _list is null || !CanWriteCurrentList()) return;
+        if (!_restoringTaskIds.Add(taskId)) return;
+
+        var listId = _list.Id;
         _error = "";
 
         try
         {
-            await TrashService.RestoreTaskAsync(_userId, _list.Id, taskId);
+            var restored = await TrashService.RestoreTaskAsync(_userId, listId, taskId);
+            if (_disposed || _list?.Id != listId) return;
+
+            if (!restored)
+            {
+                _error = "Aufgabe konnte nicht wiederhergestellt werden, da sie nicht mehr im Papierkorb vorhanden ist.";
+                _deletedTasks.RemoveAll(task => task.Id == taskId);
+                return;
+            }
+
             _deletedTasks.RemoveAll(t => t.Id == taskId);
             await ReloadAsync();
         }
         catch (Exception ex)
         {
-            _error = $"Aufgabe konnte nicht wiederhergestellt werden. Details: {ex.Message}";
+            if (!_disposed && _list?.Id == listId)
+                _error = $"Aufgabe konnte nicht wiederhergestellt werden. Details: {ex.Message}";
+        }
+        finally
+        {
+            _restoringTaskIds.Remove(taskId);
         }
     }
 
@@ -2772,29 +3444,44 @@
 
     /* ─── Liste kopieren ─────────────────────────────────────────────────── */
     private bool _copyOpen;
+    private bool _copyBusy;
     private string _copyName = "";
     private bool _copyIncludeTasks;
 
     private void OpenCopyDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _copyName = $"Kopie von {_list?.Name ?? ""}";
         _copyIncludeTasks = false;
         _copyOpen = true;
     }
 
-    private void CloseCopyDialog() => _copyOpen = false;
+    private void CloseCopyDialog()
+    {
+        if (!_copyBusy)
+            _copyOpen = false;
+    }
 
     private async Task CopyListAsync()
     {
-        if (_list is null) return;
+        if (_copyBusy || WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
+        var sourceList = _list;
+        var sourceListId = sourceList.Id;
 
         var name = (_copyName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name)) return;
 
+        _copyBusy = true;
+
+        try
+        {
+
         // Label-ID-Mapping: alt -> neu
         var labelIdMap = new Dictionary<Guid, Guid>();
-        var newLabels = (_list.Labels ?? new()).Select(l =>
+        var newLabels = (sourceList.Labels ?? new()).Select(l =>
         {
             var newId = Guid.NewGuid();
             labelIdMap[l.Id] = newId;
@@ -2804,7 +3491,7 @@
         var newTasks = new List<TodoTaskEntity>();
         var customFieldIdMap = new Dictionary<Guid, Guid>();
         List<TodoCustomFieldDefinitionEntity> newCustomFields = ProductFeatures.IsEnabled(ProductFeatureIds.Forms)
-            ? (_list.CustomFields ?? new()).OrderBy(f => f.SortOrder).Select((f, index) =>
+            ? (sourceList.CustomFields ?? new()).OrderBy(f => f.SortOrder).Select((f, index) =>
         {
             var newFieldId = Guid.NewGuid();
             customFieldIdMap[f.Id] = newFieldId;
@@ -2814,6 +3501,7 @@
                 Name = f.Name,
                 Type = f.Type,
                 IsRequired = f.IsRequired,
+                SourceTaskListId = f.SourceTaskListId,
                 SortOrder = index,
                 Options = (f.Options ?? new()).OrderBy(o => o.SortOrder).Select((o, optionIndex) => new TodoCustomFieldOptionEntity
                 {
@@ -2826,7 +3514,7 @@
 
         if (_copyIncludeTasks)
         {
-            foreach (var t in (_list.Tasks ?? new()).Where(t => t.DeletedAt == null))
+            foreach (var t in (sourceList.Tasks ?? new()).Where(t => t.DeletedAt == null))
             {
                 var newTaskId = Guid.NewGuid();
                 newTasks.Add(new TodoTaskEntity
@@ -2837,12 +3525,25 @@
                     Column = t.Column,
                     Done = t.Done,
                     IsImportant = t.IsImportant,
+                    ListSortOrder = t.ListSortOrder,
+                    KanbanSortOrder = t.KanbanSortOrder,
                     DueDate = t.DueDate,
                     StartDate = t.StartDate,
                     Recurrence = t.Recurrence,
                     CustomRecurrence = t.CustomRecurrence,
                     CardColor = t.CardColor,
                     CardColorMode = t.CardColorMode,
+                    Steps = (t.Steps ?? [])
+                        .OrderBy(step => step.CreatedAtUtc)
+                        .Select(step => new TodoStepEntity
+                        {
+                            Id = Guid.NewGuid(),
+                            TaskId = newTaskId,
+                            Title = step.Title,
+                            IsCompleted = step.IsCompleted,
+                            CreatedAtUtc = step.CreatedAtUtc
+                        })
+                        .ToList(),
                     CustomFieldValues = (t.CustomFieldValues ?? new())
                         .Where(v => customFieldIdMap.ContainsKey(v.FieldId))
                         .Select(v => new TodoTaskCustomFieldValueEntity { Id = Guid.NewGuid(), TaskId = newTaskId, FieldId = customFieldIdMap[v.FieldId], Value = v.Value })
@@ -2858,37 +3559,46 @@
         var newList = new TodoListEntity
         {
             Name = name,
-            Columns = new List<string>(_list.Columns ?? new()),
-            DoneColumns = new List<string>(_list.DoneColumns ?? new()),
-            DefaultView = _list.DefaultView,
-            BackgroundColor = _list.BackgroundColor,
+            Columns = new List<string>(sourceList.Columns ?? new()),
+            DoneColumns = new List<string>(sourceList.DoneColumns ?? new()),
+            DefaultView = sourceList.DefaultView,
+            BackgroundColor = sourceList.BackgroundColor,
             Labels = newLabels,
             CustomFields = newCustomFields,
             Tasks = newTasks
         };
 
-        try
-        {
             var created = await ListService.AddListAsync(_userId, newList);
+            if (_disposed || _list?.Id != sourceListId || !_copyOpen) return;
+
             _copyOpen = false;
-            await ReloadAsync();
             Nav.NavigateTo($"/list/{created.Id}");
         }
         catch (Exception ex)
         {
-            _error = $"Liste konnte nicht kopiert werden. Details: {ex.Message}";
-            _copyOpen = false;
+            if (!_disposed && _list?.Id == sourceListId)
+            {
+                _error = $"Liste konnte nicht kopiert werden. Details: {ex.Message}";
+                _copyOpen = false;
+            }
+        }
+        finally
+        {
+            _copyBusy = false;
         }
     }
     /* Ende Liste kopieren */
 
     /* ─── Als Vorlage speichern ──────────────────────────────────────────── */
     private bool _templateOpen;
+    private bool _templateBusy;
     private bool _templateSaved;
     private string _templateName = "";
 
     private void OpenTemplateDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _templateName = _list?.Name ?? "";
         _templateSaved = false;
@@ -2897,18 +3607,28 @@
 
     private void CloseTemplateDialog()
     {
+        if (_templateBusy) return;
+
         _templateOpen = false;
         _templateSaved = false;
     }
 
     private async Task SaveAsTemplateAsync()
     {
-        if (_list is null) return;
+        if (_templateBusy || WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
+        var sourceList = _list;
+        var sourceListId = sourceList.Id;
 
         var name = (_templateName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name)) return;
 
-        var newLabels = (_list.Labels ?? new()).Select(l => new TodoLabelEntity
+        _templateBusy = true;
+
+        try
+        {
+
+        var newLabels = (sourceList.Labels ?? new()).Select(l => new TodoLabelEntity
         {
             Id = Guid.NewGuid(),
             Title = l.Title,
@@ -2916,12 +3636,13 @@
         }).ToList();
 
         List<TodoCustomFieldDefinitionEntity> newCustomFields = ProductFeatures.IsEnabled(ProductFeatureIds.Forms)
-            ? (_list.CustomFields ?? new()).OrderBy(f => f.SortOrder).Select((f, index) => new TodoCustomFieldDefinitionEntity
+            ? (sourceList.CustomFields ?? new()).OrderBy(f => f.SortOrder).Select((f, index) => new TodoCustomFieldDefinitionEntity
         {
             Id = Guid.NewGuid(),
             Name = f.Name,
             Type = f.Type,
             IsRequired = f.IsRequired,
+            SourceTaskListId = f.SourceTaskListId,
             SortOrder = index,
             Options = (f.Options ?? new()).OrderBy(o => o.SortOrder).Select((o, optionIndex) => new TodoCustomFieldOptionEntity
             {
@@ -2934,24 +3655,30 @@
         var template = new TodoListEntity
         {
             Name = name,
-            Columns = new List<string>(_list.Columns ?? new()),
-            DoneColumns = new List<string>(_list.DoneColumns ?? new()),
-            DefaultView = _list.DefaultView,
-            BackgroundColor = _list.BackgroundColor,
+            Columns = new List<string>(sourceList.Columns ?? new()),
+            DoneColumns = new List<string>(sourceList.DoneColumns ?? new()),
+            DefaultView = sourceList.DefaultView,
+            BackgroundColor = sourceList.BackgroundColor,
             Labels = newLabels,
             CustomFields = newCustomFields,
             IsTemplate = true
         };
 
-        try
-        {
             await ListService.AddListAsync(_userId, template);
-            _templateSaved = true;
+            if (!_disposed && _list?.Id == sourceListId && _templateOpen)
+                _templateSaved = true;
         }
         catch (Exception ex)
         {
-            _error = $"Vorlage konnte nicht gespeichert werden. Details: {ex.Message}";
-            _templateOpen = false;
+            if (!_disposed && _list?.Id == sourceListId)
+            {
+                _error = $"Vorlage konnte nicht gespeichert werden. Details: {ex.Message}";
+                _templateOpen = false;
+            }
+        }
+        finally
+        {
+            _templateBusy = false;
         }
     }
     /* Ende Vorlage */
@@ -2961,6 +3688,8 @@
 
     private void OpenExportDialog()
     {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
+
         CloseOverlays();
         _exportOpen = true;
     }
@@ -3023,8 +3752,8 @@
                 CsvEscape(t.Title),
                 CsvEscape(t.Description ?? ""),
                 CsvEscape(t.Column),
-                t.Done ? L["Common_Yes"] : L["Common_No"],
-                t.IsImportant ? L["Common_Yes"] : L["Common_No"],
+                CsvEscape(t.Done ? L["Common_Yes"] : L["Common_No"]),
+                CsvEscape(t.IsImportant ? L["Common_Yes"] : L["Common_No"]),
                 t.DueDate?.ToString("dd.MM.yyyy") ?? "",
                 CsvEscape(labels)
             }));
@@ -3084,9 +3813,16 @@
     private static string CsvEscape(string? value)
     {
         if (value is null) return "";
-        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
-            return $"\"{value.Replace("\"", "\"\"")}\"";
-        return value;
+
+        // Spreadsheet applications execute cells beginning with these characters
+        // as formulas. Prefix user-controlled values so a CSV export stays data.
+        var safeValue = value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+            ? $"'{value}"
+            : value;
+
+        if (safeValue.Contains(',') || safeValue.Contains('"') || safeValue.Contains('\n') || safeValue.Contains('\r'))
+            return $"\"{safeValue.Replace("\"", "\"\"")}\"";
+        return safeValue;
     }
 
     private static string HtmlEncode(string? value)
@@ -3096,7 +3832,8 @@
     {
         if (string.IsNullOrWhiteSpace(name)) return "liste";
         var invalid = System.IO.Path.GetInvalidFileNameChars();
-        return new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+        var sanitized = new string(name.Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "liste" : sanitized;
     }
     /* Ende Exportieren */
 }
