@@ -769,6 +769,18 @@
   <data name="Participants_OwnerFixed" xml:space="preserve">
     <value>El rol de propietario es fijo.</value>
   </data>
+  <data name="Participants_Owner" xml:space="preserve">
+    <value>Propietario</value>
+  </data>
+  <data name="Participants_ViaPortfolio" xml:space="preserve">
+    <value>A través del portafolio</value>
+  </data>
+  <data name="Participants_ViaDirectory" xml:space="preserve">
+    <value>A través del directorio</value>
+  </data>
+  <data name="Participants_ByDirectory" xml:space="preserve">
+    <value>Directorio</value>
+  </data>
   <data name="Participants_NoParticipants" xml:space="preserve">
     <value>Aún no hay participantes.</value>
   </data>
@@ -1275,223 +1287,226 @@
     <value>Paneles</value>
   </data>
   <data name="Dashboard_PageTitle" xml:space="preserve">
-    <value>Dashboards</value>
+    <value>Paneles</value>
   </data>
   <data name="Dashboard_NoneSelected" xml:space="preserve">
-    <value>No dashboard selected.</value>
+    <value>No se ha seleccionado ningún dashboard.</value>
   </data>
   <data name="Dashboard_Switch" xml:space="preserve">
-    <value>Switch dashboard</value>
+    <value>Interruptor de panel</value>
   </data>
   <data name="Dashboard_Rename" xml:space="preserve">
-    <value>Rename dashboard</value>
+    <value>Cambiar nombre del panel</value>
   </data>
   <data name="Dashboard_Create" xml:space="preserve">
-    <value>New dashboard</value>
+    <value>Nuevo tablero</value>
   </data>
   <data name="Dashboard_Delete" xml:space="preserve">
-    <value>Delete</value>
+    <value>Suprimir</value>
   </data>
   <data name="Dashboard_Sort" xml:space="preserve">
-    <value>Sorting</value>
+    <value>Clasificación</value>
   </data>
   <data name="Dashboard_SortBy" xml:space="preserve">
-    <value>Sort by</value>
+    <value>Ordenar por</value>
   </data>
   <data name="Dashboard_Export" xml:space="preserve">
-    <value>Export</value>
+    <value>Exportación</value>
+  </data>
+  <data name="Dashboard_ExportError" xml:space="preserve">
+    <value>La exportación {0} falló.</value>
   </data>
   <data name="Dashboard_FilterActive" xml:space="preserve">
-    <value>Active</value>
+    <value>Activo</value>
   </data>
   <data name="Dashboard_Name" xml:space="preserve">
-    <value>Dashboard name</value>
+    <value>Nombre del panel</value>
   </data>
   <data name="Dashboard_Name_Help" xml:space="preserve">
-    <value>The name is shown as the main heading in the header.</value>
+    <value>El nombre se muestra como el encabezado principal en el encabezado.</value>
   </data>
   <data name="Dashboard_GroupBy" xml:space="preserve">
-    <value>Grouping</value>
+    <value>Grupo</value>
   </data>
   <data name="Dashboard_GroupBy_Help" xml:space="preserve">
-    <value>Controls how tasks are grouped in the table.</value>
+    <value>Controla cómo se agrupan las tareas en la tabla.</value>
   </data>
   <data name="Dashboard_ListSelection" xml:space="preserve">
-    <value>Select lists</value>
+    <value>Seleccione listas</value>
   </data>
   <data name="Dashboard_ListSelection_Help" xml:space="preserve">
-    <value>Select the lists whose tasks should appear on the dashboard.</value>
+    <value>Seleccione las listas cuyas tareas deben aparecer en el panel de control.</value>
   </data>
   <data name="Dashboard_Widgets" xml:space="preserve">
-    <value>Widgets and charts</value>
+    <value>Widgets y gráficos</value>
   </data>
   <data name="Dashboard_Widgets_Help" xml:space="preserve">
-    <value>Customize your dashboard. Changes are saved automatically.</value>
+    <value>Personaliza tu panel de control. Los cambios se guardan automáticamente.</value>
   </data>
   <data name="Dashboard_Widget_Kpi" xml:space="preserve">
-    <value>KPI cards</value>
+    <value>Tarjetas KPI</value>
   </data>
   <data name="Dashboard_Widget_Status" xml:space="preserve">
-    <value>Status chart</value>
+    <value>Gráfico de estado</value>
   </data>
   <data name="Dashboard_Widget_Priority" xml:space="preserve">
-    <value>Priority chart</value>
+    <value>Gráfico prioritario</value>
   </data>
   <data name="Dashboard_Widget_Due" xml:space="preserve">
-    <value>Due date chart</value>
+    <value>Gráfico de fecha prevista</value>
   </data>
   <data name="Dashboard_Kpi_Total" xml:space="preserve">
     <value>Total</value>
   </data>
   <data name="Dashboard_Kpi_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>Abierto</value>
   </data>
   <data name="Dashboard_Kpi_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>Hecho</value>
   </data>
   <data name="Dashboard_Kpi_Completion" xml:space="preserve">
-    <value>Completion</value>
+    <value>Terminación</value>
   </data>
   <data name="Dashboard_Chart_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>Abierto</value>
   </data>
   <data name="Dashboard_Chart_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>Hecho</value>
   </data>
   <data name="Dashboard_Chart_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>Importante</value>
   </data>
   <data name="Dashboard_Chart_Normal" xml:space="preserve">
     <value>Normal</value>
   </data>
   <data name="Dashboard_Chart_Overdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>Vencidas</value>
   </data>
   <data name="Dashboard_Chart_DueSoon" xml:space="preserve">
-    <value>Next 7 days</value>
+    <value>Siguientes 7 días</value>
   </data>
   <data name="Dashboard_Chart_NoDate" xml:space="preserve">
-    <value>No date</value>
+    <value>No hay fecha</value>
   </data>
   <data name="Dashboard_Items" xml:space="preserve">
-    <value>Items</value>
+    <value>Temas</value>
   </data>
   <data name="Dashboard_Col_Task" xml:space="preserve">
-    <value>Task</value>
+    <value>Tareas</value>
   </data>
   <data name="Dashboard_Col_List" xml:space="preserve">
-    <value>List</value>
+    <value>Lista</value>
   </data>
   <data name="Dashboard_Col_Column" xml:space="preserve">
-    <value>Column</value>
+    <value>Columna</value>
   </data>
   <data name="Dashboard_Col_Due" xml:space="preserve">
-    <value>Due</value>
+    <value>Vencimiento</value>
   </data>
   <data name="Dashboard_Create_Title" xml:space="preserve">
-    <value>Create new dashboard</value>
+    <value>Crear nuevo panel</value>
   </data>
   <data name="Dashboard_FilterTitle" xml:space="preserve">
-    <value>Dashboard filters</value>
+    <value>Filtros de panel</value>
   </data>
   <data name="Dashboard_Search" xml:space="preserve">
-    <value>Search ...</value>
+    <value>Buscar...</value>
   </data>
   <data name="Dashboard_Status_All" xml:space="preserve">
-    <value>Status: All</value>
+    <value>Situación: Todos</value>
   </data>
   <data name="Dashboard_Status_OpenOnly" xml:space="preserve">
-    <value>Open only</value>
+    <value>Abierto sólo</value>
   </data>
   <data name="Dashboard_Status_DoneOnly" xml:space="preserve">
-    <value>Done only</value>
+    <value>Hecho sólo</value>
   </data>
   <data name="Dashboard_Filter_Overdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>Vencidas</value>
   </data>
   <data name="Dashboard_Filter_NextDay" xml:space="preserve">
-    <value>Next 24h</value>
+    <value>Siguiente 24h</value>
   </data>
   <data name="Dashboard_Filter_NextWeek" xml:space="preserve">
-    <value>Next 7 days</value>
+    <value>Siguientes 7 días</value>
   </data>
   <data name="Dashboard_Filter_NextMonth" xml:space="preserve">
-    <value>Next 30 days</value>
+    <value>Próximos 30 días</value>
   </data>
   <data name="Dashboard_Filter_NoDue" xml:space="preserve">
-    <value>No due date</value>
+    <value>No hay fecha límite</value>
   </data>
   <data name="Dashboard_Filter_AssignedToMe" xml:space="preserve">
-    <value>Assigned to me</value>
+    <value>Asignado a mí</value>
   </data>
   <data name="Dashboard_Filter_NoAssignee" xml:space="preserve">
-    <value>No assignee</value>
+    <value>No cesionario</value>
   </data>
   <data name="Dashboard_Filter_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>Importante</value>
   </data>
   <data name="Dashboard_Autosave_Pending" xml:space="preserve">
-    <value>Saving automatically ...</value>
+    <value>Salvando automáticamente...</value>
   </data>
   <data name="Dashboard_Autosave_Saved" xml:space="preserve">
-    <value>Saved automatically</value>
+    <value>Se guarda automáticamente</value>
   </data>
   <data name="Dashboard_AllTasks" xml:space="preserve">
-    <value>All tasks</value>
+    <value>Todas las tareas</value>
   </data>
   <data name="Dashboard_GroupBy_None" xml:space="preserve">
-    <value>No grouping</value>
+    <value>Sin agrupación</value>
   </data>
   <data name="Dashboard_GroupBy_List" xml:space="preserve">
-    <value>By list</value>
+    <value>Lista</value>
   </data>
   <data name="Dashboard_GroupBy_Status" xml:space="preserve">
-    <value>By status</value>
+    <value>Por estado</value>
   </data>
   <data name="Dashboard_GroupBy_DueDate" xml:space="preserve">
-    <value>By due date</value>
+    <value>Fecha prevista</value>
   </data>
   <data name="Dashboard_Settings" xml:space="preserve">
-    <value>Dashboard settings</value>
+    <value>Ajustes del panel</value>
   </data>
   <data name="Dashboard_Customize_Widgets" xml:space="preserve">
-    <value>Customize widgets</value>
+    <value>Personalizar widgets</value>
   </data>
   <data name="Dashboard_Widget_Tasks" xml:space="preserve">
-    <value>Task table</value>
+    <value>Cuadro de tareas</value>
   </data>
   <data name="Dashboard_Widget_Order" xml:space="preserve">
-    <value>Order</value>
+    <value>Orden</value>
   </data>
   <data name="Sort_Custom" xml:space="preserve">
-    <value>Custom</value>
+    <value>Aduanas</value>
   </data>
   <data name="Sort_Importance" xml:space="preserve">
-    <value>Importance</value>
+    <value>Importancia</value>
   </data>
   <data name="Sort_DueDate" xml:space="preserve">
-    <value>Due date</value>
+    <value>Fecha prevista</value>
   </data>
   <data name="Sort_Alphabetical" xml:space="preserve">
-    <value>Alphabetical</value>
+    <value>Alfabética</value>
   </data>
   <data name="Sort_CreatedAt" xml:space="preserve">
-    <value>Created at</value>
+    <value>Creado en</value>
   </data>
   <data name="Dialog_Close" xml:space="preserve">
-    <value>Close</value>
+    <value>Cerca</value>
   </data>
   <data name="Dialog_Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>Cancelar</value>
   </data>
   <data name="Dialog_Create" xml:space="preserve">
-    <value>Create</value>
+    <value>Crear</value>
   </data>
   <data name="Common_NoListLoaded" xml:space="preserve">
-    <value>No list loaded.</value>
+    <value>Sin lista cargada.</value>
   </data>
   <data name="CustomField_NamePlaceholder" xml:space="preserve">
-    <value>Field name</value>
+    <value>Nombre del campo</value>
   </data>
   <data name="CustomField_OptionsPlaceholder" xml:space="preserve">
     <value>Agregar opciones</value>
@@ -1503,160 +1518,160 @@
     <value>Aún no hay opciones.</value>
   </data>
   <data name="CustomField_SelectSourceList" xml:space="preserve">
-    <value>Select source list</value>
+    <value>Seleccionar lista de fuentes</value>
   </data>
   <data name="CustomField_TaskTitleSelect_AddHelp" xml:space="preserve">
-    <value>Task selection shows task titles from the selected list as a select field. You can add it only if you are an admin in that list and the current list.</value>
+    <value>La selección de tareas muestra los títulos de las tareas de la lista seleccionada en un campo de selección. Solo puedes añadirla si eres administrador tanto de esa lista como de la lista actual.</value>
   </data>
   <data name="CustomField_TaskTitleSelect_SaveHelp" xml:space="preserve">
-    <value>Task selection shows task titles from the selected list as a select field. You can save it only if you are an admin in both lists.</value>
+    <value>La selección de tareas muestra los títulos de las tareas de la lista seleccionada en un campo de selección. Solo puedes guardarla si eres administrador de ambas listas.</value>
   </data>
   <data name="CustomField_NoSourceList" xml:space="preserve">
-    <value>No matching source list available. You need admin rights in at least one other list.</value>
+    <value>No hay lista de fuentes disponibles. Necesita derechos de administración en al menos una otra lista.</value>
   </data>
   <data name="CustomField_Empty" xml:space="preserve">
-    <value>No custom fields yet.</value>
+    <value>Todavía no hay campos personalizados.</value>
   </data>
   <data name="CustomField_SourceList" xml:space="preserve">
-    <value>Source list</value>
+    <value>Lista de fuentes</value>
   </data>
   <data name="CustomField_SourceList_NotSelected" xml:space="preserve">
-    <value>not selected</value>
+    <value>no seleccionado</value>
   </data>
   <data name="CustomField_SourceList_NotAvailable" xml:space="preserve">
-    <value>not available</value>
+    <value>no disponible</value>
   </data>
   <data name="CustomField_Type_Number" xml:space="preserve">
-    <value>Number</value>
+    <value>Número</value>
   </data>
   <data name="CustomField_Type_Dropdown" xml:space="preserve">
-    <value>Dropdown</value>
+    <value>Desglose</value>
   </data>
   <data name="CustomField_Type_MultiSelect" xml:space="preserve">
     <value>Selección múltiple</value>
   </data>
   <data name="CustomField_Type_Date" xml:space="preserve">
-    <value>Date</value>
+    <value>Fecha</value>
   </data>
   <data name="CustomField_Type_Checkbox" xml:space="preserve">
-    <value>Checkbox</value>
+    <value>Caja de control</value>
   </data>
   <data name="CustomField_Type_TaskTitleSelect" xml:space="preserve">
-    <value>Task selection</value>
+    <value>Selección de tareas</value>
   </data>
   <data name="CustomField_Type_Text" xml:space="preserve">
-    <value>Text</value>
+    <value>Texto</value>
   </data>
   <data name="CustomField_SectionTitle" xml:space="preserve">
-    <value>Custom fields</value>
+    <value>Campos personalizados</value>
   </data>
   <data name="CustomField_NoneDefined" xml:space="preserve">
-    <value>No fields defined</value>
+    <value>No hay campos definidos</value>
   </data>
   <data name="FormDesigner_Forms" xml:space="preserve">
-    <value>Forms</value>
+    <value>Formas</value>
   </data>
   <data name="FormDesigner_Creating" xml:space="preserve">
-    <value>Creating...</value>
+    <value>Creando...</value>
   </data>
   <data name="FormDesigner_NewForm" xml:space="preserve">
-    <value>New form</value>
+    <value>Nueva forma</value>
   </data>
   <data name="FormDesigner_FormList" xml:space="preserve">
-    <value>Form list</value>
+    <value>Lista de formularios</value>
   </data>
   <data name="FormDesigner_Empty" xml:space="preserve">
-    <value>No forms yet.</value>
+    <value>Todavía no hay formas.</value>
   </data>
   <data name="FormDesigner_SelectOrCreate" xml:space="preserve">
-    <value>Select a form or create a new one.</value>
+    <value>Seleccione una forma o cree una nueva.</value>
   </data>
   <data name="FormDesigner_Password" xml:space="preserve">
-    <value>Password</value>
+    <value>Contraseña</value>
   </data>
   <data name="FormDesigner_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>Abierto</value>
   </data>
   <data name="FormDesigner_Preview" xml:space="preserve">
-    <value>Preview</value>
+    <value>Vista previa</value>
   </data>
   <data name="FormDesigner_AvailableFields" xml:space="preserve">
-    <value>Available fields</value>
+    <value>Campos disponibles</value>
   </data>
   <data name="FormDesigner_Title" xml:space="preserve">
-    <value>Form designer</value>
+    <value>Diseñador de formularios</value>
   </data>
   <data name="FormDesigner_DragSort" xml:space="preserve">
-    <value>Sort by drag and drop</value>
+    <value>Ordenar por arrastrar y soltar</value>
   </data>
   <data name="FormDesigner_Move" xml:space="preserve">
-    <value>Move</value>
+    <value>Moveos</value>
   </data>
   <data name="FormDesigner_Required" xml:space="preserve">
-    <value>Required</value>
+    <value>Necesidades</value>
   </data>
   <data name="FormDesigner_HelpText" xml:space="preserve">
-    <value>Help text</value>
+    <value>Texto de ayuda</value>
   </data>
   <data name="FormDesigner_PreviewAria" xml:space="preserve">
-    <value>Form preview</value>
+    <value>Previsualización del formulario</value>
   </data>
   <data name="FormDesigner_PreviewHint" xml:space="preserve">
-    <value>This is how the form appears publicly.</value>
+    <value>Así es como la forma aparece públicamente.</value>
   </data>
   <data name="FormDesigner_LoadError" xml:space="preserve">
-    <value>Forms could not be loaded. Details: {0}</value>
+    <value>Los formularios no se pueden cargar. Detalles: {0}</value>
   </data>
   <data name="FormDesigner_CreateSuccess" xml:space="preserve">
-    <value>Form was created.</value>
+    <value>El formulario fue creado.</value>
   </data>
   <data name="FormDesigner_CreateError" xml:space="preserve">
-    <value>Form could not be created. Details: {0}</value>
+    <value>El formulario no se puede crear. Detalles: {0}</value>
   </data>
   <data name="FormDesigner_SaveSuccess" xml:space="preserve">
-    <value>Form was saved.</value>
+    <value>El formulario fue salvado.</value>
   </data>
   <data name="FormDesigner_SaveError" xml:space="preserve">
-    <value>Form could not be saved. Details: {0}</value>
+    <value>El formulario no se puede guardar. Detalles: {0}</value>
   </data>
   <data name="FormDesigner_DeleteSuccess" xml:space="preserve">
-    <value>Form was deleted.</value>
+    <value>El formulario fue eliminado.</value>
   </data>
   <data name="FormDesigner_DeleteError" xml:space="preserve">
-    <value>Form could not be deleted. Details: {0}</value>
+    <value>El formulario no se puede eliminar. Detalles: {0}</value>
   </data>
   <data name="FormDesigner_Status_Public" xml:space="preserve">
-    <value>Public</value>
+    <value>Público</value>
   </data>
   <data name="FormDesigner_Status_Private" xml:space="preserve">
-    <value>Private</value>
+    <value>Privado</value>
   </data>
   <data name="FormDesigner_Status_PasswordProtected" xml:space="preserve">
-    <value>With password</value>
+    <value>Con contraseña</value>
   </data>
   <data name="FormDesigner_Status_Draft" xml:space="preserve">
-    <value>Draft</value>
+    <value>Proyecto</value>
   </data>
   <data name="FormDesigner_Field_Title" xml:space="preserve">
-    <value>Title</value>
+    <value>Título</value>
   </data>
   <data name="FormDesigner_FieldType_Standard" xml:space="preserve">
-    <value>Standard field</value>
+    <value>Campo estándar</value>
   </data>
   <data name="FormDesigner_FieldType_Custom" xml:space="preserve">
-    <value>Custom</value>
+    <value>Aduanas</value>
   </data>
   <data name="FormDesigner_FieldType_CustomWithType" xml:space="preserve">
-    <value>Custom · {0}</value>
+    <value>Personalizado · {0}</value>
   </data>
   <data name="PublicForm_Loading" xml:space="preserve">
-    <value>Loading form...</value>
+    <value>Cargando formulario...</value>
   </data>
   <data name="PublicForm_NotAvailableTitle" xml:space="preserve">
-    <value>Form not available</value>
+    <value>Formulario no disponible</value>
   </data>
   <data name="PublicForm_NotAvailableMessage" xml:space="preserve">
-    <value>The form is not published or you do not have access.</value>
+    <value>El formulario no está publicado o no tienes acceso.</value>
   </data>
   <data name="PublicForm_Thanks" xml:space="preserve">
     <value>Gracias</value>
@@ -1665,595 +1680,595 @@
     <value>Su envío se ha enviado correctamente.</value>
   </data>
   <data name="PublicForm_CheckingPassword" xml:space="preserve">
-    <value>Checking...</value>
+    <value>Comprobando...</value>
   </data>
   <data name="PublicForm_Open" xml:space="preserve">
-    <value>Open form</value>
+    <value>Forma abierta</value>
   </data>
   <data name="PublicForm_Submitting" xml:space="preserve">
-    <value>Submitting...</value>
+    <value>Presentando...</value>
   </data>
   <data name="PublicForm_Submit" xml:space="preserve">
-    <value>Submit</value>
+    <value>Enviar</value>
   </data>
   <data name="PublicForm_PasswordRequired" xml:space="preserve">
-    <value>Please enter the password.</value>
+    <value>Por favor, introduzca la contraseña.</value>
   </data>
   <data name="PublicForm_PasswordInvalid" xml:space="preserve">
-    <value>The password is incorrect.</value>
+    <value>La contraseña es incorrecta.</value>
   </data>
   <data name="PublicForm_PasswordCheckError" xml:space="preserve">
-    <value>The password could not be checked. Details: {0}</value>
+    <value>La contraseña no se puede verificar. Detalles: {0}</value>
   </data>
   <data name="PublicForm_SubmitError" xml:space="preserve">
-    <value>The form could not be submitted. Details: {0}</value>
+    <value>El formulario no se pudo enviar. Detalles: {0}</value>
   </data>
   <data name="PublicForm_SelectPlaceholder" xml:space="preserve">
-    <value>Please select</value>
+    <value>Seleccione</value>
   </data>
   <data name="Table_TaskCount" xml:space="preserve">
-    <value>{0} task(s)</value>
+    <value>{0} tarea(s)</value>
   </data>
   <data name="Table_ResetSort" xml:space="preserve">
-    <value>Reset sorting</value>
+    <value>Reiniciar la clasificación</value>
   </data>
   <data name="Table_Columns" xml:space="preserve">
-    <value>Columns</value>
+    <value>Columnas</value>
   </data>
   <data name="Table_MoveColumn" xml:space="preserve">
-    <value>Move column</value>
+    <value>Mover la columna</value>
   </data>
   <data name="Table_MoveTask" xml:space="preserve">
-    <value>Sort task</value>
+    <value>Trabajo tipo</value>
   </data>
   <data name="Bulk_Select" xml:space="preserve">
-    <value>Select</value>
+    <value>Seleccione</value>
   </data>
   <data name="Bulk_SelectTasks" xml:space="preserve">
-    <value>Select tasks</value>
+    <value>Seleccione tareas</value>
   </data>
   <data name="Bulk_SelectedCount" xml:space="preserve">
-    <value>{0} selected</value>
+    <value>{0} seleccionado</value>
   </data>
   <data name="Bulk_SelectAction" xml:space="preserve">
-    <value>Choose action</value>
+    <value>Elija la acción</value>
   </data>
   <data name="Bulk_MarkDone" xml:space="preserve">
-    <value>Mark as done</value>
+    <value>Marcar como hecho</value>
   </data>
   <data name="Bulk_Move" xml:space="preserve">
-    <value>Move</value>
+    <value>Moveos</value>
   </data>
   <data name="Bulk_ChangeColor" xml:space="preserve">
-    <value>Change card color</value>
+    <value>Cambiar el color de tarjeta</value>
   </data>
   <data name="Bulk_ClearColor" xml:space="preserve">
-    <value>Remove card color</value>
+    <value>Eliminar el color de la tarjeta</value>
   </data>
   <data name="Bulk_Apply" xml:space="preserve">
-    <value>Apply</value>
+    <value>Aplicar</value>
   </data>
   <data name="Bulk_ClearSelection" xml:space="preserve">
-    <value>Clear selection</value>
+    <value>Selección clara</value>
   </data>
   <data name="Task_CardStyle_ModeTopOnly" xml:space="preserve">
-    <value>Color bar</value>
+    <value>Barra de color</value>
   </data>
   <data name="Task_CardStyle_ModeFull" xml:space="preserve">
-    <value>Full card</value>
+    <value>Tarjeta completa</value>
   </data>
   <data name="Table_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>Abierto</value>
   </data>
   <data name="Table_Notify" xml:space="preserve">
-    <value>Notify</value>
+    <value>Notificar</value>
   </data>
   <data name="Table_SortShort" xml:space="preserve">
-    <value>Sort</value>
+    <value>#</value>
   </data>
   <data name="Table_FilterShort" xml:space="preserve">
-    <value>Filter</value>
+    <value>Filtro</value>
   </data>
   <data name="Table_ColumnOptions" xml:space="preserve">
-    <value>Column options</value>
+    <value>Opciones de columna</value>
   </data>
   <data name="Table_SortAscending" xml:space="preserve">
-    <value>Sort ascending</value>
+    <value>Ordenar ascender</value>
   </data>
   <data name="Table_SortDescending" xml:space="preserve">
-    <value>Sort descending</value>
+    <value>Algo descendente</value>
   </data>
   <data name="Table_FilterPlaceholder" xml:space="preserve">
-    <value>Filter</value>
+    <value>Filtro</value>
   </data>
   <data name="Table_HideColumn" xml:space="preserve">
-    <value>Hide column</value>
+    <value>Ocultar columna</value>
   </data>
   <data name="Table_OpenTask" xml:space="preserve">
-    <value>Open task</value>
+    <value>Tareas abiertas</value>
   </data>
   <data name="Table_OpenAttachments" xml:space="preserve">
-    <value>Open attachments</value>
+    <value>Apegos abiertos</value>
   </data>
   <data name="Table_OpenComments" xml:space="preserve">
-    <value>Open comments</value>
+    <value>Comentarios abiertos</value>
   </data>
   <data name="Table_NewTask" xml:space="preserve">
-    <value>New task</value>
+    <value>Nueva tarea</value>
   </data>
   <data name="Table_Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>Sí.</value>
   </data>
   <data name="Table_No" xml:space="preserve">
     <value>No</value>
   </data>
   <data name="Table_Created" xml:space="preserve">
-    <value>Created</value>
+    <value>Creado</value>
   </data>
   <data name="Table_SortedAscending" xml:space="preserve">
-    <value>Sorted ascending</value>
+    <value>Ordenado ascendente</value>
   </data>
   <data name="Table_SortedDescending" xml:space="preserve">
-    <value>Sorted descending</value>
+    <value>Ordenado descendente</value>
   </data>
   <data name="Task_Watch_Stop" xml:space="preserve">
-    <value>Stop watching task</value>
+    <value>Deja de ver la tarea</value>
   </data>
   <data name="Task_Watch_Start" xml:space="preserve">
-    <value>Watch task</value>
+    <value>tarea de reloj</value>
   </data>
   <data name="Task_Move_NoLists" xml:space="preserve">
-    <value>No lists found</value>
+    <value>No hay listas encontradas</value>
   </data>
   <data name="Task_Move_NoColumns" xml:space="preserve">
-    <value>No columns found</value>
+    <value>No hay columnas encontradas</value>
   </data>
   <data name="Task_Move_SelectDifferentList" xml:space="preserve">
-    <value>Please select another list first. Then the target column can be set.</value>
+    <value>Por favor seleccione otra lista primero. Luego se puede configurar la columna de destino.</value>
   </data>
   <data name="Account_AccessDenied_Title" xml:space="preserve">
-    <value>Access denied</value>
+    <value>Acceso denegado</value>
   </data>
   <data name="Account_AccessDenied_Message" xml:space="preserve">
-    <value>You do not have access to this resource.</value>
+    <value>Usted no tiene acceso a este recurso.</value>
   </data>
   <data name="Account_ConfirmEmailChange_Title" xml:space="preserve">
-    <value>Confirm email change</value>
+    <value>Confirme el cambio de correo electrónico</value>
   </data>
   <data name="Account_ConfirmEmailChange_InvalidLink" xml:space="preserve">
-    <value>Error: Invalid email change confirmation link.</value>
+    <value>Error: Enlace de confirmación del cambio de correo electrónico inválido.</value>
   </data>
   <data name="Account_UserNotFound" xml:space="preserve">
-    <value>Unable to find user with ID '{0}'.</value>
+    <value>Incapaz de encontrar usuario con ID '{0}'.</value>
   </data>
   <data name="Account_ConfirmEmailChange_EmailError" xml:space="preserve">
-    <value>Error changing email.</value>
+    <value>Cambio de error de correo electrónico.</value>
   </data>
   <data name="Account_ConfirmEmailChange_UserNameError" xml:space="preserve">
-    <value>Error changing user name.</value>
+    <value>Cambiar el nombre de usuario.</value>
   </data>
   <data name="Account_ConfirmEmailChange_Success" xml:space="preserve">
-    <value>Thank you for confirming your email change.</value>
+    <value>Gracias por confirmar su cambio de correo electrónico.</value>
   </data>
   <data name="Account_ExternalLogin_Associate" xml:space="preserve">
-    <value>Associate your {0} account.</value>
+    <value>Asocia tu cuenta {0}.</value>
   </data>
   <data name="Account_ExternalLogin_Info" xml:space="preserve">
-    <value>You have successfully authenticated with {0}. Enter an email address for this site below and click Register to finish logging in.</value>
+    <value>Te has autenticado correctamente con {0}. Introduce una dirección de correo electrónico para este sitio y haz clic en Registrarse para finalizar el inicio de sesión.</value>
   </data>
   <data name="Account_EmailPlaceholder" xml:space="preserve">
-    <value>Please enter your email.</value>
+    <value>Por favor, introduzca su correo electrónico.</value>
   </data>
   <data name="Account_InvalidUser_Title" xml:space="preserve">
-    <value>Invalid user</value>
+    <value>Usuario inválido</value>
   </data>
   <data name="Auth_Authenticated_Title" xml:space="preserve">
-    <value>You are authenticated</value>
+    <value>Estás autenticado</value>
   </data>
   <data name="Auth_Authenticated_Hello" xml:space="preserve">
-    <value>Hello {0}!</value>
+    <value>¡Hola {0}!</value>
   </data>
   <data name="Common_Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>Sí.</value>
   </data>
   <data name="Common_No" xml:space="preserve">
     <value>No</value>
   </data>
   <data name="Export_Header_Title" xml:space="preserve">
-    <value>Title</value>
+    <value>Título</value>
   </data>
   <data name="Export_Header_Description" xml:space="preserve">
-    <value>Description</value>
+    <value>Descripción</value>
   </data>
   <data name="Export_Header_Column" xml:space="preserve">
-    <value>Column</value>
+    <value>Columna</value>
   </data>
   <data name="Export_Header_Status" xml:space="preserve">
-    <value>Status</value>
+    <value>Situación</value>
   </data>
   <data name="Export_Header_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>Hecho</value>
   </data>
   <data name="Export_Header_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>Importante</value>
   </data>
   <data name="Export_Header_DueDate" xml:space="preserve">
-    <value>Due date</value>
+    <value>Fecha prevista</value>
   </data>
   <data name="Export_Header_Labels" xml:space="preserve">
-    <value>Labels</value>
+    <value>Etiquetas</value>
   </data>
   <data name="Mobile_OfflineSync" xml:space="preserve">
-    <value>Offline - changes will sync as soon as the connection is restored.</value>
+    <value>Sin conexión - los cambios se sincronizarán tan pronto como se restablezca la conexión.</value>
   </data>
   <data name="Workspace_PageTitle" xml:space="preserve">
-    <value>Todo Board</value>
+    <value>Tablero de tareas</value>
   </data>
   <data name="Workspace_StartWatching" xml:space="preserve">
-    <value>Watch board</value>
+    <value>Tablero de reloj</value>
   </data>
   <data name="Workspace_StopWatching" xml:space="preserve">
-    <value>Stop watching board</value>
+    <value>Deja de mirar el tablero</value>
   </data>
   <data name="Workspace_TableView" xml:space="preserve">
-    <value>Table</value>
+    <value>Cuadro</value>
   </data>
   <data name="Workspace_ListOptions" xml:space="preserve">
-    <value>List options</value>
+    <value>Opciones de lista</value>
   </data>
   <data name="Workspace_RenameList" xml:space="preserve">
-    <value>Rename list</value>
+    <value>Lista de nombres</value>
   </data>
   <data name="Workspace_ManageLabels" xml:space="preserve">
-    <value>Manage labels</value>
+    <value>Gestionar etiquetas</value>
   </data>
   <data name="Workspace_ChangeBackground" xml:space="preserve">
-    <value>Change background</value>
+    <value>Cambio de antecedentes</value>
   </data>
   <data name="Workspace_ChangeDesign" xml:space="preserve">
-    <value>Change design</value>
+    <value>Diseño de cambio</value>
   </data>
   <data name="Workspace_Notifications" xml:space="preserve">
-    <value>Notifications</value>
+    <value>Notificaciones</value>
   </data>
   <data name="Workspace_NotificationsOn" xml:space="preserve">
-    <value>Notifications on</value>
+    <value>Notificaciones sobre</value>
   </data>
   <data name="Workspace_NotificationsOff" xml:space="preserve">
-    <value>Notifications off</value>
+    <value>Notificaciones apagadas</value>
   </data>
   <data name="Workspace_CopyList" xml:space="preserve">
-    <value>Copy list</value>
+    <value>Lista de copias</value>
   </data>
   <data name="Workspace_DuplicateList" xml:space="preserve">
-    <value>Duplicate list</value>
+    <value>Lista duplicada</value>
   </data>
   <data name="Workspace_SaveAsTemplate" xml:space="preserve">
-    <value>Save as template</value>
+    <value>Guardar como plantilla</value>
   </data>
   <data name="Workspace_ExportList" xml:space="preserve">
-    <value>Export list</value>
+    <value>Lista de exportaciones</value>
   </data>
   <data name="Workspace_Share" xml:space="preserve">
-    <value>Share</value>
+    <value>Compartir</value>
   </data>
   <data name="Workspace_Actions" xml:space="preserve">
-    <value>Actions</value>
+    <value>Acciones</value>
   </data>
   <data name="Workspace_NoListLoaded" xml:space="preserve">
-    <value>No list loaded.</value>
+    <value>Sin lista cargada.</value>
   </data>
   <data name="Workspace_NewName" xml:space="preserve">
-    <value>New name</value>
+    <value>Nombre nuevo</value>
   </data>
   <data name="Workspace_DeleteListWarning" xml:space="preserve">
-    <value>All tasks will be permanently removed.</value>
+    <value>Todas las tareas serán eliminadas permanentemente.</value>
   </data>
   <data name="Workspace_DeleteListConfirm" xml:space="preserve">
-    <value>Do you really want to delete the list {0}?</value>
+    <value>¿De verdad quieres eliminar la lista {0}?</value>
   </data>
   <data name="Workspace_DeleteFinal" xml:space="preserve">
-    <value>Delete permanently</value>
+    <value>Suprimir permanentemente</value>
   </data>
   <data name="Workspace_RestoreDeletedTasks" xml:space="preserve">
-    <value>Restore deleted tasks</value>
+    <value>Restaurar tareas eliminadas</value>
   </data>
   <data name="Workspace_RestoreEmpty" xml:space="preserve">
-    <value>No deleted tasks in this list.</value>
+    <value>No hay tareas eliminadas en esta lista.</value>
   </data>
   <data name="Workspace_RestoreDeletedOn" xml:space="preserve">
-    <value>Deleted on</value>
+    <value>Suprimidos</value>
   </data>
   <data name="Workspace_RestoreDaysLeft" xml:space="preserve">
-    <value>{0} day(s) left</value>
+    <value>{0} día(s) izquierda</value>
   </data>
   <data name="Workspace_RestoreTask" xml:space="preserve">
-    <value>Restore task</value>
+    <value>Restaurar la tarea</value>
   </data>
   <data name="Workspace_FilterTitle" xml:space="preserve">
-    <value>Filter</value>
+    <value>Filtro</value>
   </data>
   <data name="Workspace_EditFilter" xml:space="preserve">
-    <value>Edit filter</value>
+    <value>Editar filtro</value>
   </data>
   <data name="Workspace_FilterPlaceholder" xml:space="preserve">
-    <value>Enter a keyword ...</value>
+    <value>Introduzca una palabra clave ...</value>
   </data>
   <data name="Workspace_FilterHint" xml:space="preserve">
-    <value>Search cards, members, labels, and more.</value>
+    <value>Tarjetas de búsqueda, miembros, etiquetas y más.</value>
   </data>
   <data name="Workspace_FilterAssignee" xml:space="preserve">
-    <value>Assignee</value>
+    <value>Responsable</value>
   </data>
   <data name="Workspace_FilterAssignedToMe" xml:space="preserve">
-    <value>Cards assigned to me</value>
+    <value>Tarjetas asignadas a mí</value>
   </data>
   <data name="Workspace_FilterNoAssignee" xml:space="preserve">
-    <value>No assignee</value>
+    <value>No cesionario</value>
   </data>
   <data name="Workspace_FilterNoMembers" xml:space="preserve">
-    <value>No members</value>
+    <value>No miembros</value>
   </data>
   <data name="Workspace_FilterSelectMembers" xml:space="preserve">
-    <value>Select members</value>
+    <value>Seleccionar miembros</value>
   </data>
   <data name="Workspace_FilterCardStatus" xml:space="preserve">
-    <value>Card status</value>
+    <value>Estado de la tarjeta</value>
   </data>
   <data name="Workspace_FilterDone" xml:space="preserve">
-    <value>Marked as completed</value>
+    <value>Marcado como terminado</value>
   </data>
   <data name="Workspace_FilterNotDone" xml:space="preserve">
-    <value>Not marked as completed</value>
+    <value>No marcado como completado</value>
   </data>
   <data name="Workspace_FilterDue" xml:space="preserve">
-    <value>Due date</value>
+    <value>Fecha prevista</value>
   </data>
   <data name="Workspace_FilterNoDueDate" xml:space="preserve">
-    <value>No due date</value>
+    <value>No hay fecha límite</value>
   </data>
   <data name="Workspace_FilterOverdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>Vencidas</value>
   </data>
   <data name="Workspace_FilterDueNextDay" xml:space="preserve">
-    <value>Due within the next day</value>
+    <value>Due in the next day</value>
   </data>
   <data name="Workspace_FilterDueNextWeek" xml:space="preserve">
-    <value>Due within the next week</value>
+    <value>Due in the next week</value>
   </data>
   <data name="Workspace_FilterDueNextMonth" xml:space="preserve">
-    <value>Due within the next month</value>
+    <value>Suficiente dentro del mes siguiente</value>
   </data>
   <data name="Workspace_FilterNoLabels" xml:space="preserve">
-    <value>No labels available.</value>
+    <value>Sin etiquetas disponibles.</value>
   </data>
   <data name="Workspace_FilterReset" xml:space="preserve">
-    <value>Reset</value>
+    <value>Restablecer</value>
   </data>
   <data name="Workspace_FilterApply" xml:space="preserve">
-    <value>Apply</value>
+    <value>Aplicar</value>
   </data>
   <data name="Workspace_CopyName" xml:space="preserve">
-    <value>Name of the new list</value>
+    <value>Nombre de la nueva lista</value>
   </data>
   <data name="Workspace_CopyIncludeTasks" xml:space="preserve">
-    <value>Copy tasks too</value>
+    <value>Copiar tareas también</value>
   </data>
   <data name="Workspace_CopyAction" xml:space="preserve">
-    <value>Copy</value>
+    <value>Copiado</value>
   </data>
   <data name="Workspace_TemplateSaved" xml:space="preserve">
-    <value>Template {0} was saved.</value>
+    <value>Plantilla {0} fue salvada.</value>
   </data>
   <data name="Workspace_TemplateName" xml:space="preserve">
-    <value>Template name</value>
+    <value>Nombre de plantilla</value>
   </data>
   <data name="Workspace_TemplateHelp" xml:space="preserve">
-    <value>Columns, labels, and background color are included. Tasks are not copied.</value>
+    <value>Se incluyen las columnas, las etiquetas y el color de fondo. Las tareas no se copian.</value>
   </data>
   <data name="Workspace_ExportTaskCount" xml:space="preserve">
-    <value>{0} tasks</value>
+    <value>Tareas {0}</value>
   </data>
   <data name="Workspace_ExportJson" xml:space="preserve">
-    <value>Export as JSON</value>
+    <value>Exportar como JSON</value>
   </data>
   <data name="Workspace_ExportJsonHelp" xml:space="preserve">
-    <value>Machine-readable format, all fields</value>
+    <value>Formato legible a máquina, todos los campos</value>
   </data>
   <data name="Workspace_ExportCsv" xml:space="preserve">
-    <value>Export as CSV</value>
+    <value>Exportar como CSV</value>
   </data>
   <data name="Workspace_ExportCsvHelp" xml:space="preserve">
-    <value>Spreadsheet format, Excel-compatible</value>
+    <value>Formato de hoja de cálculo, Excel-compatible</value>
   </data>
   <data name="Workspace_ExportPdf" xml:space="preserve">
-    <value>Export as PDF</value>
+    <value>Exportar como PDF</value>
   </data>
   <data name="Workspace_ExportPdfHelp" xml:space="preserve">
-    <value>Open print view in the browser</value>
+    <value>Vista de impresión abierta en el navegador</value>
   </data>
   <data name="Workspace_ExportedAt" xml:space="preserve">
-    <value>Exported on {0} - {1} tasks</value>
+    <value>Exportado en tareas {0} - {1}</value>
   </data>
   <data name="Workspace_ExportJsonError" xml:space="preserve">
-    <value>JSON export could not be started: {0}</value>
+    <value>No se pudo iniciar la exportación JSON: {0}</value>
   </data>
   <data name="Workspace_ExportCsvError" xml:space="preserve">
-    <value>CSV export could not be started: {0}</value>
+    <value>No se pudo iniciar la exportación CSV: {0}</value>
   </data>
   <data name="Workspace_ExportPdfError" xml:space="preserve">
-    <value>PDF export could not be started: {0}</value>
+    <value>No se puede iniciar la exportación de PDF: {0}</value>
   </data>
   <data name="Notifications_Event" xml:space="preserve">
-    <value>Event</value>
+    <value>Evento</value>
   </data>
   <data name="Notifications_Admins" xml:space="preserve">
-    <value>Admins</value>
+    <value>Administradores</value>
   </data>
   <data name="Notifications_Users" xml:space="preserve">
-    <value>Users</value>
+    <value>Usuarios</value>
   </data>
   <data name="Notifications_BoardWatchersShort" xml:space="preserve">
-    <value>Board watchers</value>
+    <value>Relojes de mesa</value>
   </data>
   <data name="Notifications_CardWatchersShort" xml:space="preserve">
-    <value>Card watchers</value>
+    <value>Relojes de tarjeta</value>
   </data>
   <data name="Notifications_Assigned" xml:space="preserve">
-    <value>Assigned</value>
+    <value>Asignadas</value>
   </data>
   <data name="Notifications_Author" xml:space="preserve">
-    <value>Author</value>
+    <value>Autor</value>
   </data>
   <data name="Notifications_TaskCreated" xml:space="preserve">
-    <value>Task created</value>
+    <value>Tarea creada</value>
   </data>
   <data name="Notifications_TaskUpdated" xml:space="preserve">
-    <value>Task updated</value>
+    <value>Tareas actualizadas</value>
   </data>
   <data name="Notifications_TaskAssigned" xml:space="preserve">
-    <value>Task assigned</value>
+    <value>Tareas asignadas</value>
   </data>
   <data name="Notifications_TaskCompleted" xml:space="preserve">
-    <value>Task completed</value>
+    <value>Tareas terminadas</value>
   </data>
   <data name="Notifications_TaskReopened" xml:space="preserve">
-    <value>Task reopened</value>
+    <value>Reapertura de la tarea</value>
   </data>
   <data name="Notifications_TaskDeleted" xml:space="preserve">
-    <value>Task deleted</value>
+    <value>Tareas eliminadas</value>
   </data>
   <data name="Notifications_TaskMoved" xml:space="preserve">
-    <value>Task moved</value>
+    <value>Grupo movido</value>
   </data>
   <data name="Notifications_CommentAdded" xml:space="preserve">
-    <value>Task commented</value>
+    <value>Comentario añadido a la tarea</value>
   </data>
   <data name="Notifications_CommentDeleted" xml:space="preserve">
-    <value>Task comment deleted</value>
+    <value>Documento de trabajo eliminado</value>
   </data>
   <data name="Notifications_AttachmentAdded" xml:space="preserve">
-    <value>New attachment</value>
+    <value>Nuevo apego</value>
   </data>
   <data name="Notifications_AttachmentDeleted" xml:space="preserve">
-    <value>Attachment deleted</value>
+    <value>Adjunción eliminada</value>
   </data>
   <data name="Err_Generic" xml:space="preserve">
     <value>Error: {0}</value>
   </data>
   <data name="Account_Email" xml:space="preserve">
-    <value>Email</value>
+    <value>Correo electrónico</value>
   </data>
   <data name="Account_Password" xml:space="preserve">
-    <value>Password</value>
+    <value>Contraseña</value>
   </data>
   <data name="Account_ConfirmPassword" xml:space="preserve">
-    <value>Confirm password</value>
+    <value>Confirmar contraseña</value>
   </data>
   <data name="Account_Username" xml:space="preserve">
-    <value>Username</value>
+    <value>Nombre de usuario</value>
   </data>
   <data name="Account_WindowsUsername" xml:space="preserve">
-    <value>Directory username</value>
+    <value>Nombre de usuario del directorio</value>
   </data>
   <data name="Account_RememberMe" xml:space="preserve">
-    <value>Remember me</value>
+    <value>Recuérdame</value>
   </data>
   <data name="Account_Or" xml:space="preserve">
-    <value>OR</value>
+    <value>O</value>
   </data>
   <data name="Account_BackToLogin" xml:space="preserve">
-    <value>Back to login</value>
+    <value>Volver a iniciar sesión</value>
   </data>
   <data name="Account_Login_Title" xml:space="preserve">
-    <value>Log in</value>
+    <value>Iniciar sesión</value>
   </data>
   <data name="Account_Login_WithWindows" xml:space="preserve">
-    <value>Log in with LDAP / Active Directory.</value>
+    <value>Iniciar sesión con LDAP / Active Directory.</value>
   </data>
   <data name="Account_Login_WindowsButton" xml:space="preserve">
-    <value>Log in with directory</value>
+    <value>Inicia sesión con el directorio</value>
   </data>
   <data name="Account_Login_WithLocal" xml:space="preserve">
-    <value>Log in with a local account.</value>
+    <value>Inicia sesión con una cuenta local.</value>
   </data>
   <data name="Account_Login_Button" xml:space="preserve">
-    <value>Log in</value>
+    <value>Iniciar sesión</value>
   </data>
   <data name="Account_Login_WithPasskey" xml:space="preserve">
-    <value>Log in with passkey</value>
+    <value>Iniciar sesión con una clave de acceso</value>
   </data>
   <data name="Account_ForgotPasswordLink" xml:space="preserve">
-    <value>Forgot password?</value>
+    <value>¿Olvidó la contraseña?</value>
   </data>
   <data name="Account_RegisterNewUser" xml:space="preserve">
-    <value>Register as a new user</value>
+    <value>Registrarse como nuevo usuario</value>
   </data>
   <data name="Account_ResendEmailConfirmation" xml:space="preserve">
-    <value>Resend email confirmation</value>
+    <value>Reenviar confirmación de correo electrónico</value>
   </data>
   <data name="Account_Error_NotAllowed" xml:space="preserve">
-    <value>Error: This account has not been enabled yet. Please confirm your email address first or request the confirmation email again.</value>
+    <value>Error: Esta cuenta no ha sido habilitada todavía. Por favor, confirme su dirección de correo electrónico primero o solicite el correo electrónico de confirmación de nuevo.</value>
   </data>
   <data name="Account_Error_InvalidLogin" xml:space="preserve">
-    <value>Error: Invalid login details.</value>
+    <value>Error: Datos de inicio de sesión inválidos.</value>
   </data>
   <data name="Account_Error_AdLoginFailed" xml:space="preserve">
-    <value>Error: Active Directory login failed.</value>
+    <value>Error: Active Directory login falló.</value>
   </data>
   <data name="Account_Error_UserCreateFailed" xml:space="preserve">
-    <value>Error: User could not be created: {0}</value>
+    <value>Error: no se puede crear el usuario: {0}</value>
   </data>
   <data name="Account_Error_LoginIncomplete" xml:space="preserve">
-    <value>Error: Login could not be completed.</value>
+    <value>Error: no se puede completar el inicio de sesión.</value>
   </data>
   <data name="Account_Error_TooManyAttempts" xml:space="preserve">
-    <value>Error: Too many failed login attempts. Please try again in {0}.</value>
+    <value>Error: Demasiados intentos de inicio de sesión fallidos. Pruebe de nuevo en {0}.</value>
   </data>
   <data name="Account_Register_Title" xml:space="preserve">
-    <value>Register</value>
+    <value>Registro</value>
   </data>
   <data name="Account_Register_DisabledTitle" xml:space="preserve">
-    <value>Registration disabled</value>
+    <value>Inscripción de discapacitados</value>
   </data>
   <data name="Account_Register_DisabledText" xml:space="preserve">
-    <value>Self-registration is currently unavailable. Please contact an administrator.</value>
+    <value>La autorregistración no está disponible actualmente. Contacte con un administrador.</value>
   </data>
   <data name="Account_Register_CreateAccount" xml:space="preserve">
-    <value>Create a new account.</value>
+    <value>Cree una nueva cuenta.</value>
   </data>
   <data name="Account_Register_Button" xml:space="preserve">
-    <value>Register</value>
+    <value>Registro</value>
   </data>
   <data name="Account_LoginExistingUser" xml:space="preserve">
-    <value>Log in as an existing user</value>
+    <value>Inicie sesión como usuario existente</value>
   </data>
   <data name="Account_Error_EmailExists" xml:space="preserve">
-    <value>A user with this email address already exists.</value>
+    <value>Un usuario con esta dirección de correo electrónico ya existe.</value>
   </data>
   <data name="Account_Error_ConfirmationEmailFailed" xml:space="preserve">
-    <value>The account was created, but the confirmation email could not be sent. {0}</value>
+    <value>La cuenta fue creada, pero el email de confirmación no pudo ser enviado. {0}</value>
   </data>
   <data name="Account_ForgotPassword_Title" xml:space="preserve">
-    <value>Forgot password</value>
+    <value>Contraseña olvidada</value>
   </data>
   <data name="Account_ForgotPassword_Subtitle" xml:space="preserve">
-    <value>Receive a reset link by email.</value>
+    <value>Recibe un enlace de reset por correo electrónico.</value>
   </data>
   <data name="Account_ForgotPassword_Send" xml:space="preserve">
-    <value>Send reset link</value>
+    <value>Enviar enlace de restablecimiento</value>
   </data>
   <data name="Account_Error_ResetEmailFailed" xml:space="preserve">
-    <value>Error: The reset email could not be sent. {0}</value>
+    <value>Error: No se puede enviar el correo electrónico de reset. {0}</value>
   </data>
   <data name="Account_ResetPassword_Title" xml:space="preserve">
-    <value>Reset password</value>
+    <value>Reiniciar contraseña</value>
   </data>
   <data name="Account_ResetPassword_Subtitle" xml:space="preserve">
-    <value>Set a new password.</value>
+    <value>Establecer una nueva contraseña.</value>
   </data>
   <data name="Account_ResetPassword_Save" xml:space="preserve">
-    <value>Save password</value>
+    <value>Guardar contraseña</value>
   </data>
   <data name="Automation_Title" xml:space="preserve"><value>Automatización</value></data>
   <data name="Account_Settings" xml:space="preserve"><value>Configuración</value></data>

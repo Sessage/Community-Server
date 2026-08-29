@@ -682,7 +682,7 @@
     <value>无法创建标签：标题为空。</value>
   </data>
   <data name="Err_LabelCreateInvalidColor" xml:space="preserve">
-    <value>无法创建标签：无效颜色 '{0}'。</value>
+    <value>无法创建标签：颜色“{0}”无效。请从调色板中选择一种颜色，或移除该颜色。</value>
   </data>
   <data name="Err_LabelCreate" xml:space="preserve">
     <value>无法创建标签。详情：{0}</value>
@@ -691,7 +691,7 @@
     <value>无法保存标签：标题为空。LabelId='{0}'.</value>
   </data>
   <data name="Err_LabelSaveInvalidColor" xml:space="preserve">
-    <value>无法保存标签：无效颜色 '{0}'。</value>
+    <value>无法保存标签：颜色“{0}”无效。请从调色板中选择一种颜色，或移除该颜色。</value>
   </data>
   <data name="Err_LabelSave" xml:space="preserve">
     <value>无法保存标签。详情：{0}</value>
@@ -768,6 +768,18 @@
   </data>
   <data name="Participants_OwnerFixed" xml:space="preserve">
     <value>所有者角色不可更改。</value>
+  </data>
+  <data name="Participants_Owner" xml:space="preserve">
+    <value>所有者</value>
+  </data>
+  <data name="Participants_ViaPortfolio" xml:space="preserve">
+    <value>通过作品集</value>
+  </data>
+  <data name="Participants_ViaDirectory" xml:space="preserve">
+    <value>通过目录</value>
+  </data>
+  <data name="Participants_ByDirectory" xml:space="preserve">
+    <value>目录</value>
   </data>
   <data name="Participants_NoParticipants" xml:space="preserve">
     <value>暂无参与者。</value>
@@ -888,7 +900,7 @@
     <value>+ 添加卡片…</value>
   </data>
   <data name="Kanban_NoWritePermission" xml:space="preserve">
-    <value>创建卡片需要更高权限。</value>
+    <value>创建卡片需要更高权限。请向列表所有者申请访问权限。</value>
   </data>
   <data name="Kanban_AddColumnDialogRight" xml:space="preserve">
     <value>在右侧添加列</value>
@@ -988,7 +1000,7 @@
   </data>
   <!-- ToDoListView (additional) -->
   <data name="ListView_NoWritePermission" xml:space="preserve">
-    <value>创建任务需要更高权限。</value>
+    <value>创建任务需要更高权限。请向列表所有者申请访问权限。</value>
   </data>
   <data name="ListView_ChecklistTitle" xml:space="preserve">
     <value>清单：{0}/{1} 已完成</value>
@@ -1275,223 +1287,226 @@
     <value>仪表板</value>
   </data>
   <data name="Dashboard_PageTitle" xml:space="preserve">
-    <value>Dashboards</value>
+    <value>仪表板</value>
   </data>
   <data name="Dashboard_NoneSelected" xml:space="preserve">
-    <value>No dashboard selected.</value>
+    <value>没有选择仪表板 。</value>
   </data>
   <data name="Dashboard_Switch" xml:space="preserve">
-    <value>Switch dashboard</value>
+    <value>切换仪表板</value>
   </data>
   <data name="Dashboard_Rename" xml:space="preserve">
-    <value>Rename dashboard</value>
+    <value>重命名仪表板</value>
   </data>
   <data name="Dashboard_Create" xml:space="preserve">
-    <value>New dashboard</value>
+    <value>新建仪表板</value>
   </data>
   <data name="Dashboard_Delete" xml:space="preserve">
-    <value>Delete</value>
+    <value>删除</value>
   </data>
   <data name="Dashboard_Sort" xml:space="preserve">
-    <value>Sorting</value>
+    <value>排序</value>
   </data>
   <data name="Dashboard_SortBy" xml:space="preserve">
-    <value>Sort by</value>
+    <value>排序为</value>
   </data>
   <data name="Dashboard_Export" xml:space="preserve">
-    <value>Export</value>
+    <value>导出</value>
+  </data>
+  <data name="Dashboard_ExportError" xml:space="preserve">
+    <value>{0} 导出失败。</value>
   </data>
   <data name="Dashboard_FilterActive" xml:space="preserve">
-    <value>Active</value>
+    <value>活动</value>
   </data>
   <data name="Dashboard_Name" xml:space="preserve">
-    <value>Dashboard name</value>
+    <value>挂板名称</value>
   </data>
   <data name="Dashboard_Name_Help" xml:space="preserve">
-    <value>The name is shown as the main heading in the header.</value>
+    <value>名称在标题中显示为主标题.</value>
   </data>
   <data name="Dashboard_GroupBy" xml:space="preserve">
-    <value>Grouping</value>
+    <value>分组</value>
   </data>
   <data name="Dashboard_GroupBy_Help" xml:space="preserve">
-    <value>Controls how tasks are grouped in the table.</value>
+    <value>控制表格中的任务分组。</value>
   </data>
   <data name="Dashboard_ListSelection" xml:space="preserve">
-    <value>Select lists</value>
+    <value>选择列表</value>
   </data>
   <data name="Dashboard_ListSelection_Help" xml:space="preserve">
-    <value>Select the lists whose tasks should appear on the dashboard.</value>
+    <value>选择任务应出现在仪表板上的列表 。</value>
   </data>
   <data name="Dashboard_Widgets" xml:space="preserve">
-    <value>Widgets and charts</value>
+    <value>部件和图表</value>
   </data>
   <data name="Dashboard_Widgets_Help" xml:space="preserve">
-    <value>Customize your dashboard. Changes are saved automatically.</value>
+    <value>自定义您的仪表板。 更改会自动保存 。</value>
   </data>
   <data name="Dashboard_Widget_Kpi" xml:space="preserve">
-    <value>KPI cards</value>
+    <value>KPI 卡片</value>
   </data>
   <data name="Dashboard_Widget_Status" xml:space="preserve">
-    <value>Status chart</value>
+    <value>状态图</value>
   </data>
   <data name="Dashboard_Widget_Priority" xml:space="preserve">
-    <value>Priority chart</value>
+    <value>重点图</value>
   </data>
   <data name="Dashboard_Widget_Due" xml:space="preserve">
-    <value>Due date chart</value>
+    <value>应交日期图</value>
   </data>
   <data name="Dashboard_Kpi_Total" xml:space="preserve">
-    <value>Total</value>
+    <value>共计</value>
   </data>
   <data name="Dashboard_Kpi_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>打开</value>
   </data>
   <data name="Dashboard_Kpi_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>写好了</value>
   </data>
   <data name="Dashboard_Kpi_Completion" xml:space="preserve">
-    <value>Completion</value>
+    <value>完成</value>
   </data>
   <data name="Dashboard_Chart_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>打开</value>
   </data>
   <data name="Dashboard_Chart_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>写好了</value>
   </data>
   <data name="Dashboard_Chart_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>重要</value>
   </data>
   <data name="Dashboard_Chart_Normal" xml:space="preserve">
-    <value>Normal</value>
+    <value>常规</value>
   </data>
   <data name="Dashboard_Chart_Overdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>逾期未交</value>
   </data>
   <data name="Dashboard_Chart_DueSoon" xml:space="preserve">
-    <value>Next 7 days</value>
+    <value>接下来的7天</value>
   </data>
   <data name="Dashboard_Chart_NoDate" xml:space="preserve">
-    <value>No date</value>
+    <value>无日期</value>
   </data>
   <data name="Dashboard_Items" xml:space="preserve">
-    <value>Items</value>
+    <value>项目</value>
   </data>
   <data name="Dashboard_Col_Task" xml:space="preserve">
-    <value>Task</value>
+    <value>任务</value>
   </data>
   <data name="Dashboard_Col_List" xml:space="preserve">
-    <value>List</value>
+    <value>列表</value>
   </data>
   <data name="Dashboard_Col_Column" xml:space="preserve">
-    <value>Column</value>
+    <value>栏</value>
   </data>
   <data name="Dashboard_Col_Due" xml:space="preserve">
-    <value>Due</value>
+    <value>到期</value>
   </data>
   <data name="Dashboard_Create_Title" xml:space="preserve">
-    <value>Create new dashboard</value>
+    <value>创建新仪表板</value>
   </data>
   <data name="Dashboard_FilterTitle" xml:space="preserve">
-    <value>Dashboard filters</value>
+    <value>剪贴板过滤器</value>
   </data>
   <data name="Dashboard_Search" xml:space="preserve">
-    <value>Search ...</value>
+    <value>搜索...</value>
   </data>
   <data name="Dashboard_Status_All" xml:space="preserve">
-    <value>Status: All</value>
+    <value>现况:所有</value>
   </data>
   <data name="Dashboard_Status_OpenOnly" xml:space="preserve">
-    <value>Open only</value>
+    <value>只打开</value>
   </data>
   <data name="Dashboard_Status_DoneOnly" xml:space="preserve">
-    <value>Done only</value>
+    <value>仅完成</value>
   </data>
   <data name="Dashboard_Filter_Overdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>逾期未交</value>
   </data>
   <data name="Dashboard_Filter_NextDay" xml:space="preserve">
-    <value>Next 24h</value>
+    <value>下24小时</value>
   </data>
   <data name="Dashboard_Filter_NextWeek" xml:space="preserve">
-    <value>Next 7 days</value>
+    <value>接下来的7天</value>
   </data>
   <data name="Dashboard_Filter_NextMonth" xml:space="preserve">
-    <value>Next 30 days</value>
+    <value>接下来的30天</value>
   </data>
   <data name="Dashboard_Filter_NoDue" xml:space="preserve">
-    <value>No due date</value>
+    <value>无到期日期</value>
   </data>
   <data name="Dashboard_Filter_AssignedToMe" xml:space="preserve">
-    <value>Assigned to me</value>
+    <value>交给我</value>
   </data>
   <data name="Dashboard_Filter_NoAssignee" xml:space="preserve">
-    <value>No assignee</value>
+    <value>无受让人</value>
   </data>
   <data name="Dashboard_Filter_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>重要</value>
   </data>
   <data name="Dashboard_Autosave_Pending" xml:space="preserve">
-    <value>Saving automatically ...</value>
+    <value>自动保存...</value>
   </data>
   <data name="Dashboard_Autosave_Saved" xml:space="preserve">
-    <value>Saved automatically</value>
+    <value>自动保存</value>
   </data>
   <data name="Dashboard_AllTasks" xml:space="preserve">
-    <value>All tasks</value>
+    <value>所有任务</value>
   </data>
   <data name="Dashboard_GroupBy_None" xml:space="preserve">
-    <value>No grouping</value>
+    <value>无分组</value>
   </data>
   <data name="Dashboard_GroupBy_List" xml:space="preserve">
-    <value>By list</value>
+    <value>按清单</value>
   </data>
   <data name="Dashboard_GroupBy_Status" xml:space="preserve">
-    <value>By status</value>
+    <value>按地位分列</value>
   </data>
   <data name="Dashboard_GroupBy_DueDate" xml:space="preserve">
-    <value>By due date</value>
+    <value>在到期日之前</value>
   </data>
   <data name="Dashboard_Settings" xml:space="preserve">
-    <value>Dashboard settings</value>
+    <value>盘片设置</value>
   </data>
   <data name="Dashboard_Customize_Widgets" xml:space="preserve">
-    <value>Customize widgets</value>
+    <value>自定义部件</value>
   </data>
   <data name="Dashboard_Widget_Tasks" xml:space="preserve">
-    <value>Task table</value>
+    <value>任务表</value>
   </data>
   <data name="Dashboard_Widget_Order" xml:space="preserve">
-    <value>Order</value>
+    <value>顺序</value>
   </data>
   <data name="Sort_Custom" xml:space="preserve">
-    <value>Custom</value>
+    <value>自定义</value>
   </data>
   <data name="Sort_Importance" xml:space="preserve">
-    <value>Importance</value>
+    <value>重要性</value>
   </data>
   <data name="Sort_DueDate" xml:space="preserve">
-    <value>Due date</value>
+    <value>应提交日期</value>
   </data>
   <data name="Sort_Alphabetical" xml:space="preserve">
-    <value>Alphabetical</value>
+    <value>字母</value>
   </data>
   <data name="Sort_CreatedAt" xml:space="preserve">
-    <value>Created at</value>
+    <value>创建于</value>
   </data>
   <data name="Dialog_Close" xml:space="preserve">
-    <value>Close</value>
+    <value>关闭</value>
   </data>
   <data name="Dialog_Cancel" xml:space="preserve">
-    <value>Cancel</value>
+    <value>取消</value>
   </data>
   <data name="Dialog_Create" xml:space="preserve">
-    <value>Create</value>
+    <value>创建</value>
   </data>
   <data name="Common_NoListLoaded" xml:space="preserve">
-    <value>No list loaded.</value>
+    <value>未装入列表 。</value>
   </data>
   <data name="CustomField_NamePlaceholder" xml:space="preserve">
-    <value>Field name</value>
+    <value>字段名称</value>
   </data>
   <data name="CustomField_OptionsPlaceholder" xml:space="preserve">
     <value>添加选项</value>
@@ -1503,160 +1518,160 @@
     <value>暂无选项。</value>
   </data>
   <data name="CustomField_SelectSourceList" xml:space="preserve">
-    <value>Select source list</value>
+    <value>选择源列表</value>
   </data>
   <data name="CustomField_TaskTitleSelect_AddHelp" xml:space="preserve">
-    <value>Task selection shows task titles from the selected list as a select field. You can add it only if you are an admin in that list and the current list.</value>
+    <value>任务选择将所选列表中的任务标题显示为选中的字段。只有在您是该列表和当前列表中的管理员时才能添加它。</value>
   </data>
   <data name="CustomField_TaskTitleSelect_SaveHelp" xml:space="preserve">
-    <value>Task selection shows task titles from the selected list as a select field. You can save it only if you are an admin in both lists.</value>
+    <value>任务选择将所选列表中的任务标题显示为所选的字段。只有在您是两个列表中的管理员时才能将其保存 。</value>
   </data>
   <data name="CustomField_NoSourceList" xml:space="preserve">
-    <value>No matching source list available. You need admin rights in at least one other list.</value>
+    <value>没有匹配的源列表。 您需要至少一个列表中的管理权限 。</value>
   </data>
   <data name="CustomField_Empty" xml:space="preserve">
-    <value>No custom fields yet.</value>
+    <value>还没有定制字段 。</value>
   </data>
   <data name="CustomField_SourceList" xml:space="preserve">
-    <value>Source list</value>
+    <value>来源列表</value>
   </data>
   <data name="CustomField_SourceList_NotSelected" xml:space="preserve">
-    <value>not selected</value>
+    <value>未选中</value>
   </data>
   <data name="CustomField_SourceList_NotAvailable" xml:space="preserve">
-    <value>not available</value>
+    <value>不详</value>
   </data>
   <data name="CustomField_Type_Number" xml:space="preserve">
-    <value>Number</value>
+    <value>数目</value>
   </data>
   <data name="CustomField_Type_Dropdown" xml:space="preserve">
-    <value>Dropdown</value>
+    <value>降级</value>
   </data>
   <data name="CustomField_Type_MultiSelect" xml:space="preserve">
     <value>多选</value>
   </data>
   <data name="CustomField_Type_Date" xml:space="preserve">
-    <value>Date</value>
+    <value>日期</value>
   </data>
   <data name="CustomField_Type_Checkbox" xml:space="preserve">
-    <value>Checkbox</value>
+    <value>复选框</value>
   </data>
   <data name="CustomField_Type_TaskTitleSelect" xml:space="preserve">
-    <value>Task selection</value>
+    <value>任务选择</value>
   </data>
   <data name="CustomField_Type_Text" xml:space="preserve">
-    <value>Text</value>
+    <value>文本</value>
   </data>
   <data name="CustomField_SectionTitle" xml:space="preserve">
-    <value>Custom fields</value>
+    <value>自定义字段</value>
   </data>
   <data name="CustomField_NoneDefined" xml:space="preserve">
-    <value>No fields defined</value>
+    <value>未定义字段</value>
   </data>
   <data name="FormDesigner_Forms" xml:space="preserve">
-    <value>Forms</value>
+    <value>表单</value>
   </data>
   <data name="FormDesigner_Creating" xml:space="preserve">
-    <value>Creating...</value>
+    <value>正在创建...</value>
   </data>
   <data name="FormDesigner_NewForm" xml:space="preserve">
-    <value>New form</value>
+    <value>新形式</value>
   </data>
   <data name="FormDesigner_FormList" xml:space="preserve">
-    <value>Form list</value>
+    <value>表单列表</value>
   </data>
   <data name="FormDesigner_Empty" xml:space="preserve">
-    <value>No forms yet.</value>
+    <value>尚无表单</value>
   </data>
   <data name="FormDesigner_SelectOrCreate" xml:space="preserve">
-    <value>Select a form or create a new one.</value>
+    <value>选择一个表单或创建新表单。</value>
   </data>
   <data name="FormDesigner_Password" xml:space="preserve">
-    <value>Password</value>
+    <value>密码</value>
   </data>
   <data name="FormDesigner_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>打开</value>
   </data>
   <data name="FormDesigner_Preview" xml:space="preserve">
-    <value>Preview</value>
+    <value>预览</value>
   </data>
   <data name="FormDesigner_AvailableFields" xml:space="preserve">
-    <value>Available fields</value>
+    <value>可用字段</value>
   </data>
   <data name="FormDesigner_Title" xml:space="preserve">
-    <value>Form designer</value>
+    <value>表单设计器</value>
   </data>
   <data name="FormDesigner_DragSort" xml:space="preserve">
-    <value>Sort by drag and drop</value>
+    <value>按拖放排序</value>
   </data>
   <data name="FormDesigner_Move" xml:space="preserve">
-    <value>Move</value>
+    <value>移动</value>
   </data>
   <data name="FormDesigner_Required" xml:space="preserve">
-    <value>Required</value>
+    <value>要求数</value>
   </data>
   <data name="FormDesigner_HelpText" xml:space="preserve">
-    <value>Help text</value>
+    <value>帮助文本</value>
   </data>
   <data name="FormDesigner_PreviewAria" xml:space="preserve">
-    <value>Form preview</value>
+    <value>表单预览</value>
   </data>
   <data name="FormDesigner_PreviewHint" xml:space="preserve">
-    <value>This is how the form appears publicly.</value>
+    <value>这是表单公开显示时的样子。</value>
   </data>
   <data name="FormDesigner_LoadError" xml:space="preserve">
-    <value>Forms could not be loaded. Details: {0}</value>
+    <value>无法加载表单。详细信息：{0}</value>
   </data>
   <data name="FormDesigner_CreateSuccess" xml:space="preserve">
-    <value>Form was created.</value>
+    <value>形式被创造了。</value>
   </data>
   <data name="FormDesigner_CreateError" xml:space="preserve">
-    <value>Form could not be created. Details: {0}</value>
+    <value>无法创建表单。详细信息：{0}</value>
   </data>
   <data name="FormDesigner_SaveSuccess" xml:space="preserve">
-    <value>Form was saved.</value>
+    <value>表单已保存。</value>
   </data>
   <data name="FormDesigner_SaveError" xml:space="preserve">
-    <value>Form could not be saved. Details: {0}</value>
+    <value>无法保存表单。详细信息：{0}</value>
   </data>
   <data name="FormDesigner_DeleteSuccess" xml:space="preserve">
-    <value>Form was deleted.</value>
+    <value>表单已删除。</value>
   </data>
   <data name="FormDesigner_DeleteError" xml:space="preserve">
-    <value>Form could not be deleted. Details: {0}</value>
+    <value>无法删除表单。详细信息：{0}</value>
   </data>
   <data name="FormDesigner_Status_Public" xml:space="preserve">
-    <value>Public</value>
+    <value>公开</value>
   </data>
   <data name="FormDesigner_Status_Private" xml:space="preserve">
-    <value>Private</value>
+    <value>私营</value>
   </data>
   <data name="FormDesigner_Status_PasswordProtected" xml:space="preserve">
-    <value>With password</value>
+    <value>有密码</value>
   </data>
   <data name="FormDesigner_Status_Draft" xml:space="preserve">
-    <value>Draft</value>
+    <value>草案</value>
   </data>
   <data name="FormDesigner_Field_Title" xml:space="preserve">
-    <value>Title</value>
+    <value>标题</value>
   </data>
   <data name="FormDesigner_FieldType_Standard" xml:space="preserve">
-    <value>Standard field</value>
+    <value>标准字段</value>
   </data>
   <data name="FormDesigner_FieldType_Custom" xml:space="preserve">
-    <value>Custom</value>
+    <value>自定义</value>
   </data>
   <data name="FormDesigner_FieldType_CustomWithType" xml:space="preserve">
-    <value>Custom · {0}</value>
+    <value>自定义 · {0}</value>
   </data>
   <data name="PublicForm_Loading" xml:space="preserve">
-    <value>Loading form...</value>
+    <value>正在加载表单...</value>
   </data>
   <data name="PublicForm_NotAvailableTitle" xml:space="preserve">
-    <value>Form not available</value>
+    <value>表单不可用</value>
   </data>
   <data name="PublicForm_NotAvailableMessage" xml:space="preserve">
-    <value>The form is not published or you do not have access.</value>
+    <value>表单尚未发布，或者您无权访问。</value>
   </data>
   <data name="PublicForm_Thanks" xml:space="preserve">
     <value>谢谢</value>
@@ -1665,595 +1680,595 @@
     <value>您的提交已成功发送。</value>
   </data>
   <data name="PublicForm_CheckingPassword" xml:space="preserve">
-    <value>Checking...</value>
+    <value>检查中...</value>
   </data>
   <data name="PublicForm_Open" xml:space="preserve">
-    <value>Open form</value>
+    <value>打开表单</value>
   </data>
   <data name="PublicForm_Submitting" xml:space="preserve">
-    <value>Submitting...</value>
+    <value>正在提交...</value>
   </data>
   <data name="PublicForm_Submit" xml:space="preserve">
-    <value>Submit</value>
+    <value>提交</value>
   </data>
   <data name="PublicForm_PasswordRequired" xml:space="preserve">
-    <value>Please enter the password.</value>
+    <value>请输入密码 。</value>
   </data>
   <data name="PublicForm_PasswordInvalid" xml:space="preserve">
-    <value>The password is incorrect.</value>
+    <value>密码不正确 。</value>
   </data>
   <data name="PublicForm_PasswordCheckError" xml:space="preserve">
-    <value>The password could not be checked. Details: {0}</value>
+    <value>无法验证密码。详细信息：{0}</value>
   </data>
   <data name="PublicForm_SubmitError" xml:space="preserve">
-    <value>The form could not be submitted. Details: {0}</value>
+    <value>无法提交表单。详细信息：{0}</value>
   </data>
   <data name="PublicForm_SelectPlaceholder" xml:space="preserve">
-    <value>Please select</value>
+    <value>请选择</value>
   </data>
   <data name="Table_TaskCount" xml:space="preserve">
-    <value>{0} task(s)</value>
+    <value>{0}任务</value>
   </data>
   <data name="Table_ResetSort" xml:space="preserve">
-    <value>Reset sorting</value>
+    <value>重置排序</value>
   </data>
   <data name="Table_Columns" xml:space="preserve">
-    <value>Columns</value>
+    <value>列数</value>
   </data>
   <data name="Table_MoveColumn" xml:space="preserve">
-    <value>Move column</value>
+    <value>移动列</value>
   </data>
   <data name="Table_MoveTask" xml:space="preserve">
-    <value>Sort task</value>
+    <value>排序任务</value>
   </data>
   <data name="Bulk_Select" xml:space="preserve">
-    <value>Select</value>
+    <value>选择</value>
   </data>
   <data name="Bulk_SelectTasks" xml:space="preserve">
-    <value>Select tasks</value>
+    <value>选择任务</value>
   </data>
   <data name="Bulk_SelectedCount" xml:space="preserve">
-    <value>{0} selected</value>
+    <value>已选择 {0} 项</value>
   </data>
   <data name="Bulk_SelectAction" xml:space="preserve">
-    <value>Choose action</value>
+    <value>选择动作</value>
   </data>
   <data name="Bulk_MarkDone" xml:space="preserve">
-    <value>Mark as done</value>
+    <value>标记为已完成</value>
   </data>
   <data name="Bulk_Move" xml:space="preserve">
-    <value>Move</value>
+    <value>移动</value>
   </data>
   <data name="Bulk_ChangeColor" xml:space="preserve">
-    <value>Change card color</value>
+    <value>更改卡片颜色</value>
   </data>
   <data name="Bulk_ClearColor" xml:space="preserve">
-    <value>Remove card color</value>
+    <value>删除卡片颜色</value>
   </data>
   <data name="Bulk_Apply" xml:space="preserve">
-    <value>Apply</value>
+    <value>应用</value>
   </data>
   <data name="Bulk_ClearSelection" xml:space="preserve">
-    <value>Clear selection</value>
+    <value>清除选择</value>
   </data>
   <data name="Task_CardStyle_ModeTopOnly" xml:space="preserve">
-    <value>Color bar</value>
+    <value>颜色栏</value>
   </data>
   <data name="Task_CardStyle_ModeFull" xml:space="preserve">
-    <value>Full card</value>
+    <value>全卡</value>
   </data>
   <data name="Table_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>打开</value>
   </data>
   <data name="Table_Notify" xml:space="preserve">
-    <value>Notify</value>
+    <value>通知</value>
   </data>
   <data name="Table_SortShort" xml:space="preserve">
-    <value>Sort</value>
+    <value>排序</value>
   </data>
   <data name="Table_FilterShort" xml:space="preserve">
-    <value>Filter</value>
+    <value>过滤器</value>
   </data>
   <data name="Table_ColumnOptions" xml:space="preserve">
-    <value>Column options</value>
+    <value>列选项</value>
   </data>
   <data name="Table_SortAscending" xml:space="preserve">
-    <value>Sort ascending</value>
+    <value>向上排序</value>
   </data>
   <data name="Table_SortDescending" xml:space="preserve">
-    <value>Sort descending</value>
+    <value>排序降级</value>
   </data>
   <data name="Table_FilterPlaceholder" xml:space="preserve">
-    <value>Filter</value>
+    <value>过滤器</value>
   </data>
   <data name="Table_HideColumn" xml:space="preserve">
-    <value>Hide column</value>
+    <value>隐藏列</value>
   </data>
   <data name="Table_OpenTask" xml:space="preserve">
-    <value>Open task</value>
+    <value>打开任务</value>
   </data>
   <data name="Table_OpenAttachments" xml:space="preserve">
-    <value>Open attachments</value>
+    <value>打开附件</value>
   </data>
   <data name="Table_OpenComments" xml:space="preserve">
-    <value>Open comments</value>
+    <value>公开评论</value>
   </data>
   <data name="Table_NewTask" xml:space="preserve">
-    <value>New task</value>
+    <value>新任务</value>
   </data>
   <data name="Table_Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>对</value>
   </data>
   <data name="Table_No" xml:space="preserve">
-    <value>No</value>
+    <value>没有</value>
   </data>
   <data name="Table_Created" xml:space="preserve">
-    <value>Created</value>
+    <value>已创建</value>
   </data>
   <data name="Table_SortedAscending" xml:space="preserve">
-    <value>Sorted ascending</value>
+    <value>排序上升</value>
   </data>
   <data name="Table_SortedDescending" xml:space="preserve">
-    <value>Sorted descending</value>
+    <value>排序</value>
   </data>
   <data name="Task_Watch_Stop" xml:space="preserve">
-    <value>Stop watching task</value>
+    <value>停止监视任务</value>
   </data>
   <data name="Task_Watch_Start" xml:space="preserve">
-    <value>Watch task</value>
+    <value>监视任务</value>
   </data>
   <data name="Task_Move_NoLists" xml:space="preserve">
-    <value>No lists found</value>
+    <value>未找到列表</value>
   </data>
   <data name="Task_Move_NoColumns" xml:space="preserve">
-    <value>No columns found</value>
+    <value>未找到列</value>
   </data>
   <data name="Task_Move_SelectDifferentList" xml:space="preserve">
-    <value>Please select another list first. Then the target column can be set.</value>
+    <value>请先选择另一个列表。 然后可以设定目标列 。</value>
   </data>
   <data name="Account_AccessDenied_Title" xml:space="preserve">
-    <value>Access denied</value>
+    <value>拒绝访问</value>
   </data>
   <data name="Account_AccessDenied_Message" xml:space="preserve">
-    <value>You do not have access to this resource.</value>
+    <value>您无法访问此资源 。</value>
   </data>
   <data name="Account_ConfirmEmailChange_Title" xml:space="preserve">
-    <value>Confirm email change</value>
+    <value>确认电子邮件更改</value>
   </data>
   <data name="Account_ConfirmEmailChange_InvalidLink" xml:space="preserve">
-    <value>Error: Invalid email change confirmation link.</value>
+    <value>错误: 无效的电子邮件更改确认链接 。</value>
   </data>
   <data name="Account_UserNotFound" xml:space="preserve">
-    <value>Unable to find user with ID '{0}'.</value>
+    <value>找不到 ID 为“{0}”的用户。</value>
   </data>
   <data name="Account_ConfirmEmailChange_EmailError" xml:space="preserve">
-    <value>Error changing email.</value>
+    <value>更改邮件出错 。</value>
   </data>
   <data name="Account_ConfirmEmailChange_UserNameError" xml:space="preserve">
-    <value>Error changing user name.</value>
+    <value>更改用户名出错 。</value>
   </data>
   <data name="Account_ConfirmEmailChange_Success" xml:space="preserve">
-    <value>Thank you for confirming your email change.</value>
+    <value>谢谢你确认您的电子邮件更改。</value>
   </data>
   <data name="Account_ExternalLogin_Associate" xml:space="preserve">
-    <value>Associate your {0} account.</value>
+    <value>关联您的 {0} 账户。</value>
   </data>
   <data name="Account_ExternalLogin_Info" xml:space="preserve">
-    <value>You have successfully authenticated with {0}. Enter an email address for this site below and click Register to finish logging in.</value>
+    <value>已成功通过 {0} 完成身份验证。请在下方输入本站使用的电子邮件地址，然后单击“注册”以完成登录。</value>
   </data>
   <data name="Account_EmailPlaceholder" xml:space="preserve">
-    <value>Please enter your email.</value>
+    <value>请输入您的电子邮件 。</value>
   </data>
   <data name="Account_InvalidUser_Title" xml:space="preserve">
-    <value>Invalid user</value>
+    <value>无效的用户</value>
   </data>
   <data name="Auth_Authenticated_Title" xml:space="preserve">
-    <value>You are authenticated</value>
+    <value>你被认证了</value>
   </data>
   <data name="Auth_Authenticated_Hello" xml:space="preserve">
-    <value>Hello {0}!</value>
+    <value>您好，{0}！</value>
   </data>
   <data name="Common_Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>对</value>
   </data>
   <data name="Common_No" xml:space="preserve">
-    <value>No</value>
+    <value>没有</value>
   </data>
   <data name="Export_Header_Title" xml:space="preserve">
-    <value>Title</value>
+    <value>标题</value>
   </data>
   <data name="Export_Header_Description" xml:space="preserve">
-    <value>Description</value>
+    <value>说明</value>
   </data>
   <data name="Export_Header_Column" xml:space="preserve">
-    <value>Column</value>
+    <value>栏</value>
   </data>
   <data name="Export_Header_Status" xml:space="preserve">
-    <value>Status</value>
+    <value>状态</value>
   </data>
   <data name="Export_Header_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>写好了</value>
   </data>
   <data name="Export_Header_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>重要</value>
   </data>
   <data name="Export_Header_DueDate" xml:space="preserve">
-    <value>Due date</value>
+    <value>应提交日期</value>
   </data>
   <data name="Export_Header_Labels" xml:space="preserve">
-    <value>Labels</value>
+    <value>标签</value>
   </data>
   <data name="Mobile_OfflineSync" xml:space="preserve">
-    <value>Offline - changes will sync as soon as the connection is restored.</value>
+    <value>离线 - 一旦恢复连接, 更改会同步 。</value>
   </data>
   <data name="Workspace_PageTitle" xml:space="preserve">
-    <value>Todo Board</value>
+    <value>待办事宜董事会</value>
   </data>
   <data name="Workspace_StartWatching" xml:space="preserve">
-    <value>Watch board</value>
+    <value>监视板</value>
   </data>
   <data name="Workspace_StopWatching" xml:space="preserve">
-    <value>Stop watching board</value>
+    <value>别看板子了</value>
   </data>
   <data name="Workspace_TableView" xml:space="preserve">
-    <value>Table</value>
+    <value>图表</value>
   </data>
   <data name="Workspace_ListOptions" xml:space="preserve">
-    <value>List options</value>
+    <value>列表选项</value>
   </data>
   <data name="Workspace_RenameList" xml:space="preserve">
-    <value>Rename list</value>
+    <value>重命名列表</value>
   </data>
   <data name="Workspace_ManageLabels" xml:space="preserve">
-    <value>Manage labels</value>
+    <value>管理标签</value>
   </data>
   <data name="Workspace_ChangeBackground" xml:space="preserve">
-    <value>Change background</value>
+    <value>更改背景</value>
   </data>
   <data name="Workspace_ChangeDesign" xml:space="preserve">
-    <value>Change design</value>
+    <value>更改设计</value>
   </data>
   <data name="Workspace_Notifications" xml:space="preserve">
-    <value>Notifications</value>
+    <value>通知</value>
   </data>
   <data name="Workspace_NotificationsOn" xml:space="preserve">
-    <value>Notifications on</value>
+    <value>通知编号</value>
   </data>
   <data name="Workspace_NotificationsOff" xml:space="preserve">
-    <value>Notifications off</value>
+    <value>撤销通知</value>
   </data>
   <data name="Workspace_CopyList" xml:space="preserve">
-    <value>Copy list</value>
+    <value>复制列表</value>
   </data>
   <data name="Workspace_DuplicateList" xml:space="preserve">
-    <value>Duplicate list</value>
+    <value>复制列表</value>
   </data>
   <data name="Workspace_SaveAsTemplate" xml:space="preserve">
-    <value>Save as template</value>
+    <value>另存为模板</value>
   </data>
   <data name="Workspace_ExportList" xml:space="preserve">
-    <value>Export list</value>
+    <value>导出列表</value>
   </data>
   <data name="Workspace_Share" xml:space="preserve">
-    <value>Share</value>
+    <value>份额</value>
   </data>
   <data name="Workspace_Actions" xml:space="preserve">
-    <value>Actions</value>
+    <value>行动</value>
   </data>
   <data name="Workspace_NoListLoaded" xml:space="preserve">
-    <value>No list loaded.</value>
+    <value>未装入列表 。</value>
   </data>
   <data name="Workspace_NewName" xml:space="preserve">
-    <value>New name</value>
+    <value>新名称</value>
   </data>
   <data name="Workspace_DeleteListWarning" xml:space="preserve">
-    <value>All tasks will be permanently removed.</value>
+    <value>所有任务都将永久删除.</value>
   </data>
   <data name="Workspace_DeleteListConfirm" xml:space="preserve">
-    <value>Do you really want to delete the list {0}?</value>
+    <value>确实要删除列表 {0} 吗？</value>
   </data>
   <data name="Workspace_DeleteFinal" xml:space="preserve">
-    <value>Delete permanently</value>
+    <value>永久删除</value>
   </data>
   <data name="Workspace_RestoreDeletedTasks" xml:space="preserve">
-    <value>Restore deleted tasks</value>
+    <value>恢复已删除的任务</value>
   </data>
   <data name="Workspace_RestoreEmpty" xml:space="preserve">
-    <value>No deleted tasks in this list.</value>
+    <value>此列表中没有删除的任务 。</value>
   </data>
   <data name="Workspace_RestoreDeletedOn" xml:space="preserve">
-    <value>Deleted on</value>
+    <value>删除于</value>
   </data>
   <data name="Workspace_RestoreDaysLeft" xml:space="preserve">
-    <value>{0} day(s) left</value>
+    <value>剩余 {0} 天</value>
   </data>
   <data name="Workspace_RestoreTask" xml:space="preserve">
-    <value>Restore task</value>
+    <value>恢复任务</value>
   </data>
   <data name="Workspace_FilterTitle" xml:space="preserve">
-    <value>Filter</value>
+    <value>过滤器</value>
   </data>
   <data name="Workspace_EditFilter" xml:space="preserve">
-    <value>Edit filter</value>
+    <value>编辑过滤器</value>
   </data>
   <data name="Workspace_FilterPlaceholder" xml:space="preserve">
-    <value>Enter a keyword ...</value>
+    <value>输入关键字...</value>
   </data>
   <data name="Workspace_FilterHint" xml:space="preserve">
-    <value>Search cards, members, labels, and more.</value>
+    <value>搜索卡,成员,标签等等。</value>
   </data>
   <data name="Workspace_FilterAssignee" xml:space="preserve">
-    <value>Assignee</value>
+    <value>受指派者</value>
   </data>
   <data name="Workspace_FilterAssignedToMe" xml:space="preserve">
-    <value>Cards assigned to me</value>
+    <value>分配给我的卡片</value>
   </data>
   <data name="Workspace_FilterNoAssignee" xml:space="preserve">
-    <value>No assignee</value>
+    <value>无受让人</value>
   </data>
   <data name="Workspace_FilterNoMembers" xml:space="preserve">
-    <value>No members</value>
+    <value>无成员</value>
   </data>
   <data name="Workspace_FilterSelectMembers" xml:space="preserve">
-    <value>Select members</value>
+    <value>选择成员</value>
   </data>
   <data name="Workspace_FilterCardStatus" xml:space="preserve">
-    <value>Card status</value>
+    <value>卡片状态</value>
   </data>
   <data name="Workspace_FilterDone" xml:space="preserve">
-    <value>Marked as completed</value>
+    <value>标为已完成</value>
   </data>
   <data name="Workspace_FilterNotDone" xml:space="preserve">
-    <value>Not marked as completed</value>
+    <value>未标为已完成</value>
   </data>
   <data name="Workspace_FilterDue" xml:space="preserve">
-    <value>Due date</value>
+    <value>应提交日期</value>
   </data>
   <data name="Workspace_FilterNoDueDate" xml:space="preserve">
-    <value>No due date</value>
+    <value>无到期日期</value>
   </data>
   <data name="Workspace_FilterOverdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>逾期未交</value>
   </data>
   <data name="Workspace_FilterDueNextDay" xml:space="preserve">
-    <value>Due within the next day</value>
+    <value>第二天到期</value>
   </data>
   <data name="Workspace_FilterDueNextWeek" xml:space="preserve">
-    <value>Due within the next week</value>
+    <value>下周内到期</value>
   </data>
   <data name="Workspace_FilterDueNextMonth" xml:space="preserve">
-    <value>Due within the next month</value>
+    <value>下个月到期</value>
   </data>
   <data name="Workspace_FilterNoLabels" xml:space="preserve">
-    <value>No labels available.</value>
+    <value>没有可用的标签 。</value>
   </data>
   <data name="Workspace_FilterReset" xml:space="preserve">
-    <value>Reset</value>
+    <value>重设</value>
   </data>
   <data name="Workspace_FilterApply" xml:space="preserve">
-    <value>Apply</value>
+    <value>应用</value>
   </data>
   <data name="Workspace_CopyName" xml:space="preserve">
-    <value>Name of the new list</value>
+    <value>新名单名称</value>
   </data>
   <data name="Workspace_CopyIncludeTasks" xml:space="preserve">
-    <value>Copy tasks too</value>
+    <value>复制任务也</value>
   </data>
   <data name="Workspace_CopyAction" xml:space="preserve">
-    <value>Copy</value>
+    <value>复制</value>
   </data>
   <data name="Workspace_TemplateSaved" xml:space="preserve">
-    <value>Template {0} was saved.</value>
+    <value>模板 {0} 已保存。</value>
   </data>
   <data name="Workspace_TemplateName" xml:space="preserve">
-    <value>Template name</value>
+    <value>模板名称</value>
   </data>
   <data name="Workspace_TemplateHelp" xml:space="preserve">
-    <value>Columns, labels, and background color are included. Tasks are not copied.</value>
+    <value>包含列、标签和背景颜色。任务不复制 。</value>
   </data>
   <data name="Workspace_ExportTaskCount" xml:space="preserve">
-    <value>{0} tasks</value>
+    <value>{0}任务</value>
   </data>
   <data name="Workspace_ExportJson" xml:space="preserve">
-    <value>Export as JSON</value>
+    <value>导出为 JSON</value>
   </data>
   <data name="Workspace_ExportJsonHelp" xml:space="preserve">
-    <value>Machine-readable format, all fields</value>
+    <value>机器可读格式, 所有字段</value>
   </data>
   <data name="Workspace_ExportCsv" xml:space="preserve">
-    <value>Export as CSV</value>
+    <value>导出为 CSV</value>
   </data>
   <data name="Workspace_ExportCsvHelp" xml:space="preserve">
-    <value>Spreadsheet format, Excel-compatible</value>
+    <value>电子表格格式, Excel 兼容</value>
   </data>
   <data name="Workspace_ExportPdf" xml:space="preserve">
-    <value>Export as PDF</value>
+    <value>导出为 PDF</value>
   </data>
   <data name="Workspace_ExportPdfHelp" xml:space="preserve">
-    <value>Open print view in the browser</value>
+    <value>在浏览器中打开打印视图</value>
   </data>
   <data name="Workspace_ExportedAt" xml:space="preserve">
-    <value>Exported on {0} - {1} tasks</value>
+    <value>以 {0} - {1}任务出口</value>
   </data>
   <data name="Workspace_ExportJsonError" xml:space="preserve">
-    <value>JSON export could not be started: {0}</value>
+    <value>无法启动 JSON 导出：{0}</value>
   </data>
   <data name="Workspace_ExportCsvError" xml:space="preserve">
-    <value>CSV export could not be started: {0}</value>
+    <value>无法启动 CSV 导出：{0}</value>
   </data>
   <data name="Workspace_ExportPdfError" xml:space="preserve">
-    <value>PDF export could not be started: {0}</value>
+    <value>无法启动 PDF 导出：{0}</value>
   </data>
   <data name="Notifications_Event" xml:space="preserve">
-    <value>Event</value>
+    <value>活动</value>
   </data>
   <data name="Notifications_Admins" xml:space="preserve">
-    <value>Admins</value>
+    <value>管理员</value>
   </data>
   <data name="Notifications_Users" xml:space="preserve">
-    <value>Users</value>
+    <value>用户</value>
   </data>
   <data name="Notifications_BoardWatchersShort" xml:space="preserve">
-    <value>Board watchers</value>
+    <value>董事会监督员</value>
   </data>
   <data name="Notifications_CardWatchersShort" xml:space="preserve">
-    <value>Card watchers</value>
+    <value>卡片关注者</value>
   </data>
   <data name="Notifications_Assigned" xml:space="preserve">
-    <value>Assigned</value>
+    <value>指派</value>
   </data>
   <data name="Notifications_Author" xml:space="preserve">
-    <value>Author</value>
+    <value>作者</value>
   </data>
   <data name="Notifications_TaskCreated" xml:space="preserve">
-    <value>Task created</value>
+    <value>创建任务</value>
   </data>
   <data name="Notifications_TaskUpdated" xml:space="preserve">
-    <value>Task updated</value>
+    <value>任务更新</value>
   </data>
   <data name="Notifications_TaskAssigned" xml:space="preserve">
-    <value>Task assigned</value>
+    <value>指派的任务</value>
   </data>
   <data name="Notifications_TaskCompleted" xml:space="preserve">
-    <value>Task completed</value>
+    <value>任务完成</value>
   </data>
   <data name="Notifications_TaskReopened" xml:space="preserve">
-    <value>Task reopened</value>
+    <value>任务重开</value>
   </data>
   <data name="Notifications_TaskDeleted" xml:space="preserve">
-    <value>Task deleted</value>
+    <value>任务已删除</value>
   </data>
   <data name="Notifications_TaskMoved" xml:space="preserve">
-    <value>Task moved</value>
+    <value>任务已移动</value>
   </data>
   <data name="Notifications_CommentAdded" xml:space="preserve">
-    <value>Task commented</value>
+    <value>任务评论</value>
   </data>
   <data name="Notifications_CommentDeleted" xml:space="preserve">
-    <value>Task comment deleted</value>
+    <value>任务注释已删除</value>
   </data>
   <data name="Notifications_AttachmentAdded" xml:space="preserve">
-    <value>New attachment</value>
+    <value>新附件</value>
   </data>
   <data name="Notifications_AttachmentDeleted" xml:space="preserve">
-    <value>Attachment deleted</value>
+    <value>附件已删除</value>
   </data>
   <data name="Err_Generic" xml:space="preserve">
-    <value>Error: {0}</value>
+    <value>错误：{0}</value>
   </data>
   <data name="Account_Email" xml:space="preserve">
-    <value>Email</value>
+    <value>电子邮件</value>
   </data>
   <data name="Account_Password" xml:space="preserve">
-    <value>Password</value>
+    <value>密码</value>
   </data>
   <data name="Account_ConfirmPassword" xml:space="preserve">
-    <value>Confirm password</value>
+    <value>确认密码</value>
   </data>
   <data name="Account_Username" xml:space="preserve">
-    <value>Username</value>
+    <value>用户名</value>
   </data>
   <data name="Account_WindowsUsername" xml:space="preserve">
-    <value>Directory username</value>
+    <value>目录用户名</value>
   </data>
   <data name="Account_RememberMe" xml:space="preserve">
-    <value>Remember me</value>
+    <value>记住我</value>
   </data>
   <data name="Account_Or" xml:space="preserve">
-    <value>OR</value>
+    <value>或</value>
   </data>
   <data name="Account_BackToLogin" xml:space="preserve">
-    <value>Back to login</value>
+    <value>返回登录</value>
   </data>
   <data name="Account_Login_Title" xml:space="preserve">
-    <value>Log in</value>
+    <value>登录</value>
   </data>
   <data name="Account_Login_WithWindows" xml:space="preserve">
-    <value>Log in with LDAP / Active Directory.</value>
+    <value>登录 LDAP / 活动目录 。</value>
   </data>
   <data name="Account_Login_WindowsButton" xml:space="preserve">
-    <value>Log in with directory</value>
+    <value>登录到目录</value>
   </data>
   <data name="Account_Login_WithLocal" xml:space="preserve">
-    <value>Log in with a local account.</value>
+    <value>登录一个本地账户。</value>
   </data>
   <data name="Account_Login_Button" xml:space="preserve">
-    <value>Log in</value>
+    <value>登录</value>
   </data>
   <data name="Account_Login_WithPasskey" xml:space="preserve">
-    <value>Log in with passkey</value>
+    <value>使用通行密钥登录</value>
   </data>
   <data name="Account_ForgotPasswordLink" xml:space="preserve">
-    <value>Forgot password?</value>
+    <value>忘了密码吗?</value>
   </data>
   <data name="Account_RegisterNewUser" xml:space="preserve">
-    <value>Register as a new user</value>
+    <value>注册为新用户</value>
   </data>
   <data name="Account_ResendEmailConfirmation" xml:space="preserve">
-    <value>Resend email confirmation</value>
+    <value>重新发送电子邮件确认</value>
   </data>
   <data name="Account_Error_NotAllowed" xml:space="preserve">
-    <value>Error: This account has not been enabled yet. Please confirm your email address first or request the confirmation email again.</value>
+    <value>错误: 此账户尚未启用。 请先确认您的电子邮件地址或再次请求确认电子邮件 。</value>
   </data>
   <data name="Account_Error_InvalidLogin" xml:space="preserve">
-    <value>Error: Invalid login details.</value>
+    <value>错误: 登录细节无效 。</value>
   </data>
   <data name="Account_Error_AdLoginFailed" xml:space="preserve">
-    <value>Error: Active Directory login failed.</value>
+    <value>错误: 活动目录登录失败 。</value>
   </data>
   <data name="Account_Error_UserCreateFailed" xml:space="preserve">
-    <value>Error: User could not be created: {0}</value>
+    <value>错误：无法创建用户：{0}</value>
   </data>
   <data name="Account_Error_LoginIncomplete" xml:space="preserve">
-    <value>Error: Login could not be completed.</value>
+    <value>错误: 登录无法完成 。</value>
   </data>
   <data name="Account_Error_TooManyAttempts" xml:space="preserve">
-    <value>Error: Too many failed login attempts. Please try again in {0}.</value>
+    <value>错误：登录失败次数过多。请在 {0} 后重试。</value>
   </data>
   <data name="Account_Register_Title" xml:space="preserve">
-    <value>Register</value>
+    <value>登记册</value>
   </data>
   <data name="Account_Register_DisabledTitle" xml:space="preserve">
-    <value>Registration disabled</value>
+    <value>注册残疾</value>
   </data>
   <data name="Account_Register_DisabledText" xml:space="preserve">
-    <value>Self-registration is currently unavailable. Please contact an administrator.</value>
+    <value>目前无法自行注册。 请联系管理员 。</value>
   </data>
   <data name="Account_Register_CreateAccount" xml:space="preserve">
-    <value>Create a new account.</value>
+    <value>创建新账户 。</value>
   </data>
   <data name="Account_Register_Button" xml:space="preserve">
-    <value>Register</value>
+    <value>登记册</value>
   </data>
   <data name="Account_LoginExistingUser" xml:space="preserve">
-    <value>Log in as an existing user</value>
+    <value>作为现有用户登录</value>
   </data>
   <data name="Account_Error_EmailExists" xml:space="preserve">
-    <value>A user with this email address already exists.</value>
+    <value>已有此电子邮件地址的用户 。</value>
   </data>
   <data name="Account_Error_ConfirmationEmailFailed" xml:space="preserve">
-    <value>The account was created, but the confirmation email could not be sent. {0}</value>
+    <value>账户已创建，但无法发送确认电子邮件。{0}</value>
   </data>
   <data name="Account_ForgotPassword_Title" xml:space="preserve">
-    <value>Forgot password</value>
+    <value>忘记密码</value>
   </data>
   <data name="Account_ForgotPassword_Subtitle" xml:space="preserve">
-    <value>Receive a reset link by email.</value>
+    <value>通过电子邮件接收重设链接 。</value>
   </data>
   <data name="Account_ForgotPassword_Send" xml:space="preserve">
-    <value>Send reset link</value>
+    <value>发送重设链接</value>
   </data>
   <data name="Account_Error_ResetEmailFailed" xml:space="preserve">
-    <value>Error: The reset email could not be sent. {0}</value>
+    <value>错误：无法发送重置电子邮件。{0}</value>
   </data>
   <data name="Account_ResetPassword_Title" xml:space="preserve">
-    <value>Reset password</value>
+    <value>重置密码</value>
   </data>
   <data name="Account_ResetPassword_Subtitle" xml:space="preserve">
-    <value>Set a new password.</value>
+    <value>设置新密码 。</value>
   </data>
   <data name="Account_ResetPassword_Save" xml:space="preserve">
-    <value>Save password</value>
+    <value>保存密码</value>
   </data>
   <data name="Automation_Title" xml:space="preserve"><value>自动化</value></data>
   <data name="Account_Settings" xml:space="preserve"><value>设置</value></data>

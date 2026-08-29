@@ -310,7 +310,7 @@
     <value>Wichtige Aufgaben</value>
   </data>
   <data name="Page_Important_Description" xml:space="preserve">
-    <value>Schneller Überblick über alle markierten Tasks.</value>
+    <value>Schneller Überblick über alle markierten Aufgaben.</value>
   </data>
   <data name="Page_Important_Empty" xml:space="preserve">
     <value>Keine wichtigen Aufgaben vorhanden.</value>
@@ -361,7 +361,7 @@
     <value>Liste wiederherstellen</value>
   </data>
   <data name="Page_Workspace_Tasks" xml:space="preserve">
-    <value>Tasks:</value>
+    <value>Aufgaben:</value>
   </data>
   <data name="Page_Workspace_FilterActive" xml:space="preserve">
     <value>Filter aktiv</value>
@@ -829,7 +829,19 @@
     <value>Zurückziehen</value>
   </data>
   <data name="Participants_OwnerFixed" xml:space="preserve">
-    <value>Owner-Rolle ist fix.</value>
+    <value>Die Besitzerrolle ist festgelegt.</value>
+  </data>
+  <data name="Participants_Owner" xml:space="preserve">
+    <value>Besitzer</value>
+  </data>
+  <data name="Participants_ViaPortfolio" xml:space="preserve">
+    <value>Über Portfolio</value>
+  </data>
+  <data name="Participants_ViaDirectory" xml:space="preserve">
+    <value>Über Verzeichnis</value>
+  </data>
+  <data name="Participants_ByDirectory" xml:space="preserve">
+    <value>Verzeichnis</value>
   </data>
   <data name="Participants_NoParticipants" xml:space="preserve">
     <value>Noch keine Teilnehmer.</value>
@@ -892,7 +904,7 @@
     <value>Kommentar konnte nicht gespeichert werden. Details: {0}</value>
   </data>
   <data name="Info_OwnerRoleFixed" xml:space="preserve">
-    <value>Die Rolle des Owners kann nicht geändert werden.</value>
+    <value>Die Rolle des Besitzers kann nicht geändert werden.</value>
   </data>
   <data name="Err_RoleChangeInvalid" xml:space="preserve">
     <value>Rolle konnte nicht geändert werden: Ungültiger Wert '{0}'.</value>
@@ -1353,6 +1365,9 @@
   <data name="Dashboard_Export" xml:space="preserve">
     <value>Export</value>
   </data>
+  <data name="Dashboard_ExportError" xml:space="preserve">
+    <value>Der {0}-Export ist fehlgeschlagen.</value>
+  </data>
   <data name="Dashboard_FilterActive" xml:space="preserve">
     <value>Aktiv</value>
   </data>
@@ -1801,7 +1816,7 @@
     <value>Benachrichtigen</value>
   </data>
   <data name="Table_SortShort" xml:space="preserve">
-    <value>Sort</value>
+    <value>Sort.</value>
   </data>
   <data name="Table_FilterShort" xml:space="preserve">
     <value>Filter</value>
@@ -1942,7 +1957,7 @@
     <value>Offline - Änderungen werden synchronisiert, sobald die Verbindung wiederhergestellt ist.</value>
   </data>
   <data name="Workspace_PageTitle" xml:space="preserve">
-    <value>Todo Board</value>
+    <value>Aufgabenübersicht</value>
   </data>
   <data name="Workspace_StartWatching" xml:space="preserve">
     <value>Board beobachten</value>

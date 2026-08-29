@@ -769,6 +769,18 @@
   <data name="Participants_OwnerFixed" xml:space="preserve">
     <value>Owner role is fixed.</value>
   </data>
+  <data name="Participants_Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="Participants_ViaPortfolio" xml:space="preserve">
+    <value>Via portfolio</value>
+  </data>
+  <data name="Participants_ViaDirectory" xml:space="preserve">
+    <value>Via directory</value>
+  </data>
+  <data name="Participants_ByDirectory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
   <data name="Participants_NoParticipants" xml:space="preserve">
     <value>No participants yet.</value>
   </data>
@@ -1300,6 +1312,9 @@
   </data>
   <data name="Dashboard_Export" xml:space="preserve">
     <value>Export</value>
+  </data>
+  <data name="Dashboard_ExportError" xml:space="preserve">
+    <value>The {0} export failed.</value>
   </data>
   <data name="Dashboard_FilterActive" xml:space="preserve">
     <value>Active</value>

@@ -682,7 +682,7 @@
     <value>लेबल नहीं बनाया जा सका: शीर्षक खाली है।</value>
   </data>
   <data name="Err_LabelCreateInvalidColor" xml:space="preserve">
-    <value>लेबल नहीं बनाया जा सका: अमान्य रंग '{0}'।</value>
+    <value>लेबल नहीं बनाया जा सका: रंग '{0}' अमान्य है। पैलेट से कोई रंग चुनें या रंग हटा दें।</value>
   </data>
   <data name="Err_LabelCreate" xml:space="preserve">
     <value>लेबल नहीं बनाया जा सका। विवरण: {0}</value>
@@ -691,7 +691,7 @@
     <value>लेबल सहेजा नहीं जा सका: शीर्षक खाली है। LabelId='{0}'.</value>
   </data>
   <data name="Err_LabelSaveInvalidColor" xml:space="preserve">
-    <value>लेबल सहेजा नहीं जा सका: अमान्य रंग '{0}'।</value>
+    <value>लेबल सहेजा नहीं जा सका: रंग '{0}' अमान्य है। पैलेट से कोई रंग चुनें या रंग हटा दें।</value>
   </data>
   <data name="Err_LabelSave" xml:space="preserve">
     <value>लेबल सहेजा नहीं जा सका। विवरण: {0}</value>
@@ -768,6 +768,18 @@
   </data>
   <data name="Participants_OwnerFixed" xml:space="preserve">
     <value>स्वामी की भूमिका निश्चित है।</value>
+  </data>
+  <data name="Participants_Owner" xml:space="preserve">
+    <value>स्वामी</value>
+  </data>
+  <data name="Participants_ViaPortfolio" xml:space="preserve">
+    <value>पोर्टफोलियो के माध्यम से</value>
+  </data>
+  <data name="Participants_ViaDirectory" xml:space="preserve">
+    <value>निर्देशिका के माध्यम से</value>
+  </data>
+  <data name="Participants_ByDirectory" xml:space="preserve">
+    <value>निर्देशिका</value>
   </data>
   <data name="Participants_NoParticipants" xml:space="preserve">
     <value>अभी तक कोई प्रतिभागी नहीं।</value>
@@ -888,7 +900,7 @@
     <value>+ कार्ड जोड़ें…</value>
   </data>
   <data name="Kanban_NoWritePermission" xml:space="preserve">
-    <value>कार्ड बनाने के लिए उच्च अनुमतियों की आवश्यकता है।</value>
+    <value>कार्ड बनाने के लिए अतिरिक्त अनुमतियाँ आवश्यक हैं। पहुँच के लिए सूची के स्वामी से संपर्क करें।</value>
   </data>
   <data name="Kanban_AddColumnDialogRight" xml:space="preserve">
     <value>दाईं ओर कॉलम जोड़ें</value>
@@ -988,7 +1000,7 @@
   </data>
   <!-- ToDoListView (additional) -->
   <data name="ListView_NoWritePermission" xml:space="preserve">
-    <value>कार्य बनाने के लिए उच्च अनुमतियों की आवश्यकता है।</value>
+    <value>कार्य बनाने के लिए अतिरिक्त अनुमतियाँ आवश्यक हैं। पहुँच के लिए सूची के स्वामी से संपर्क करें।</value>
   </data>
   <data name="ListView_ChecklistTitle" xml:space="preserve">
     <value>चेकलिस्ट: {0} में से {1} पूर्ण</value>
@@ -1301,6 +1313,9 @@
   <data name="Dashboard_Export" xml:space="preserve">
     <value>निर्यात</value>
   </data>
+  <data name="Dashboard_ExportError" xml:space="preserve">
+    <value>{0} निर्यात विफल रहा।</value>
+  </data>
   <data name="Dashboard_FilterActive" xml:space="preserve">
     <value>सक्रिय</value>
   </data>
@@ -1476,22 +1491,22 @@
     <value>बनाएँ</value>
   </data>
   <data name="Dashboard_Settings" xml:space="preserve">
-    <value>Dashboard settings</value>
+    <value>डैशबोर्ड सेटिंग्स</value>
   </data>
   <data name="Dashboard_Customize_Widgets" xml:space="preserve">
-    <value>Customize widgets</value>
+    <value>विजेट को अनुकूलित करें</value>
   </data>
   <data name="Dashboard_Widget_Tasks" xml:space="preserve">
-    <value>Task table</value>
+    <value>कार्य तालिका</value>
   </data>
   <data name="Dashboard_Widget_Order" xml:space="preserve">
-    <value>Order</value>
+    <value>आदेश</value>
   </data>
   <data name="Common_NoListLoaded" xml:space="preserve">
-    <value>No list loaded.</value>
+    <value>कोई सूची लोड नहीं है।</value>
   </data>
   <data name="CustomField_NamePlaceholder" xml:space="preserve">
-    <value>Field name</value>
+    <value>फील्ड नाम</value>
   </data>
   <data name="CustomField_OptionsPlaceholder" xml:space="preserve">
     <value>विकल्प जोड़ें</value>
@@ -1503,160 +1518,160 @@
     <value>अभी कोई विकल्प नहीं।</value>
   </data>
   <data name="CustomField_SelectSourceList" xml:space="preserve">
-    <value>Select source list</value>
+    <value>स्रोत सूची चुनें</value>
   </data>
   <data name="CustomField_TaskTitleSelect_AddHelp" xml:space="preserve">
-    <value>Task selection shows task titles from the selected list as a select field. You can add it only if you are an admin in that list and the current list.</value>
+    <value>कार्य चयन चयनित सूची से एक चयन क्षेत्र के रूप में कार्य शीर्षक दिखाता है। आप इसे केवल तभी जोड़ सकते हैं जब आप उस सूची और वर्तमान सूची में एक व्यवस्थापक हों।</value>
   </data>
   <data name="CustomField_TaskTitleSelect_SaveHelp" xml:space="preserve">
-    <value>Task selection shows task titles from the selected list as a select field. You can save it only if you are an admin in both lists.</value>
+    <value>कार्य चयन चयनित सूची से एक चयन क्षेत्र के रूप में कार्य शीर्षक दिखाता है। यदि आप दोनों सूचियों में एक व्यवस्थापक हैं तो आप इसे केवल सेव कर सकते हैं।</value>
   </data>
   <data name="CustomField_NoSourceList" xml:space="preserve">
-    <value>No matching source list available. You need admin rights in at least one other list.</value>
+    <value>कोई मिलान स्रोत सूची उपलब्ध नहीं है। आपको कम से कम एक अन्य सूची में व्यवस्थापक अधिकार की आवश्यकता है।</value>
   </data>
   <data name="CustomField_Empty" xml:space="preserve">
-    <value>No custom fields yet.</value>
+    <value>अभी तक कोई कस्टम फ़ील्ड नहीं है।</value>
   </data>
   <data name="CustomField_SourceList" xml:space="preserve">
-    <value>Source list</value>
+    <value>स्रोत सूची</value>
   </data>
   <data name="CustomField_SourceList_NotSelected" xml:space="preserve">
-    <value>not selected</value>
+    <value>नहीं चुना</value>
   </data>
   <data name="CustomField_SourceList_NotAvailable" xml:space="preserve">
-    <value>not available</value>
+    <value>उपलब्ध नहीं</value>
   </data>
   <data name="CustomField_Type_Number" xml:space="preserve">
-    <value>Number</value>
+    <value>संख्या</value>
   </data>
   <data name="CustomField_Type_Dropdown" xml:space="preserve">
-    <value>Dropdown</value>
+    <value>ड्रॉपडाउन</value>
   </data>
   <data name="CustomField_Type_MultiSelect" xml:space="preserve">
     <value>बहु-चयन</value>
   </data>
   <data name="CustomField_Type_Date" xml:space="preserve">
-    <value>Date</value>
+    <value>तारीख</value>
   </data>
   <data name="CustomField_Type_Checkbox" xml:space="preserve">
-    <value>Checkbox</value>
+    <value>चेकबॉक्स</value>
   </data>
   <data name="CustomField_Type_TaskTitleSelect" xml:space="preserve">
-    <value>Task selection</value>
+    <value>कार्य चयन</value>
   </data>
   <data name="CustomField_Type_Text" xml:space="preserve">
-    <value>Text</value>
+    <value>पाठ</value>
   </data>
   <data name="CustomField_SectionTitle" xml:space="preserve">
-    <value>Custom fields</value>
+    <value>कस्टम फील्ड</value>
   </data>
   <data name="CustomField_NoneDefined" xml:space="preserve">
-    <value>No fields defined</value>
+    <value>कोई फ़ील्ड परिभाषित नहीं है</value>
   </data>
   <data name="FormDesigner_Forms" xml:space="preserve">
-    <value>Forms</value>
+    <value>प्रपत्र</value>
   </data>
   <data name="FormDesigner_Creating" xml:space="preserve">
-    <value>Creating...</value>
+    <value>बनाना</value>
   </data>
   <data name="FormDesigner_NewForm" xml:space="preserve">
-    <value>New form</value>
+    <value>नया फॉर्म</value>
   </data>
   <data name="FormDesigner_FormList" xml:space="preserve">
-    <value>Form list</value>
+    <value>फॉर्म सूची</value>
   </data>
   <data name="FormDesigner_Empty" xml:space="preserve">
-    <value>No forms yet.</value>
+    <value>अभी तक कोई फॉर्म नहीं है।</value>
   </data>
   <data name="FormDesigner_SelectOrCreate" xml:space="preserve">
-    <value>Select a form or create a new one.</value>
+    <value>एक फॉर्म चुनें या एक नया बनाएं।</value>
   </data>
   <data name="FormDesigner_Password" xml:space="preserve">
-    <value>Password</value>
+    <value>पासवर्ड</value>
   </data>
   <data name="FormDesigner_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>खुला</value>
   </data>
   <data name="FormDesigner_Preview" xml:space="preserve">
-    <value>Preview</value>
+    <value>पूर्वावलोकन</value>
   </data>
   <data name="FormDesigner_AvailableFields" xml:space="preserve">
-    <value>Available fields</value>
+    <value>उपलब्ध फ़ील्ड</value>
   </data>
   <data name="FormDesigner_Title" xml:space="preserve">
-    <value>Form designer</value>
+    <value>फॉर्म डिजाइनर</value>
   </data>
   <data name="FormDesigner_DragSort" xml:space="preserve">
-    <value>Sort by drag and drop</value>
+    <value>खींचें और ड्रॉप द्वारा क्रमबद्ध</value>
   </data>
   <data name="FormDesigner_Move" xml:space="preserve">
-    <value>Move</value>
+    <value>कदम</value>
   </data>
   <data name="FormDesigner_Required" xml:space="preserve">
-    <value>Required</value>
+    <value>आवश्यक</value>
   </data>
   <data name="FormDesigner_HelpText" xml:space="preserve">
-    <value>Help text</value>
+    <value>पाठ सहायता</value>
   </data>
   <data name="FormDesigner_PreviewAria" xml:space="preserve">
-    <value>Form preview</value>
+    <value>फॉर्म पूर्वावलोकन</value>
   </data>
   <data name="FormDesigner_PreviewHint" xml:space="preserve">
-    <value>This is how the form appears publicly.</value>
+    <value>यह है कि यह फॉर्म सार्वजनिक रूप से कैसे दिखाई देता है।</value>
   </data>
   <data name="FormDesigner_LoadError" xml:space="preserve">
-    <value>Forms could not be loaded. Details: {0}</value>
+    <value>फॉर्म लोड नहीं किया जा सकता है। विवरण: {0}</value>
   </data>
   <data name="FormDesigner_CreateSuccess" xml:space="preserve">
-    <value>Form was created.</value>
+    <value>फॉर्म बनाया गया था।</value>
   </data>
   <data name="FormDesigner_CreateError" xml:space="preserve">
-    <value>Form could not be created. Details: {0}</value>
+    <value>फॉर्म नहीं बनाया जा सकता है। विवरण: {0}</value>
   </data>
   <data name="FormDesigner_SaveSuccess" xml:space="preserve">
-    <value>Form was saved.</value>
+    <value>प्रपत्र बचाया गया था।</value>
   </data>
   <data name="FormDesigner_SaveError" xml:space="preserve">
-    <value>Form could not be saved. Details: {0}</value>
+    <value>फॉर्म को बचाया नहीं जा सकता। विवरण: {0}</value>
   </data>
   <data name="FormDesigner_DeleteSuccess" xml:space="preserve">
-    <value>Form was deleted.</value>
+    <value>फॉर्म को हटा दिया गया था।</value>
   </data>
   <data name="FormDesigner_DeleteError" xml:space="preserve">
-    <value>Form could not be deleted. Details: {0}</value>
+    <value>फॉर्म को हटाया नहीं जा सकता है। विवरण: {0}</value>
   </data>
   <data name="FormDesigner_Status_Public" xml:space="preserve">
-    <value>Public</value>
+    <value>सार्वजनिक</value>
   </data>
   <data name="FormDesigner_Status_Private" xml:space="preserve">
-    <value>Private</value>
+    <value>निजी</value>
   </data>
   <data name="FormDesigner_Status_PasswordProtected" xml:space="preserve">
-    <value>With password</value>
+    <value>पासवर्ड के साथ</value>
   </data>
   <data name="FormDesigner_Status_Draft" xml:space="preserve">
-    <value>Draft</value>
+    <value>ड्राफ्ट</value>
   </data>
   <data name="FormDesigner_Field_Title" xml:space="preserve">
-    <value>Title</value>
+    <value>शीर्षक</value>
   </data>
   <data name="FormDesigner_FieldType_Standard" xml:space="preserve">
-    <value>Standard field</value>
+    <value>मानक क्षेत्र</value>
   </data>
   <data name="FormDesigner_FieldType_Custom" xml:space="preserve">
-    <value>Custom</value>
+    <value>कस्टम</value>
   </data>
   <data name="FormDesigner_FieldType_CustomWithType" xml:space="preserve">
-    <value>Custom · {0}</value>
+    <value>कस्टम · {0}</value>
   </data>
   <data name="PublicForm_Loading" xml:space="preserve">
-    <value>Loading form...</value>
+    <value>लोड हो रहा है फॉर्म...</value>
   </data>
   <data name="PublicForm_NotAvailableTitle" xml:space="preserve">
-    <value>Form not available</value>
+    <value>उपलब्ध नहीं है</value>
   </data>
   <data name="PublicForm_NotAvailableMessage" xml:space="preserve">
-    <value>The form is not published or you do not have access.</value>
+    <value>फॉर्म प्रकाशित नहीं किया गया है या आपके पास एक्सेस नहीं है।</value>
   </data>
   <data name="PublicForm_Thanks" xml:space="preserve">
     <value>धन्यवाद</value>
@@ -1665,595 +1680,595 @@
     <value>आपका सबमिशन सफलतापूर्वक भेज दिया गया।</value>
   </data>
   <data name="PublicForm_CheckingPassword" xml:space="preserve">
-    <value>Checking...</value>
+    <value>जाँच...</value>
   </data>
   <data name="PublicForm_Open" xml:space="preserve">
-    <value>Open form</value>
+    <value>ओपन फॉर्म</value>
   </data>
   <data name="PublicForm_Submitting" xml:space="preserve">
-    <value>Submitting...</value>
+    <value>जमा करना</value>
   </data>
   <data name="PublicForm_Submit" xml:space="preserve">
-    <value>Submit</value>
+    <value>जमा करना</value>
   </data>
   <data name="PublicForm_PasswordRequired" xml:space="preserve">
-    <value>Please enter the password.</value>
+    <value>पासवर्ड दर्ज करें।</value>
   </data>
   <data name="PublicForm_PasswordInvalid" xml:space="preserve">
-    <value>The password is incorrect.</value>
+    <value>पासवर्ड गलत है।</value>
   </data>
   <data name="PublicForm_PasswordCheckError" xml:space="preserve">
-    <value>The password could not be checked. Details: {0}</value>
+    <value>पासवर्ड की जांच नहीं की जा सकती। विवरण: {0}</value>
   </data>
   <data name="PublicForm_SubmitError" xml:space="preserve">
-    <value>The form could not be submitted. Details: {0}</value>
+    <value>फॉर्म जमा नहीं किया जा सकता। विवरण: {0}</value>
   </data>
   <data name="PublicForm_SelectPlaceholder" xml:space="preserve">
-    <value>Please select</value>
+    <value>कृपया चुनें</value>
   </data>
   <data name="Table_TaskCount" xml:space="preserve">
-    <value>{0} task(s)</value>
+    <value>{0} कार्य(s)</value>
   </data>
   <data name="Table_ResetSort" xml:space="preserve">
-    <value>Reset sorting</value>
+    <value>क्रमबद्ध करें</value>
   </data>
   <data name="Table_Columns" xml:space="preserve">
-    <value>Columns</value>
+    <value>स्तंभ</value>
   </data>
   <data name="Table_MoveColumn" xml:space="preserve">
-    <value>Move column</value>
+    <value>स्तंभ</value>
   </data>
   <data name="Table_MoveTask" xml:space="preserve">
-    <value>Sort task</value>
+    <value>क्रमबद्ध कार्य</value>
   </data>
   <data name="Bulk_Select" xml:space="preserve">
-    <value>Select</value>
+    <value>चयन</value>
   </data>
   <data name="Bulk_SelectTasks" xml:space="preserve">
-    <value>Select tasks</value>
+    <value>कार्य</value>
   </data>
   <data name="Bulk_SelectedCount" xml:space="preserve">
-    <value>{0} selected</value>
+    <value>{0} चयनित</value>
   </data>
   <data name="Bulk_SelectAction" xml:space="preserve">
-    <value>Choose action</value>
+    <value>कार्रवाई चुनें</value>
   </data>
   <data name="Bulk_MarkDone" xml:space="preserve">
-    <value>Mark as done</value>
+    <value>जैसा</value>
   </data>
   <data name="Bulk_Move" xml:space="preserve">
-    <value>Move</value>
+    <value>कदम</value>
   </data>
   <data name="Bulk_ChangeColor" xml:space="preserve">
-    <value>Change card color</value>
+    <value>कार्ड रंग बदलें</value>
   </data>
   <data name="Bulk_ClearColor" xml:space="preserve">
-    <value>Remove card color</value>
+    <value>कार्ड रंग निकालें</value>
   </data>
   <data name="Bulk_Apply" xml:space="preserve">
-    <value>Apply</value>
+    <value>आवेदन</value>
   </data>
   <data name="Bulk_ClearSelection" xml:space="preserve">
-    <value>Clear selection</value>
+    <value>स्पष्ट चयन</value>
   </data>
   <data name="Task_CardStyle_ModeTopOnly" xml:space="preserve">
-    <value>Color bar</value>
+    <value>रंग बार</value>
   </data>
   <data name="Task_CardStyle_ModeFull" xml:space="preserve">
-    <value>Full card</value>
+    <value>कार्ड</value>
   </data>
   <data name="Table_Open" xml:space="preserve">
-    <value>Open</value>
+    <value>खुला</value>
   </data>
   <data name="Table_Notify" xml:space="preserve">
-    <value>Notify</value>
+    <value>अधिसूचना</value>
   </data>
   <data name="Table_SortShort" xml:space="preserve">
-    <value>Sort</value>
+    <value>वर्गीकरण</value>
   </data>
   <data name="Table_FilterShort" xml:space="preserve">
-    <value>Filter</value>
+    <value>फ़िल्टर</value>
   </data>
   <data name="Table_ColumnOptions" xml:space="preserve">
-    <value>Column options</value>
+    <value>कॉलम विकल्प</value>
   </data>
   <data name="Table_SortAscending" xml:space="preserve">
-    <value>Sort ascending</value>
+    <value>क्रमबद्ध आरोही</value>
   </data>
   <data name="Table_SortDescending" xml:space="preserve">
-    <value>Sort descending</value>
+    <value>अनुक्रमणिका</value>
   </data>
   <data name="Table_FilterPlaceholder" xml:space="preserve">
-    <value>Filter</value>
+    <value>फ़िल्टर</value>
   </data>
   <data name="Table_HideColumn" xml:space="preserve">
-    <value>Hide column</value>
+    <value>छुपाना</value>
   </data>
   <data name="Table_OpenTask" xml:space="preserve">
-    <value>Open task</value>
+    <value>कार्य</value>
   </data>
   <data name="Table_OpenAttachments" xml:space="preserve">
-    <value>Open attachments</value>
+    <value>खुला संलग्नक</value>
   </data>
   <data name="Table_OpenComments" xml:space="preserve">
-    <value>Open comments</value>
+    <value>टिप्पणी खोलें</value>
   </data>
   <data name="Table_NewTask" xml:space="preserve">
-    <value>New task</value>
+    <value>नया कार्य</value>
   </data>
   <data name="Table_Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>हाँ</value>
   </data>
   <data name="Table_No" xml:space="preserve">
-    <value>No</value>
+    <value>नहीं</value>
   </data>
   <data name="Table_Created" xml:space="preserve">
-    <value>Created</value>
+    <value>बनाना</value>
   </data>
   <data name="Table_SortedAscending" xml:space="preserve">
-    <value>Sorted ascending</value>
+    <value>क्रमबद्ध आरोही</value>
   </data>
   <data name="Table_SortedDescending" xml:space="preserve">
-    <value>Sorted descending</value>
+    <value>छंटनी</value>
   </data>
   <data name="Task_Watch_Stop" xml:space="preserve">
-    <value>Stop watching task</value>
+    <value>कार्य देखना बंद करो</value>
   </data>
   <data name="Task_Watch_Start" xml:space="preserve">
-    <value>Watch task</value>
+    <value>कार्य देखें</value>
   </data>
   <data name="Task_Move_NoLists" xml:space="preserve">
-    <value>No lists found</value>
+    <value>कोई सूची नहीं मिली</value>
   </data>
   <data name="Task_Move_NoColumns" xml:space="preserve">
-    <value>No columns found</value>
+    <value>कोई कॉलम नहीं मिला</value>
   </data>
   <data name="Task_Move_SelectDifferentList" xml:space="preserve">
-    <value>Please select another list first. Then the target column can be set.</value>
+    <value>कृपया पहले किसी अन्य सूची का चयन करें। फिर लक्ष्य स्तंभ सेट किया जा सकता है।</value>
   </data>
   <data name="Account_AccessDenied_Title" xml:space="preserve">
-    <value>Access denied</value>
+    <value>प्रवेश करना</value>
   </data>
   <data name="Account_AccessDenied_Message" xml:space="preserve">
-    <value>You do not have access to this resource.</value>
+    <value>आपके पास इस संसाधन तक पहुंच नहीं है।</value>
   </data>
   <data name="Account_ConfirmEmailChange_Title" xml:space="preserve">
-    <value>Confirm email change</value>
+    <value>ईमेल परिवर्तन की पुष्टि करें</value>
   </data>
   <data name="Account_ConfirmEmailChange_InvalidLink" xml:space="preserve">
-    <value>Error: Invalid email change confirmation link.</value>
+    <value>त्रुटि: ईमेल परिवर्तन की पुष्टि करने वाला लिंक अमान्य है।</value>
   </data>
   <data name="Account_UserNotFound" xml:space="preserve">
-    <value>Unable to find user with ID '{0}'.</value>
+    <value>आईडी '{0}' के साथ उपयोगकर्ता को खोजने में असमर्थ।</value>
   </data>
   <data name="Account_ConfirmEmailChange_EmailError" xml:space="preserve">
-    <value>Error changing email.</value>
+    <value>ईमेल बदलने में त्रुटि।</value>
   </data>
   <data name="Account_ConfirmEmailChange_UserNameError" xml:space="preserve">
-    <value>Error changing user name.</value>
+    <value>उपयोगकर्ता नाम बदलने में त्रुटि।</value>
   </data>
   <data name="Account_ConfirmEmailChange_Success" xml:space="preserve">
-    <value>Thank you for confirming your email change.</value>
+    <value>अपने ईमेल परिवर्तन की पुष्टि करने के लिए धन्यवाद।</value>
   </data>
   <data name="Account_ExternalLogin_Associate" xml:space="preserve">
-    <value>Associate your {0} account.</value>
+    <value>अपने {0} खाते के साथ जुड़ें।</value>
   </data>
   <data name="Account_ExternalLogin_Info" xml:space="preserve">
-    <value>You have successfully authenticated with {0}. Enter an email address for this site below and click Register to finish logging in.</value>
+    <value>आपने सफलतापूर्वक {0} के साथ प्रमाणित किया है। नीचे इस साइट के लिए एक ईमेल पता दर्ज करें और लॉगिंग समाप्त करने के लिए रजिस्टर पर क्लिक करें।</value>
   </data>
   <data name="Account_EmailPlaceholder" xml:space="preserve">
-    <value>Please enter your email.</value>
+    <value>कृपया अपना ईमेल दर्ज करें।</value>
   </data>
   <data name="Account_InvalidUser_Title" xml:space="preserve">
-    <value>Invalid user</value>
+    <value>अवैध उपयोगकर्ता</value>
   </data>
   <data name="Auth_Authenticated_Title" xml:space="preserve">
-    <value>You are authenticated</value>
+    <value>आप प्रमाणित हैं</value>
   </data>
   <data name="Auth_Authenticated_Hello" xml:space="preserve">
-    <value>Hello {0}!</value>
+    <value>हैलो {0}!</value>
   </data>
   <data name="Common_Yes" xml:space="preserve">
-    <value>Yes</value>
+    <value>हाँ</value>
   </data>
   <data name="Common_No" xml:space="preserve">
-    <value>No</value>
+    <value>नहीं</value>
   </data>
   <data name="Export_Header_Title" xml:space="preserve">
-    <value>Title</value>
+    <value>शीर्षक</value>
   </data>
   <data name="Export_Header_Description" xml:space="preserve">
-    <value>Description</value>
+    <value>विवरण</value>
   </data>
   <data name="Export_Header_Column" xml:space="preserve">
-    <value>Column</value>
+    <value>स्तंभ</value>
   </data>
   <data name="Export_Header_Status" xml:space="preserve">
-    <value>Status</value>
+    <value>स्थिति</value>
   </data>
   <data name="Export_Header_Done" xml:space="preserve">
-    <value>Done</value>
+    <value>दान</value>
   </data>
   <data name="Export_Header_Important" xml:space="preserve">
-    <value>Important</value>
+    <value>महत्वपूर्ण</value>
   </data>
   <data name="Export_Header_DueDate" xml:space="preserve">
-    <value>Due date</value>
+    <value>नियत तारीख</value>
   </data>
   <data name="Export_Header_Labels" xml:space="preserve">
-    <value>Labels</value>
+    <value>लेबल</value>
   </data>
   <data name="Mobile_OfflineSync" xml:space="preserve">
-    <value>Offline - changes will sync as soon as the connection is restored.</value>
+    <value>ऑफलाइन - कनेक्शन बहाल होने के तुरंत बाद परिवर्तन सिंक हो जाएगा।</value>
   </data>
   <data name="Workspace_PageTitle" xml:space="preserve">
-    <value>Todo Board</value>
+    <value>टोडो बोर्ड</value>
   </data>
   <data name="Workspace_StartWatching" xml:space="preserve">
-    <value>Watch board</value>
+    <value>बोर्ड देखें</value>
   </data>
   <data name="Workspace_StopWatching" xml:space="preserve">
-    <value>Stop watching board</value>
+    <value>बोर्ड देखना बंद करो</value>
   </data>
   <data name="Workspace_TableView" xml:space="preserve">
-    <value>Table</value>
+    <value>टेबल</value>
   </data>
   <data name="Workspace_ListOptions" xml:space="preserve">
-    <value>List options</value>
+    <value>सूची विकल्प</value>
   </data>
   <data name="Workspace_RenameList" xml:space="preserve">
-    <value>Rename list</value>
+    <value>नाम सूची</value>
   </data>
   <data name="Workspace_ManageLabels" xml:space="preserve">
-    <value>Manage labels</value>
+    <value>लेबल प्रबंधित करें</value>
   </data>
   <data name="Workspace_ChangeBackground" xml:space="preserve">
-    <value>Change background</value>
+    <value>पृष्ठभूमि बदलें</value>
   </data>
   <data name="Workspace_ChangeDesign" xml:space="preserve">
-    <value>Change design</value>
+    <value>डिजाइन बदलें</value>
   </data>
   <data name="Workspace_Notifications" xml:space="preserve">
-    <value>Notifications</value>
+    <value>अधिसूचनाएं</value>
   </data>
   <data name="Workspace_NotificationsOn" xml:space="preserve">
-    <value>Notifications on</value>
+    <value>अधिसूचना</value>
   </data>
   <data name="Workspace_NotificationsOff" xml:space="preserve">
-    <value>Notifications off</value>
+    <value>बंद अधिसूचनाएं</value>
   </data>
   <data name="Workspace_CopyList" xml:space="preserve">
-    <value>Copy list</value>
+    <value>कॉपी सूची</value>
   </data>
   <data name="Workspace_DuplicateList" xml:space="preserve">
-    <value>Duplicate list</value>
+    <value>डुप्लिकेट सूची</value>
   </data>
   <data name="Workspace_SaveAsTemplate" xml:space="preserve">
-    <value>Save as template</value>
+    <value>टेम्पलेट के रूप में सहेजें</value>
   </data>
   <data name="Workspace_ExportList" xml:space="preserve">
-    <value>Export list</value>
+    <value>निर्यात सूची</value>
   </data>
   <data name="Workspace_Share" xml:space="preserve">
-    <value>Share</value>
+    <value>शेयर</value>
   </data>
   <data name="Workspace_Actions" xml:space="preserve">
-    <value>Actions</value>
+    <value>कार्रवाई</value>
   </data>
   <data name="Workspace_NoListLoaded" xml:space="preserve">
-    <value>No list loaded.</value>
+    <value>कोई सूची लोड नहीं है।</value>
   </data>
   <data name="Workspace_NewName" xml:space="preserve">
-    <value>New name</value>
+    <value>नया नाम</value>
   </data>
   <data name="Workspace_DeleteListWarning" xml:space="preserve">
-    <value>All tasks will be permanently removed.</value>
+    <value>सभी कार्यों को स्थायी रूप से हटा दिया जाएगा।</value>
   </data>
   <data name="Workspace_DeleteListConfirm" xml:space="preserve">
-    <value>Do you really want to delete the list {0}?</value>
+    <value>क्या आप वास्तव में सूची {0} को हटाना चाहते हैं?</value>
   </data>
   <data name="Workspace_DeleteFinal" xml:space="preserve">
-    <value>Delete permanently</value>
+    <value>स्थायी रूप से हटाएं</value>
   </data>
   <data name="Workspace_RestoreDeletedTasks" xml:space="preserve">
-    <value>Restore deleted tasks</value>
+    <value>हटाए गए कार्यों को पुनर्स्थापित करें</value>
   </data>
   <data name="Workspace_RestoreEmpty" xml:space="preserve">
-    <value>No deleted tasks in this list.</value>
+    <value>इस सूची में कोई हटाए गए कार्य नहीं हैं।</value>
   </data>
   <data name="Workspace_RestoreDeletedOn" xml:space="preserve">
-    <value>Deleted on</value>
+    <value>हटाने की तारीख</value>
   </data>
   <data name="Workspace_RestoreDaysLeft" xml:space="preserve">
-    <value>{0} day(s) left</value>
+    <value>{0} दिन शेष</value>
   </data>
   <data name="Workspace_RestoreTask" xml:space="preserve">
-    <value>Restore task</value>
+    <value>कार्य पुनर्स्थापित करें</value>
   </data>
   <data name="Workspace_FilterTitle" xml:space="preserve">
-    <value>Filter</value>
+    <value>फ़िल्टर</value>
   </data>
   <data name="Workspace_EditFilter" xml:space="preserve">
-    <value>Edit filter</value>
+    <value>फ़िल्टर संपादित करें</value>
   </data>
   <data name="Workspace_FilterPlaceholder" xml:space="preserve">
-    <value>Enter a keyword ...</value>
+    <value>एक कीवर्ड दर्ज करें ...</value>
   </data>
   <data name="Workspace_FilterHint" xml:space="preserve">
-    <value>Search cards, members, labels, and more.</value>
+    <value>कार्ड, सदस्यों, लेबल और अधिक खोजें।</value>
   </data>
   <data name="Workspace_FilterAssignee" xml:space="preserve">
-    <value>Assignee</value>
+    <value>असाइनी</value>
   </data>
   <data name="Workspace_FilterAssignedToMe" xml:space="preserve">
-    <value>Cards assigned to me</value>
+    <value>मुझे सौंपा गया कार्ड</value>
   </data>
   <data name="Workspace_FilterNoAssignee" xml:space="preserve">
-    <value>No assignee</value>
+    <value>कोई असाइनमेंट नहीं</value>
   </data>
   <data name="Workspace_FilterNoMembers" xml:space="preserve">
-    <value>No members</value>
+    <value>कोई सदस्य नहीं</value>
   </data>
   <data name="Workspace_FilterSelectMembers" xml:space="preserve">
-    <value>Select members</value>
+    <value>सदस्य चुनें</value>
   </data>
   <data name="Workspace_FilterCardStatus" xml:space="preserve">
-    <value>Card status</value>
+    <value>कार्ड की स्थिति</value>
   </data>
   <data name="Workspace_FilterDone" xml:space="preserve">
-    <value>Marked as completed</value>
+    <value>पूरी तरह से चिह्नित</value>
   </data>
   <data name="Workspace_FilterNotDone" xml:space="preserve">
-    <value>Not marked as completed</value>
+    <value>पूर्ण रूप से चिह्नित नहीं</value>
   </data>
   <data name="Workspace_FilterDue" xml:space="preserve">
-    <value>Due date</value>
+    <value>नियत तारीख</value>
   </data>
   <data name="Workspace_FilterNoDueDate" xml:space="preserve">
-    <value>No due date</value>
+    <value>नियत तारीख</value>
   </data>
   <data name="Workspace_FilterOverdue" xml:space="preserve">
-    <value>Overdue</value>
+    <value>अतिदेय</value>
   </data>
   <data name="Workspace_FilterDueNextDay" xml:space="preserve">
-    <value>Due within the next day</value>
+    <value>अगले दिन के भीतर</value>
   </data>
   <data name="Workspace_FilterDueNextWeek" xml:space="preserve">
-    <value>Due within the next week</value>
+    <value>अगले सप्ताह के भीतर कारण</value>
   </data>
   <data name="Workspace_FilterDueNextMonth" xml:space="preserve">
-    <value>Due within the next month</value>
+    <value>अगले महीने के भीतर</value>
   </data>
   <data name="Workspace_FilterNoLabels" xml:space="preserve">
-    <value>No labels available.</value>
+    <value>कोई लेबल उपलब्ध नहीं है।</value>
   </data>
   <data name="Workspace_FilterReset" xml:space="preserve">
-    <value>Reset</value>
+    <value>रीसेट करें</value>
   </data>
   <data name="Workspace_FilterApply" xml:space="preserve">
-    <value>Apply</value>
+    <value>आवेदन</value>
   </data>
   <data name="Workspace_CopyName" xml:space="preserve">
-    <value>Name of the new list</value>
+    <value>नई सूची का नाम</value>
   </data>
   <data name="Workspace_CopyIncludeTasks" xml:space="preserve">
-    <value>Copy tasks too</value>
+    <value>कार्यों को भी कॉपी करें</value>
   </data>
   <data name="Workspace_CopyAction" xml:space="preserve">
-    <value>Copy</value>
+    <value>कॉपी</value>
   </data>
   <data name="Workspace_TemplateSaved" xml:space="preserve">
-    <value>Template {0} was saved.</value>
+    <value>टेम्पलेट {0} बचाया गया था।</value>
   </data>
   <data name="Workspace_TemplateName" xml:space="preserve">
-    <value>Template name</value>
+    <value>टेम्पलेट नाम</value>
   </data>
   <data name="Workspace_TemplateHelp" xml:space="preserve">
-    <value>Columns, labels, and background color are included. Tasks are not copied.</value>
+    <value>कॉलम, लेबल और पृष्ठभूमि रंग शामिल हैं। कार्य की नकल नहीं की जाती है।</value>
   </data>
   <data name="Workspace_ExportTaskCount" xml:space="preserve">
-    <value>{0} tasks</value>
+    <value>{0} कार्य</value>
   </data>
   <data name="Workspace_ExportJson" xml:space="preserve">
-    <value>Export as JSON</value>
+    <value>JSON के रूप में निर्यात करें</value>
   </data>
   <data name="Workspace_ExportJsonHelp" xml:space="preserve">
-    <value>Machine-readable format, all fields</value>
+    <value>मशीन पठनीय प्रारूप, सभी फ़ील्ड</value>
   </data>
   <data name="Workspace_ExportCsv" xml:space="preserve">
-    <value>Export as CSV</value>
+    <value>CSV निर्यात</value>
   </data>
   <data name="Workspace_ExportCsvHelp" xml:space="preserve">
-    <value>Spreadsheet format, Excel-compatible</value>
+    <value>स्प्रेडशीट प्रारूप, एक्सेल संगत</value>
   </data>
   <data name="Workspace_ExportPdf" xml:space="preserve">
-    <value>Export as PDF</value>
+    <value>PDF</value>
   </data>
   <data name="Workspace_ExportPdfHelp" xml:space="preserve">
-    <value>Open print view in the browser</value>
+    <value>ब्राउज़र में ओपन प्रिंट व्यू</value>
   </data>
   <data name="Workspace_ExportedAt" xml:space="preserve">
-    <value>Exported on {0} - {1} tasks</value>
+    <value>{0} को निर्यात किया गया · {1} कार्य</value>
   </data>
   <data name="Workspace_ExportJsonError" xml:space="preserve">
-    <value>JSON export could not be started: {0}</value>
+    <value>JSON निर्यात शुरू नहीं किया जा सकता: {0}</value>
   </data>
   <data name="Workspace_ExportCsvError" xml:space="preserve">
-    <value>CSV export could not be started: {0}</value>
+    <value>CSV निर्यात शुरू नहीं किया जा सकता: {0}</value>
   </data>
   <data name="Workspace_ExportPdfError" xml:space="preserve">
-    <value>PDF export could not be started: {0}</value>
+    <value>PDF निर्यात शुरू नहीं किया जा सका: {0}</value>
   </data>
   <data name="Notifications_Event" xml:space="preserve">
-    <value>Event</value>
+    <value>घटना</value>
   </data>
   <data name="Notifications_Admins" xml:space="preserve">
-    <value>Admins</value>
+    <value>व्यवस्थापक</value>
   </data>
   <data name="Notifications_Users" xml:space="preserve">
-    <value>Users</value>
+    <value>उपयोगकर्ता</value>
   </data>
   <data name="Notifications_BoardWatchersShort" xml:space="preserve">
-    <value>Board watchers</value>
+    <value>बोर्ड वॉचर्स</value>
   </data>
   <data name="Notifications_CardWatchersShort" xml:space="preserve">
-    <value>Card watchers</value>
+    <value>कार्ड वॉचर्स</value>
   </data>
   <data name="Notifications_Assigned" xml:space="preserve">
-    <value>Assigned</value>
+    <value>असाइन</value>
   </data>
   <data name="Notifications_Author" xml:space="preserve">
-    <value>Author</value>
+    <value>लेखक</value>
   </data>
   <data name="Notifications_TaskCreated" xml:space="preserve">
-    <value>Task created</value>
+    <value>कार्य</value>
   </data>
   <data name="Notifications_TaskUpdated" xml:space="preserve">
-    <value>Task updated</value>
+    <value>कार्य अद्यतन</value>
   </data>
   <data name="Notifications_TaskAssigned" xml:space="preserve">
-    <value>Task assigned</value>
+    <value>कार्य सौंपा</value>
   </data>
   <data name="Notifications_TaskCompleted" xml:space="preserve">
-    <value>Task completed</value>
+    <value>कार्य पूरा</value>
   </data>
   <data name="Notifications_TaskReopened" xml:space="preserve">
-    <value>Task reopened</value>
+    <value>कार्य फिर से खोलना</value>
   </data>
   <data name="Notifications_TaskDeleted" xml:space="preserve">
-    <value>Task deleted</value>
+    <value>टास्क हटा दिया गया</value>
   </data>
   <data name="Notifications_TaskMoved" xml:space="preserve">
-    <value>Task moved</value>
+    <value>कार्य</value>
   </data>
   <data name="Notifications_CommentAdded" xml:space="preserve">
-    <value>Task commented</value>
+    <value>कार्य टिप्पणी</value>
   </data>
   <data name="Notifications_CommentDeleted" xml:space="preserve">
-    <value>Task comment deleted</value>
+    <value>कार्य टिप्पणी हटा दिया</value>
   </data>
   <data name="Notifications_AttachmentAdded" xml:space="preserve">
-    <value>New attachment</value>
+    <value>नया लगाव</value>
   </data>
   <data name="Notifications_AttachmentDeleted" xml:space="preserve">
-    <value>Attachment deleted</value>
+    <value>अनुलग्नक हटा दिया</value>
   </data>
   <data name="Err_Generic" xml:space="preserve">
-    <value>Error: {0}</value>
+    <value>त्रुटि: {0}</value>
   </data>
   <data name="Account_Email" xml:space="preserve">
-    <value>Email</value>
+    <value>ईमेल</value>
   </data>
   <data name="Account_Password" xml:space="preserve">
-    <value>Password</value>
+    <value>पासवर्ड</value>
   </data>
   <data name="Account_ConfirmPassword" xml:space="preserve">
-    <value>Confirm password</value>
+    <value>पासवर्ड की पुष्टि</value>
   </data>
   <data name="Account_Username" xml:space="preserve">
-    <value>Username</value>
+    <value>उपयोगकर्ता नाम</value>
   </data>
   <data name="Account_WindowsUsername" xml:space="preserve">
-    <value>Directory username</value>
+    <value>निर्देशिका उपयोगकर्ता नाम</value>
   </data>
   <data name="Account_RememberMe" xml:space="preserve">
-    <value>Remember me</value>
+    <value>मुझे याद रखें</value>
   </data>
   <data name="Account_Or" xml:space="preserve">
-    <value>OR</value>
+    <value>या</value>
   </data>
   <data name="Account_BackToLogin" xml:space="preserve">
-    <value>Back to login</value>
+    <value>लॉग इन करें</value>
   </data>
   <data name="Account_Login_Title" xml:space="preserve">
-    <value>Log in</value>
+    <value>लॉग इन करें</value>
   </data>
   <data name="Account_Login_WithWindows" xml:space="preserve">
-    <value>Log in with LDAP / Active Directory.</value>
+    <value>LDAP / सक्रिय निर्देशिका के साथ लॉग इन करें।</value>
   </data>
   <data name="Account_Login_WindowsButton" xml:space="preserve">
-    <value>Log in with directory</value>
+    <value>निर्देशिका के साथ लॉग इन करें</value>
   </data>
   <data name="Account_Login_WithLocal" xml:space="preserve">
-    <value>Log in with a local account.</value>
+    <value>स्थानीय खाते से लॉग इन करें।</value>
   </data>
   <data name="Account_Login_Button" xml:space="preserve">
-    <value>Log in</value>
+    <value>लॉग इन करें</value>
   </data>
   <data name="Account_Login_WithPasskey" xml:space="preserve">
-    <value>Log in with passkey</value>
+    <value>पासकी से लॉग इन करें</value>
   </data>
   <data name="Account_ForgotPasswordLink" xml:space="preserve">
-    <value>Forgot password?</value>
+    <value>पासवर्ड भूल गए?</value>
   </data>
   <data name="Account_RegisterNewUser" xml:space="preserve">
-    <value>Register as a new user</value>
+    <value>एक नए उपयोगकर्ता के रूप में रजिस्टर करें</value>
   </data>
   <data name="Account_ResendEmailConfirmation" xml:space="preserve">
-    <value>Resend email confirmation</value>
+    <value>ईमेल पुष्टिकरण</value>
   </data>
   <data name="Account_Error_NotAllowed" xml:space="preserve">
-    <value>Error: This account has not been enabled yet. Please confirm your email address first or request the confirmation email again.</value>
+    <value>त्रुटि: यह खाता अभी तक सक्षम नहीं है। पहले अपने ईमेल पते की पुष्टि करें या फिर पुष्टिकरण ईमेल का अनुरोध करें।</value>
   </data>
   <data name="Account_Error_InvalidLogin" xml:space="preserve">
-    <value>Error: Invalid login details.</value>
+    <value>त्रुटि: लॉगिन विवरण अमान्य हैं।</value>
   </data>
   <data name="Account_Error_AdLoginFailed" xml:space="preserve">
-    <value>Error: Active Directory login failed.</value>
+    <value>त्रुटि: सक्रिय निर्देशिका लॉगिन विफल हो गया।</value>
   </data>
   <data name="Account_Error_UserCreateFailed" xml:space="preserve">
-    <value>Error: User could not be created: {0}</value>
+    <value>त्रुटि: उपयोगकर्ता बनाया नहीं जा सकता: {0}</value>
   </data>
   <data name="Account_Error_LoginIncomplete" xml:space="preserve">
-    <value>Error: Login could not be completed.</value>
+    <value>त्रुटि: लॉगिन पूरा नहीं किया जा सकता है।</value>
   </data>
   <data name="Account_Error_TooManyAttempts" xml:space="preserve">
-    <value>Error: Too many failed login attempts. Please try again in {0}.</value>
+    <value>त्रुटि: बहुत से असफल लॉगिन प्रयास। कृपया फिर से {0} में प्रयास करें।</value>
   </data>
   <data name="Account_Register_Title" xml:space="preserve">
-    <value>Register</value>
+    <value>रजिस्टर</value>
   </data>
   <data name="Account_Register_DisabledTitle" xml:space="preserve">
-    <value>Registration disabled</value>
+    <value>पंजीकरण अक्षम</value>
   </data>
   <data name="Account_Register_DisabledText" xml:space="preserve">
-    <value>Self-registration is currently unavailable. Please contact an administrator.</value>
+    <value>स्व-पंजीकरण वर्तमान में अनुपलब्ध है। कृपया एक प्रशासक से संपर्क करें।</value>
   </data>
   <data name="Account_Register_CreateAccount" xml:space="preserve">
-    <value>Create a new account.</value>
+    <value>एक नया खाता बनाएं।</value>
   </data>
   <data name="Account_Register_Button" xml:space="preserve">
-    <value>Register</value>
+    <value>रजिस्टर</value>
   </data>
   <data name="Account_LoginExistingUser" xml:space="preserve">
-    <value>Log in as an existing user</value>
+    <value>एक मौजूदा उपयोगकर्ता के रूप में लॉग इन करें</value>
   </data>
   <data name="Account_Error_EmailExists" xml:space="preserve">
-    <value>A user with this email address already exists.</value>
+    <value>पहले से ही इस ईमेल पते के साथ एक उपयोगकर्ता मौजूद है।</value>
   </data>
   <data name="Account_Error_ConfirmationEmailFailed" xml:space="preserve">
-    <value>The account was created, but the confirmation email could not be sent. {0}</value>
+    <value>खाता बनाया गया था, लेकिन पुष्टिकरण ईमेल भेजा नहीं जा सकता। {0}</value>
   </data>
   <data name="Account_ForgotPassword_Title" xml:space="preserve">
-    <value>Forgot password</value>
+    <value>पासवर्ड भूल गए</value>
   </data>
   <data name="Account_ForgotPassword_Subtitle" xml:space="preserve">
-    <value>Receive a reset link by email.</value>
+    <value>ईमेल द्वारा एक रीसेट लिंक प्राप्त करें।</value>
   </data>
   <data name="Account_ForgotPassword_Send" xml:space="preserve">
-    <value>Send reset link</value>
+    <value>रीसेट लिंक भेजें</value>
   </data>
   <data name="Account_Error_ResetEmailFailed" xml:space="preserve">
-    <value>Error: The reset email could not be sent. {0}</value>
+    <value>त्रुटि: रीसेट ईमेल भेजा नहीं जा सकता। {0}</value>
   </data>
   <data name="Account_ResetPassword_Title" xml:space="preserve">
-    <value>Reset password</value>
+    <value>पासवर्ड रीसेट करें</value>
   </data>
   <data name="Account_ResetPassword_Subtitle" xml:space="preserve">
-    <value>Set a new password.</value>
+    <value>नया पासवर्ड सेट करें।</value>
   </data>
   <data name="Account_ResetPassword_Save" xml:space="preserve">
-    <value>Save password</value>
+    <value>पासवर्ड सहेजें</value>
   </data>
   <data name="Automation_Title" xml:space="preserve"><value>ऑटोमेशन</value></data>
   <data name="Account_Settings" xml:space="preserve"><value>सेटिंग्स</value></data>

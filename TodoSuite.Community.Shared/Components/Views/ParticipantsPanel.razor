@@ -60,7 +60,7 @@
                         </button>
                         @if (DirectorySharing.IsAvailable)
                         {
-                            <button class="@TabButtonClass(SharePanelTab.Directory)" type="button" @onclick="() => _activeTab = SharePanelTab.Directory">Verzeichnis</button>
+                            <button class="@TabButtonClass(SharePanelTab.Directory)" type="button" @onclick="() => _activeTab = SharePanelTab.Directory">@L["Participants_ByDirectory"]</button>
                         }
                     </div>
                 </div>
@@ -291,15 +291,15 @@
                                     @p.DisplayName
                                     @if (isOwner)
                                     {
-                                        <span class="ml-2 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded-full">Owner</span>
+                                        <span class="ml-2 text-xs text-indigo-700 bg-indigo-50 px-2 py-1 rounded-full">@L["Participants_Owner"]</span>
                                     }
                                     @if (p.PortfolioRole is not null)
                                     {
-                                        <span class="ml-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">Über Portfolio</span>
+                                        <span class="ml-2 text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-full">@L["Participants_ViaPortfolio"]</span>
                                     }
                                     @if (p.DirectoryRole is not null)
                                     {
-                                        <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">Über Verzeichnis</span>
+                                        <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">@L["Participants_ViaDirectory"]</span>
                                     }
                                 </div>
                                 <div class="text-xs text-slate-600 truncate">@p.Email</div>

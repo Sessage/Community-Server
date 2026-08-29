@@ -13,7 +13,7 @@
         <div class="inline-flex rounded-xl bg-slate-200 p-1">
             <button class="@TabCss(PortfolioShareTab.Email)" @onclick="() => _activeTab = PortfolioShareTab.Email">@L["Participants_ByEmail"]</button>
             <button class="@TabCss(PortfolioShareTab.Link)" @onclick="() => _activeTab = PortfolioShareTab.Link">@L["Participants_ByLink"]</button>
-            @if (DirectorySharing.IsAvailable) { <button class="@TabCss(PortfolioShareTab.Directory)" @onclick="() => _activeTab = PortfolioShareTab.Directory">Verzeichnis</button> }
+            @if (DirectorySharing.IsAvailable) { <button class="@TabCss(PortfolioShareTab.Directory)" @onclick="() => _activeTab = PortfolioShareTab.Directory">@L["Participants_ByDirectory"]</button> }
         </div>
     </div>
 
@@ -66,7 +66,7 @@
         {
             var directoryOnly = participant.DirectoryRole is not null && participant.DirectRole is null;
             <div class="flex flex-col md:flex-row md:items-center gap-2 border border-slate-200 rounded-2xl px-3 py-2">
-                <div class="min-w-0 flex-1"><div class="text-sm font-semibold truncate">@participant.DisplayName @if (participant.DirectoryRole is not null) { <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">Über Verzeichnis</span> }</div><div class="text-xs text-slate-600 truncate">@participant.Email</div>@if (participant.InvitationPending) { <span class="mt-1 inline-flex text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">@L["Participants_InvitationPending"]</span> }</div>
+                <div class="min-w-0 flex-1"><div class="text-sm font-semibold truncate">@participant.DisplayName @if (participant.DirectoryRole is not null) { <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">@L["Participants_ViaDirectory"]</span> }</div><div class="text-xs text-slate-600 truncate">@participant.Email</div>@if (participant.InvitationPending) { <span class="mt-1 inline-flex text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">@L["Participants_InvitationPending"]</span> }</div>
                 <div class="flex items-center gap-2"><select class="rounded-xl border border-slate-200 p-2 bg-white" disabled="@(_busy || directoryOnly)" value="@participant.Role" @onchange="e => ChangeRoleAsync(participant.Id, e)"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select><FluentButton Appearance="Appearance.Outline" Disabled="@(_busy || directoryOnly)" OnClick="() => RemoveAsync(participant.Id)">@(participant.InvitationPending ? L["Participants_Withdraw"] : L["Btn_Delete"])</FluentButton></div>
             </div>
         }

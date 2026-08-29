@@ -912,7 +912,7 @@
             var payload = JsonSerializer.Serialize(_visibleItems.Select(ToExportRow), new JsonSerializerOptions { WriteIndented = true });
             await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("json"), payload, "application/json");
         }
-        catch { _exportError = "Der JSON-Export ist fehlgeschlagen."; }
+        catch { _exportError = L["Dashboard_ExportError", "JSON"].Value; }
     }
 
     private async Task ExportCsvAsync()
@@ -921,7 +921,15 @@
         try
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Task,List,Column,DueDate,Done,Important");
+            sb.AppendLine(string.Join(",", new[]
+            {
+                L["Dashboard_Col_Task"].Value,
+                L["Dashboard_Col_List"].Value,
+                L["Dashboard_Col_Column"].Value,
+                L["Dashboard_Col_Due"].Value,
+                L["Export_Header_Done"].Value,
+                L["Export_Header_Important"].Value
+            }.Select(CsvEscape)));
             foreach (var item in _visibleItems)
             {
                 sb.AppendLine(string.Join(",", new[]
@@ -933,7 +941,7 @@
             }
             await JS.InvokeVoidAsync("todoUi.downloadFile", BuildFileName("csv"), "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
         }
-        catch { _exportError = "Der CSV-Export ist fehlgeschlagen."; }
+        catch { _exportError = L["Dashboard_ExportError", "CSV"].Value; }
     }
 
     private async Task ExportPdfAsync()
@@ -949,10 +957,13 @@
         var html = $"<html><head><meta charset='utf-8'><title>Dashboard</title>" +
                    $"<style>body{{font-family:Arial;padding:16px}}table{{width:100%;border-collapse:collapse}}th,td{{border:1px solid #ddd;padding:8px;text-align:left}}</style></head>" +
                    $"<body><h2>{System.Net.WebUtility.HtmlEncode(_activeDashboard?.Name ?? "Dashboard")}</h2>" +
-                   $"<table><thead><tr><th>Task</th><th>List</th><th>Column</th><th>Due</th></tr></thead><tbody>{rows}</tbody></table></body></html>";
+                   $"<table><thead><tr><th>{System.Net.WebUtility.HtmlEncode(L["Dashboard_Col_Task"].Value)}</th>" +
+                   $"<th>{System.Net.WebUtility.HtmlEncode(L["Dashboard_Col_List"].Value)}</th>" +
+                   $"<th>{System.Net.WebUtility.HtmlEncode(L["Dashboard_Col_Column"].Value)}</th>" +
+                   $"<th>{System.Net.WebUtility.HtmlEncode(L["Dashboard_Col_Due"].Value)}</th></tr></thead><tbody>{rows}</tbody></table></body></html>";
             await JS.InvokeVoidAsync("todoUi.printContent", html);
         }
-        catch { _exportError = "Der PDF-Export ist fehlgeschlagen."; }
+        catch { _exportError = L["Dashboard_ExportError", "PDF"].Value; }
     }
 
     private object ToExportRow((TodoListEntity List, TodoTaskEntity Task) item) => new
