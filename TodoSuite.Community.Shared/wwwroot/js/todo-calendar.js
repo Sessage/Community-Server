@@ -16,12 +16,34 @@ window.todoUi = window.todoUi || {};
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   }
 
-  function formatMonthTitle(date) {
-    return date.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+  function formatMonthTitle(date, locale) {
+    return date.toLocaleDateString(locale, { month: "long", year: "numeric" });
   }
 
-  function formatDateLabel(date) {
-    return date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  function formatDateLabel(date, locale) {
+    return date.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
+  }
+
+  function labelsFor(locale) {
+    const language = String(locale || "de-DE").toLowerCase();
+    const translations = language.startsWith("en")
+      ? { today: "Today", more: "more" }
+      : language.startsWith("fr")
+        ? { today: "Aujourd’hui", more: "de plus" }
+        : language.startsWith("es")
+          ? { today: "Hoy", more: "más" }
+          : language.startsWith("hi")
+            ? { today: "आज", more: "और" }
+            : language.startsWith("zh")
+              ? { today: "今天", more: "更多" }
+              : { today: "Heute", more: "weitere" };
+    const monday = new Date(2024, 0, 1);
+    const weekdays = Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + index);
+      return day.toLocaleDateString(locale || "de-DE", { weekday: "short" });
+    });
+    return { ...translations, weekdays };
   }
 
   function normalizeEvents(events) {
@@ -75,7 +97,7 @@ window.todoUi = window.todoUi || {};
   }
 
   function renderCalendar(element, state) {
-    const { currentMonth, events, dotNetRef } = state;
+    const { currentMonth, events, dotNetRef, locale, labels } = state;
     const monthStart = startOfMonth(currentMonth);
     const firstVisible = new Date(monthStart);
     firstVisible.setDate(monthStart.getDate() - ((monthStart.getDay() + 6) % 7));
@@ -115,7 +137,7 @@ window.todoUi = window.todoUi || {};
     const todayBtn = document.createElement("button");
     todayBtn.type = "button";
     todayBtn.className = "todo-calendar__btn";
-    todayBtn.textContent = "Heute";
+    todayBtn.textContent = labels.today;
     todayBtn.addEventListener("click", () => {
       state.currentMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
       renderCalendar(element, state);
@@ -125,13 +147,13 @@ window.todoUi = window.todoUi || {};
 
     const title = document.createElement("h2");
     title.className = "todo-calendar__title";
-    title.textContent = formatMonthTitle(currentMonth);
+    title.textContent = formatMonthTitle(currentMonth, locale);
 
     header.append(controlsLeft, title);
 
     const weekdays = document.createElement("div");
     weekdays.className = "todo-calendar__weekdays";
-    ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach((dayName) => {
+    labels.weekdays.forEach((dayName) => {
       const cell = document.createElement("div");
       cell.textContent = dayName;
       weekdays.appendChild(cell);
@@ -162,7 +184,7 @@ window.todoUi = window.todoUi || {};
       dayEvents.slice(0, 3).forEach((ev) => {
         const eventEl = document.createElement("div");
         eventEl.className = "todo-calendar__event";
-        eventEl.title = `${ev.title} (${formatDateLabel(ev.start)} - ${formatDateLabel(ev.end)})`;
+        eventEl.title = `${ev.title} (${formatDateLabel(ev.start, locale)} - ${formatDateLabel(ev.end, locale)})`;
         if (ev.cardColor) {
           if (Number(ev.cardColorMode) === 1) {
             eventEl.classList.add("is-full-color");
@@ -227,7 +249,7 @@ window.todoUi = window.todoUi || {};
       if (dayEvents.length > 3) {
         const more = document.createElement("div");
         more.className = "todo-calendar__more";
-        more.textContent = `+${dayEvents.length - 3} weitere`;
+        more.textContent = `+${dayEvents.length - 3} ${labels.more}`;
         cell.appendChild(more);
       }
 
@@ -238,20 +260,32 @@ window.todoUi = window.todoUi || {};
     element.appendChild(wrapper);
   }
 
-  window.todoUi.initCalendar = (element, events, dotNetRef) => {
+  window.todoUi.initCalendar = (element, events, dotNetRef, locale) => {
     if (!element) return;
 
     const normalizedEvents = normalizeEvents(events);
     const now = new Date();
-    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const previousState = element._calendarState;
+    const currentMonth = previousState?.currentMonth instanceof Date
+      ? new Date(previousState.currentMonth)
+      : new Date(now.getFullYear(), now.getMonth(), 1);
+    const normalizedLocale = locale || previousState?.locale || "de-DE";
 
     const state = {
       currentMonth,
       events: normalizedEvents,
-      dotNetRef: dotNetRef ?? null
+      dotNetRef: dotNetRef ?? null,
+      locale: normalizedLocale,
+      labels: labelsFor(normalizedLocale)
     };
 
     element._calendarState = state;
     renderCalendar(element, state);
+  };
+
+  window.todoUi.disposeCalendar = (element) => {
+    if (!element) return;
+    element.innerHTML = "";
+    delete element._calendarState;
   };
 })();

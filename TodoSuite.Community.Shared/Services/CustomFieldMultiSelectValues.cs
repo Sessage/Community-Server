@@ -4,6 +4,8 @@ namespace Klassenbibliothek.Services;
 
 public static class CustomFieldMultiSelectValues
 {
+    private const int MaxNestedJsonDepth = 16;
+
     public static IReadOnlyList<string> Parse(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -15,7 +17,7 @@ public static class CustomFieldMultiSelectValues
             try
             {
                 return (JsonSerializer.Deserialize<List<string>>(trimmed) ?? [])
-                    .SelectMany(ParseToken)
+                    .SelectMany(value => ParseToken(value, 1))
                     .Where(option => !string.IsNullOrWhiteSpace(option))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
@@ -35,11 +37,14 @@ public static class CustomFieldMultiSelectValues
     }
 
     public static string Serialize(IEnumerable<string> values)
-        => JsonSerializer.Serialize(values
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        return JsonSerializer.Serialize(values
             .Select(Normalize)
             .Where(option => !string.IsNullOrWhiteSpace(option))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList());
+    }
 
     public static string Toggle(string? value, string option, bool selected)
     {
@@ -53,13 +58,13 @@ public static class CustomFieldMultiSelectValues
     private static string Normalize(string? value)
         => (value ?? "").Trim();
 
-    private static IEnumerable<string> ParseToken(string? value)
+    private static IEnumerable<string> ParseToken(string? value, int depth)
     {
         var normalized = Normalize(value);
         if (string.IsNullOrWhiteSpace(normalized))
             yield break;
 
-        if (normalized.StartsWith("[", StringComparison.Ordinal))
+        if (depth < MaxNestedJsonDepth && normalized.StartsWith("[", StringComparison.Ordinal))
         {
             List<string>? nested = null;
             try
@@ -73,7 +78,7 @@ public static class CustomFieldMultiSelectValues
 
             if (nested is not null)
             {
-                foreach (var nestedValue in nested.SelectMany(ParseToken))
+                foreach (var nestedValue in nested.SelectMany(value => ParseToken(value, depth + 1)))
                     yield return nestedValue;
                 yield break;
             }

@@ -41,8 +41,20 @@
         }
 
         _dotNetRef ??= DotNetObjectReference.Create(this);
-        await JS.InvokeVoidAsync("todoUi.initCalendar", _calendarEl, _events, _dotNetRef);
-        _calendarNeedsRender = false;
+        try
+        {
+            await JS.InvokeVoidAsync(
+                "todoUi.initCalendar",
+                _calendarEl,
+                _events,
+                _dotNetRef,
+                System.Globalization.CultureInfo.CurrentUICulture.Name);
+            _calendarNeedsRender = false;
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is already gone. Disposal will release the managed reference.
+        }
     }
 
     [JSInvokable]
@@ -62,10 +74,22 @@
         await OnItemClick.InvokeAsync(item);
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
+        try
+        {
+            await JS.InvokeVoidAsync("todoUi.disposeCalendar", _calendarEl);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Expected when the circuit closes before component disposal completes.
+        }
+        catch (InvalidOperationException)
+        {
+            // JS interop is unavailable during prerendering.
+        }
+
         _dotNetRef?.Dispose();
         _dotNetRef = null;
-        return ValueTask.CompletedTask;
     }
 }

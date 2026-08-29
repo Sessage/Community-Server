@@ -988,6 +988,7 @@
 
         var wasDone = IsTaskDone(t);
         var persistedDone = t.Done;
+        var persistedListSortOrder = t.ListSortOrder;
         var willBeDone = !wasDone;
 
         // Wenn Done -> offen (also "reaktivieren"): ans Ende der offenen Liste hängen (bei Custom)
@@ -1005,7 +1006,8 @@
         try
         {
             var listId = GetListIdForTask(t);
-            await TaskService.UpdateTaskAsync(_userId, listId, t);
+            _ = await TaskService.UpdateTaskAsync(_userId, listId, t)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
 
             // Wenn offen -> done: offene Liste muss neu indiziert + gespeichert werden (Custom)
             if (!wasDone && willBeDone && SortMode == ListSortMode.Custom)
@@ -1019,6 +1021,7 @@
         {
             // rollback
             t.Done = persistedDone;
+            t.ListSortOrder = persistedListSortOrder;
             _pendingDoneStates.Remove(t.Id);
             RequestSortableResync(rebuildHost: false);
             _error = string.Format(L["Err_ListViewDoneToggle"].Value, t.Title, ex.Message);
@@ -1080,17 +1083,19 @@
     private async Task ToggleImportantAsync(TodoTaskEntity t)
     {
         _error = "";
-        t.IsImportant = !t.IsImportant;
+        var previousValue = t.IsImportant;
+        t.IsImportant = !previousValue;
 
         try
         {
             var listId = GetListIdForTask(t);
-            await TaskService.UpdateTaskAsync(_userId, listId, t);
+            _ = await TaskService.UpdateTaskAsync(_userId, listId, t)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
             await OnChanged.InvokeAsync();
         }
         catch (Exception ex)
         {
-            t.IsImportant = !t.IsImportant;
+            t.IsImportant = previousValue;
             _error = string.Format(L["Err_ListViewImportant"].Value, t.Title, ex.Message);
         }
     }

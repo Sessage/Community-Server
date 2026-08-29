@@ -36,7 +36,7 @@
             {
                 <div class="flex flex-col md:flex-row md:items-center gap-2 rounded-xl border border-slate-200 p-3">
                     <div class="min-w-0 flex-1"><div class="font-semibold truncate">@grant.DisplayName</div><div class="text-xs text-slate-600">@(grant.PrincipalType == DirectoryPrincipalType.Group ? "AD-Gruppe" : "AD-Benutzer")</div></div>
-                    <select class="rounded-xl border border-slate-200 p-2 bg-white" value="@grant.Role" @onchange="e => ChangeRoleAsync(grant, e)"><option value="@ListRole.Observer">Beobachter</option><option value="@ListRole.Member">Mitglied</option><option value="@ListRole.Admin">Admin</option></select>
+                    <select class="rounded-xl border border-slate-200 p-2 bg-white" disabled="@_busy" value="@grant.Role" @onchange="e => ChangeRoleAsync(grant, e)"><option value="@ListRole.Observer">Beobachter</option><option value="@ListRole.Member">Mitglied</option><option value="@ListRole.Admin">Admin</option></select>
                     <FluentButton Appearance="Appearance.Outline" Disabled="_busy" OnClick="() => RemoveAsync(grant.Id)">Entfernen</FluentButton>
                 </div>
             }
@@ -50,13 +50,144 @@
     [Parameter] public Guid ResourceId { get; set; }
     [Parameter] public string RequestingUserId { get; set; } = string.Empty;
     [Parameter] public EventCallback OnChanged { get; set; }
-    private string _query = string.Empty, _message = string.Empty; private bool _busy, _error;
+    private string _query = string.Empty, _message = string.Empty;
+    private bool _busy, _error;
+    private int _loadVersion;
     private ListRole _newRole = ListRole.Member;
-    private IReadOnlyList<DirectoryPrincipal> _results = []; private IReadOnlyList<DirectoryShareGrantEntity> _grants = [];
-    protected override async Task OnParametersSetAsync() { if (ResourceId != Guid.Empty && DirectorySharing.IsAvailable) _grants = await DirectorySharing.GetGrantsAsync(RequestingUserId, ResourceType, ResourceId); }
-    private async Task SearchAsync() { _message = ""; if (_query.Trim().Length < 2) { _error = true; _message = "Bitte mindestens zwei Zeichen eingeben."; return; } _busy = true; try { _results = await DirectorySharing.SearchAsync(RequestingUserId, ResourceType, ResourceId, _query); if (_results.Count == 0) _message = "Keine passenden Einträge gefunden."; } catch (Exception ex) { _error = true; _message = ex.Message; } finally { _busy = false; } }
-    private async Task GrantAsync(DirectoryPrincipal principal) { _busy = true; try { var r = await DirectorySharing.GrantAsync(RequestingUserId, ResourceType, ResourceId, principal, _newRole); _error = !r.Success; _message = r.Message; await ReloadAsync(); } finally { _busy = false; } }
-    private async Task ChangeRoleAsync(DirectoryShareGrantEntity grant, ChangeEventArgs e) { if (!Enum.TryParse<ListRole>(e.Value?.ToString(), out var role)) return; var r = await DirectorySharing.UpdateRoleAsync(RequestingUserId, grant.Id, role); _error = !r.Success; _message = r.Message; await ReloadAsync(); }
-    private async Task RemoveAsync(Guid id) { _busy = true; try { var r = await DirectorySharing.RemoveAsync(RequestingUserId, id); _error = !r.Success; _message = r.Message; await ReloadAsync(); } finally { _busy = false; } }
-    private async Task ReloadAsync() { _grants = await DirectorySharing.GetGrantsAsync(RequestingUserId, ResourceType, ResourceId); await OnChanged.InvokeAsync(); }
+    private IReadOnlyList<DirectoryPrincipal> _results = [];
+    private IReadOnlyList<DirectoryShareGrantEntity> _grants = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var loadVersion = ++_loadVersion;
+        if (ResourceId == Guid.Empty || !DirectorySharing.IsAvailable)
+        {
+            _grants = [];
+            _results = [];
+            return;
+        }
+
+        var resourceId = ResourceId;
+        var resourceType = ResourceType;
+        var requestingUserId = RequestingUserId;
+        try
+        {
+            var grants = await DirectorySharing.GetGrantsAsync(requestingUserId, resourceType, resourceId);
+            if (loadVersion == _loadVersion)
+                _grants = grants;
+        }
+        catch (Exception ex)
+        {
+            if (loadVersion == _loadVersion)
+                ShowResult(false, ex.Message);
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        var query = _query.Trim();
+        ClearMessage();
+        if (query.Length < 2)
+        {
+            ShowResult(false, "Bitte mindestens zwei Zeichen eingeben.");
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            _results = await DirectorySharing.SearchAsync(RequestingUserId, ResourceType, ResourceId, query);
+            if (_results.Count == 0)
+                ShowResult(true, "Keine passenden Einträge gefunden.");
+        }
+        catch (Exception ex)
+        {
+            ShowResult(false, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task GrantAsync(DirectoryPrincipal principal)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var result = await DirectorySharing.GrantAsync(RequestingUserId, ResourceType, ResourceId, principal, _newRole);
+            ShowResult(result.Success, result.Message);
+            if (result.Success)
+                await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowResult(false, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ChangeRoleAsync(DirectoryShareGrantEntity grant, ChangeEventArgs e)
+    {
+        if (_busy || !Enum.TryParse<ListRole>(e.Value?.ToString(), out var role)) return;
+        _busy = true;
+        try
+        {
+            var result = await DirectorySharing.UpdateRoleAsync(RequestingUserId, grant.Id, role);
+            ShowResult(result.Success, result.Message);
+            if (result.Success)
+                await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowResult(false, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveAsync(Guid id)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var result = await DirectorySharing.RemoveAsync(RequestingUserId, id);
+            ShowResult(result.Success, result.Message);
+            if (result.Success)
+                await ReloadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowResult(false, ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _grants = await DirectorySharing.GetGrantsAsync(RequestingUserId, ResourceType, ResourceId);
+        await OnChanged.InvokeAsync();
+    }
+
+    private void ClearMessage()
+    {
+        _error = false;
+        _message = string.Empty;
+    }
+
+    private void ShowResult(bool success, string message)
+    {
+        _error = !success;
+        _message = message;
+    }
 }

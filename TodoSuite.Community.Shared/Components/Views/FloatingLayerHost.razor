@@ -4,7 +4,7 @@
 @* Global container for floating overlays (dropdowns, popovers).
    Rendered at the end of MainLayout so it sits above all layout containers.
    position:fixed + inset:0 ensures content is never clipped by overflow:hidden parents. *@
-<div class="floating-root" aria-hidden="true">
+<div class="floating-root">
     @foreach (var item in FloatingLayer.Items)
     {
         <div class="floating-layer" @key="item.Id">

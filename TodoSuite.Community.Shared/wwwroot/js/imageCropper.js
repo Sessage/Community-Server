@@ -28,6 +28,7 @@ window.imageCropper = (() => {
 
         state = {
             canvas, ctx, fileInput, previewCanvas, previewCtx, dotNetHelper,
+            fileInputId,
             image: null,
             // Bild-Rendering-Bereich auf dem Canvas
             imgX: 0, imgY: 0, imgW: 0, imgH: 0,
@@ -51,8 +52,9 @@ window.imageCropper = (() => {
         canvas.addEventListener('touchend', onTouchEnd);
     }
 
-    function cleanup() {
+    function cleanup(fileInputId) {
         if (!state) return;
+        if (fileInputId && state.fileInputId !== fileInputId) return;
         state.fileInput.removeEventListener('change', onFileChange);
         state.canvas.removeEventListener('mousedown', onMouseDown);
         state.canvas.removeEventListener('mousemove', onMouseMove);
@@ -65,25 +67,45 @@ window.imageCropper = (() => {
     }
 
     function onFileChange(e) {
+        const currentState = state;
         const file = e.target.files[0];
         if (!file) return;
-        if (!file.type.startsWith('image/')) {
-            state.dotNetHelper.invokeMethodAsync('OnError', 'Bitte wähle eine Bilddatei aus.');
+        const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+        if (!allowedTypes.has(file.type.toLowerCase())) {
+            currentState.dotNetHelper.invokeMethodAsync('OnError', 'Bitte wähle eine JPEG-, PNG- oder WebP-Datei aus.');
+            e.target.value = '';
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            currentState.dotNetHelper.invokeMethodAsync('OnError', 'Das Bild darf höchstens 10 MB groß sein.');
+            e.target.value = '';
             return;
         }
 
         const reader = new FileReader();
         reader.onload = (ev) => {
+            if (state !== currentState) return;
             const img = new Image();
             img.onload = () => {
-                state.image = img;
+                if (state !== currentState) return;
+                currentState.image = img;
                 layoutImage();
                 initSelection();
                 draw();
                 updatePreview();
-                state.dotNetHelper.invokeMethodAsync('OnImageLoaded');
+                currentState.dotNetHelper.invokeMethodAsync('OnImageLoaded');
+            };
+            img.onerror = () => {
+                if (state !== currentState) return;
+                currentState.dotNetHelper.invokeMethodAsync('OnError', 'Die Bilddatei konnte nicht gelesen werden.');
+                currentState.fileInput.value = '';
             };
             img.src = ev.target.result;
+        };
+        reader.onerror = () => {
+            if (state !== currentState) return;
+            currentState.dotNetHelper.invokeMethodAsync('OnError', 'Die Bilddatei konnte nicht gelesen werden.');
+            currentState.fileInput.value = '';
         };
         reader.readAsDataURL(file);
     }
@@ -323,8 +345,8 @@ window.imageCropper = (() => {
      * Wird vom Blazor-Component aufgerufen.
      * @returns {string} Data-URL
      */
-    function getCroppedImageDataUrl() {
-        if (!state?.image) return null;
+    function getCroppedImageDataUrl(fileInputId) {
+        if (!state?.image || state.fileInputId !== fileInputId) return null;
 
         const offscreen = document.createElement('canvas');
         offscreen.width = 128;
@@ -347,7 +369,11 @@ window.imageCropper = (() => {
     /** Öffnet den nativen Datei-Dialog. */
     function triggerFileInput(fileInputId) {
         const el = document.getElementById(fileInputId);
-        if (el) el.click();
+        if (el) {
+            // Allow selecting the same file again after changing or correcting the crop.
+            el.value = '';
+            el.click();
+        }
     }
 
     return { init, cleanup, getCroppedImageDataUrl, triggerFileInput };

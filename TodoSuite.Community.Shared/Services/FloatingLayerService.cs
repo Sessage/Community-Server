@@ -18,26 +18,47 @@ public sealed class FloatingItem
 /// </summary>
 public sealed class FloatingLayerService
 {
+    private readonly object _sync = new();
     private readonly List<FloatingItem> _items = new();
     private int _hostCount;
 
     /// <summary>Active floating items to be rendered by FloatingLayerHost.</summary>
-    public IReadOnlyList<FloatingItem> Items => _items.AsReadOnly();
+    public IReadOnlyList<FloatingItem> Items
+    {
+        get
+        {
+            lock (_sync)
+                return _items.ToArray();
+        }
+    }
 
     /// <summary>True when a FloatingLayerHost is available in the current interactive render scope.</summary>
-    public bool HasHost => _hostCount > 0;
+    public bool HasHost
+    {
+        get
+        {
+            lock (_sync)
+                return _hostCount > 0;
+        }
+    }
 
     /// <summary>Fired whenever the item list changes so FloatingLayerHost can re-render.</summary>
     public event Action? OnChanged;
 
     public void RegisterHost()
     {
-        _hostCount++;
+        lock (_sync)
+            _hostCount++;
     }
 
     public void UnregisterHost()
     {
-        _hostCount = Math.Max(0, _hostCount - 1);
+        lock (_sync)
+        {
+            _hostCount = Math.Max(0, _hostCount - 1);
+            if (_hostCount == 0)
+                _items.Clear();
+        }
     }
 
     /// <summary>
@@ -45,8 +66,10 @@ public sealed class FloatingLayerService
     /// </summary>
     public Guid Show(RenderFragment content)
     {
+        ArgumentNullException.ThrowIfNull(content);
         var item = new FloatingItem { Id = Guid.NewGuid(), Content = content };
-        _items.Add(item);
+        lock (_sync)
+            _items.Add(item);
         OnChanged?.Invoke();
         return item.Id;
     }
@@ -54,14 +77,23 @@ public sealed class FloatingLayerService
     /// <summary>Removes the overlay with the given ID.</summary>
     public void Hide(Guid id)
     {
-        _items.RemoveAll(x => x.Id == id);
-        OnChanged?.Invoke();
+        bool changed;
+        lock (_sync)
+            changed = _items.RemoveAll(x => x.Id == id) > 0;
+        if (changed)
+            OnChanged?.Invoke();
     }
 
     /// <summary>Removes all active overlays.</summary>
     public void HideAll()
     {
-        _items.Clear();
-        OnChanged?.Invoke();
+        bool changed;
+        lock (_sync)
+        {
+            changed = _items.Count > 0;
+            _items.Clear();
+        }
+        if (changed)
+            OnChanged?.Invoke();
     }
 }

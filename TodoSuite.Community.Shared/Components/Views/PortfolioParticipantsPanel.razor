@@ -39,7 +39,7 @@
                         {
                             <input class="w-full rounded-xl border border-slate-200 p-2 bg-white text-sm" value="@link.Link" readonly />
                             @if (!string.IsNullOrWhiteSpace(link.QrCodeDataUrl)) { <img src="@link.QrCodeDataUrl" alt="QR-Code" class="h-44 w-44 rounded-lg border border-slate-200 bg-white p-2" /> }
-                            <div class="flex gap-2"><input class="flex-1 rounded-xl border border-slate-200 p-2 bg-white" value="@EditComment(link)" @oninput="e => _comments[link.Id] = e.Value?.ToString() ?? string.Empty" /><FluentButton Appearance="Appearance.Outline" OnClick="() => SaveCommentAsync(link.Id)">@L["Btn_Save"]</FluentButton></div>
+                            <div class="flex gap-2"><input class="flex-1 rounded-xl border border-slate-200 p-2 bg-white" value="@EditComment(link)" @oninput="e => _comments[link.Id] = e.Value?.ToString() ?? string.Empty" /><FluentButton Appearance="Appearance.Outline" Disabled="_busy" OnClick="() => SaveCommentAsync(link.Id)">@L["Btn_Save"]</FluentButton></div>
                         }
                     </div>
                 }
@@ -67,7 +67,7 @@
             var directoryOnly = participant.DirectoryRole is not null && participant.DirectRole is null;
             <div class="flex flex-col md:flex-row md:items-center gap-2 border border-slate-200 rounded-2xl px-3 py-2">
                 <div class="min-w-0 flex-1"><div class="text-sm font-semibold truncate">@participant.DisplayName @if (participant.DirectoryRole is not null) { <span class="ml-2 text-xs text-cyan-700 bg-cyan-50 px-2 py-1 rounded-full">Über Verzeichnis</span> }</div><div class="text-xs text-slate-600 truncate">@participant.Email</div>@if (participant.InvitationPending) { <span class="mt-1 inline-flex text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded-full">@L["Participants_InvitationPending"]</span> }</div>
-                <div class="flex items-center gap-2"><select class="rounded-xl border border-slate-200 p-2 bg-white" disabled="@directoryOnly" value="@participant.Role" @onchange="e => ChangeRoleAsync(participant.Id, e)"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select><FluentButton Appearance="Appearance.Outline" Disabled="@(_busy || directoryOnly)" OnClick="() => RemoveAsync(participant.Id)">@(participant.InvitationPending ? L["Participants_Withdraw"] : L["Btn_Delete"])</FluentButton></div>
+                <div class="flex items-center gap-2"><select class="rounded-xl border border-slate-200 p-2 bg-white" disabled="@(_busy || directoryOnly)" value="@participant.Role" @onchange="e => ChangeRoleAsync(participant.Id, e)"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select><FluentButton Appearance="Appearance.Outline" Disabled="@(_busy || directoryOnly)" OnClick="() => RemoveAsync(participant.Id)">@(participant.InvitationPending ? L["Participants_Withdraw"] : L["Btn_Delete"])</FluentButton></div>
             </div>
         }
         @if (_participants.Count == 0) { <div class="text-sm text-slate-600">@L["Participants_NoParticipants"]</div> }
@@ -77,22 +77,149 @@
 @code {
     [Parameter] public Guid PortfolioId { get; set; }
     [Parameter] public string RequestingUserId { get; set; } = "";
-    private bool _busy; private PortfolioShareTab _activeTab; private string _email = "", _comment = "", _error = "", _info = ""; private string? _newLink;
+    private bool _busy;
+    private int _loadVersion;
+    private PortfolioShareTab _activeTab;
+    private string _email = "", _comment = "", _error = "", _info = "";
+    private string? _newLink;
     private ListRole _emailRole = ListRole.Member, _linkRole = ListRole.Member;
     private IReadOnlyList<ShareLinkInfo> _links = []; private IReadOnlyList<PortfolioParticipantEntity> _participants = [];
     private readonly Dictionary<Guid, string> _comments = []; private readonly HashSet<Guid> _expanded = [];
     protected override Task OnParametersSetAsync() => LoadAsync();
-    private async Task LoadAsync() { if (PortfolioId == Guid.Empty) return; _links = await SharingService.GetShareLinksAsync(RequestingUserId, PortfolioId); _participants = await SharingService.GetParticipantsAsync(RequestingUserId, PortfolioId); foreach (var link in _links) _comments.TryAdd(link.Id, link.Comment ?? ""); }
+
+    private async Task LoadAsync()
+    {
+        var loadVersion = ++_loadVersion;
+        if (PortfolioId == Guid.Empty || string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _links = [];
+            _participants = [];
+            _comments.Clear();
+            return;
+        }
+
+        var portfolioId = PortfolioId;
+        var requestingUserId = RequestingUserId;
+        try
+        {
+            var linksTask = SharingService.GetShareLinksAsync(requestingUserId, portfolioId);
+            var participantsTask = SharingService.GetParticipantsAsync(requestingUserId, portfolioId);
+            await Task.WhenAll(linksTask, participantsTask);
+            if (loadVersion != _loadVersion) return;
+
+            _links = await linksTask;
+            _participants = await participantsTask;
+            var currentLinkIds = _links.Select(link => link.Id).ToHashSet();
+            foreach (var staleId in _comments.Keys.Where(id => !currentLinkIds.Contains(id)).ToList())
+                _comments.Remove(staleId);
+            foreach (var link in _links)
+                _comments.TryAdd(link.Id, link.Comment ?? "");
+        }
+        catch (Exception ex)
+        {
+            if (loadVersion == _loadVersion)
+                ShowResult(false, ex.Message);
+        }
+    }
     private string TabCss(PortfolioShareTab tab) => "share-mode-tab rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none " + (_activeTab == tab ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900");
     private enum PortfolioShareTab { Email, Link, Directory }
     private void Reset() { _error = _info = ""; }
-    private async Task InviteAsync() { Reset(); _busy = true; try { var r = await SharingService.InviteAsync(RequestingUserId, PortfolioId, _email, _emailRole); _info = r.Message; if (!r.Success) _error = r.Message; _newLink = r.Link; if (r.Success) _email = ""; await LoadAsync(); } finally { _busy = false; } }
-    private async Task CreateLinkAsync() { Reset(); _busy = true; try { var r = await SharingService.CreateShareLinkAsync(RequestingUserId, PortfolioId, _linkRole, _comment); if (!r.Success) _error = r.Message; else { _info = r.Message; _newLink = r.Link; _comment = ""; await LoadAsync(); } } finally { _busy = false; } }
-    private async Task RevokeAsync(Guid id) { _busy = true; try { var r = await SharingService.RevokeShareLinkAsync(RequestingUserId, PortfolioId, id); _info = r.Message; await LoadAsync(); } finally { _busy = false; } }
-    private async Task SaveCommentAsync(Guid id) { var r = await SharingService.UpdateShareLinkCommentAsync(RequestingUserId, PortfolioId, id, _comments.GetValueOrDefault(id)); _info = r.Message; await LoadAsync(); }
-    private async Task ChangeRoleAsync(Guid id, ChangeEventArgs e) { if (Enum.TryParse<ListRole>(e.Value?.ToString(), out var role)) { var r = await SharingService.UpdateParticipantRoleAsync(RequestingUserId, PortfolioId, id, role); _info = r.Message; await LoadAsync(); } }
-    private async Task RemoveAsync(Guid id) { _busy = true; try { var r = await SharingService.RemoveParticipantAsync(RequestingUserId, PortfolioId, id); _info = r.Message; await LoadAsync(); } finally { _busy = false; } }
-    private Task CopyAsync(string? value) => string.IsNullOrWhiteSpace(value) ? Task.CompletedTask : JS.InvokeVoidAsync("navigator.clipboard.writeText", value).AsTask();
+
+    private async Task InviteAsync()
+    {
+        if (_busy) return;
+        Reset();
+        var email = _email.Trim();
+        if (string.IsNullOrWhiteSpace(email) || !email.Contains('@', StringComparison.Ordinal))
+        {
+            ShowResult(false, L["Err_InviteInvalidEmail", email].Value);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await SharingService.InviteAsync(RequestingUserId, PortfolioId, email, _emailRole);
+            ShowResult(result.Success, result.Message);
+            if (result.Success)
+            {
+                _newLink = result.Link;
+                _email = "";
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex) { ShowResult(false, ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task CreateLinkAsync()
+    {
+        if (_busy) return;
+        Reset();
+        _busy = true;
+        try
+        {
+            var result = await SharingService.CreateShareLinkAsync(RequestingUserId, PortfolioId, _linkRole, _comment.Trim());
+            ShowResult(result.Success, result.Message);
+            if (result.Success)
+            {
+                _newLink = result.Link;
+                _comment = "";
+                await LoadAsync();
+            }
+        }
+        catch (Exception ex) { ShowResult(false, ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task RevokeAsync(Guid id)
+        => await RunMutationAsync(() => SharingService.RevokeShareLinkAsync(RequestingUserId, PortfolioId, id));
+
+    private async Task SaveCommentAsync(Guid id)
+        => await RunMutationAsync(() => SharingService.UpdateShareLinkCommentAsync(RequestingUserId, PortfolioId, id, _comments.GetValueOrDefault(id)));
+
+    private async Task ChangeRoleAsync(Guid id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ListRole>(e.Value?.ToString(), out var role))
+            await RunMutationAsync(() => SharingService.UpdateParticipantRoleAsync(RequestingUserId, PortfolioId, id, role));
+    }
+
+    private async Task RemoveAsync(Guid id)
+        => await RunMutationAsync(() => SharingService.RemoveParticipantAsync(RequestingUserId, PortfolioId, id));
+
+    private async Task RunMutationAsync(Func<Task<(bool Success, string Message)>> operation)
+    {
+        if (_busy) return;
+        Reset();
+        _busy = true;
+        try
+        {
+            var result = await operation();
+            ShowResult(result.Success, result.Message);
+            if (result.Success)
+                await LoadAsync();
+        }
+        catch (Exception ex) { ShowResult(false, ex.Message); }
+        finally { _busy = false; }
+    }
+
+    private async Task CopyAsync(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        Reset();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", value);
+            _info = L["Info_LinkCopied"].Value;
+        }
+        catch (Exception ex) { ShowResult(false, ex.Message); }
+    }
+
+    private void ShowResult(bool success, string message)
+    {
+        _error = success ? "" : message;
+        _info = success ? message : "";
+    }
     private void Toggle(Guid id) { if (!_expanded.Add(id)) _expanded.Remove(id); }
     private string EditComment(ShareLinkInfo link) => _comments.GetValueOrDefault(link.Id, link.Comment ?? "");
 }

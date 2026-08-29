@@ -30,7 +30,8 @@ public static class ShareInviteLinkParser
                 _ => (ShareInviteResourceType?)null
             };
 
-            if (resourceType is null || i + 3 != segments.Length || !Guid.TryParse(segments[i + 2], out var resourceId))
+            if (resourceType is null || i + 3 != segments.Length
+                || !Guid.TryParse(segments[i + 2], out var resourceId) || resourceId == Guid.Empty)
                 continue;
 
             string? token;
@@ -42,7 +43,8 @@ public static class ShareInviteLinkParser
             {
                 return false;
             }
-            if (string.IsNullOrWhiteSpace(token))
+            token = token?.Trim();
+            if (string.IsNullOrWhiteSpace(token) || token.Length > 4096)
                 return false;
 
             invite = new ShareInviteLink(resourceType.Value, resourceId, token);

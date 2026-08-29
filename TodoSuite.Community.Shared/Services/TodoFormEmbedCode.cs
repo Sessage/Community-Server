@@ -7,10 +7,15 @@ public static class TodoFormEmbedCode
     public static string Build(Guid formId, string? formName, string publicUrl)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(publicUrl);
+        if (!Uri.TryCreate(publicUrl.Trim(), UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException("Die öffentliche Formular-URL muss eine absolute HTTP(S)-URL sein.", nameof(publicUrl));
+        }
 
         var name = string.IsNullOrWhiteSpace(formName) ? "Formular" : formName.Trim();
         var encodedName = WebUtility.HtmlEncode(name);
-        var encodedUrl = WebUtility.HtmlEncode(publicUrl);
+        var encodedUrl = WebUtility.HtmlEncode(uri.AbsoluteUri);
         var suffix = formId.ToString("N");
         var headingId = $"sessage-form-heading-{suffix}";
         var frameId = $"sessage-form-frame-{suffix}";

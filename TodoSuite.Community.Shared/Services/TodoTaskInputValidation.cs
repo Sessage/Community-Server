@@ -7,12 +7,17 @@ public static class TodoTaskInputValidation
 {
     public static string ResolveColumn(TodoListEntity list, string? requestedColumn)
     {
-        var columns = list.Columns ?? [];
+        ArgumentNullException.ThrowIfNull(list);
+        var columns = (list.Columns ?? [])
+            .Select(column => column?.Trim())
+            .Where(column => !string.IsNullOrWhiteSpace(column))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
         if (columns.Count == 0)
             throw new InvalidOperationException("Die Liste enthält keine Spalte.");
 
         if (string.IsNullOrWhiteSpace(requestedColumn))
-            return columns[0];
+            return columns[0]!;
 
         return columns.FirstOrDefault(column =>
                    string.Equals(column, requestedColumn.Trim(), StringComparison.OrdinalIgnoreCase))
@@ -21,6 +26,7 @@ public static class TodoTaskInputValidation
 
     public static string? ResolveAssignee(TodoListEntity list, string? requestedAssignee, string parameterName)
     {
+        ArgumentNullException.ThrowIfNull(list);
         var key = (requestedAssignee ?? string.Empty).Trim();
         if (key.Length == 0)
             return null;

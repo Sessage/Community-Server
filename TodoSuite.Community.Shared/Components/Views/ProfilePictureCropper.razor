@@ -23,7 +23,7 @@
     }
 
     @* Verstecktes File-Input *@
-    <input type="file" id="@_fileInputId" accept="image/*" class="hidden" />
+    <input type="file" id="@_fileInputId" accept="image/jpeg,image/png,image/webp" class="hidden" />
 
     @* Canvas für Bildauswahl (nur sichtbar wenn Bild geladen) *@
     <div class="@(!_imageLoaded ? "hidden" : "flex flex-col gap-3")">
@@ -105,7 +105,7 @@
     {
         try
         {
-            return await JS.InvokeAsync<string>("imageCropper.getCroppedImageDataUrl");
+            return await JS.InvokeAsync<string>("imageCropper.getCroppedImageDataUrl", _fileInputId);
         }
         catch
         {
@@ -136,7 +136,7 @@
     {
         if (_initialized)
         {
-            try { await JS.InvokeVoidAsync("imageCropper.cleanup"); } catch { }
+            try { await JS.InvokeVoidAsync("imageCropper.cleanup", _fileInputId); } catch { }
         }
 
         _dotNetRef?.Dispose();

@@ -47,6 +47,11 @@ public sealed class ReminderDispatcherService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Do not let the initial reminder query compete with Kestrel reaching its ready
+        // state. This short delay only affects the first pass after process startup; the
+        // regular dispatch interval and reminder semantics remain unchanged.
+        await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try { await DispatchOnceAsync(stoppingToken); }

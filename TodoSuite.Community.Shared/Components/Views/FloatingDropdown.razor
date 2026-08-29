@@ -47,6 +47,8 @@
     private Guid? _overlayId;
     private DotNetObjectReference<FloatingDropdown>? _dotNetRef;
     private bool _usingLocalOverlay;
+    private bool _opening;
+    private bool _disposed;
     private string _panelStyle = "";
     private string? _closeHandlerId;
 
@@ -85,6 +87,10 @@
 
     private async Task ShowOverlayAsync()
     {
+        if (_disposed || _opening || IsOpen)
+            return;
+
+        _opening = true;
         BoundingRect? rect = null;
         try
         {
@@ -95,8 +101,12 @@
             // JSRuntime not available during prerender.
             return;
         }
+        finally
+        {
+            _opening = false;
+        }
 
-        if (rect is null) return;
+        if (_disposed || rect is null || IsOpen) return;
 
         var viewportHeight = rect.ViewportHeight > 0 ? rect.ViewportHeight : 800;
         var viewportWidth = rect.ViewportWidth > 0 ? rect.ViewportWidth : 1280;
@@ -199,6 +209,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         await HideOverlayAsync();
     }
 

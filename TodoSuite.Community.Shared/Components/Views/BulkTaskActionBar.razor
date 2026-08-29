@@ -52,6 +52,7 @@
 
         <button type="button"
                 class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+                disabled="@_busy"
                 @onclick="ClearSelectionAsync">
             @L["Bulk_ClearSelection"]
         </button>
@@ -101,8 +102,12 @@
 
     protected override void OnParametersSet()
     {
-        if (string.IsNullOrWhiteSpace(_targetColumn))
-            _targetColumn = (List.Columns ?? []).FirstOrDefault() ?? "";
+        var columns = List.Columns ?? [];
+        if (string.IsNullOrWhiteSpace(_targetColumn)
+            || !columns.Contains(_targetColumn, StringComparer.OrdinalIgnoreCase))
+        {
+            _targetColumn = columns.FirstOrDefault() ?? "";
+        }
     }
 
     private async Task ApplyAsync()
@@ -112,6 +117,8 @@
 
         _busy = true;
         _error = "";
+        var persistedAny = false;
+        var parentNotified = false;
 
         try
         {
@@ -123,23 +130,45 @@
             {
                 if (_action == ActionDelete)
                 {
-                    await TaskService.DeleteTaskAsync(_userId, List.Id, task.Id);
+                    if (!await TaskService.DeleteTaskAsync(_userId, List.Id, task.Id))
+                        throw new InvalidOperationException($"Die Aufgabe '{task.Title}' konnte nicht gelöscht werden.");
+
+                    List.Tasks?.Remove(task);
+                    persistedAny = true;
                     continue;
                 }
 
+                var snapshot = TaskMutationSnapshot.Capture(task);
                 ApplyUpdate(task);
-                await TaskService.UpdateTaskAsync(_userId, List.Id, task);
+                try
+                {
+                    var updated = await TaskService.UpdateTaskAsync(_userId, List.Id, task);
+                    if (updated is null)
+                        throw new InvalidOperationException($"Die Aufgabe '{task.Title}' konnte nicht aktualisiert werden.");
+                    persistedAny = true;
+                }
+                catch
+                {
+                    snapshot.Restore(task);
+                    throw;
+                }
             }
 
-            if (_action == ActionDelete)
-                (List.Tasks ?? []).RemoveAll(t => SelectedTaskIds.Contains(t.Id));
-
-            await OnChanged.InvokeAsync();
+            if (persistedAny)
+            {
+                await OnChanged.InvokeAsync();
+                parentNotified = true;
+            }
             await ClearSelectionAsync();
         }
         catch (Exception ex)
         {
             _error = ex.Message;
+            if (persistedAny && !parentNotified)
+            {
+                try { await OnChanged.InvokeAsync(); }
+                catch { /* Preserve the operation error shown to the user. */ }
+            }
         }
         finally
         {
@@ -177,4 +206,24 @@
 
     private Task ClearSelectionAsync()
         => OnSelectionCleared.InvokeAsync();
+
+    private sealed record TaskMutationSnapshot(
+        bool Done,
+        string Column,
+        DateTime? ReminderAtUtc,
+        string? CardColor,
+        TaskCardColorMode CardColorMode)
+    {
+        public static TaskMutationSnapshot Capture(TodoTaskEntity task)
+            => new(task.Done, task.Column, task.ReminderAtUtc, task.CardColor, task.CardColorMode);
+
+        public void Restore(TodoTaskEntity task)
+        {
+            task.Done = Done;
+            task.Column = Column;
+            task.ReminderAtUtc = ReminderAtUtc;
+            task.CardColor = CardColor;
+            task.CardColorMode = CardColorMode;
+        }
+    }
 }

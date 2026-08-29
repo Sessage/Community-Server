@@ -388,6 +388,9 @@
     // Admin-Check (UI-Gating)
     private bool _isAdmin;
     private bool _isAdminChecked;
+    private Guid? _loadedListId;
+    private long _loadedListVersion = -1;
+    private string _loadedRequestingUserId = string.Empty;
 
     private string TabButtonClass(SharePanelTab tab)
         => "share-mode-tab rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none "
@@ -404,20 +407,38 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        ResetMessages();
-
         _isAdminChecked = false;
         _isAdmin = false;
 
         if (List is null || string.IsNullOrWhiteSpace(RequestingUserId))
+        {
+            _loadedListId = null;
+            _loadedListVersion = -1;
+            _loadedRequestingUserId = string.Empty;
+            _shareLinks = [];
             return;
+        }
+
+        var identityChanged = _loadedListId != List.Id
+                              || !string.Equals(_loadedRequestingUserId, RequestingUserId, StringComparison.Ordinal);
+        var contextChanged = identityChanged || _loadedListVersion != List.ContentVersion;
+
+        if (identityChanged)
+        {
+            ResetMessages();
+        }
+        _loadedListId = List.Id;
+        _loadedListVersion = List.ContentVersion;
+        _loadedRequestingUserId = RequestingUserId;
 
         // UI nur für Admin
         _isAdmin = IsAdminForList(List, RequestingUserId);
         _isAdminChecked = true;
 
-        if (_isAdmin)
+        if (_isAdmin && contextChanged)
             await LoadShareLinksAsync();
+        else if (!_isAdmin)
+            _shareLinks = [];
     }
 
     private bool IsAdminForList(TodoListEntity list, string requestingUserId)

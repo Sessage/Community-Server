@@ -1896,7 +1896,8 @@
         {
             ResetNewTitleInput(col);
             await InvokeAsync(StateHasChanged);
-            await TaskService.AddTaskAsync(_userId, List.Id, task);
+            _ = await TaskService.AddTaskAsync(_userId, List.Id, task)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
             await OnChanged.InvokeAsync();
         }
         catch (Exception ex)

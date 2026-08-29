@@ -1249,9 +1249,13 @@ else
 
     private async Task ToggleTaskWatchingAsync(TodoTaskEntity task)
     {
-        var watch = !IsWatchingTask(task);
-        if (await TaskService.SetTaskWatchingAsync(_userId, List!.Id, task.Id, watch))
+        _addError = "";
+        try
         {
+            var watch = !IsWatchingTask(task);
+            if (!await TaskService.SetTaskWatchingAsync(_userId, List!.Id, task.Id, watch))
+                throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
+
             task.Watchers ??= new();
             var existing = task.Watchers.FirstOrDefault(w => string.Equals(w.UserId, _userId, StringComparison.OrdinalIgnoreCase));
             if (watch && existing is null)
@@ -1263,6 +1267,10 @@ else
                 await OnTaskUpdated.InvokeAsync(task);
             if (OnChanged.HasDelegate)
                 await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _addError = ex.Message;
         }
     }
 
@@ -1318,12 +1326,23 @@ else
 
     private async Task UpdateTaskFieldAsync(TodoTaskEntity task, Action<TodoTaskEntity> update)
     {
-        update(task);
-        var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task);
-        if (updated is not null && OnTaskUpdated.HasDelegate)
-            await OnTaskUpdated.InvokeAsync(updated);
-        if (OnChanged.HasDelegate)
-            await OnChanged.InvokeAsync();
+        _addError = "";
+        try
+        {
+            update(task);
+            var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(updated);
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _addError = ex.Message;
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
     }
 
     private async Task UpdateCustomFieldAsync(TodoTaskEntity task, TodoCustomFieldDefinitionEntity field, object? raw)
@@ -1332,18 +1351,29 @@ else
             ? ((raw is bool b && b) ? "true" : "false")
             : raw?.ToString();
 
-        task.CustomFieldValues ??= new();
-        var existing = task.CustomFieldValues.FirstOrDefault(v => v.FieldId == field.Id);
-        if (existing is null)
-            task.CustomFieldValues.Add(new TodoTaskCustomFieldValueEntity { Id = Guid.Empty, TaskId = task.Id, FieldId = field.Id, Value = value });
-        else
-            existing.Value = value;
+        _addError = "";
+        try
+        {
+            task.CustomFieldValues ??= new();
+            var existing = task.CustomFieldValues.FirstOrDefault(v => v.FieldId == field.Id);
+            if (existing is null)
+                task.CustomFieldValues.Add(new TodoTaskCustomFieldValueEntity { Id = Guid.Empty, TaskId = task.Id, FieldId = field.Id, Value = value });
+            else
+                existing.Value = value;
 
-        var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task);
-        if (updated is not null && OnTaskUpdated.HasDelegate)
-            await OnTaskUpdated.InvokeAsync(updated);
-        if (OnChanged.HasDelegate)
-            await OnChanged.InvokeAsync();
+            var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(updated);
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _addError = ex.Message;
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
     }
 
     private void RenderCustomMultiSelectField(RenderTreeBuilder builder, ref int seq, TodoTaskEntity task, TodoCustomFieldDefinitionEntity field, string value)

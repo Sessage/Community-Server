@@ -8,7 +8,7 @@
          style="background:@(PreviewColor)">
     </div>
 
-    <div class="text-sm font-semibold text-slate-700">Wählen Sie eine Farbe aus</div>
+    <div class="text-sm font-semibold text-slate-700">@L["Task_CardStyle_Colors"]</div>
 
     <!-- Palette -->
     <div class="grid grid-cols-5 gap-3">
@@ -21,7 +21,7 @@
                     style="background:@c"
                     title="@c"
                     @onclick="() => Select(c)">
-                <span class="sr-only">Farbe @c auswählen</span>
+                <span class="sr-only">@L["Lbl_Color"]: @c</span>
             </button>
         }
     </div>
@@ -29,14 +29,14 @@
     <FluentButton Appearance="Appearance.Outline"
                   Class="w-full"
                   OnClick="Clear">
-        ✕&nbsp;&nbsp;Farbe entfernen
+        ✕&nbsp;&nbsp;@L["Bulk_ClearColor"]
     </FluentButton>
 
     <!-- Optional: wenn du den HEX-Wert sichtbar haben willst (wie manchmal in UI) -->
     @if (ShowHexValue)
     {
         <div class="text-xs text-slate-600">
-            Aktuell: <span class="font-mono">@(!string.IsNullOrWhiteSpace(SelectedColor) ? SelectedColor : "—")</span>
+            @L["Lbl_Color"]: <span class="font-mono">@(!string.IsNullOrWhiteSpace(SelectedColor) ? SelectedColor : "—")</span>
         </div>
     }
 </div>

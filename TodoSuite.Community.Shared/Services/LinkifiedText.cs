@@ -12,7 +12,9 @@ public static partial class LinkifiedText
         if (string.IsNullOrWhiteSpace(text))
             return new MarkupString(string.Empty);
 
-        var input = text.Trim();
+        // Preserve intentional leading/trailing whitespace. Callers use whitespace-pre-line,
+        // so trimming here changed the displayed form description or help text.
+        var input = text;
         var html = new StringBuilder(input.Length);
         var index = 0;
 
