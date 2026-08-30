@@ -22,12 +22,15 @@ namespace Microsoft.AspNetCore.Routing
 
             var accountGroup = endpoints.MapGroup("/Account");
 
-            accountGroup.MapPost("/PerformExternalLogin", (
+            accountGroup.MapPost("/PerformExternalLogin", async (
                 HttpContext context,
                 [FromServices] SignInManager<ApplicationUser> signInManager,
                 [FromForm] string provider,
                 [FromForm] string returnUrl) =>
             {
+                if (!await IsKnownExternalProviderAsync(signInManager, provider))
+                    return Results.BadRequest("Unknown external authentication provider.");
+
                 IEnumerable<KeyValuePair<string, StringValues>> query = [
                     new("ReturnUrl", returnUrl),
                     new("Action", ExternalLogin.LoginCallbackAction)];
@@ -38,22 +41,16 @@ namespace Microsoft.AspNetCore.Routing
                     QueryString.Create(query));
 
                 var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
-                return TypedResults.Challenge(properties, [provider]);
+                return Results.Challenge(properties, [provider]);
             });
 
             accountGroup.MapPost("/Logout", async (
                 HttpContext context,
                 [FromServices] SignInManager<ApplicationUser> signInManager,
+                [FromServices] IAntiforgery antiforgery,
                 [FromQuery] string? returnUrl) =>
             {
-                await signInManager.SignOutAsync();
-                return TypedResults.LocalRedirect(GetSafeLogoutRedirect(returnUrl));
-            });
-
-            accountGroup.MapGet("/Logout", async (
-                [FromServices] SignInManager<ApplicationUser> signInManager,
-                [FromQuery] string? returnUrl) =>
-            {
+                await antiforgery.ValidateRequestAsync(context);
                 await signInManager.SignOutAsync();
                 return TypedResults.LocalRedirect(GetSafeLogoutRedirect(returnUrl));
             });
@@ -104,6 +101,9 @@ namespace Microsoft.AspNetCore.Routing
                 [FromServices] SignInManager<ApplicationUser> signInManager,
                 [FromForm] string provider) =>
             {
+                if (!await IsKnownExternalProviderAsync(signInManager, provider))
+                    return Results.BadRequest("Unknown external authentication provider.");
+
                 // Clear the existing external cookie to ensure a clean login process
                 await context.SignOutAsync(IdentityConstants.ExternalScheme);
 
@@ -113,7 +113,7 @@ namespace Microsoft.AspNetCore.Routing
                     QueryString.Create("Action", ExternalLogins.LinkLoginCallbackAction));
 
                 var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl, signInManager.UserManager.GetUserId(context.User));
-                return TypedResults.Challenge(properties, [provider]);
+                return Results.Challenge(properties, [provider]);
             });
 
             var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
@@ -122,8 +122,10 @@ namespace Microsoft.AspNetCore.Routing
             manageGroup.MapPost("/DownloadPersonalData", async (
                 HttpContext context,
                 [FromServices] UserManager<ApplicationUser> userManager,
-                [FromServices] AuthenticationStateProvider authenticationStateProvider) =>
+                [FromServices] IAntiforgery antiforgery) =>
             {
+                await antiforgery.ValidateRequestAsync(context);
+
                 var user = await userManager.GetUserAsync(context.User);
                 if (user is null)
                 {
@@ -163,9 +165,28 @@ namespace Microsoft.AspNetCore.Routing
             if (string.IsNullOrWhiteSpace(returnUrl))
                 return "~/Account/Login";
 
-            return returnUrl.StartsWith('/') && !returnUrl.StartsWith("//")
-                ? $"~{returnUrl}"
-                : $"~/{returnUrl.TrimStart('~', '/')}";
+            var candidate = returnUrl.Trim();
+            if (candidate.StartsWith("//", StringComparison.Ordinal)
+                || candidate.Contains('\\')
+                || candidate.Any(char.IsControl)
+                || Uri.TryCreate(candidate, UriKind.Absolute, out _))
+            {
+                return "~/Account/Login";
+            }
+
+            candidate = candidate.TrimStart('~', '/');
+            return string.IsNullOrEmpty(candidate) ? "~/Account/Login" : $"~/{candidate}";
+        }
+
+        private static async Task<bool> IsKnownExternalProviderAsync(
+            SignInManager<ApplicationUser> signInManager,
+            string provider)
+        {
+            if (string.IsNullOrWhiteSpace(provider))
+                return false;
+
+            var schemes = await signInManager.GetExternalAuthenticationSchemesAsync();
+            return schemes.Any(scheme => string.Equals(scheme.Name, provider, StringComparison.Ordinal));
         }
     }
 }

@@ -81,6 +81,9 @@ else
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     private string? Message => identityErrors is null ? null : string.Format(L["Err_Generic"], string.Join(", ", identityErrors.Select(error => error.Description)));
 
     protected override void OnInitialized()
@@ -140,11 +143,19 @@ else
         }
         catch (Exception ex)
         {
-            identityErrors =
-            [
-                new IdentityError { Description = string.Format(L["Account_Error_ConfirmationEmailFailed"], ex.Message) }
-            ];
-            return;
+            Logger.LogWarning(ex, "Confirmation email for newly registered user {UserId} could not be sent.", userId);
+
+            if (UserManager.Options.SignIn.RequireConfirmedAccount)
+            {
+                var confirmationUri = NavigationManager.GetUriWithQueryParameters(
+                    "Account/RegisterConfirmation",
+                    new Dictionary<string, object?> { ["email"] = email, ["returnUrl"] = ReturnUrl });
+                RedirectManager.RedirectToWithStatus(
+                    confirmationUri,
+                    "Das Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte fordern Sie eine neue E-Mail an.",
+                    HttpContext);
+                return;
+            }
         }
 
         if (UserManager.Options.SignIn.RequireConfirmedAccount)

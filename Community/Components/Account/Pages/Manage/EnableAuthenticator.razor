@@ -141,7 +141,17 @@ else
                 return;
             }
 
-            await UserManager.SetTwoFactorEnabledAsync(user, true);
+            var enableResult = await UserManager.SetTwoFactorEnabledAsync(user, true);
+            if (!enableResult.Succeeded)
+            {
+                Logger.LogWarning(
+                    "Enabling 2FA failed for user {UserId}: {Errors}",
+                    userId,
+                    string.Join(", ", enableResult.Errors.Select(error => error.Code)));
+                message = "Die Zwei-Faktor-Authentifizierung konnte nicht aktiviert werden. Bitte versuchen Sie es erneut.";
+                _submitting = false;
+                return;
+            }
             Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", userId);
 
             message = "Ihre Authenticator-App wurde verifiziert.";
@@ -149,6 +159,12 @@ else
             if (await UserManager.CountRecoveryCodesAsync(user) == 0)
             {
                 recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+                if (recoveryCodes is null)
+                {
+                    message = "Die Wiederherstellungscodes konnten nicht erzeugt werden. Bitte generieren Sie sie in den Kontoeinstellungen erneut.";
+                    _submitting = false;
+                    return;
+                }
             }
             else
             {
@@ -157,7 +173,8 @@ else
         }
         catch (Exception ex)
         {
-            message = $"Fehler: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error while enabling 2FA.");
+            message = "Die Authenticator-App konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.";
             _submitting = false;
             StateHasChanged();
         }
@@ -168,14 +185,19 @@ else
         var unformattedKey = await UserManager.GetAuthenticatorKeyAsync(user);
         if (string.IsNullOrEmpty(unformattedKey))
         {
-            await UserManager.ResetAuthenticatorKeyAsync(user);
+            var resetResult = await UserManager.ResetAuthenticatorKeyAsync(user);
+            if (!resetResult.Succeeded)
+                throw new InvalidOperationException("Authenticator key generation failed.");
             unformattedKey = await UserManager.GetAuthenticatorKeyAsync(user);
         }
 
-        sharedKey = FormatKey(unformattedKey!);
+        if (string.IsNullOrEmpty(unformattedKey))
+            throw new InvalidOperationException("Authenticator key generation returned no key.");
+
+        sharedKey = FormatKey(unformattedKey);
 
         var email = await UserManager.GetEmailAsync(user);
-        authenticatorUri = GenerateQrCodeUri(email!, unformattedKey!);
+        authenticatorUri = GenerateQrCodeUri(email ?? string.Empty, unformattedKey);
 
         // QR-Code als PNG server-seitig generieren
         qrCodeDataUrl = GenerateQrCodeDataUrl(authenticatorUri);

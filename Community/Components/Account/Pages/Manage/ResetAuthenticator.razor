@@ -55,8 +55,26 @@
             var user = await UserManager.FindByIdAsync(userId);
             if (user is null) { Navigation.NavigateTo("/"); return; }
 
-            await UserManager.SetTwoFactorEnabledAsync(user, false);
-            await UserManager.ResetAuthenticatorKeyAsync(user);
+            var disableResult = await UserManager.SetTwoFactorEnabledAsync(user, false);
+            if (!disableResult.Succeeded)
+            {
+                _isError = true;
+                _statusMessage = "Die Zwei-Faktor-Authentifizierung konnte nicht zurückgesetzt werden.";
+                _loading = false;
+                return;
+            }
+
+            var resetResult = await UserManager.ResetAuthenticatorKeyAsync(user);
+            if (!resetResult.Succeeded)
+            {
+                var restoreResult = await UserManager.SetTwoFactorEnabledAsync(user, true);
+                if (!restoreResult.Succeeded)
+                    Logger.LogError("2FA could not be restored after authenticator reset failed for user {UserId}.", userId);
+                _isError = true;
+                _statusMessage = "Der Authenticator-Schlüssel konnte nicht zurückgesetzt werden.";
+                _loading = false;
+                return;
+            }
             Logger.LogInformation("User with ID '{UserId}' has reset their authentication app key.", userId);
 
             // RefreshSignInAsync writes cookies and cannot be called in Blazor Server
@@ -67,8 +85,9 @@
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Unexpected error while resetting the authenticator key.");
             _isError = true;
-            _statusMessage = $"Fehler: {ex.Message}";
+            _statusMessage = "Der Authenticator-Schlüssel konnte nicht zurückgesetzt werden. Bitte versuchen Sie es erneut.";
             _loading = false;
             StateHasChanged();
         }

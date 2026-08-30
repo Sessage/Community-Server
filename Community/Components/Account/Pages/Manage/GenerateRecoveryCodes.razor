@@ -78,12 +78,19 @@ else
             }
 
             recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+            if (recoveryCodes is null)
+            {
+                _errorMessage = "Die Wiederherstellungscodes konnten nicht generiert werden. Bitte versuchen Sie es erneut.";
+                _loading = false;
+                return;
+            }
             message = "Sie haben neue Wiederherstellungscodes generiert.";
             Logger.LogInformation("User with ID '{UserId}' has generated new 2FA recovery codes.", userId);
         }
         catch (Exception ex)
         {
-            _errorMessage = $"Fehler: {ex.Message}";
+            Logger.LogError(ex, "Unexpected error while generating 2FA recovery codes.");
+            _errorMessage = "Die Wiederherstellungscodes konnten nicht generiert werden. Bitte versuchen Sie es erneut.";
             _loading = false;
             StateHasChanged();
         }

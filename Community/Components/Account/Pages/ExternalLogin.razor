@@ -70,7 +70,8 @@
 
         if (RemoteError is not null)
         {
-            RedirectManager.RedirectToWithStatus("Account/Login", $"Error from external provider: {RemoteError}", HttpContext);
+            Logger.LogWarning("External login provider returned an error: {RemoteError}", RemoteError);
+            RedirectManager.RedirectToWithStatus("Account/Login", "Fehler: Die externe Anmeldung konnte nicht abgeschlossen werden.", HttpContext);
             return;
         }
 
@@ -110,7 +111,7 @@
             externalLoginInfo.LoginProvider,
             externalLoginInfo.ProviderKey,
             isPersistent: false,
-            bypassTwoFactor: true);
+            bypassTwoFactor: false);
 
         if (result.Succeeded)
         {
@@ -124,6 +125,13 @@
         else if (result.IsLockedOut)
         {
             RedirectManager.RedirectTo("Account/Lockout");
+            return;
+        }
+        else if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = false });
             return;
         }
 
@@ -142,11 +150,13 @@
             return;
         }
 
+        var email = Input.Email.Trim();
+        Input.Email = email;
         var emailStore = GetEmailStore();
         var user = CreateUser();
 
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+        await UserStore.SetUserNameAsync(user, email, CancellationToken.None);
+        await emailStore.SetEmailAsync(user, email, CancellationToken.None);
 
         var result = await UserManager.CreateAsync(user);
         if (result.Succeeded)
@@ -163,18 +173,48 @@
                 var callbackUrl = NavigationManager.GetUriWithQueryParameters(
                     NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
                     new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-                await EmailSender.SendConfirmationLinkAsync(user, Input.Email, callbackUrl);
+                try
+                {
+                    await EmailSender.SendConfirmationLinkAsync(user, email, callbackUrl);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Confirmation email for external-login user {UserId} could not be sent.", userId);
+                    if (UserManager.Options.SignIn.RequireConfirmedAccount)
+                    {
+                        var confirmationUri = NavigationManager.GetUriWithQueryParameters(
+                            "Account/RegisterConfirmation",
+                            new Dictionary<string, object?> { ["email"] = email, ["returnUrl"] = ReturnUrl });
+                        RedirectManager.RedirectToWithStatus(
+                            confirmationUri,
+                            "Das Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte fordern Sie eine neue E-Mail an.",
+                            HttpContext);
+                        return;
+                    }
+                }
 
                 // If account confirmation is required, we need to show the link if we don't have a real email sender
                 if (UserManager.Options.SignIn.RequireConfirmedAccount)
                 {
-                    RedirectManager.RedirectTo("Account/RegisterConfirmation", new() { ["email"] = Input.Email });
+                    RedirectManager.RedirectTo("Account/RegisterConfirmation", new() { ["email"] = email, ["returnUrl"] = ReturnUrl });
                 }
                 else
                 {
                     await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
                     RedirectManager.RedirectTo(ReturnUrl);
                 }
+            }
+            else
+            {
+                var deleteResult = await UserManager.DeleteAsync(user);
+                if (!deleteResult.Succeeded)
+                {
+                    Logger.LogError(
+                        "Failed to roll back user after external login association failed: {Errors}",
+                        string.Join(", ", deleteResult.Errors.Select(error => error.Code)));
+                }
+
+                message = $"Fehler: {string.Join(", ", result.Errors.Select(error => error.Description))}";
             }
         }
         else

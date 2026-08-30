@@ -37,6 +37,9 @@
     private string? message;
     private ApplicationUser user = default!;
 
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
 
@@ -48,8 +51,17 @@
         Input ??= new();
 
         // Ensure the user has gone through the username & password screen first
-        user = await SignInManager.GetTwoFactorAuthenticationUserAsync() ??
-            throw new InvalidOperationException("Unable to load two-factor authentication user.");
+        var twoFactorUser = await SignInManager.GetTwoFactorAuthenticationUserAsync();
+        if (twoFactorUser is null)
+        {
+            RedirectManager.RedirectToWithStatus(
+                "Account/Login",
+                "Fehler: Die Zwei-Faktor-Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.",
+                HttpContext);
+            return;
+        }
+
+        user = twoFactorUser;
     }
 
     private async Task OnValidSubmitAsync()

@@ -60,7 +60,18 @@
             return;
         }
 
-        var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        string code;
+        try
+        {
+            code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        }
+        catch (FormatException)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status400BadRequest;
+            statusMessage = "Fehler: Der Bestätigungslink ist ungültig oder beschädigt.";
+            return;
+        }
+
         var result = await UserManager.ConfirmEmailAsync(user, code);
         statusMessage = result.Succeeded
             ? "Deine E-Mail-Adresse wurde bestätigt. Du kannst dich jetzt anmelden."

@@ -46,7 +46,17 @@
             return;
         }
 
-        var code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        string code;
+        try
+        {
+            code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(Code));
+        }
+        catch (FormatException)
+        {
+            message = L["Account_ConfirmEmailChange_InvalidLink"];
+            return;
+        }
+
         var result = await UserManager.ChangeEmailAsync(user, Email, code);
         if (!result.Succeeded)
         {

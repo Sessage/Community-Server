@@ -18,15 +18,7 @@ namespace TodoSuite.Server.Components.Account
 
         public void RedirectTo(string? uri)
         {
-            uri ??= "";
-
-            // Prevent open redirects.
-            if (!Uri.IsWellFormedUriString(uri, UriKind.Relative))
-            {
-                uri = navigationManager.ToBaseRelativePath(uri);
-            }
-
-            navigationManager.NavigateTo(uri);
+            navigationManager.NavigateTo(GetSafeBaseRelativeUri(uri));
         }
 
         public void RedirectTo(string uri, Dictionary<string, object?> queryParameters)
@@ -50,6 +42,31 @@ namespace TodoSuite.Server.Components.Account
             => RedirectToWithStatus(CurrentPath, message, context);
 
         public void RedirectToInvalidUser(UserManager<ApplicationUser> userManager, HttpContext context)
-            => RedirectToWithStatus("Account/InvalidUser", $"Error: Unable to load user with ID '{userManager.GetUserId(context.User)}'.", context);
+            => RedirectToWithStatus("Account/InvalidUser", "Error: Unable to load the current user.", context);
+
+        private string GetSafeBaseRelativeUri(string? uri)
+        {
+            if (string.IsNullOrWhiteSpace(uri) || uri.IndexOf('\\') >= 0)
+                return "";
+
+            var baseUri = new Uri(navigationManager.BaseUri, UriKind.Absolute);
+            if (!Uri.TryCreate(baseUri, uri, out var target)
+                || !string.Equals(baseUri.Scheme, target.Scheme, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(baseUri.Host, target.Host, StringComparison.OrdinalIgnoreCase)
+                || baseUri.Port != target.Port
+                || !IsBelowBasePath(baseUri.AbsolutePath, target.AbsolutePath))
+            {
+                return "";
+            }
+
+            return navigationManager.ToBaseRelativePath(target.AbsoluteUri);
+        }
+
+        private static bool IsBelowBasePath(string basePath, string targetPath)
+        {
+            var normalizedBasePath = basePath.EndsWith('/') ? basePath : $"{basePath}/";
+            return targetPath.Equals(normalizedBasePath.TrimEnd('/'), StringComparison.Ordinal)
+                || targetPath.StartsWith(normalizedBasePath, StringComparison.Ordinal);
+        }
     }
 }

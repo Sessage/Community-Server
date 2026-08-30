@@ -72,8 +72,9 @@
         }
         catch (Exception ex)
         {
+            Logger.LogError(ex, "Unexpected error while disabling 2FA.");
             _isError = true;
-            _statusMessage = $"Fehler: {ex.Message}";
+            _statusMessage = "Die Zwei-Faktor-Authentifizierung konnte nicht deaktiviert werden. Bitte versuchen Sie es erneut.";
             _loading = false;
             StateHasChanged();
         }

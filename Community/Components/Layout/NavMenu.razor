@@ -524,12 +524,14 @@
                                 <div class="h-px bg-slate-100 my-1"></div>
 
                                 @* Abmelden *@
-                                <a href="Account/Logout?returnUrl=Account/Login"
-                                   data-enhance-nav="false"
-                                   class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-700 flex items-center gap-2">
+                                <form action="Account/Logout?returnUrl=Account/Login" method="post" data-enhance="false">
+                                    <AntiforgeryToken />
+                                    <button type="submit"
+                                            class="w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 text-red-700 flex items-center gap-2">
                                     <FluentIcon Value="@(new Icons.Regular.Size20.SignOut())" Color="Color.Error" />
                                     @L["Nav_Logout"]
-                                </a>
+                                    </button>
+                                </form>
                             </div>
                         </DropdownContent>
                     </FloatingDropdown>

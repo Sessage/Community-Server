@@ -10,6 +10,7 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IEmailSender<ApplicationUser> EmailSender
 @inject NavigationManager NavigationManager
+@inject ILogger<ResendEmailConfirmation> Logger
 
 <PageTitle>E-Mail-Bestätigung senden</PageTitle>
 
@@ -72,10 +73,10 @@
         }
         catch (Exception ex)
         {
-            message = $"Fehler: Die Bestätigungs-E-Mail konnte nicht versendet werden. {ex.Message}";
-            return;
+            Logger.LogWarning(ex, "Confirmation email to '{Email}' could not be resent.", email);
         }
 
+        // Keep the response indistinguishable from the unknown-address path.
         message = "Bestätigungs-E-Mail gesendet. Bitte überprüfe dein Postfach.";
     }
 
