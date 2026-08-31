@@ -6,7 +6,6 @@ namespace TodoSuite.Server.Services;
 
 public class SearchService : ISearchService
 {
-    private const int MaxResults = 100;
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
 
     public SearchService(IDbContextFactory<ApplicationDbContext> dbFactory)
@@ -19,8 +18,13 @@ public class SearchService : ISearchService
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(userId))
             return Array.Empty<SearchResultItem>();
 
-        var q = query.Trim();
-        var pattern = $"%{EscapeLikePattern(q)}%";
+        var q = SearchUtilities.NormalizeQuery(query);
+        if (q.Length == 0)
+            return [];
+
+        var escapedQuery = EscapeLikePattern(q);
+        var pattern = $"%{escapedQuery}%";
+        var prefixPattern = $"{escapedQuery}%";
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
@@ -31,8 +35,10 @@ public class SearchService : ISearchService
 
         var listResults = await accessibleLists
             .Where(l => EF.Functions.ILike(l.Name, pattern, "\\"))
-            .OrderBy(l => l.Name)
-            .Take(MaxResults)
+            .OrderByDescending(l => EF.Functions.ILike(l.Name, escapedQuery, "\\"))
+            .ThenByDescending(l => EF.Functions.ILike(l.Name, prefixPattern, "\\"))
+            .ThenBy(l => l.Name)
+            .Take(SearchUtilities.MaxResults)
             .Select(l => new SearchResultItem(
                 SearchResultKind.List,
                 l.Id,
@@ -41,10 +47,6 @@ public class SearchService : ISearchService
                 l.Name,
                 "name"))
             .ToListAsync(ct);
-
-        var remaining = MaxResults - listResults.Count;
-        if (remaining <= 0)
-            return listResults;
 
         var taskResults = await db.TodoTasks
             .AsNoTracking()
@@ -56,8 +58,11 @@ public class SearchService : ISearchService
             .Where(t => EF.Functions.ILike(t.Title, pattern, "\\")
                 || (t.Description != null && EF.Functions.ILike(t.Description, pattern, "\\"))
                 || t.Steps.Any(s => EF.Functions.ILike(s.Title, pattern, "\\")))
-            .OrderBy(t => t.Title)
-            .Take(remaining)
+            .OrderByDescending(t => EF.Functions.ILike(t.Title, escapedQuery, "\\"))
+            .ThenByDescending(t => EF.Functions.ILike(t.Title, prefixPattern, "\\"))
+            .ThenByDescending(t => EF.Functions.ILike(t.Title, pattern, "\\"))
+            .ThenBy(t => t.Title)
+            .Take(SearchUtilities.MaxResults)
             .Select(t => new SearchResultItem(
                 SearchResultKind.Task,
                 t.ListId,
@@ -71,10 +76,7 @@ public class SearchService : ISearchService
                         : "step"))
             .ToListAsync(ct);
 
-        return listResults.Concat(taskResults)
-            .OrderBy(r => r.Kind)
-            .ThenBy(r => r.Title, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return SearchUtilities.TakeBalanced(listResults, taskResults);
     }
 
     private static string EscapeLikePattern(string value)

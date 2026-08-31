@@ -17,10 +17,13 @@
                     @foreach (var item in grouping)
                     {
                         <tr class="border-t border-slate-100">
-                            <td class="p-2">@item.Task.Title</td>
+                            <td class="p-2">
+                                <button type="button" class="text-left font-medium text-blue-700 hover:underline"
+                                        @onclick="() => OnTaskSelected.InvokeAsync(item)">@item.Task.Title</button>
+                            </td>
                             <td class="p-2">@item.List.Name</td>
                             <td class="p-2">@item.Task.Column</td>
-                            <td class="p-2">@(item.Task.DueDate?.ToLocalTime().ToString("dd.MM.yyyy") ?? "-")</td>
+                            <td class="p-2">@(item.Task.DueDate?.ToLocalTime().ToString("d") ?? "-")</td>
                         </tr>
                     }
                 </tbody>
@@ -33,4 +36,5 @@
     [Parameter] public IEnumerable<IGrouping<string, (TodoListEntity List, TodoTaskEntity Task)>> GroupedItems { get; set; }
         = Enumerable.Empty<IGrouping<string, (TodoListEntity List, TodoTaskEntity Task)>>();
     [Parameter] public int VisibleCount { get; set; }
+    [Parameter] public EventCallback<(TodoListEntity List, TodoTaskEntity Task)> OnTaskSelected { get; set; }
 }

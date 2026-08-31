@@ -56,6 +56,13 @@ public class TodoListPreferencesService : TodoWorkspaceServiceBase, ITodoListPre
         ListSortMode? kanbanSortMode,
         CancellationToken cancellationToken = default)
     {
+        if (view.HasValue && !Enum.IsDefined(view.Value))
+            throw new ArgumentOutOfRangeException(nameof(view));
+        if (listSortMode.HasValue && !Enum.IsDefined(listSortMode.Value))
+            throw new ArgumentOutOfRangeException(nameof(listSortMode));
+        if (kanbanSortMode.HasValue && !Enum.IsDefined(kanbanSortMode.Value))
+            throw new ArgumentOutOfRangeException(nameof(kanbanSortMode));
+
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var list = await db.TodoLists
@@ -72,7 +79,8 @@ public class TodoListPreferencesService : TodoWorkspaceServiceBase, ITodoListPre
         var pref = await db.ListViewPreferences
             .FirstOrDefaultAsync(p => p.UserId == userId && p.ListId == listId, cancellationToken);
 
-        if (pref is null)
+        var created = pref is null;
+        if (created)
         {
             pref = new ListViewPreferenceEntity
             {
@@ -88,13 +96,37 @@ public class TodoListPreferencesService : TodoWorkspaceServiceBase, ITodoListPre
         }
         else
         {
-            if (view.HasValue) pref.LastView = view.Value;
-            if (listSortMode.HasValue) pref.ListSortMode = listSortMode.Value;
-            if (kanbanSortMode.HasValue) pref.KanbanSortMode = kanbanSortMode.Value;
-
-            pref.UpdatedAtUtc = DateTime.UtcNow;
+            ApplyPreference(pref!, view, listSortMode, kanbanSortMode);
         }
 
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (created)
+        {
+            // Two devices can create the first preference for the same list at the same time.
+            // Retry against the row that won the unique (UserId,ListId) race.
+            db.ChangeTracker.Clear();
+            pref = await db.ListViewPreferences
+                .FirstOrDefaultAsync(p => p.UserId == userId && p.ListId == listId, cancellationToken);
+            if (pref is null)
+                throw;
+
+            ApplyPreference(pref, view, listSortMode, kanbanSortMode);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private static void ApplyPreference(
+        ListViewPreferenceEntity preference,
+        DefaultListView? view,
+        ListSortMode? listSortMode,
+        ListSortMode? kanbanSortMode)
+    {
+        if (view.HasValue) preference.LastView = view.Value;
+        if (listSortMode.HasValue) preference.ListSortMode = listSortMode.Value;
+        if (kanbanSortMode.HasValue) preference.KanbanSortMode = kanbanSortMode.Value;
+        preference.UpdatedAtUtc = DateTime.UtcNow;
     }
 }

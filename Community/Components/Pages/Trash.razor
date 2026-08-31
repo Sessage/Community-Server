@@ -65,15 +65,57 @@
                                 <div class="min-w-0">
                                     <div class="font-medium truncate">@list.Name</div>
                                     <div class="text-xs text-slate-500">
-                                        @L["Page_Trash_DeletedOn"] @list.DeletedAt!.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                        @L["Page_Trash_DeletedOn"] @list.DeletedAt!.Value.ToLocalTime().ToString("g")
                                         &bull; @(daysLeft == 1 ? string.Format(L["Page_Trash_DaysLeft"], daysLeft) : string.Format(L["Page_Trash_DaysLeftPlural"], daysLeft))
                                     </div>
                                 </div>
                             </div>
                             <FluentButton Appearance="Appearance.Outline"
                                           Title="@L["Page_Trash_RestoreList"]"
-                                          Disabled="@(_restoringListId.HasValue)"
+                                          Disabled="@TrashMutationBusy"
                                           OnClick="@(() => RestoreListAsync(list.Id))">
+                                <div class="flex">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
+                                    <span class="ml-1 text-sm">@L["Btn_Restore"]</span>
+                                </div>
+                            </FluentButton>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="mb-8">
+            <h2 class="text-base font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <FluentIcon Value="@(new Icons.Regular.Size20.CheckboxChecked())" Color="Color.Neutral" />
+                @L["Workspace_RestoreDeletedTasks"]
+            </h2>
+
+            @if (_deletedTasks.Count == 0)
+            {
+                <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    @L["Workspace_RestoreEmpty"]
+                </div>
+            }
+            else
+            {
+                <div class="flex flex-col gap-2">
+                    @foreach (var task in _deletedTasks)
+                    {
+                        var daysLeft = DaysLeft(task.DeletedAtUtc);
+                        <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-3 shadow-sm gap-3">
+                            <div class="min-w-0">
+                                <div class="font-medium truncate">@task.TaskTitle</div>
+                                <div class="text-xs text-slate-500 truncate">@task.ListName</div>
+                                <div class="text-xs text-slate-500">
+                                    @L["Workspace_RestoreDeletedOn"] @task.DeletedAtUtc.ToLocalTime().ToString("g")
+                                    &bull; @string.Format(L["Workspace_RestoreDaysLeft"], daysLeft)
+                                </div>
+                            </div>
+                            <FluentButton Appearance="Appearance.Outline"
+                                          Title="@L["Workspace_RestoreTask"]"
+                                          Disabled="@TrashMutationBusy"
+                                          OnClick="@(() => RestoreTaskAsync(task))">
                                 <div class="flex">
                                     <FluentIcon Value="@(new Icons.Regular.Size20.ArrowCounterclockwise())" />
                                     <span class="ml-1 text-sm">@L["Btn_Restore"]</span>
@@ -92,8 +134,11 @@
     private string _error = "";
     private bool _loading = true;
     private Guid? _restoringListId;
+    private Guid? _restoringTaskId;
+    private bool TrashMutationBusy => _restoringListId.HasValue || _restoringTaskId.HasValue;
 
     private List<TodoListEntity> _deletedLists = new();
+    private List<DeletedTaskTrashItem> _deletedTasks = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -116,10 +161,16 @@
 
         try
         {
-            _deletedLists = (await TrashService.GetDeletedListsAsync(_userId)).ToList();
+            var deletedListsTask = TrashService.GetDeletedListsAsync(_userId);
+            var deletedTasksTask = TrashService.GetDeletedTaskEntriesAsync(_userId);
+            await Task.WhenAll(deletedListsTask, deletedTasksTask);
+            _deletedLists = (await deletedListsTask).ToList();
+            _deletedTasks = (await deletedTasksTask).ToList();
         }
         catch (Exception ex)
         {
+            _deletedLists.Clear();
+            _deletedTasks.Clear();
             _error = string.Format(L["Err_TrashLoad"], ex.Message);
         }
         finally
@@ -130,13 +181,18 @@
 
     private async Task RestoreListAsync(Guid listId)
     {
-        if (_restoringListId.HasValue) return;
+        if (TrashMutationBusy) return;
 
         _restoringListId = listId;
         _error = "";
         try
         {
-            await TrashService.RestoreListAsync(_userId, listId);
+            if (!await TrashService.RestoreListAsync(_userId, listId))
+            {
+                await LoadAsync();
+                _error = string.Format(L["Err_ListRestore"], L["Trash_ItemNoLongerAvailable"]);
+                return;
+            }
             await LoadAsync();
         }
         catch (Exception ex)
@@ -146,6 +202,32 @@
         finally
         {
             _restoringListId = null;
+        }
+    }
+
+    private async Task RestoreTaskAsync(DeletedTaskTrashItem task)
+    {
+        if (TrashMutationBusy) return;
+
+        _restoringTaskId = task.TaskId;
+        _error = "";
+        try
+        {
+            if (!await TrashService.RestoreTaskAsync(_userId, task.ListId, task.TaskId))
+            {
+                await LoadAsync();
+                _error = string.Format(L["Err_TaskRestore"], L["Trash_ItemNoLongerAvailable"]);
+                return;
+            }
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = string.Format(L["Err_TaskRestore"], ex.Message);
+        }
+        finally
+        {
+            _restoringTaskId = null;
         }
     }
 

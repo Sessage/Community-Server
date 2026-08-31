@@ -1,4 +1,5 @@
 @page "/"
+@implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @using Klassenbibliothek.Components.Views
@@ -28,7 +29,10 @@
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
-        <div class="mx-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">@_error</div>
+        <div class="mx-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+            <div>@_error</div>
+            <button type="button" class="mt-2 font-medium underline underline-offset-2" @onclick="ReloadAsync">@L["Page_Tasks_Retry"]</button>
+        </div>
     }
     else if (_taskList.Tasks.Count == 0)
     {
@@ -41,6 +45,7 @@
                           SortMode="ListSortMode.DueDate"
                           ShowAddTaskInput="false"
                           ListIdSelector="GetTaskListId"
+                          CanEditTask="CanEditAssignedTask"
                           OnChanged="ReloadAsync"
                           OnTaskSelected="OpenTaskDetails" />
         </div>
@@ -69,11 +74,14 @@
     };
 
     private readonly Dictionary<Guid, TodoListEntity> _listLookup = new();
+    private HashSet<string> _currentUserKeys = new(StringComparer.OrdinalIgnoreCase);
     private TodoTaskEntity? _selectedTask;
     private TodoListEntity? _selectedList;
     private Guid _selectedListId;
     private bool _loading = true;
     private string? _error;
+    private CancellationTokenSource? _loadCts;
+    private long _loadVersion;
 
     protected override async Task OnInitializedAsync()
     {
@@ -83,49 +91,43 @@
     private async Task ReloadAsync()
     {
         await LoadAssignedTasksAsync();
-        StateHasChanged();
     }
 
     private async Task LoadAssignedTasksAsync()
     {
+        var version = Interlocked.Increment(ref _loadVersion);
+        var current = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _loadCts, current);
+        try { previous?.Cancel(); } catch { }
+        previous?.Dispose();
+
         _loading = true;
         _error = null;
         await InvokeAsync(StateHasChanged);
 
-        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = auth.User;
-
-        var userId =
-            user.FindFirstValue(ClaimTypes.NameIdentifier)
-            ?? user.FindFirstValue("sub")
-            ?? "gast";
-
-        var userKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            userId
-        };
-
-        var email = user.FindFirstValue(ClaimTypes.Email);
-        if (!string.IsNullOrWhiteSpace(email))
-            userKeys.Add(email.Trim());
-
-        var upn = user.FindFirstValue(ClaimTypes.Upn);
-        if (!string.IsNullOrWhiteSpace(upn))
-            userKeys.Add(upn.Trim());
-
         try
         {
-            var lists = await ListService.GetAssignedTaskListsAsync(userId, userKeys);
+            var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = auth.User;
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user.FindFirstValue("sub")
+                ?? "gast";
+            var userKeys = AssigneeIdentityKeys.Create(
+                userId,
+                user.FindFirstValue(ClaimTypes.Email),
+                user.FindFirstValue(ClaimTypes.Upn),
+                user.Identity?.Name);
+
+            var lists = await ListService.GetAssignedTaskListsAsync(userId, userKeys, current.Token);
+            if (version != _loadVersion)
+                return;
+
+            var tasks = lists.SelectMany(list => list.Tasks).ToList();
+            _currentUserKeys = AssigneeIdentityKeys.ExpandWithAcceptedParticipants(userKeys, lists);
 
             _listLookup.Clear();
             foreach (var list in lists)
-            {
                 _listLookup[list.Id] = list;
-            }
-
-            var tasks = lists
-                .SelectMany(list => list.Tasks)
-                .ToList();
 
             _taskList = new TodoListEntity
             {
@@ -138,24 +140,43 @@
             if (_selectedTask is not null)
             {
                 _selectedTask = tasks.FirstOrDefault(t => t.Id == _selectedTask.Id);
-                if (_selectedTask is null)
+                if (_selectedTask is not null && _listLookup.TryGetValue(_selectedTask.ListId, out var selectedList))
+                {
+                    _selectedList = selectedList;
+                    _selectedListId = selectedList.Id;
+                }
+                else
                 {
                     _selectedList = null;
                     _selectedListId = Guid.Empty;
                 }
             }
         }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
         catch
         {
-            _error = "Die Aufgaben konnten nicht geladen werden. Bitte versuche es erneut.";
+            if (version == _loadVersion)
+                _error = L["Page_Tasks_Error"];
         }
         finally
         {
-            _loading = false;
+            if (version == _loadVersion)
+            {
+                _loading = false;
+                await InvokeAsync(StateHasChanged);
+                if (ReferenceEquals(Interlocked.CompareExchange(ref _loadCts, null, current), current))
+                    current.Dispose();
+            }
         }
     }
 
     private Guid GetTaskListId(TodoTaskEntity task) => task.ListId;
+
+    private bool CanEditAssignedTask(TodoTaskEntity task)
+    {
+        if (!_listLookup.TryGetValue(task.ListId, out var list)) return false;
+        return AssigneeIdentityKeys.CanWrite(list, _currentUserKeys);
+    }
 
     private Task OpenTaskDetails(TodoTaskEntity task)
     {
@@ -185,5 +206,13 @@
     private async Task HandleTaskUpdated(TodoTaskEntity updated)
     {
         await ReloadAsync();
+    }
+
+    public void Dispose()
+    {
+        Interlocked.Increment(ref _loadVersion);
+        var cts = Interlocked.Exchange(ref _loadCts, null);
+        try { cts?.Cancel(); } catch { }
+        cts?.Dispose();
     }
 }

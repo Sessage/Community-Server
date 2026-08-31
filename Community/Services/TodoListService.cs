@@ -12,6 +12,7 @@ namespace TodoSuite.Server.Services;
 /// </summary>
 public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 {
+    private const int MaxListNameLength = 200;
     private readonly IProductFeatureCatalog? _features;
     private bool CustomFieldsEnabled => _features?.IsEnabled(ProductFeatureIds.Forms) ?? true;
     /// <summary>
@@ -217,6 +218,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         if (listIds.Length == 0)
             return lists;
 
+        normalizedKeys = AssigneeIdentityKeys.ExpandWithAcceptedParticipants(normalizedKeys, lists);
+
         var loweredKeys = normalizedKeys
             .Select(k => k.ToLowerInvariant())
             .ToArray();
@@ -233,7 +236,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
                 && t.DeletedAt == null
                 && t.Assignee != null
                 && t.Assignee != ""
-                && loweredKeys.Contains(t.Assignee.ToLower()))
+                && loweredKeys.Contains(t.Assignee.Trim().ToLower()))
             .AsSplitQuery()
             .AsNoTracking()
             .ToListAsync(cancellationToken);
@@ -285,9 +288,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     /// <inheritdoc />
     public async Task<TodoListEntity> CreateListFromTemplateAsync(string userId, Guid templateId, string newName, CancellationToken cancellationToken = default)
     {
-        var trimmed = (newName ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(trimmed))
-            throw new ArgumentException("Listenname darf nicht leer sein.", nameof(newName));
+        var trimmed = NormalizeListName(newName, nameof(newName));
 
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -300,14 +301,16 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         if (template is null)
             throw new InvalidOperationException($"Vorlage nicht gefunden oder kein Zugriff. TemplateId='{templateId}'.");
 
+        var newListId = Guid.NewGuid();
+        var columns = NormalizeColumns(template.Columns);
         var newList = new TodoListEntity
         {
-            Id = Guid.NewGuid(),
+            Id = newListId,
             OwnerId = userId,
             Name = trimmed,
             IsTemplate = false,
-            Columns = template.Columns?.ToList() ?? new List<string> { "Backlog", "In Arbeit", "Erledigt" },
-            DoneColumns = template.DoneColumns?.ToList() ?? new List<string>(),
+            Columns = columns,
+            DoneColumns = NormalizeDoneColumns(template.DoneColumns, columns),
             DefaultView = template.DefaultView,
             BackgroundColor = template.BackgroundColor,
             Tasks = new List<TodoTaskEntity>(),
@@ -329,9 +332,12 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
                     Type = f.Type,
                     IsRequired = f.IsRequired,
                     SourceTaskListId = f.Type == TodoCustomFieldType.TaskTitleSelect
-                        && f.SourceTaskList is not null
-                        && CanAdmin(userId, f.SourceTaskList)
-                            ? f.SourceTaskListId
+                        && f.SourceTaskListId == template.Id
+                            ? newListId
+                            : f.Type == TodoCustomFieldType.TaskTitleSelect
+                              && f.SourceTaskList is not null
+                              && CanAdmin(userId, f.SourceTaskList)
+                                ? f.SourceTaskListId
                             : null,
                     SortOrder = index,
                     Options = (f.Options ?? new List<TodoCustomFieldOptionEntity>())
@@ -373,6 +379,15 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     /// <inheritdoc />
     public async Task<TodoListEntity> AddListAsync(string userId, TodoListEntity list, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(list);
+        list.Name = NormalizeListName(list.Name, nameof(list));
+        list.Columns = NormalizeColumns(list.Columns);
+        list.DoneColumns = NormalizeDoneColumns(list.DoneColumns, list.Columns);
+        var background = (list.BackgroundColor ?? string.Empty).Trim();
+        list.BackgroundColor = IsValidHexColor(background) ? background.ToUpperInvariant() : null;
+        if (list.IsTemplate)
+            list.Tasks = [];
+
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         list.Id = list.Id == Guid.Empty ? Guid.NewGuid() : list.Id;
@@ -467,6 +482,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     /// <inheritdoc />
     public async Task<TodoListEntity?> UpdateListAsync(string userId, TodoListEntity list, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(list);
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var entity = await db.TodoLists
@@ -484,24 +500,16 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
             throw new WorkspaceConcurrencyException("Die Liste wurde zwischenzeitlich auf einem anderen Gerät geändert.");
         entity.ContentVersion++;
 
-        entity.Name = (list.Name ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(entity.Name))
-            throw new ArgumentException($"Listenname darf nicht leer sein. ListId='{entity.Id}'.", nameof(list));
+        entity.Name = NormalizeListName(list.Name, nameof(list));
 
         entity.DefaultView = list.DefaultView;
         var trimmedBackground = (list.BackgroundColor ?? "").Trim();
-        entity.BackgroundColor = IsValidHexColor(trimmedBackground) ? trimmedBackground : null;
+        entity.BackgroundColor = IsValidHexColor(trimmedBackground) ? trimmedBackground.ToUpperInvariant() : null;
 
-        var incomingCols = (list.Columns ?? new List<string>())
-            .Select(c => (c ?? "").Trim())
-            .Where(c => !string.IsNullOrWhiteSpace(c))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (incomingCols.Count == 0)
-            incomingCols = new List<string> { "Backlog", "In Arbeit", "Erledigt" };
+        var incomingCols = NormalizeColumns(list.Columns);
 
         entity.Columns = incomingCols;
+        entity.DoneColumns = NormalizeDoneColumns(list.DoneColumns, incomingCols);
 
         var incoming = list.Participants ?? new List<ListParticipantEntity>();
 
@@ -625,6 +633,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         // Soft-Delete: In Papierkorb verschieben
         entity.DeletedAt = DateTime.UtcNow;
         entity.DeletedByUserId = userId;
+        entity.ContentVersion++;
 
         await db.SaveChangesAsync(cancellationToken);
 
@@ -695,9 +704,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     /// <inheritdoc />
     public async Task RenameListAsync(string userId, Guid listId, string newName, CancellationToken cancellationToken = default)
     {
-        var trimmed = (newName ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(trimmed))
-            throw new ArgumentException($"Listenname darf nicht leer sein. ListId='{listId}'.", nameof(newName));
+        var trimmed = NormalizeListName(newName, nameof(newName));
 
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -734,7 +741,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
             throw new UnauthorizedAccessException($"Hintergrundfarbe für Liste '{list.Name}' kann nicht geändert werden (User='{userId}').");
 
         var trimmed = (backgroundColor ?? "").Trim();
-        list.BackgroundColor = IsValidHexColor(trimmed) ? trimmed : null;
+        list.BackgroundColor = IsValidHexColor(trimmed) ? trimmed.ToUpperInvariant() : null;
 
         await db.SaveChangesAsync(cancellationToken);
         await NotifyListUpdatedAsync(listId, cancellationToken);
@@ -931,9 +938,19 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         if (groupId is null)
             return null;
 
-        return await db.TodoListGroups.AnyAsync(g => g.Id == groupId && g.OwnerId == userId, cancellationToken)
-            ? groupId
-            : null;
+        var group = await db.TodoListGroups
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == groupId, cancellationToken)
+            ?? throw new ArgumentException("Die ausgewählte Gruppe wurde nicht gefunden.", nameof(groupId));
+
+        if (string.Equals(group.OwnerId, userId, StringComparison.OrdinalIgnoreCase))
+            return groupId;
+
+        if (group.IsPortfolio &&
+            await PortfolioAccessCoordinator.CanManagePortfolioAsync(db, userId, group.Id, cancellationToken))
+            return groupId;
+
+        throw new UnauthorizedAccessException("Die Liste darf nicht in der ausgewählten Gruppe erstellt werden.");
     }
 
     private static bool IsValidHexColor(string? s)
@@ -941,4 +958,32 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
            && s.Trim().StartsWith("#")
            && s.Trim().Length == 7
            && s.Trim().Skip(1).All(ch => "0123456789abcdefABCDEF".Contains(ch));
+
+    private static string NormalizeListName(string? name, string parameterName)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
+            throw new ArgumentException("Listenname darf nicht leer sein.", parameterName);
+        if (trimmed.Length > MaxListNameLength)
+            throw new ArgumentException($"Ein Listenname darf höchstens {MaxListNameLength} Zeichen lang sein.", parameterName);
+        return trimmed;
+    }
+
+    private static List<string> NormalizeColumns(IEnumerable<string>? columns)
+    {
+        var normalized = (columns ?? [])
+            .Select(column => (column ?? string.Empty).Trim())
+            .Where(column => column.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return normalized.Count == 0 ? ["Backlog", "In Arbeit", "Erledigt"] : normalized;
+    }
+
+    private static List<string> NormalizeDoneColumns(IEnumerable<string>? doneColumns, IReadOnlyList<string> columns)
+        => (doneColumns ?? [])
+            .Select(done => columns.FirstOrDefault(column => string.Equals(column, done?.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .Where(done => done is not null)
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 }

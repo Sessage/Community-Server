@@ -8,6 +8,7 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
+@inject TodoSuite.Server.Services.UserAccountArtifactCleanupService AccountArtifactCleanup
 
 <PageTitle>Persönliche Daten löschen</PageTitle>
 
@@ -75,6 +76,8 @@
             return;
         }
 
+        var userId = await UserManager.GetUserIdAsync(user);
+        var profilePicturePath = user.ProfilePicturePath;
         var result = await UserManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
@@ -83,7 +86,7 @@
 
         await SignInManager.SignOutAsync();
 
-        var userId = await UserManager.GetUserIdAsync(user);
+        await AccountArtifactCleanup.CleanupAfterUserDeletionAsync(userId, profilePicturePath, CancellationToken.None);
         Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
 
         RedirectManager.RedirectToCurrentPage();

@@ -193,7 +193,7 @@ internal static class PortfolioAccessCoordinator
             NormalizeLegacyAccess(participant);
             participant.PortfolioRole = null;
             participant.SourcePortfolioGroupId = null;
-            if (participant.DirectRole is null)
+            if (participant.DirectRole is null && participant.DirectoryRole is null)
                 db.ListParticipants.Remove(participant);
             else
                 participant.RecalculateEffectiveAccess();

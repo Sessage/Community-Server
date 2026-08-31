@@ -39,7 +39,7 @@
                      class="todo-list-card w-full rounded-2xl border border-slate-200 bg-white p-3 hover:shadow-md transition cursor-pointer"
                      role="button"
                      data-taskid="@t.Id"
-                     @onclick="() => SelectTaskAsync(t)">
+                     @onclick="() => HandleTaskCardClickAsync(t)">
 
                     <div class="todo-list-card-row w-full"
                          style="display:grid; grid-template-columns:@CardGridColumns; column-gap:0.75rem; row-gap:0.35rem; align-items:start;">
@@ -57,6 +57,9 @@
                         <!-- DONE -->
                         <div class="shrink-0 flex items-start pt-1" style="grid-column:@DoneGridColumn; grid-row:1;">
                             <button type="button"
+                                    disabled="@(!CanEditTaskInternal(t))"
+                                    title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
+                                    class="disabled:cursor-not-allowed disabled:opacity-50"
                                     @onclick:preventDefault="true"
                                     @onclick:stopPropagation="true"
                                     @onclick="() => ToggleDoneAsync(t)">
@@ -105,6 +108,9 @@
                         <!-- IMPORTANT -->
                         <div class="shrink-0 flex items-start justify-end pt-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
                             <button type="button"
+                                    disabled="@(!CanEditTaskInternal(t))"
+                                    title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
+                                    class="disabled:cursor-not-allowed disabled:opacity-50"
                                     @onclick:preventDefault="true"
                                     @onclick:stopPropagation="true"
                                     @onclick="() => ToggleImportantAsync(t)">
@@ -159,7 +165,7 @@
                             <div @key="t.Id"
                                  class="w-full rounded-2xl border border-slate-200 bg-white p-3 hover:shadow-md transition cursor-pointer opacity-90"
                                  role="button"
-                                 @onclick="() => SelectTaskAsync(t)">
+                                 @onclick="() => HandleTaskCardClickAsync(t)">
 
                                 <div class="todo-list-card-row w-full"
                                      style="display:grid; grid-template-columns:@CardGridColumns; column-gap:0.75rem; row-gap:0.35rem; align-items:start;">
@@ -177,6 +183,9 @@
                                     <!-- DONE (zum Zurücksetzen) -->
                                     <div class="shrink-0 flex items-start pt-1" style="grid-column:@DoneGridColumn; grid-row:1;">
                                         <button type="button"
+                                                disabled="@(!CanEditTaskInternal(t))"
+                                                title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
+                                                class="disabled:cursor-not-allowed disabled:opacity-50"
                                                 @onclick:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => ToggleDoneAsync(t)">
@@ -216,6 +225,9 @@
                                     <!-- IMPORTANT (optional, bleibt nutzbar) -->
                                     <div class="shrink-0 flex items-start justify-end pt-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
                                         <button type="button"
+                                                disabled="@(!CanEditTaskInternal(t))"
+                                                title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
+                                                class="disabled:cursor-not-allowed disabled:opacity-50"
                                                 @onclick:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => ToggleImportantAsync(t)">
@@ -284,6 +296,7 @@
     [Parameter] public ListSortMode SortMode { get; set; } = ListSortMode.Custom;
     [Parameter] public bool ShowAddTaskInput { get; set; } = true;
     [Parameter] public Func<TodoTaskEntity, Guid>? ListIdSelector { get; set; }
+    [Parameter] public Func<TodoTaskEntity, bool>? CanEditTask { get; set; }
     [Parameter] public EventCallback<bool> OnDraggingChanged { get; set; }
     [Parameter] public bool SelectionMode { get; set; }
     [Parameter] public EventCallback<bool> SelectionModeChanged { get; set; }
@@ -576,6 +589,12 @@
         }
         _lastSelectionMode = SelectionMode;
 
+        var selectableTaskIds = (List.Tasks ?? [])
+            .Where(task => MatchesFilter(task))
+            .Select(task => task.Id)
+            .ToHashSet();
+        _selectedTaskIds.RemoveWhere(taskId => !selectableTaskIds.Contains(taskId));
+
         // Optimistischen Reorder-Stand auf das frisch geladene List-Objekt übertragen,
         // bevor Blazor rendert – verhindert das kurze Zurückspringen in die alte Reihenfolge.
         if (_pendingOrder is not null && List?.Tasks is not null)
@@ -694,7 +713,8 @@
 
     private List<TodoTaskEntity> GetDoneTasks()
         // keine Sortierung nötig – ich gebe sie trotzdem stabil aus (z.B. neueste oben)
-        => List.Tasks.Where(IsTaskDone)
+        => (List.Tasks ?? []).Where(IsTaskDone)
+            .Where(MatchesFilter)
             .OrderByDescending(t => t.CreatedAtUtc)
             .ToList();
 
@@ -721,6 +741,19 @@
             _selectedTaskIds.Remove(taskId);
     }
 
+    private async Task HandleTaskCardClickAsync(TodoTaskEntity task)
+    {
+        if (SelectionMode)
+        {
+            if (!_selectedTaskIds.Add(task.Id))
+                _selectedTaskIds.Remove(task.Id);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        await SelectTaskAsync(task);
+    }
+
     private async Task ClearSelectionAsync()
     {
         _selectedTaskIds.Clear();
@@ -737,14 +770,15 @@
 
     private IEnumerable<TodoTaskEntity> GetTasksInternal()
     {
+        var tasks = (List.Tasks ?? []).Where(task => task.DeletedAt is null);
         IEnumerable<TodoTaskEntity> q = SortMode switch
         {
-            ListSortMode.Custom => List.Tasks.OrderBy(t => GetEffectiveCustomOrder(t)),
-            ListSortMode.Importance => List.Tasks.OrderByDescending(t => t.IsImportant).ThenBy(t => t.ListSortOrder),
-            ListSortMode.DueDate => List.Tasks.OrderBy(t => t.DueDate ?? DateTime.MaxValue).ThenBy(t => t.ListSortOrder),
-            ListSortMode.Alphabetical => List.Tasks.OrderBy(t => t.Title).ThenBy(t => t.ListSortOrder),
-            ListSortMode.CreatedAt => List.Tasks.OrderByDescending(t => t.CreatedAtUtc).ThenBy(t => t.ListSortOrder),
-            _ => List.Tasks.OrderBy(t => t.ListSortOrder)
+            ListSortMode.Custom => tasks.OrderBy(t => GetEffectiveCustomOrder(t)),
+            ListSortMode.Importance => tasks.OrderByDescending(t => t.IsImportant).ThenBy(t => t.ListSortOrder),
+            ListSortMode.DueDate => tasks.OrderBy(t => t.DueDate ?? DateTime.MaxValue).ThenBy(t => t.ListSortOrder),
+            ListSortMode.Alphabetical => tasks.OrderBy(t => t.Title).ThenBy(t => t.ListSortOrder),
+            ListSortMode.CreatedAt => tasks.OrderByDescending(t => t.CreatedAtUtc).ThenBy(t => t.ListSortOrder),
+            _ => tasks.OrderBy(t => t.ListSortOrder)
         };
 
         return q.Where(t => MatchesFilter(t));
@@ -757,17 +791,11 @@
     {
         var uid = (_userId ?? "").Trim();
         if (string.IsNullOrWhiteSpace(uid)) return false;
-
-        if (string.Equals((List.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        var p = List.Participants?.FirstOrDefault(x =>
-            (!string.IsNullOrWhiteSpace(x.UserId) && string.Equals(x.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
-            || (!string.IsNullOrWhiteSpace(x.Email) && string.Equals(x.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase)));
-
-        if (p is null) return false;
-        return p.Role != ListRole.Observer;
+        return AssigneeIdentityKeys.CanWrite(List, [uid]);
     }
+
+    private bool CanEditTaskInternal(TodoTaskEntity task)
+        => CanEditTask?.Invoke(task) ?? CanWriteToList();
 
     /* ---------------- Addbar ---------------- */
 
@@ -984,6 +1012,7 @@
 
     private async Task ToggleDoneAsync(TodoTaskEntity t)
     {
+        if (!CanEditTaskInternal(t)) return;
         _error = "";
 
         var wasDone = IsTaskDone(t);
@@ -1082,6 +1111,7 @@
 
     private async Task ToggleImportantAsync(TodoTaskEntity t)
     {
+        if (!CanEditTaskInternal(t)) return;
         _error = "";
         var previousValue = t.IsImportant;
         t.IsImportant = !previousValue;
@@ -1110,104 +1140,7 @@
 
     private bool MatchesFilter(TodoTaskEntity t)
     {
-        var f = Filter;
-        if (f is null || !f.IsActive())
-            return true;
-
-        // ==========================
-        // Query
-        // ==========================
-        if (!string.IsNullOrWhiteSpace(f.Query))
-        {
-            var q = f.Query.Trim().ToLowerInvariant();
-            var hay = $"{t.Title} {t.Description}".ToLowerInvariant();
-            if (!hay.Contains(q))
-                return false;
-        }
-
-        // ==========================
-        // Done
-        // ==========================
-        if (f.Done is not null && IsTaskDone(t) != f.Done.Value)
-            return false;
-
-        // ==========================
-        // Due buckets
-        // ==========================
-        if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
-        {
-            var today = DateTime.Today;
-            var due = t.DueDate?.Date;
-
-            var match =
-                (f.NoDueDate && due is null) ||
-                (f.Overdue && due is not null && due.Value < today) ||
-                (f.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1)) ||
-                (f.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7)) ||
-                (f.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
-
-            if (!match)
-                return false;
-        }
-
-        // ==========================
-        // Labels
-        // ==========================
-        if (f.LabelIds.Count > 0)
-        {
-            if (t.LabelLinks is null || t.LabelLinks.Count == 0)
-                return false;
-
-            if (!t.LabelLinks.Any(l => f.LabelIds.Contains(l.LabelId)))
-                return false;
-        }
-
-        // ==========================
-        // 🔹 ASSIGNEE (Bearbeiter)
-        // ==========================
-        var assignee = (t.Assignee ?? "").Trim();
-        var me = (_userId ?? "").Trim();
-
-        // ❌ Kein Bearbeiter
-        if (f.NoAssignee)
-        {
-            if (!string.IsNullOrWhiteSpace(assignee))
-                return false;
-        }
-
-        // 👤 Mir zugewiesen
-        if (f.AssignedToMe)
-        {
-            if (string.IsNullOrWhiteSpace(me))
-                return false;
-
-            if (!string.Equals(assignee, me, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        // ==========================
-        // 👀 MEMBERS = Beobachter
-        // ==========================
-        var members = t.MemberUserIds ?? new List<string>();
-
-        // Konkrete Beobachter ausgewählt
-        if (f.MemberUserIds.Count > 0)
-        {
-            if (members.Count == 0)
-                return false;
-
-            if (!members.Any(m => f.MemberUserIds.Contains(m)))
-                return false;
-        }
-
-        // Keine Beobachter
-        if (f.NoMembers)
-        {
-            if (members.Count > 0)
-                return false;
-        }
-
-        return true;
+        return TodoTaskFilterMatcher.Matches(Filter, t, _userId, IsTaskDone(t));
     }
 
 

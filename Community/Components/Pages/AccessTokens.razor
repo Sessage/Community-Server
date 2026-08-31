@@ -5,11 +5,10 @@
 @using Microsoft.AspNetCore.Identity
 @using Klassenbibliothek.Data
 @using System.Security.Claims
-@using Microsoft.EntityFrameworkCore
+@using TodoSuite.Server.Services
 @inject AuthenticationStateProvider AuthStateProvider
-@inject IDbContextFactory<ApplicationDbContext> DbFactory
+@inject PersonalAccessTokenService TokenService
 @inject IJSRuntime JS
-@inject IConfiguration Configuration
 
 <PageTitle>API-Zugriffstoken</PageTitle>
 
@@ -103,13 +102,15 @@
                         <li class="flex items-center gap-3 px-5 py-3">
                             <div class="flex-1 min-w-0">
                                 <div class="font-medium text-sm truncate">@token.Name</div>
-                                <div class="text-xs text-slate-500">@(token.ReadOnly ? "Nur Lesen" : "Lesen und Schreiben")</div>
+                                <div class="text-xs @(IsExpired(token) ? "text-red-600" : "text-slate-500")">
+                                    @(IsExpired(token) ? "Abgelaufen" : token.ReadOnly ? "Nur Lesen" : "Lesen und Schreiben")
+                                </div>
                                 <div class="text-xs text-slate-500">
-                                    Erstellt: @token.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-                                    <span> · Läuft ab: @token.ExpiresAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                    Erstellt: @token.CreatedAtUtc.ToLocalTime().ToString("g")
+                                    <span> · Läuft ab: @token.ExpiresAtUtc.ToLocalTime().ToString("g")</span>
                                     @if (token.LastUsedAtUtc.HasValue)
                                     {
-                                        <span> · Zuletzt genutzt: @token.LastUsedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                                        <span> · Zuletzt genutzt: @token.LastUsedAtUtc.Value.ToLocalTime().ToString("g")</span>
                                     }
                                     else
                                     {
@@ -173,12 +174,15 @@
     {
         if (_userId is null) return;
 
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _tokens = await db.PersonalAccessTokens
-            .Where(t => t.UserId == _userId)
-            .OrderByDescending(t => t.CreatedAtUtc)
-            .Select(t => new TokenItem(t.Id, t.Name, !t.AllowWrite, t.CreatedAtUtc, t.ExpiresAtUtc, t.LastUsedAtUtc))
-            .ToListAsync();
+        _tokens = (await TokenService.ListAsync(_userId))
+            .Select(token => new TokenItem(
+                token.Id,
+                token.Name,
+                token.ReadOnly,
+                token.CreatedAtUtc,
+                token.ExpiresAtUtc,
+                token.LastUsedAtUtc))
+            .ToList();
     }
 
     private async Task CreateTokenAsync()
@@ -192,36 +196,24 @@
 
         try
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-
-            var randomBytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
-            var rawToken = "tsa_" + Convert.ToBase64String(randomBytes)
-                .Replace('+', '-').Replace('/', '_').TrimEnd('=');
-
-            var hash = TodoSuite.Server.Auth.PersonalAccessTokenAuthHandler.HashToken(rawToken);
-
-            var createdAtUtc = DateTime.UtcNow;
-            var lifetimeDays = Math.Clamp(Configuration.GetValue("PersonalAccessTokens:LifetimeDays", 90), 1, 365);
-            var entity = new PersonalAccessTokenEntity
-            {
-                UserId = _userId,
-                Name = _newTokenName.Trim(),
-                TokenHash = hash,
-                AllowWrite = !_newTokenReadOnly,
-                CreatedAtUtc = createdAtUtc,
-                ExpiresAtUtc = createdAtUtc.AddDays(lifetimeDays)
-            };
-
-            db.PersonalAccessTokens.Add(entity);
-            await db.SaveChangesAsync();
-
-            _newToken = rawToken;
+            var created = await TokenService.CreateAsync(_userId, _newTokenName, _newTokenReadOnly);
+            _newToken = created.Token;
             _copied = false;
             _newTokenName = "";
             _newTokenReadOnly = false;
             _statusMessage = "";
-
-            await LoadTokensAsync();
+            _tokens.Insert(0, new TokenItem(
+                created.Id,
+                created.Name,
+                created.ReadOnly,
+                created.CreatedAtUtc,
+                created.ExpiresAtUtc,
+                null));
+        }
+        catch (Exception ex) when (ex is ArgumentException or PersonalAccessTokenLimitExceededException)
+        {
+            _statusMessage = ex.Message;
+            _isError = true;
         }
         catch
         {
@@ -246,17 +238,8 @@
 
         try
         {
-            await using var db = await DbFactory.CreateDbContextAsync();
-            var token = await db.PersonalAccessTokens
-                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == _userId);
-
-            if (token is not null)
-            {
-                db.PersonalAccessTokens.Remove(token);
-                await db.SaveChangesAsync();
-            }
-
-            await LoadTokensAsync();
+            await TokenService.DeleteAsync(_userId, id);
+            _tokens.RemoveAll(token => token.Id == id);
         }
         catch
         {
@@ -294,4 +277,5 @@
     }
 
     private void CancelDelete() => _deleteTokenId = null;
+    private static bool IsExpired(TokenItem token) => token.ExpiresAtUtc <= DateTime.UtcNow;
 }

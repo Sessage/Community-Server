@@ -2,17 +2,22 @@
 @attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Claims
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Features
+@using Klassenbibliothek.Administration
 @inject UserManager<ApplicationUser> UserManager
-@inject RoleManager<IdentityRole> RoleManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IProductFeatureCatalog FeatureCatalog
+@inject IAuditEventSink Audit
+@inject UserAccountArtifactCleanupService AccountArtifactCleanup
 @inject ILogger<Admin> Logger
 
 <PageTitle>Administration - Sessage</PageTitle>
 
 <div class="h-full min-h-0 overflow-y-auto">
-<div class="admin-page space-y-6 max-w-5xl mx-auto p-6">
+<div class="admin-page space-y-6 max-w-5xl mx-auto p-4 sm:p-6">
 
     <!-- Header -->
     <div class="flex items-center justify-between">
@@ -85,7 +90,11 @@
                             <p class="text-xs text-slate-500 mt-1">Mit Groß- und Kleinbuchstaben, Ziffer und Sonderzeichen.</p>
                         </div>
                     }
-                    <FluentSwitch @bind-Checked="_form.IsAdmin">Administrator</FluentSwitch>
+                    <FluentSwitch @bind-Checked="_form.IsAdmin" Disabled="@IsEditingCurrentUser">Administrator</FluentSwitch>
+                    @if (IsEditingCurrentUser)
+                    {
+                        <p class="mt-1 text-xs text-slate-500">Die eigene Administratorrolle kann hier nicht entfernt werden.</p>
+                    }
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     @if (_editingUserId != null)
@@ -106,14 +115,14 @@
 
     <!-- Benutzerliste -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <div class="flex flex-col items-stretch gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-base">👥</div>
                 <h2 class="text-base font-semibold text-slate-800">Benutzer-Übersicht</h2>
                 <span class="rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-0.5">@_users.Count</span>
             </div>
-            <div class="flex items-center gap-2">
-                <FluentTextField @bind-Value="_searchTerm" Placeholder="Name oder E-Mail suchen" Class="admin-text-field" Style="width:220px;"
+            <div class="flex items-center gap-2 sm:w-auto">
+                <FluentTextField @bind-Value="_searchTerm" Placeholder="Name oder E-Mail suchen" Class="admin-text-field w-full" Style="width:100%;min-width:0;"
                                  @oninput="OnSearchInput" />
             </div>
         </div>
@@ -137,7 +146,7 @@
             <div class="divide-y divide-slate-100">
                 @foreach (var user in _users)
                 {
-                    <div class="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors">
+                    <div class="flex flex-col items-stretch gap-3 px-4 py-3.5 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between sm:px-5">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-sm shrink-0">
                                 @UserInitial(user.Email ?? user.UserName ?? "?")
@@ -153,15 +162,16 @@
                                 </span>
                             }
                         </div>
-                        <div class="flex gap-2 shrink-0 ml-3">
+                        <div class="flex shrink-0 justify-end gap-2 sm:ml-3">
                             <FluentButton Appearance="Appearance.Outline" OnClick="() => StartEdit(user)"
                                           Title="Bearbeiten">
                                 Bearbeiten
                             </FluentButton>
                             <FluentButton Appearance="Appearance.Outline"
                                           Style="border-color: #fca5a5; color: #dc2626;"
+                                          Disabled="@IsCurrentUser(user)"
                                           OnClick="() => ConfirmDelete(user)"
-                                          Title="Löschen">
+                                          Title="@(IsCurrentUser(user) ? "Das eigene Konto kann hier nicht gelöscht werden." : "Löschen")">
                                 Löschen
                             </FluentButton>
                         </div>
@@ -188,7 +198,7 @@
         </FluentDialogBody>
         <FluentDialogFooter>
             <FluentButton Appearance="Appearance.Stealth" OnClick="() => _deleteTarget = null">Abbrechen</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" Style="background:#dc2626;" OnClick="ExecuteDeleteAsync">
+            <FluentButton Appearance="Appearance.Accent" Style="background:#dc2626;" Disabled="@_saving" OnClick="ExecuteDeleteAsync">
                 Löschen
             </FluentButton>
         </FluentDialogFooter>
@@ -201,6 +211,8 @@
     private string _searchTerm = string.Empty;
     private string _message = string.Empty;
     private bool _messageIsError;
+    private string _currentUserId = string.Empty;
+    private List<UserViewModel> _allUsers = new();
     private List<UserViewModel> _users = new();
     private string? _editingUserId;
     private UserViewModel? _deleteTarget;
@@ -240,6 +252,8 @@
     protected override async Task OnInitializedAsync()
     {
         _capabilities = FeatureCatalog.GetCapabilities();
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _currentUserId = authenticationState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
         await LoadUsersAsync();
     }
 
@@ -249,17 +263,11 @@
         StateHasChanged();
         try
         {
-            var allUsers = UserManager.Users.ToList();
+            var allUsers = await UserManager.Users.AsNoTracking().ToListAsync();
             var result = new List<UserViewModel>();
 
             foreach (var u in allUsers)
             {
-                if (!string.IsNullOrWhiteSpace(_searchTerm) &&
-                    !(u.Email?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                      u.UserName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true ||
-                      u.DisplayName?.Contains(_searchTerm, StringComparison.OrdinalIgnoreCase) == true))
-                    continue;
-
                 var isAdmin = await UserManager.IsInRoleAsync(u, "Admin");
                 result.Add(new UserViewModel
                 {
@@ -268,7 +276,8 @@
                 });
             }
 
-            _users = result.OrderBy(u => u.Email, StringComparer.OrdinalIgnoreCase).ToList();
+            _allUsers = result.OrderBy(u => u.Email, StringComparer.OrdinalIgnoreCase).ToList();
+            ApplySearchFilter();
         }
         catch (Exception exception)
         {
@@ -281,10 +290,22 @@
         }
     }
 
-    private async Task OnSearchInput(ChangeEventArgs e)
+    private void OnSearchInput(ChangeEventArgs e)
     {
         _searchTerm = e.Value?.ToString() ?? string.Empty;
-        await LoadUsersAsync();
+        ApplySearchFilter();
+    }
+
+    private void ApplySearchFilter()
+    {
+        var search = _searchTerm.Trim();
+        _users = string.IsNullOrWhiteSpace(search)
+            ? _allUsers.ToList()
+            : _allUsers.Where(user =>
+                    user.Email?.Contains(search, StringComparison.OrdinalIgnoreCase) == true
+                    || user.UserName?.Contains(search, StringComparison.OrdinalIgnoreCase) == true
+                    || user.DisplayName?.Contains(search, StringComparison.OrdinalIgnoreCase) == true)
+                .ToList();
     }
 
     private async Task SaveUserAsync()
@@ -340,6 +361,7 @@
                     }
                 }
 
+                await TryRecordAuditAsync("user-created", $"userId={newUser.Id}; isAdmin={_form.IsAdmin}");
                 ShowMessage($"Benutzer {_form.Email} wurde angelegt.", isError: false);
             }
             else
@@ -361,6 +383,12 @@
                 }
 
                 var isCurrentlyAdmin = await UserManager.IsInRoleAsync(user, "Admin");
+                if (!_form.IsAdmin && isCurrentlyAdmin && IsCurrentUser(user.Id))
+                {
+                    ShowMessage("Die eigene Administratorrolle kann nicht entfernt werden.", isError: true);
+                    return;
+                }
+
                 if (_form.IsAdmin && !isCurrentlyAdmin)
                 {
                     var roleResult = await UserManager.AddToRoleAsync(user, "Admin");
@@ -380,6 +408,7 @@
                     }
                 }
 
+                await TryRecordAuditAsync("user-updated", $"userId={user.Id}; isAdmin={_form.IsAdmin}");
                 ShowMessage($"Benutzer {user.Email} wurde aktualisiert.", isError: false);
             }
 
@@ -418,22 +447,43 @@
             _message = string.Empty;
     }
 
-    private void ConfirmDelete(UserViewModel user) => _deleteTarget = user;
+    private void ConfirmDelete(UserViewModel user)
+    {
+        if (IsCurrentUser(user))
+        {
+            ShowMessage("Das eigene Konto kann im Adminbereich nicht gelöscht werden.", true);
+            return;
+        }
+
+        _deleteTarget = user;
+    }
 
     private async Task ExecuteDeleteAsync()
     {
         if (_deleteTarget == null || _saving) return;
 
         var target = _deleteTarget;
+        if (IsCurrentUser(target))
+        {
+            _deleteTarget = null;
+            ShowMessage("Das eigene Konto kann im Adminbereich nicht gelöscht werden.", true);
+            return;
+        }
+
         _saving = true;
         try
         {
             var user = await UserManager.FindByIdAsync(target.Id);
             if (user != null)
             {
+                var profilePicturePath = user.ProfilePicturePath;
                 var result = await UserManager.DeleteAsync(user);
                 if (result.Succeeded)
+                {
+                    await AccountArtifactCleanup.CleanupAfterUserDeletionAsync(user.Id, profilePicturePath, CancellationToken.None);
+                    await TryRecordAuditAsync("user-deleted", $"userId={user.Id}");
                     ShowMessage($"Benutzer {target.Email} wurde gelöscht.", isError: false);
+                }
                 else
                     ShowMessage(IdentityErrors(result), isError: true);
             }
@@ -459,6 +509,24 @@
 
     private static string UserInitial(string email)
         => email.Length > 0 ? email[0].ToString().ToUpperInvariant() : "?";
+
+    private bool IsEditingCurrentUser => _editingUserId is not null && IsCurrentUser(_editingUserId);
+    private bool IsCurrentUser(UserViewModel user) => IsCurrentUser(user.Id);
+    private bool IsCurrentUser(string userId)
+        => !string.IsNullOrWhiteSpace(_currentUserId)
+           && string.Equals(userId, _currentUserId, StringComparison.Ordinal);
+
+    private async Task TryRecordAuditAsync(string action, string details)
+    {
+        try
+        {
+            await Audit.RecordAsync("users", action, _currentUserId, details, CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Audit-Eintrag {AuditAction} konnte nicht gespeichert werden.", action);
+        }
+    }
 
     private bool HasEnterpriseLicense =>
         _capabilities.Edition == ProductEdition.Enterprise

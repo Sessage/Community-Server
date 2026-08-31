@@ -5,10 +5,12 @@
 @using Microsoft.AspNetCore.Identity
 @using System.Security.Claims
 @using System.Text
+@using System.ComponentModel.DataAnnotations
 @using System.Text.Encodings.Web
 @using Microsoft.AspNetCore.WebUtilities
 @using Klassenbibliothek.Data
 @inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IEmailSender<ApplicationUser> EmailSender
 @inject INotificationService NotificationService
@@ -496,6 +498,8 @@
             if (result.Succeeded)
             {
                 _user = await UserManager.FindByIdAsync(_user.Id);
+                if (_user is not null)
+                    await SignInManager.RefreshSignInAsync(_user);
                 _oldPassword = _newPassword = _confirmPassword = "";
                 SetPasswordSuccess(L["Account_PasswordChanged"]);
             }
@@ -529,15 +533,33 @@
 
         try
         {
+            var newEmail = _newEmail.Trim();
+            if (!new EmailAddressAttribute().IsValid(newEmail))
+            {
+                SetEmailError(L["Account_InvalidEmail"]);
+                return;
+            }
+            if (string.Equals(newEmail, _currentEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                SetEmailError(L["Account_EmailUnchanged"]);
+                return;
+            }
+            var existing = await UserManager.FindByEmailAsync(newEmail);
+            if (existing is not null && existing.Id != _user.Id)
+            {
+                SetEmailError(L["Account_EmailAlreadyUsed"]);
+                return;
+            }
+
             var userId = await UserManager.GetUserIdAsync(_user);
-            var code = await UserManager.GenerateChangeEmailTokenAsync(_user, _newEmail);
+            var code = await UserManager.GenerateChangeEmailTokenAsync(_user, newEmail);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
 
             var callbackUrl = Navigation.GetUriWithQueryParameters(
                 Navigation.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
-                new Dictionary<string, object?> { ["userId"] = userId, ["email"] = _newEmail, ["code"] = code });
+                new Dictionary<string, object?> { ["userId"] = userId, ["email"] = newEmail, ["code"] = code });
 
-            await EmailSender.SendConfirmationLinkAsync(_user, _newEmail, callbackUrl);
+            await EmailSender.SendConfirmationLinkAsync(_user, newEmail, callbackUrl);
 
             _newEmail = "";
             SetEmailSuccess(L["Account_ConfirmationLinkSent"]);

@@ -24,7 +24,7 @@
             <div class="text-sm text-slate-600">@L["Label_Subtitle"]</div>
         </div>
 
-        <FluentButton Class="label-manager-new-button" Appearance="Appearance.Accent" OnClick="OpenAdd">
+        <FluentButton Class="label-manager-new-button" Appearance="Appearance.Accent" OnClick="OpenAdd" Disabled="@_busy">
             @L["Label_NewLabel"]
         </FluentButton>
     </div>
@@ -61,12 +61,14 @@
                     <div class="col-span-2 flex justify-end gap-1">
                         <FluentButton Appearance="Appearance.Stealth"
                                       Title="@L["Btn_Edit"]"
+                                      Disabled="@_busy"
                                       OnClick="@(() => OpenEdit(l))">
                             <FluentIcon Value="@(new Icons.Regular.Size16.Edit())" />
                         </FluentButton>
                         <FluentButton Appearance="Appearance.Stealth"
                                       Title="@L["Btn_Delete"]"
                                       Style="color: #b91c1c;"
+                                      Disabled="@_busy"
                                       OnClick="@(() => OpenDelete(l))">
                             <FluentIcon Value="@(new Icons.Regular.Size16.Delete())" />
                         </FluentButton>
@@ -86,7 +88,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Label_CreateTitle"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAdd">✕</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAdd" Disabled="@_busy">✕</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -102,14 +104,15 @@
                 <div class="space-y-2">
                     <div class="text-sm font-semibold text-slate-700">@L["Lbl_Title"]</div>
                     <input class="w-full rounded-xl border border-slate-200 p-2"
+                           maxlength="200"
                            @bind="_title" />
                 </div>
             </div>
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAdd">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="CreateAsync">@L["Btn_Create"]</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseAdd" Disabled="@_busy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="CreateAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">@L["Btn_Create"]</FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
 }
@@ -123,7 +126,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Label_EditTitle"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEdit">@L["Btn_Close"]</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEdit" Disabled="@_busy">@L["Btn_Close"]</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -139,14 +142,15 @@
                 <div class="space-y-2">
                     <div class="text-sm font-semibold text-slate-700">@L["Lbl_Title"]</div>
                     <input class="w-full rounded-xl border border-slate-200 p-2"
+                           maxlength="200"
                            @bind="_title" />
                 </div>
             </div>
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEdit">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="SaveAsync">@L["Btn_Save"]</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseEdit" Disabled="@_busy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveAsync" Disabled="@(_busy || string.IsNullOrWhiteSpace(_title))">@L["Btn_Save"]</FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
 }
@@ -160,7 +164,7 @@
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold text-red-700">@L["Label_DeleteTitle"]</div>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDelete">@L["Btn_Close"]</FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDelete" Disabled="@_busy">@L["Btn_Close"]</FluentButton>
             </div>
         </FluentDialogHeader>
 
@@ -174,8 +178,8 @@
         </FluentDialogBody>
 
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDelete">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteAsync">
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseDelete" Disabled="@_busy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="DeleteAsync" Disabled="@_busy">
                 @L["Label_DeletePermanent"]
             </FluentButton>
         </FluentDialogFooter>
@@ -189,6 +193,7 @@
 
     private string _userId = "gast";
     private string _error = "";
+    private bool _busy;
 
     private bool _addOpen;
     private bool _addHookActive;
@@ -247,6 +252,7 @@
     [JSInvokable]
     public async Task CloseFromOutsideClick()
     {
+        if (_busy) return;
         _addOpen = false;
         await InvokeAsync(StateHasChanged);
     }
@@ -259,7 +265,10 @@
         _addOpen = true;
     }
 
-    private void CloseAdd() => _addOpen = false;
+    private void CloseAdd()
+    {
+        if (!_busy) _addOpen = false;
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -279,6 +288,7 @@
 
     private void CloseEdit()
     {
+        if (_busy) return;
         _editOpen = false;
         _editing = null;
     }
@@ -292,12 +302,14 @@
 
     private void CloseDelete()
     {
+        if (_busy) return;
         _deleteOpen = false;
         _deleting = null;
     }
 
     private async Task CreateAsync()
     {
+        if (_busy) return;
         _error = "";
 
         var title = (_title ?? "").Trim();
@@ -318,7 +330,10 @@
 
         try
         {
-            await LabelService.AddLabelAsync(_userId, ListId, title, string.IsNullOrWhiteSpace(color) ? null : color);
+            _busy = true;
+            var created = await LabelService.AddLabelAsync(_userId, ListId, title, string.IsNullOrWhiteSpace(color) ? null : color);
+            if (created is null)
+                throw new InvalidOperationException("Das Label konnte nicht angelegt werden.");
             _addOpen = false;
 
             if (OnChanged.HasDelegate)
@@ -328,10 +343,12 @@
         {
             _error = string.Format(L["Err_LabelCreate"].Value, ex.Message);
         }
+        finally { _busy = false; }
     }
 
     private async Task SaveAsync()
     {
+        if (_busy) return;
         _error = "";
         if (_editing is null) return;
 
@@ -351,7 +368,10 @@
 
         try
         {
-            await LabelService.UpdateLabelAsync(_userId, ListId, _editing.Id, title, string.IsNullOrWhiteSpace(color) ? null : color);
+            _busy = true;
+            var updated = await LabelService.UpdateLabelAsync(_userId, ListId, _editing.Id, title, string.IsNullOrWhiteSpace(color) ? null : color);
+            if (updated is null)
+                throw new InvalidOperationException("Das Label wurde nicht gefunden.");
             _editOpen = false;
             _editing = null;
 
@@ -362,16 +382,20 @@
         {
             _error = string.Format(L["Err_LabelSave"].Value, ex.Message);
         }
+        finally { _busy = false; }
     }
 
     private async Task DeleteAsync()
     {
+        if (_busy) return;
         _error = "";
         if (_deleting is null) return;
 
         try
         {
-            await LabelService.DeleteLabelAsync(_userId, ListId, _deleting.Id);
+            _busy = true;
+            if (!await LabelService.DeleteLabelAsync(_userId, ListId, _deleting.Id))
+                throw new InvalidOperationException("Das Label wurde nicht gefunden oder bereits gelöscht.");
             _deleteOpen = false;
             _deleting = null;
 
@@ -382,5 +406,6 @@
         {
             _error = string.Format(L["Err_LabelDelete"].Value, ex.Message);
         }
+        finally { _busy = false; }
     }
 }

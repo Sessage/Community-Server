@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Data;
 using System.Net;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Hubs;
@@ -22,6 +23,10 @@ namespace TodoSuite.Server.Services;
 /// </summary>
 public sealed class ReminderDispatcherService : BackgroundService
 {
+    private const long DispatcherAdvisoryLockKey = 6075445457406612306L;
+    private const int MaxNotificationTitleLength = 240;
+    private const int MaxNotificationMessageLength = 4000;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHubContext<TodoHubEndpoint> _hub;
     private readonly string _appBaseUrl;
@@ -77,10 +82,19 @@ public sealed class ReminderDispatcherService : BackgroundService
         var email = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
+        await using var dispatchLease = await TryAcquireDispatchLeaseAsync(db, ct);
+        if (dispatchLease is null)
+        {
+            _logger.LogDebug("Reminder-Dispatcher überspringt diesen Lauf, weil eine andere Instanz bereits arbeitet.");
+            return;
+        }
 
         var due = await db.TodoTasks
             .Include(t => t.List!).ThenInclude(l => l.Participants)
             .Where(t => !t.Done
+                        && t.DeletedAt == null
+                        && t.List != null
+                        && t.List.DeletedAt == null
                         && t.ReminderAtUtc != null
                         && t.ReminderAtUtc <= now
                         && t.ReminderSentAtUtc == null)
@@ -94,13 +108,18 @@ public sealed class ReminderDispatcherService : BackgroundService
         foreach (var task in due)
         {
             var (recipientUserId, recipientEmail) = ResolveRecipient(task);
-            var title = string.Format(_localizer["Email_Reminder_Subject"].Value, task.Title);
-            var message = task.Description ?? _localizer["Email_Reminder_TaskDue"].Value;
+            var title = LimitText(string.Format(_localizer["Email_Reminder_Subject"].Value, task.Title), MaxNotificationTitleLength);
+            var message = LimitText(task.Description ?? _localizer["Email_Reminder_TaskDue"].Value, MaxNotificationMessageLength);
             var delivered = false;
             var preference = string.IsNullOrWhiteSpace(recipientUserId)
                 ? null
                 : await db.UserNotificationPreferences.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == recipientUserId, ct);
             var channel = preference?.Channel ?? NotificationDeliveryChannel.Browser;
+
+            // A deliberately disabled delivery preference is a completed reminder decision,
+            // otherwise the same row would be queried every 30 seconds forever.
+            if (!string.IsNullOrWhiteSpace(recipientUserId) && channel == NotificationDeliveryChannel.None)
+                delivered = true;
 
             if (!string.IsNullOrWhiteSpace(recipientUserId)
                 && (channel & (NotificationDeliveryChannel.Browser | NotificationDeliveryChannel.Push)) != 0)
@@ -173,15 +192,24 @@ public sealed class ReminderDispatcherService : BackgroundService
 
         foreach (var notification in pendingPushNotifications)
         {
-            await _push.SendAsync(
-                notification.UserId,
-                notification.Title,
-                notification.Message,
-                notification.ListId,
-                notification.TaskId,
-                NotificationEventType.TaskUpdated,
-                notification.Mode,
-                ct);
+            try
+            {
+                await _push.SendAsync(
+                    notification.UserId,
+                    notification.Title,
+                    notification.Message,
+                    notification.ListId,
+                    notification.TaskId,
+                    NotificationEventType.TaskUpdated,
+                    notification.Mode,
+                    ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Reminder-Push konnte nicht zugestellt werden. TaskId={TaskId}, UserId={UserId}", notification.TaskId, notification.UserId);
+                // Postfach und Versandmarkierung sind bereits persistiert; Push ist best effort.
+            }
         }
     }
 
@@ -231,7 +259,8 @@ public sealed class ReminderDispatcherService : BackgroundService
         if (!string.IsNullOrWhiteSpace(task.Assignee) && list is not null)
         {
             var p = list.Participants.FirstOrDefault(x =>
-                string.Equals(x.UserId, task.Assignee, StringComparison.OrdinalIgnoreCase));
+                !x.InvitationPending
+                && string.Equals(x.UserId, task.Assignee, StringComparison.OrdinalIgnoreCase));
 
             if (p is not null)
                 return (p.UserId, string.IsNullOrWhiteSpace(p.Email) ? null : p.Email);
@@ -241,7 +270,8 @@ public sealed class ReminderDispatcherService : BackgroundService
         if (list is not null)
         {
             var owner = list.Participants.FirstOrDefault(x =>
-                string.Equals(x.UserId, list.OwnerId, StringComparison.OrdinalIgnoreCase));
+                !x.InvitationPending
+                && string.Equals(x.UserId, list.OwnerId, StringComparison.OrdinalIgnoreCase));
 
             if (owner is not null)
                 return (owner.UserId, string.IsNullOrWhiteSpace(owner.Email) ? null : owner.Email);
@@ -250,5 +280,71 @@ public sealed class ReminderDispatcherService : BackgroundService
         }
 
         return (null, null);
+    }
+
+    private async Task<ReminderDispatchLease?> TryAcquireDispatchLeaseAsync(ApplicationDbContext db, CancellationToken ct)
+    {
+        if (!string.Equals(db.Database.ProviderName, "Npgsql.EntityFrameworkCore.PostgreSQL", StringComparison.Ordinal))
+            return new ReminderDispatchLease(db, ownsDatabaseConnection: false, lockHeld: false, _logger);
+
+        var connection = db.Database.GetDbConnection();
+        var ownsConnection = connection.State != ConnectionState.Open;
+        if (ownsConnection)
+            await db.Database.OpenConnectionAsync(ct);
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"SELECT pg_try_advisory_lock({DispatcherAdvisoryLockKey})";
+            var result = await command.ExecuteScalarAsync(ct);
+            var acquired = result is not null && result != DBNull.Value && Convert.ToBoolean(result);
+            if (!acquired)
+            {
+                if (ownsConnection)
+                    await db.Database.CloseConnectionAsync();
+                return null;
+            }
+
+            return new ReminderDispatchLease(db, ownsConnection, lockHeld: true, _logger);
+        }
+        catch
+        {
+            if (ownsConnection)
+                await db.Database.CloseConnectionAsync();
+            throw;
+        }
+    }
+
+    private static string LimitText(string? value, int maxLength)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private sealed class ReminderDispatchLease(
+        ApplicationDbContext db,
+        bool ownsDatabaseConnection,
+        bool lockHeld,
+        ILogger logger) : IAsyncDisposable
+    {
+        public async ValueTask DisposeAsync()
+        {
+            if (lockHeld)
+            {
+                try
+                {
+                    await using var command = db.Database.GetDbConnection().CreateCommand();
+                    command.CommandText = $"SELECT pg_advisory_unlock({DispatcherAdvisoryLockKey})";
+                    await command.ExecuteScalarAsync(CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Der Datenbank-Lock des Reminder-Dispatchers konnte nicht explizit freigegeben werden.");
+                }
+            }
+
+            if (ownsDatabaseConnection)
+                await db.Database.CloseConnectionAsync();
+        }
     }
 }

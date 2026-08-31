@@ -11,6 +11,8 @@ namespace TodoSuite.Server.Services;
 /// </summary>
 public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
 {
+    private const int MaxLabelTitleLength = 200;
+
     /// <summary>
     /// Erstellt eine neue Instanz der Label-Verwaltung.
     /// </summary>
@@ -37,12 +39,15 @@ public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
             throw new ArgumentException(
                 $"Label konnte nicht angelegt werden: Titel ist leer. ListId='{listId}'.",
                 nameof(title));
+        if (name.Length > MaxLabelTitleLength)
+            throw new ArgumentException($"Ein Labeltitel darf höchstens {MaxLabelTitleLength} Zeichen lang sein.", nameof(title));
+        var color = NormalizeColor(backgroundColor);
 
         await using var db = await DbContextFactory.CreateDbContextAsync(ct);
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, ct);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, ct);
 
         if (list is null)
             throw new InvalidOperationException(
@@ -72,9 +77,7 @@ public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
             Id = id is { } requestedIdValue && requestedIdValue != Guid.Empty ? requestedIdValue : Guid.NewGuid(),
             ListId = listId,
             Title = name,
-            BackgroundColor = string.IsNullOrWhiteSpace(backgroundColor)
-                ? null
-                : backgroundColor.Trim()
+            BackgroundColor = color
         };
 
         db.TodoLabels.Add(entity);
@@ -99,12 +102,15 @@ public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
             throw new ArgumentException(
                 $"Label konnte nicht geändert werden: Titel ist leer. LabelId='{labelId}'.",
                 nameof(title));
+        if (name.Length > MaxLabelTitleLength)
+            throw new ArgumentException($"Ein Labeltitel darf höchstens {MaxLabelTitleLength} Zeichen lang sein.", nameof(title));
+        var color = NormalizeColor(backgroundColor);
 
         await using var db = await DbContextFactory.CreateDbContextAsync(ct);
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, ct);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, ct);
 
         if (list is null)
             throw new InvalidOperationException(
@@ -131,9 +137,7 @@ public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
                 $"Label konnte nicht geändert werden: Ein Label mit dem Namen '{name}' existiert bereits. Liste='{list.Name}'.");
 
         label.Title = name;
-        label.BackgroundColor = string.IsNullOrWhiteSpace(backgroundColor)
-            ? null
-            : backgroundColor.Trim();
+        label.BackgroundColor = color;
 
         await db.SaveChangesAsync(ct);
         await NotifyListUpdatedAsync(listId, ct);
@@ -152,7 +156,7 @@ public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, ct);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, ct);
 
         if (list is null)
             throw new InvalidOperationException(
@@ -174,5 +178,15 @@ public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
         await NotifyListUpdatedAsync(listId, ct);
 
         return true;
+    }
+
+    private static string? NormalizeColor(string? backgroundColor)
+    {
+        var color = (backgroundColor ?? string.Empty).Trim();
+        if (color.Length == 0)
+            return null;
+        if (color.Length != 7 || color[0] != '#' || color.Skip(1).Any(character => !Uri.IsHexDigit(character)))
+            throw new ArgumentException("Die Labelfarbe muss als sechsstelliger Hex-Farbwert angegeben werden.", nameof(backgroundColor));
+        return color.ToUpperInvariant();
     }
 }

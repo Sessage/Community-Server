@@ -16,6 +16,7 @@ using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.IdentityModel.Tokens;
 using TodoSuite.Server.OpenApi;
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -144,6 +145,8 @@ public static class CommunityApplication
         builder.Services.AddScoped<IDirectorySharingService, CommunityDirectorySharingService>();
         builder.Services.AddScoped<IDirectoryIdentitySynchronizer, NoOpDirectoryIdentitySynchronizer>();
         builder.Services.AddScoped<ITodoListPreferencesService, TodoListPreferencesService>();
+        builder.Services.AddScoped<PersonalAccessTokenService>();
+        builder.Services.AddScoped<UserAccountArtifactCleanupService>();
         builder.Services.AddScoped<ITodoColumnService, TodoColumnService>();
         builder.Services.AddScoped<ITodoAttachmentService, TodoAttachmentService>();
         builder.Services.AddScoped<ITodoCommentService, TodoCommentService>();
@@ -201,23 +204,31 @@ public static class CommunityApplication
             "Jwt:Audience",
             "JWT_AUDIENCE",
             "JwtAudience") ?? "Sessage.App";
-        var jwtExpiresMinutes = int.TryParse(GetConfigurationValue(
+        var configuredJwtLifetime = GetConfigurationValue(
             builder.Configuration,
             "Jwt:ExpiresMinutes",
             "JWT_EXPIRES_MINUTES",
-            "JwtExpiresMinutes"), out var configuredJwtExpiresMinutes)
-            && configuredJwtExpiresMinutes > 0
-                ? configuredJwtExpiresMinutes
-                : 120;
-        const string developmentJwtKey = "SessageMobileDevelopmentKey-ChangeInProduction";
-        
-        if (!builder.Environment.IsDevelopment()
-            && (string.IsNullOrWhiteSpace(jwtKey)
-                || jwtKey == developmentJwtKey
-                || Encoding.UTF8.GetByteCount(jwtKey) < 32))
+            "JwtExpiresMinutes");
+        var jwtExpiresMinutes = JwtTokenOptions.DefaultExpiresMinutes;
+        if (configuredJwtLifetime is not null
+            && (!int.TryParse(configuredJwtLifetime, out jwtExpiresMinutes)
+                || jwtExpiresMinutes < 1
+                || jwtExpiresMinutes > JwtTokenOptions.MaxExpiresMinutes))
         {
             throw new InvalidOperationException(
-                "Jwt:Key muss in Production gesetzt sein und mindestens 32 Bytes lang sein. " +
+                $"Jwt:ExpiresMinutes muss zwischen 1 und {JwtTokenOptions.MaxExpiresMinutes} liegen.");
+        }
+        const string developmentJwtKey = "SessageMobileDevelopmentKey-ChangeInProduction";
+
+        if (string.IsNullOrWhiteSpace(jwtKey) || Encoding.UTF8.GetByteCount(jwtKey) < 32)
+        {
+            throw new InvalidOperationException("Jwt:Key muss mindestens 32 Bytes lang sein.");
+        }
+
+        if (!builder.Environment.IsDevelopment() && jwtKey == developmentJwtKey)
+        {
+            throw new InvalidOperationException(
+                "Jwt:Key muss in Production auf einen individuellen geheimen Wert gesetzt sein. " +
                 "Unter Linux/systemd als Umgebungsvariable bitte Jwt__Key oder JWT_KEY verwenden.");
         }
 
@@ -268,8 +279,38 @@ public static class CommunityApplication
                         {
                             context.Token = accessToken;
                         }
-        
+
                         return Task.CompletedTask;
+                    },
+                    OnTokenValidated = async context =>
+                    {
+                        var userId = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                        var tokenStamp = context.Principal?.FindFirstValue(JwtTokenOptions.SecurityStampClaimType);
+                        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(tokenStamp))
+                        {
+                            context.Fail("The mobile token does not contain a valid user binding.");
+                            return;
+                        }
+
+                        var userManager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+                        var user = await userManager.FindByIdAsync(userId);
+                        if (user is null || await userManager.IsLockedOutAsync(user))
+                        {
+                            context.Fail("The mobile token user is unavailable or locked.");
+                            return;
+                        }
+
+                        var currentStamp = await userManager.GetSecurityStampAsync(user);
+                        if (!string.Equals(tokenStamp, currentStamp, StringComparison.Ordinal))
+                        {
+                            context.Fail("The mobile token has been revoked.");
+                            return;
+                        }
+
+                        var tokenIsAdmin = context.Principal?.IsInRole("Admin") == true;
+                        var userIsAdmin = await userManager.IsInRoleAsync(user, "Admin");
+                        if (tokenIsAdmin != userIsAdmin)
+                            context.Fail("The mobile token roles are no longer current.");
                     }
                 };
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -278,9 +319,13 @@ public static class CommunityApplication
                     ValidateAudience = true,
                     ValidateIssuerSigningKey = true,
                     ValidateLifetime = true,
+                    RequireExpirationTime = true,
+                    RequireSignedTokens = true,
                     ValidIssuer = jwtIssuer,
                     ValidAudience = jwtAudience,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
+                    ClockSkew = TimeSpan.FromMinutes(1)
                 };
             })
             .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, PersonalAccessTokenAuthHandler>(

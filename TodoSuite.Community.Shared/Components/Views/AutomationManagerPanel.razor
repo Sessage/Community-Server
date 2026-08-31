@@ -34,7 +34,9 @@
         else if (_rules.Count == 0)
         {
             <div class="border-y border-slate-200 py-12 text-center">
-                <FluentIcon Value="@(new Icons.Regular.Size24.Flow())" Class="text-slate-400" />
+                <div class="flex justify-center" aria-hidden="true">
+                    <FluentIcon Value="@(new Icons.Regular.Size24.Flow())" Class="text-slate-400" />
+                </div>
                 <div class="mt-3 font-medium text-slate-800">@T(AutomationText.EmptyTitle)</div>
                 <div class="mt-1 text-sm text-slate-500">@T(AutomationText.EmptyHint)</div>
             </div>
@@ -89,6 +91,7 @@
                 <input class="h-12 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                        @bind="_editingRule.Name"
                        @bind:event="oninput"
+                       maxlength="200"
                        placeholder="@T(AutomationText.RuleNamePlaceholder)" />
             </div>
             <label class="flex h-12 items-center gap-2 text-sm">
@@ -178,8 +181,10 @@
                     </button>
                 </div>
                 <div class="space-y-3 p-4">
-                    @foreach (var action in _editingRule.Actions.OrderBy(x => x.SortOrder).ToList())
+                    @{ var orderedActions = _editingRule.Actions.OrderBy(x => x.SortOrder).ToList(); }
+                    @foreach (var action in orderedActions)
                     {
+                        var actionIndex = orderedActions.IndexOf(action);
                         <div class="grid items-start gap-3 border-b border-slate-100 pb-3 md:grid-cols-[minmax(180px,1fr)_minmax(220px,1.4fr)_auto]">
                             <select class="@SelectClass"
                                     value="@ActionSelectionValue(action)"
@@ -192,7 +197,7 @@
                                 </optgroup>
                                 @if (_pluginActions.Count > 0)
                                 {
-                                    <optgroup label="Plugins">
+                                    <optgroup label="@T(AutomationText.PluginAction)">
                                     @foreach (var pluginAction in _pluginActions)
                                     {
                                         <option value="plugin:@pluginAction.Id">@pluginAction.PluginName: @pluginAction.Name</option>
@@ -202,13 +207,27 @@
                                 @if (action.Type == TodoAutomationActionType.PluginAction
                                     && !_pluginActions.Any(plugin => string.Equals(plugin.Id, action.PluginActionId, StringComparison.OrdinalIgnoreCase)))
                                 {
-                                    <option value="plugin:@action.PluginActionId">Plugin nicht verfügbar: @action.PluginActionId</option>
+                                    <option value="plugin:@action.PluginActionId">@string.Format(T(AutomationText.PluginUnavailablePrefix), action.PluginActionId)</option>
                                 }
                             </select>
                             <div>@ActionEditor(action)</div>
-                            <FluentButton Appearance="Appearance.Stealth" Title="@T(AutomationText.RemoveAction)" OnClick="() => RemoveAction(action)">
-                                <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
-                            </FluentButton>
+                            <div class="flex items-center">
+                                <FluentButton Appearance="Appearance.Stealth"
+                                              Disabled="@(actionIndex == 0)"
+                                              Title="@LocalizedMoveAction(up: true)"
+                                              OnClick="() => MoveAction(action, -1)">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.ChevronUp())" />
+                                </FluentButton>
+                                <FluentButton Appearance="Appearance.Stealth"
+                                              Disabled="@(actionIndex == orderedActions.Count - 1)"
+                                              Title="@LocalizedMoveAction(up: false)"
+                                              OnClick="() => MoveAction(action, 1)">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.ChevronDown())" />
+                                </FluentButton>
+                                <FluentButton Appearance="Appearance.Stealth" Title="@T(AutomationText.RemoveAction)" OnClick="() => RemoveAction(action)">
+                                    <FluentIcon Value="@(new Icons.Regular.Size20.Delete())" />
+                                </FluentButton>
+                            </div>
                         </div>
                     }
                 </div>
@@ -227,6 +246,7 @@
 
 @code {
     [Parameter, EditorRequired] public TodoListEntity List { get; set; } = default!;
+    [Parameter] public IReadOnlyList<TodoListEntity> AvailableLists { get; set; } = [];
     [Parameter, EditorRequired] public string UserId { get; set; } = string.Empty;
     [Parameter] public EventCallback OnChanged { get; set; }
 
@@ -249,13 +269,27 @@
         {
             var rulesTask = AutomationService.GetRulesAsync(UserId, List.Id);
             var pluginsTask = AutomationService.GetPluginActionsAsync(UserId, List.Id);
-            await Task.WhenAll(rulesTask, pluginsTask);
-            _rules.Clear();
-            _rules.AddRange(await rulesTask);
-            _pluginActions.Clear();
-            _pluginActions.AddRange((await pluginsTask)
-                .OrderBy(action => action.PluginName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(action => action.Name, StringComparer.OrdinalIgnoreCase));
+            try
+            {
+                _rules.Clear();
+                _rules.AddRange(await rulesTask);
+            }
+            catch (Exception ex)
+            {
+                _error = ex.Message;
+            }
+
+            try
+            {
+                _pluginActions.Clear();
+                _pluginActions.AddRange((await pluginsTask)
+                    .OrderBy(action => action.PluginName, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(action => action.Name, StringComparer.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                _error = string.IsNullOrWhiteSpace(_error) ? ex.Message : $"{_error} {ex.Message}";
+            }
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _loading = false; }
@@ -306,6 +340,7 @@
     private void CancelEdit() { _editingRule = null; _error = string.Empty; }
     private void AddCondition() => _editingRule?.Conditions.Add(new TodoAutomationConditionEntity
     {
+        Id = Guid.Empty,
         SortOrder = _editingRule.Conditions.Count,
         Type = TodoAutomationConditionType.ToColumnEquals,
         Value = List.Columns.FirstOrDefault()
@@ -313,10 +348,34 @@
     private void RemoveCondition(TodoAutomationConditionEntity item) => _editingRule?.Conditions.Remove(item);
     private void AddAction() => _editingRule?.Actions.Add(new TodoAutomationActionEntity
     {
+        Id = Guid.Empty,
         SortOrder = _editingRule.Actions.Count,
         Type = TodoAutomationActionType.AddComment
     });
-    private void RemoveAction(TodoAutomationActionEntity item) => _editingRule?.Actions.Remove(item);
+    private void RemoveAction(TodoAutomationActionEntity item)
+    {
+        if (_editingRule is null || !_editingRule.Actions.Remove(item)) return;
+        ReindexActions(_editingRule.Actions);
+    }
+
+    private void MoveAction(TodoAutomationActionEntity item, int offset)
+    {
+        if (_editingRule is null) return;
+        var ordered = _editingRule.Actions.OrderBy(action => action.SortOrder).ToList();
+        var currentIndex = ordered.IndexOf(item);
+        var targetIndex = currentIndex + offset;
+        if (currentIndex < 0 || targetIndex < 0 || targetIndex >= ordered.Count) return;
+        ordered.RemoveAt(currentIndex);
+        ordered.Insert(targetIndex, item);
+        ReindexActions(ordered);
+        _editingRule.Actions = ordered;
+    }
+
+    private static void ReindexActions(IReadOnlyList<TodoAutomationActionEntity> actions)
+    {
+        for (var index = 0; index < actions.Count; index++)
+            actions[index].SortOrder = index;
+    }
 
     private void ChangeConditionType(TodoAutomationConditionEntity condition, ChangeEventArgs args)
     {
@@ -492,6 +551,8 @@
         }
         if (condition.Type is TodoAutomationConditionType.FromColumnEquals or TodoAutomationConditionType.ToColumnEquals)
             RenderStringSelect(builder, ref seq, List.Columns, condition.Value, value => condition.Value = value);
+        else if (condition.Type == TodoAutomationConditionType.AssigneeEquals)
+            RenderAssigneeSelect(builder, ref seq, condition.Value, value => condition.Value = value);
         else
             RenderTextInput(builder, ref seq, condition.Value, value => condition.Value = value, condition.Type == TodoAutomationConditionType.TitleContains ? T(AutomationText.TitleText) : T(AutomationText.Value));
     };
@@ -554,8 +615,8 @@
         }
     };
 
-    private static TodoAutomationConditionEntity CloneCondition(TodoAutomationConditionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, Value = x.Value };
-    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, LabelId = x.LabelId, PluginActionId = x.PluginActionId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
+    private static TodoAutomationConditionEntity CloneCondition(TodoAutomationConditionEntity x) => new() { Id = x.Id, RuleId = x.RuleId, Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, Value = x.Value };
+    private static TodoAutomationActionEntity CloneAction(TodoAutomationActionEntity x) => new() { Id = x.Id, RuleId = x.RuleId, Type = x.Type, SortOrder = x.SortOrder, CustomFieldId = x.CustomFieldId, FieldKey = x.FieldKey, LabelId = x.LabelId, PluginActionId = x.PluginActionId, Value = x.Value, ConfigurationJson = x.ConfigurationJson };
 
     private void RenderPluginActionEditor(
         Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder builder,
@@ -566,7 +627,7 @@
             string.Equals(candidate.Id, action.PluginActionId, StringComparison.OrdinalIgnoreCase));
         if (descriptor is null)
         {
-            RenderHint(builder, ref seq, "Diese Plugin-Aktion ist auf dem Server nicht verfügbar.");
+            RenderHint(builder, ref seq, T(AutomationText.PluginUnavailableHint));
             return;
         }
 
@@ -610,8 +671,8 @@
                 case AutomationPluginInputType.Secret:
                     RenderTextInput(builder, ref seq, value, next => SetPluginInput(action, input.Key, next),
                         configuration.ConfiguredSecrets.Contains(input.Key, StringComparer.OrdinalIgnoreCase)
-                            ? "Geheimnis ist gespeichert (leer lassen zum Beibehalten)"
-                            : input.Description ?? "Geheimnis",
+                            ? T(AutomationText.SecretConfigured)
+                            : input.Description ?? T(AutomationText.SecretPlaceholder),
                         "password");
                     if (configuration.ConfiguredSecrets.Contains(input.Key, StringComparer.OrdinalIgnoreCase))
                     {
@@ -619,7 +680,7 @@
                         builder.AddAttribute(seq++, "type", "button");
                         builder.AddAttribute(seq++, "class", "text-xs text-red-600 hover:underline");
                         builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => ClearPluginSecret(action, input.Key)));
-                        builder.AddContent(seq++, "Gespeichertes Geheimnis entfernen");
+                        builder.AddContent(seq++, T(AutomationText.RemoveStoredSecret));
                         builder.CloseElement();
                     }
                     break;
@@ -762,7 +823,7 @@
     {
         TodoAutomationActionType.SetApprover => LocalizedApprovalText("set-approver"),
         TodoAutomationActionType.RequestApproval => LocalizedApprovalText("request"),
-        TodoAutomationActionType.PluginAction => "Plugin-Aktion",
+        TodoAutomationActionType.PluginAction => T(AutomationText.PluginAction),
         _ => T((AutomationText)((int)AutomationText.ActionSetColor + (int)value))
     };
 
@@ -790,7 +851,8 @@
     private string? FirstEligibleParticipantUserId()
         => (List.Participants ?? [])
             .FirstOrDefault(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
-            ?.UserId?.Trim();
+            ?.UserId?.Trim()
+           ?? (!string.IsNullOrWhiteSpace(List.OwnerId) ? List.OwnerId.Trim() : null);
 
     private static string LocalizedApprovalText(string key)
     {
@@ -801,6 +863,22 @@
             ("de", "trigger-rejected") => "Genehmigung abgelehnt",
             ("de", "set-approver") => "Genehmiger setzen",
             ("de", "request") => "Genehmigung anfordern",
+            ("es", "trigger-approved") => "Aprobación concedida",
+            ("es", "trigger-rejected") => "Aprobación rechazada",
+            ("es", "set-approver") => "Definir aprobador",
+            ("es", "request") => "Solicitar aprobación",
+            ("fr", "trigger-approved") => "Approbation accordée",
+            ("fr", "trigger-rejected") => "Approbation refusée",
+            ("fr", "set-approver") => "Définir l’approbateur",
+            ("fr", "request") => "Demander une approbation",
+            ("hi", "trigger-approved") => "अनुमोदन मिला",
+            ("hi", "trigger-rejected") => "अनुमोदन अस्वीकृत",
+            ("hi", "set-approver") => "अनुमोदक सेट करें",
+            ("hi", "request") => "अनुमोदन का अनुरोध करें",
+            ("zh", "trigger-approved") => "审批已通过",
+            ("zh", "trigger-rejected") => "审批已拒绝",
+            ("zh", "set-approver") => "设置审批人",
+            ("zh", "request") => "请求审批",
             (_, "trigger-approved") => "Approval granted",
             (_, "trigger-rejected") => "Approval rejected",
             (_, "set-approver") => "Set approver",
@@ -827,6 +905,26 @@
         };
     }
 
+    private static string LocalizedMoveAction(bool up)
+    {
+        var language = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return (language, up) switch
+        {
+            ("de", true) => "Aktion nach oben verschieben",
+            ("de", false) => "Aktion nach unten verschieben",
+            ("es", true) => "Mover acción hacia arriba",
+            ("es", false) => "Mover acción hacia abajo",
+            ("fr", true) => "Déplacer l’action vers le haut",
+            ("fr", false) => "Déplacer l’action vers le bas",
+            ("hi", true) => "कार्रवाई ऊपर ले जाएँ",
+            ("hi", false) => "कार्रवाई नीचे ले जाएँ",
+            ("zh", true) => "上移操作",
+            ("zh", false) => "下移操作",
+            (_, true) => "Move action up",
+            (_, false) => "Move action down"
+        };
+    }
+
     private static string? ResolveFieldKey(string? fieldKey, Guid? customFieldId)
         => !string.IsNullOrWhiteSpace(fieldKey)
             ? fieldKey.Trim()
@@ -844,7 +942,9 @@
     {
         condition.FieldKey = fieldKey;
         condition.CustomFieldId = TryParseCustomFieldKey(fieldKey, out var id) ? id : null;
-        condition.Value = fieldKey switch
+        condition.Value = TryParseCustomFieldKey(fieldKey, out var customFieldId)
+            ? InitialCustomFieldValue(customFieldId)
+            : fieldKey switch
         {
             "column" => List.Columns.FirstOrDefault(),
             "done" or "important" => "true",
@@ -858,7 +958,9 @@
     {
         action.FieldKey = fieldKey;
         action.CustomFieldId = TryParseCustomFieldKey(fieldKey, out var id) ? id : null;
-        action.Value = fieldKey switch
+        action.Value = TryParseCustomFieldKey(fieldKey, out var customFieldId)
+            ? InitialCustomFieldValue(customFieldId)
+            : fieldKey switch
         {
             "column" => List.Columns.FirstOrDefault(),
             "done" or "important" => "true",
@@ -869,12 +971,21 @@
         };
     }
 
+    private string? InitialCustomFieldValue(Guid fieldId)
+        => List.CustomFields.FirstOrDefault(field => field.Id == fieldId)?.Type switch
+        {
+            TodoCustomFieldType.Checkbox => "false",
+            TodoCustomFieldType.Date => DateTime.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            _ => null
+        };
+
     private string? FirstAssigneeUserId()
         => (List.Participants ?? [])
             .Where(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
             .OrderBy(p => string.IsNullOrWhiteSpace(p.DisplayName) ? p.Email : p.DisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(p => p.UserId!.Trim())
-            .FirstOrDefault();
+            .FirstOrDefault()
+           ?? (!string.IsNullOrWhiteSpace(List.OwnerId) ? List.OwnerId.Trim() : null);
 
     private static string LocalizedTriggerSource(bool form)
     {
@@ -983,6 +1094,14 @@
 
     private void RenderFieldValueEditor(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? fieldKey, string? value, Action<string?> changed)
     {
+        if (TryParseCustomFieldKey(fieldKey, out var customFieldId))
+        {
+            var field = List.CustomFields.FirstOrDefault(candidate => candidate.Id == customFieldId);
+            if (field is not null)
+                RenderCustomFieldValueEditor(b, ref s, field, value, changed);
+            return;
+        }
+
         switch (fieldKey)
         {
             case "column":
@@ -1011,6 +1130,80 @@
                 break;
         }
     }
+
+    private void RenderCustomFieldValueEditor(
+        Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b,
+        ref int s,
+        TodoCustomFieldDefinitionEntity field,
+        string? value,
+        Action<string?> changed)
+    {
+        switch (field.Type)
+        {
+            case TodoCustomFieldType.Number:
+                RenderTextInput(b, ref s, value, changed, T(AutomationText.NewValue), "number");
+                return;
+            case TodoCustomFieldType.Date:
+                RenderTextInput(b, ref s, value, changed, "", "date");
+                return;
+            case TodoCustomFieldType.Checkbox:
+                RenderStringSelect(b, ref s, ["true", "false"], value ?? "false", changed,
+                    option => LocalizedBoolean(option == "true"));
+                return;
+            case TodoCustomFieldType.Dropdown:
+            case TodoCustomFieldType.TaskTitleSelect:
+                RenderCustomFieldOptionSelect(b, ref s, field, value, changed);
+                return;
+            case TodoCustomFieldType.MultiSelect:
+                var selected = CustomFieldMultiSelectValues.Parse(value);
+                b.OpenElement(s++, "div");
+                b.AddAttribute(s++, "class", "space-y-1 rounded-md border border-slate-300 bg-white p-2");
+                foreach (var option in CustomFieldSelectOptions.GetOptions(field, AvailableLists))
+                {
+                    var optionValue = option.Value;
+                    b.OpenElement(s++, "label");
+                    b.AddAttribute(s++, "class", "flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-slate-50");
+                    b.OpenElement(s++, "input");
+                    b.AddAttribute(s++, "type", "checkbox");
+                    b.AddAttribute(s++, "checked", selected.Contains(optionValue, StringComparer.OrdinalIgnoreCase));
+                    b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, args =>
+                        changed(CustomFieldMultiSelectValues.Toggle(value, optionValue, args.Value is bool isChecked && isChecked))));
+                    b.CloseElement();
+                    b.AddContent(s++, option.Label);
+                    b.CloseElement();
+                }
+                b.CloseElement();
+                return;
+            default:
+                RenderTextInput(b, ref s, value, changed, T(AutomationText.NewValue));
+                return;
+        }
+    }
+
+    private void RenderCustomFieldOptionSelect(
+        Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b,
+        ref int s,
+        TodoCustomFieldDefinitionEntity field,
+        string? value,
+        Action<string?> changed)
+    {
+        b.OpenElement(s++, "select");
+        b.AddAttribute(s++, "class", SelectClass);
+        b.AddAttribute(s++, "value", value);
+        b.AddAttribute(s++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, args => changed(args.Value?.ToString())));
+        b.OpenElement(s++, "option");
+        b.AddAttribute(s++, "value", "");
+        b.AddContent(s++, T(AutomationText.PleaseSelect));
+        b.CloseElement();
+        foreach (var option in CustomFieldSelectOptions.GetOptions(field, AvailableLists, value))
+        {
+            b.OpenElement(s++, "option");
+            b.AddAttribute(s++, "value", option.Value);
+            b.AddContent(s++, option.Label);
+            b.CloseElement();
+        }
+        b.CloseElement();
+    }
     private void RenderAssigneeSelect(Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder b, ref int s, string? value, Action<string?> changed)
     {
         var participants = (List.Participants ?? [])
@@ -1028,6 +1221,14 @@
         b.AddAttribute(s++, "value", "");
         b.AddContent(s++, T(AutomationText.PleaseSelect));
         b.CloseElement();
+        if (!string.IsNullOrWhiteSpace(List.OwnerId)
+            && participants.All(participant => !string.Equals(participant.UserId, List.OwnerId, StringComparison.OrdinalIgnoreCase)))
+        {
+            b.OpenElement(s++, "option");
+            b.AddAttribute(s++, "value", List.OwnerId);
+            b.AddContent(s++, List.OwnerId);
+            b.CloseElement();
+        }
         foreach (var participant in participants)
         {
             b.OpenElement(s++, "option");
@@ -1073,16 +1274,17 @@
         ActionSetColor, ActionSetField, ActionClearField, ActionAddComment, ActionAddLabel,
         ActionMarkCompleted, ActionMarkOpen, ActionMoveColumn, ActionSetAssignee,
         ActionSendNotification, ActionPostWebhook, ActionSetImportant, ActionClearAssignee,
-        ColorTopOnly, ColorWholeCard
+        ColorTopOnly, ColorWholeCard, PluginAction, PluginUnavailablePrefix,
+        PluginUnavailableHint, SecretConfigured, SecretPlaceholder, RemoveStoredSecret
     }
 
     private static readonly Dictionary<string, string[]> AutomationLanguagePacks = new()
     {
-        ["de"] = "Automatisierungsregeln|Abläufe dieser Liste zentral auslösen und ausführen.|Neue Regel|Noch keine Automatisierungen|Erstelle eine Regel für wiederkehrende Arbeitsschritte.|{0} · {1} Bedingung(en) · {2} Aktion(en)|Aktiv|Wirklich löschen?|Regelname|z. B. Farbe bei Eingang setzen|Auslöser|Wann soll die Regel starten?|Bedingungen|Optional, alle Bedingungen müssen zutreffen.|Bedingung|Keine Einschränkung. Die Regel gilt für jede passende Aufgabe.|Bedingung entfernen|Aktionen|Werden von oben nach unten ausgeführt.|Aktion|Aktion entfernen|Neue Automatisierung|Keine weitere Angabe|Text im Titel|Wert|Wichtig|Nicht wichtig|Neuer Wert|Kommentartext|Benachrichtigungstext|Benutzer-ID oder E-Mail|Felder auswählen|Bearer-Token ist hinterlegt (leer lassen zum Beibehalten)|Optionaler Bearer-Token|ID|Titel|Beschreibung|Spalte|Erledigt|Wichtig|Bearbeiter|Startdatum|Fälligkeitsdatum|Kartenfarbe|Bitte wählen|Aufgabe wurde erstellt|Aufgabe wurde geändert|Aufgabe wurde in eine andere Spalte verschoben|Aufgabe wurde fertiggestellt|Aufgabe wurde erneut geöffnet|Bearbeiter wurde geändert|Ausgangsspalte ist|Zielspalte ist|Aufgabe ist fertig|Aufgabe ist offen|Bearbeiter ist|Feld entspricht|Feld ist leer|Titel enthält|Kartenfarbe setzen|Feld befüllen|Feld leeren|Kommentar hinzufügen|Label hinzufügen|Als fertig markieren|Als offen markieren|In Spalte verschieben|Bearbeiter setzen|Benachrichtigung senden|Felder per POST senden|Wichtigkeit setzen|Bearbeiter entfernen|Nur oben einfärben|Ganze Karte einfärben".Split('|'),
-        ["en"] = "Automation rules|Trigger and run workflows for this list.|New rule|No automations yet|Create a rule for recurring workflows.|{0} · {1} condition(s) · {2} action(s)|Active|Delete this rule?|Rule name|e.g. Set color on intake|Trigger|When should the rule start?|Conditions|Optional; all conditions must match.|Condition|No restrictions. The rule applies to every matching task.|Remove condition|Actions|Run from top to bottom.|Action|Remove action|New automation|No additional value|Text in title|Value|Important|Not important|New value|Comment text|Notification text|User ID or email|Select fields|Bearer token is configured (leave empty to keep it)|Optional bearer token|ID|Title|Description|Column|Completed|Important|Assignee|Start date|Due date|Card color|Please select|Task was created|Task was updated|Task moved to another column|Task was completed|Task was reopened|Assignee changed|Source column is|Target column is|Task is completed|Task is open|Assignee is|Field equals|Field is empty|Title contains|Set card color|Set field value|Clear field|Add comment|Add label|Mark as completed|Mark as open|Move to column|Set assignee|Send notification|POST selected fields|Set importance|Clear assignee|Color top only|Color entire card".Split('|'),
-        ["es"] = "Reglas de automatización|Activa y ejecuta flujos para esta lista.|Nueva regla|Aún no hay automatizaciones|Crea una regla para tareas recurrentes.|{0} · {1} condición(es) · {2} acción(es)|Activa|¿Eliminar esta regla?|Nombre de la regla|p. ej., definir color al recibir|Disparador|¿Cuándo debe iniciarse la regla?|Condiciones|Opcional; deben cumplirse todas.|Condición|Sin restricciones. La regla se aplica a todas las tareas coincidentes.|Eliminar condición|Acciones|Se ejecutan de arriba abajo.|Acción|Eliminar acción|Nueva automatización|Sin valor adicional|Texto en el título|Valor|Importante|No importante|Nuevo valor|Texto del comentario|Texto de notificación|ID de usuario o correo|Seleccionar campos|El token Bearer está configurado (déjalo vacío para conservarlo)|Token Bearer opcional|ID|Título|Descripción|Columna|Completada|Importante|Responsable|Fecha de inicio|Fecha límite|Color de tarjeta|Seleccionar|Se creó la tarea|Se modificó la tarea|La tarea cambió de columna|Se completó la tarea|Se reabrió la tarea|Cambió el responsable|La columna de origen es|La columna de destino es|La tarea está completada|La tarea está abierta|El responsable es|El campo es igual a|El campo está vacío|El título contiene|Definir color de tarjeta|Rellenar campo|Vaciar campo|Añadir comentario|Añadir etiqueta|Marcar como completada|Marcar como abierta|Mover a columna|Asignar responsable|Enviar notificación|Enviar campos seleccionados por POST|Definir importancia|Quitar responsable|Colorear solo arriba|Colorear toda la tarjeta".Split('|'),
-        ["fr"] = "Règles d’automatisation|Déclenchez et exécutez des flux pour cette liste.|Nouvelle règle|Aucune automatisation|Créez une règle pour les tâches récurrentes.|{0} · {1} condition(s) · {2} action(s)|Active|Supprimer cette règle ?|Nom de la règle|p. ex. définir la couleur à l’arrivée|Déclencheur|Quand la règle doit-elle démarrer ?|Conditions|Facultatif ; toutes doivent être remplies.|Condition|Aucune restriction. La règle s’applique à toutes les tâches correspondantes.|Supprimer la condition|Actions|Exécutées de haut en bas.|Action|Supprimer l’action|Nouvelle automatisation|Aucune valeur supplémentaire|Texte dans le titre|Valeur|Important|Non important|Nouvelle valeur|Texte du commentaire|Texte de notification|ID utilisateur ou e-mail|Sélectionner les champs|Un jeton Bearer est configuré (laisser vide pour le conserver)|Jeton Bearer facultatif|ID|Titre|Description|Colonne|Terminée|Important|Responsable|Date de début|Date d’échéance|Couleur de carte|Veuillez sélectionner|La tâche a été créée|La tâche a été modifiée|La tâche a changé de colonne|La tâche a été terminée|La tâche a été rouverte|Le responsable a changé|La colonne source est|La colonne cible est|La tâche est terminée|La tâche est ouverte|Le responsable est|Le champ est égal à|Le champ est vide|Le titre contient|Définir la couleur|Renseigner le champ|Vider le champ|Ajouter un commentaire|Ajouter une étiquette|Marquer comme terminée|Marquer comme ouverte|Déplacer vers la colonne|Définir le responsable|Envoyer une notification|Envoyer les champs sélectionnés par POST|Définir l’importance|Retirer le responsable|Colorer uniquement le haut|Colorer toute la carte".Split('|'),
-        ["hi"] = "ऑटोमेशन नियम|इस सूची के लिए वर्कफ़्लो शुरू और चलाएँ।|नया नियम|अभी कोई ऑटोमेशन नहीं|दोहराए जाने वाले कार्यों के लिए नियम बनाएँ।|{0} · {1} शर्तें · {2} कार्रवाइयाँ|सक्रिय|क्या यह नियम हटाएँ?|नियम का नाम|जैसे, आने पर रंग सेट करें|ट्रिगर|नियम कब शुरू होना चाहिए?|शर्तें|वैकल्पिक; सभी शर्तें पूरी होनी चाहिए।|शर्त|कोई सीमा नहीं। नियम हर मेल खाने वाले कार्य पर लागू होगा।|शर्त हटाएँ|कार्रवाइयाँ|ऊपर से नीचे क्रम में चलेंगी।|कार्रवाई|कार्रवाई हटाएँ|नया ऑटोमेशन|कोई अतिरिक्त मान नहीं|शीर्षक में टेक्स्ट|मान|महत्वपूर्ण|महत्वपूर्ण नहीं|नया मान|टिप्पणी टेक्स्ट|सूचना टेक्स्ट|उपयोगकर्ता ID या ईमेल|फ़ील्ड चुनें|Bearer टोकन सेट है (रखने के लिए खाली छोड़ें)|वैकल्पिक Bearer टोकन|ID|शीर्षक|विवरण|कॉलम|पूर्ण|महत्वपूर्ण|जिम्मेदार|आरंभ तिथि|नियत तिथि|कार्ड रंग|कृपया चुनें|कार्य बनाया गया|कार्य बदला गया|कार्य दूसरे कॉलम में गया|कार्य पूर्ण हुआ|कार्य फिर खोला गया|जिम्मेदार बदला गया|स्रोत कॉलम है|लक्ष्य कॉलम है|कार्य पूर्ण है|कार्य खुला है|जिम्मेदार है|फ़ील्ड बराबर है|फ़ील्ड खाली है|शीर्षक में है|कार्ड रंग सेट करें|फ़ील्ड भरें|फ़ील्ड खाली करें|टिप्पणी जोड़ें|लेबल जोड़ें|पूर्ण चिह्नित करें|खुला चिह्नित करें|कॉलम में ले जाएँ|जिम्मेदार सेट करें|सूचना भेजें|चुने फ़ील्ड POST करें|महत्व सेट करें|जिम्मेदार हटाएँ".Split('|'),
-        ["zh"] = "自动化规则|为此列表触发并运行工作流。|新建规则|暂无自动化|为重复工作创建规则。|{0} · {1} 个条件 · {2} 个操作|启用|确定删除此规则？|规则名称|例如：进入时设置颜色|触发器|规则应何时启动？|条件|可选；所有条件都必须满足。|条件|无限制。规则适用于所有匹配的任务。|删除条件|操作|按从上到下的顺序执行。|操作|删除操作|新建自动化|无需其他值|标题中的文本|值|重要|不重要|新值|评论文本|通知文本|用户 ID 或电子邮件|选择字段|已配置 Bearer 令牌（留空以保留）|可选 Bearer 令牌|ID|标题|描述|列|已完成|重要|负责人|开始日期|截止日期|卡片颜色|请选择|任务已创建|任务已修改|任务已移动到另一列|任务已完成|任务已重新打开|负责人已更改|来源列是|目标列是|任务已完成|任务未完成|负责人是|字段等于|字段为空|标题包含|设置卡片颜色|填写字段|清空字段|添加评论|添加标签|标记为完成|标记为未完成|移动到列|设置负责人|发送通知|POST 所选字段|设置重要性|移除负责人".Split('|')
+        ["de"] = "Automatisierungsregeln|Abläufe dieser Liste zentral auslösen und ausführen.|Neue Regel|Noch keine Automatisierungen|Erstelle eine Regel für wiederkehrende Arbeitsschritte.|{0} · {1} Bedingung(en) · {2} Aktion(en)|Aktiv|Wirklich löschen?|Regelname|z. B. Farbe bei Eingang setzen|Auslöser|Wann soll die Regel starten?|Bedingungen|Optional, alle Bedingungen müssen zutreffen.|Bedingung|Keine Einschränkung. Die Regel gilt für jede passende Aufgabe.|Bedingung entfernen|Aktionen|Werden von oben nach unten ausgeführt.|Aktion|Aktion entfernen|Neue Automatisierung|Keine weitere Angabe|Text im Titel|Wert|Wichtig|Nicht wichtig|Neuer Wert|Kommentartext|Benachrichtigungstext|Benutzer-ID oder E-Mail|Felder auswählen|Bearer-Token ist hinterlegt (leer lassen zum Beibehalten)|Optionaler Bearer-Token|ID|Titel|Beschreibung|Spalte|Erledigt|Wichtig|Bearbeiter|Startdatum|Fälligkeitsdatum|Kartenfarbe|Bitte wählen|Aufgabe wurde erstellt|Aufgabe wurde geändert|Aufgabe wurde in eine andere Spalte verschoben|Aufgabe wurde fertiggestellt|Aufgabe wurde erneut geöffnet|Bearbeiter wurde geändert|Ausgangsspalte ist|Zielspalte ist|Aufgabe ist fertig|Aufgabe ist offen|Bearbeiter ist|Feld entspricht|Feld ist leer|Titel enthält|Kartenfarbe setzen|Feld befüllen|Feld leeren|Kommentar hinzufügen|Label hinzufügen|Als fertig markieren|Als offen markieren|In Spalte verschieben|Bearbeiter setzen|Benachrichtigung senden|Felder per POST senden|Wichtigkeit setzen|Bearbeiter entfernen|Nur oben einfärben|Ganze Karte einfärben|Plugin-Aktion|Plugin nicht verfügbar: {0}|Diese Plugin-Aktion ist auf dem Server nicht verfügbar.|Geheimnis ist gespeichert (leer lassen zum Beibehalten)|Geheimnis|Gespeichertes Geheimnis entfernen".Split('|'),
+        ["en"] = "Automation rules|Trigger and run workflows for this list.|New rule|No automations yet|Create a rule for recurring workflows.|{0} · {1} condition(s) · {2} action(s)|Active|Delete this rule?|Rule name|e.g. Set color on intake|Trigger|When should the rule start?|Conditions|Optional; all conditions must match.|Condition|No restrictions. The rule applies to every matching task.|Remove condition|Actions|Run from top to bottom.|Action|Remove action|New automation|No additional value|Text in title|Value|Important|Not important|New value|Comment text|Notification text|User ID or email|Select fields|Bearer token is configured (leave empty to keep it)|Optional bearer token|ID|Title|Description|Column|Completed|Important|Assignee|Start date|Due date|Card color|Please select|Task was created|Task was updated|Task moved to another column|Task was completed|Task was reopened|Assignee changed|Source column is|Target column is|Task is completed|Task is open|Assignee is|Field equals|Field is empty|Title contains|Set card color|Set field value|Clear field|Add comment|Add label|Mark as completed|Mark as open|Move to column|Set assignee|Send notification|POST selected fields|Set importance|Clear assignee|Color top only|Color entire card|Plugin action|Plugin unavailable: {0}|This plugin action is not available on the server.|Secret is stored (leave empty to keep it)|Secret|Remove stored secret".Split('|'),
+        ["es"] = "Reglas de automatización|Activa y ejecuta flujos para esta lista.|Nueva regla|Aún no hay automatizaciones|Crea una regla para tareas recurrentes.|{0} · {1} condición(es) · {2} acción(es)|Activa|¿Eliminar esta regla?|Nombre de la regla|p. ej., definir color al recibir|Disparador|¿Cuándo debe iniciarse la regla?|Condiciones|Opcional; deben cumplirse todas.|Condición|Sin restricciones. La regla se aplica a todas las tareas coincidentes.|Eliminar condición|Acciones|Se ejecutan de arriba abajo.|Acción|Eliminar acción|Nueva automatización|Sin valor adicional|Texto en el título|Valor|Importante|No importante|Nuevo valor|Texto del comentario|Texto de notificación|ID de usuario o correo|Seleccionar campos|El token Bearer está configurado (déjalo vacío para conservarlo)|Token Bearer opcional|ID|Título|Descripción|Columna|Completada|Importante|Responsable|Fecha de inicio|Fecha límite|Color de tarjeta|Seleccionar|Se creó la tarea|Se modificó la tarea|La tarea cambió de columna|Se completó la tarea|Se reabrió la tarea|Cambió el responsable|La columna de origen es|La columna de destino es|La tarea está completada|La tarea está abierta|El responsable es|El campo es igual a|El campo está vacío|El título contiene|Definir color de tarjeta|Rellenar campo|Vaciar campo|Añadir comentario|Añadir etiqueta|Marcar como completada|Marcar como abierta|Mover a columna|Asignar responsable|Enviar notificación|Enviar campos seleccionados por POST|Definir importancia|Quitar responsable|Colorear solo arriba|Colorear toda la tarjeta|Acción de plugin|Plugin no disponible: {0}|Esta acción de plugin no está disponible en el servidor.|El secreto está guardado (déjalo vacío para conservarlo)|Secreto|Eliminar secreto guardado".Split('|'),
+        ["fr"] = "Règles d’automatisation|Déclenchez et exécutez des flux pour cette liste.|Nouvelle règle|Aucune automatisation|Créez une règle pour les tâches récurrentes.|{0} · {1} condition(s) · {2} action(s)|Active|Supprimer cette règle ?|Nom de la règle|p. ex. définir la couleur à l’arrivée|Déclencheur|Quand la règle doit-elle démarrer ?|Conditions|Facultatif ; toutes doivent être remplies.|Condition|Aucune restriction. La règle s’applique à toutes les tâches correspondantes.|Supprimer la condition|Actions|Exécutées de haut en bas.|Action|Supprimer l’action|Nouvelle automatisation|Aucune valeur supplémentaire|Texte dans le titre|Valeur|Important|Non important|Nouvelle valeur|Texte du commentaire|Texte de notification|ID utilisateur ou e-mail|Sélectionner les champs|Un jeton Bearer est configuré (laisser vide pour le conserver)|Jeton Bearer facultatif|ID|Titre|Description|Colonne|Terminée|Important|Responsable|Date de début|Date d’échéance|Couleur de carte|Veuillez sélectionner|La tâche a été créée|La tâche a été modifiée|La tâche a changé de colonne|La tâche a été terminée|La tâche a été rouverte|Le responsable a changé|La colonne source est|La colonne cible est|La tâche est terminée|La tâche est ouverte|Le responsable est|Le champ est égal à|Le champ est vide|Le titre contient|Définir la couleur|Renseigner le champ|Vider le champ|Ajouter un commentaire|Ajouter une étiquette|Marquer comme terminée|Marquer comme ouverte|Déplacer vers la colonne|Définir le responsable|Envoyer une notification|Envoyer les champs sélectionnés par POST|Définir l’importance|Retirer le responsable|Colorer uniquement le haut|Colorer toute la carte|Action de plugin|Plugin indisponible : {0}|Cette action de plugin n’est pas disponible sur le serveur.|Le secret est enregistré (laisser vide pour le conserver)|Secret|Supprimer le secret enregistré".Split('|'),
+        ["hi"] = "ऑटोमेशन नियम|इस सूची के लिए वर्कफ़्लो शुरू और चलाएँ।|नया नियम|अभी कोई ऑटोमेशन नहीं|दोहराए जाने वाले कार्यों के लिए नियम बनाएँ।|{0} · {1} शर्तें · {2} कार्रवाइयाँ|सक्रिय|क्या यह नियम हटाएँ?|नियम का नाम|जैसे, आने पर रंग सेट करें|ट्रिगर|नियम कब शुरू होना चाहिए?|शर्तें|वैकल्पिक; सभी शर्तें पूरी होनी चाहिए।|शर्त|कोई सीमा नहीं। नियम हर मेल खाने वाले कार्य पर लागू होगा।|शर्त हटाएँ|कार्रवाइयाँ|ऊपर से नीचे क्रम में चलेंगी।|कार्रवाई|कार्रवाई हटाएँ|नया ऑटोमेशन|कोई अतिरिक्त मान नहीं|शीर्षक में टेक्स्ट|मान|महत्वपूर्ण|महत्वपूर्ण नहीं|नया मान|टिप्पणी टेक्स्ट|सूचना टेक्स्ट|उपयोगकर्ता ID या ईमेल|फ़ील्ड चुनें|Bearer टोकन सेट है (रखने के लिए खाली छोड़ें)|वैकल्पिक Bearer टोकन|ID|शीर्षक|विवरण|कॉलम|पूर्ण|महत्वपूर्ण|जिम्मेदार|आरंभ तिथि|नियत तिथि|कार्ड रंग|कृपया चुनें|कार्य बनाया गया|कार्य बदला गया|कार्य दूसरे कॉलम में गया|कार्य पूर्ण हुआ|कार्य फिर खोला गया|जिम्मेदार बदला गया|स्रोत कॉलम है|लक्ष्य कॉलम है|कार्य पूर्ण है|कार्य खुला है|जिम्मेदार है|फ़ील्ड बराबर है|फ़ील्ड खाली है|शीर्षक में है|कार्ड रंग सेट करें|फ़ील्ड भरें|फ़ील्ड खाली करें|टिप्पणी जोड़ें|लेबल जोड़ें|पूर्ण चिह्नित करें|खुला चिह्नित करें|कॉलम में ले जाएँ|जिम्मेदार सेट करें|सूचना भेजें|चुने फ़ील्ड POST करें|महत्व सेट करें|जिम्मेदार हटाएँ|केवल ऊपर रंग दें|पूरे कार्ड को रंग दें|प्लगइन कार्रवाई|प्लगइन उपलब्ध नहीं: {0}|यह प्लगइन कार्रवाई सर्वर पर उपलब्ध नहीं है।|गोपनीय मान सहेजा गया है (बनाए रखने के लिए खाली छोड़ें)|गोपनीय मान|सहेजा गया गोपनीय मान हटाएँ".Split('|'),
+        ["zh"] = "自动化规则|为此列表触发并运行工作流。|新建规则|暂无自动化|为重复工作创建规则。|{0} · {1} 个条件 · {2} 个操作|启用|确定删除此规则？|规则名称|例如：进入时设置颜色|触发器|规则应何时启动？|条件|可选；所有条件都必须满足。|条件|无限制。规则适用于所有匹配的任务。|删除条件|操作|按从上到下的顺序执行。|操作|删除操作|新建自动化|无需其他值|标题中的文本|值|重要|不重要|新值|评论文本|通知文本|用户 ID 或电子邮件|选择字段|已配置 Bearer 令牌（留空以保留）|可选 Bearer 令牌|ID|标题|描述|列|已完成|重要|负责人|开始日期|截止日期|卡片颜色|请选择|任务已创建|任务已修改|任务已移动到另一列|任务已完成|任务已重新打开|负责人已更改|来源列是|目标列是|任务已完成|任务未完成|负责人是|字段等于|字段为空|标题包含|设置卡片颜色|填写字段|清空字段|添加评论|添加标签|标记为完成|标记为未完成|移动到列|设置负责人|发送通知|POST 所选字段|设置重要性|移除负责人|仅顶部着色|整张卡片着色|插件操作|插件不可用：{0}|服务器上没有此插件操作。|密钥已保存（留空以保留）|密钥|删除已保存的密钥".Split('|')
     };
 }

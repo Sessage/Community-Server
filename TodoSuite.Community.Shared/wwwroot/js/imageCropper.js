@@ -14,12 +14,13 @@ window.imageCropper = (() => {
      * @param {string} previewCanvasId - ID des Preview-Canvas (128×128)
      * @param {object} dotNetHelper - DotNet-Objekt für Callbacks
      */
-    function init(canvasId, fileInputId, previewCanvasId, dotNetHelper) {
+    function init(canvasId, fileInputId, previewCanvasId, dropZoneId, dotNetHelper) {
         cleanup();
 
         const canvas = document.getElementById(canvasId);
         const fileInput = document.getElementById(fileInputId);
         const previewCanvas = document.getElementById(previewCanvasId);
+        const dropZone = document.getElementById(dropZoneId);
 
         if (!canvas || !fileInput || !previewCanvas) return;
 
@@ -27,7 +28,7 @@ window.imageCropper = (() => {
         const previewCtx = previewCanvas.getContext('2d');
 
         state = {
-            canvas, ctx, fileInput, previewCanvas, previewCtx, dotNetHelper,
+            canvas, ctx, fileInput, previewCanvas, previewCtx, dropZone, dotNetHelper,
             fileInputId,
             image: null,
             // Bild-Rendering-Bereich auf dem Canvas
@@ -42,6 +43,8 @@ window.imageCropper = (() => {
         };
 
         fileInput.addEventListener('change', onFileChange);
+        dropZone?.addEventListener('dragover', onDragOver);
+        dropZone?.addEventListener('drop', onDrop);
         canvas.addEventListener('mousedown', onMouseDown);
         canvas.addEventListener('mousemove', onMouseMove);
         canvas.addEventListener('mouseup', onMouseUp);
@@ -56,6 +59,8 @@ window.imageCropper = (() => {
         if (!state) return;
         if (fileInputId && state.fileInputId !== fileInputId) return;
         state.fileInput.removeEventListener('change', onFileChange);
+        state.dropZone?.removeEventListener('dragover', onDragOver);
+        state.dropZone?.removeEventListener('drop', onDrop);
         state.canvas.removeEventListener('mousedown', onMouseDown);
         state.canvas.removeEventListener('mousemove', onMouseMove);
         state.canvas.removeEventListener('mouseup', onMouseUp);
@@ -70,15 +75,31 @@ window.imageCropper = (() => {
         const currentState = state;
         const file = e.target.files[0];
         if (!file) return;
+        loadFile(file, currentState);
+    }
+
+    function onDragOver(e) {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    }
+
+    function onDrop(e) {
+        e.preventDefault();
+        const currentState = state;
+        const file = e.dataTransfer?.files?.[0];
+        if (file && currentState) loadFile(file, currentState);
+    }
+
+    function loadFile(file, currentState) {
         const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
         if (!allowedTypes.has(file.type.toLowerCase())) {
             currentState.dotNetHelper.invokeMethodAsync('OnError', 'Bitte wähle eine JPEG-, PNG- oder WebP-Datei aus.');
-            e.target.value = '';
+            currentState.fileInput.value = '';
             return;
         }
         if (file.size > 10 * 1024 * 1024) {
             currentState.dotNetHelper.invokeMethodAsync('OnError', 'Das Bild darf höchstens 10 MB groß sein.');
-            e.target.value = '';
+            currentState.fileInput.value = '';
             return;
         }
 

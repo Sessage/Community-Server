@@ -9,13 +9,17 @@
         </FluentDialogHeader>
         <FluentDialogBody>
             <div class="grid lg:grid-cols-2 gap-4">
+                @if (!IsFixedDashboard)
+                {
                 <div>
                     <label class="font-semibold">@L["Dashboard_Name"]</label>
                     <p class="text-xs text-slate-500 mb-1">@L["Dashboard_Name_Help"]</p>
                     <input class="rounded-xl border border-slate-200 p-2 w-full"
+                           maxlength="160"
                            value="@ActiveDashboard.Name"
                            @oninput="e => OnNameInput.InvokeAsync(e)" />
                 </div>
+                }
 
                 <div>
                     <label class="font-semibold">@L["Dashboard_GroupBy"]</label>
@@ -30,6 +34,8 @@
                     </select>
                 </div>
 
+                @if (!IsFixedDashboard)
+                {
                 <div class="lg:col-span-2">
                     <div class="font-semibold">@L["Dashboard_ListSelection"]</div>
                     <p class="text-xs text-slate-500 mb-2">@L["Dashboard_ListSelection_Help"]</p>
@@ -46,6 +52,7 @@
                         }
                     </div>
                 </div>
+                }
             </div>
 
         </FluentDialogBody>
@@ -68,6 +75,7 @@
     [Parameter] public EventCallback<(Guid ListId, bool Selected)> OnListToggled { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
     [Parameter] public bool AllowDelete { get; set; } = true;
+    [Parameter] public bool IsFixedDashboard { get; set; }
 
     private static bool IsChecked(object? v) => v is true || v?.ToString() == "true";
 

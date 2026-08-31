@@ -704,6 +704,13 @@
         }
         _lastSelectionMode = SelectionMode;
 
+        var visibleColumns = (List.Columns ?? []).ToHashSet(StringComparer.Ordinal);
+        var selectableTaskIds = (List.Tasks ?? [])
+            .Where(task => visibleColumns.Contains(task.Column) && MatchesFilter(task))
+            .Select(task => task.Id)
+            .ToHashSet();
+        _selectedTaskIds.RemoveWhere(taskId => !selectableTaskIds.Contains(taskId));
+
         // Listenwechsel: Drag-State sofort zurücksetzen, damit ShouldRender() wieder
         // true liefert. Ohne diesen Reset würde der Component nie neu rendern →
         // OnAfterRenderAsync würde disposeKanban() nie aufrufen → Ghost bleibt hängen.
@@ -781,7 +788,7 @@
 
     private List<TodoTaskEntity> GetCardsForColumn(string col)
     {
-        var q = List.Tasks.Where(t => t.Column == col)
+        var q = (List.Tasks ?? []).Where(t => t.DeletedAt is null && t.Column == col)
                   .Where(t => MatchesFilter(t));
 
         return SortMode switch
@@ -2081,104 +2088,7 @@
 
     private bool MatchesFilter(TodoTaskEntity t)
     {
-        var f = Filter;
-        if (f is null || !f.IsActive())
-            return true;
-
-        // ==========================
-        // Query
-        // ==========================
-        if (!string.IsNullOrWhiteSpace(f.Query))
-        {
-            var q = f.Query.Trim().ToLowerInvariant();
-            var hay = $"{t.Title} {t.Description}".ToLowerInvariant();
-            if (!hay.Contains(q))
-                return false;
-        }
-
-        // ==========================
-        // Done
-        // ==========================
-        if (f.Done is not null && t.Done != f.Done.Value)
-            return false;
-
-        // ==========================
-        // Due buckets
-        // ==========================
-        if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
-        {
-            var today = DateTime.Today;
-            var due = t.DueDate?.Date;
-
-            var match =
-                (f.NoDueDate && due is null) ||
-                (f.Overdue && due is not null && due.Value < today) ||
-                (f.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1)) ||
-                (f.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7)) ||
-                (f.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
-
-            if (!match)
-                return false;
-        }
-
-        // ==========================
-        // Labels
-        // ==========================
-        if (f.LabelIds.Count > 0)
-        {
-            if (t.LabelLinks is null || t.LabelLinks.Count == 0)
-                return false;
-
-            if (!t.LabelLinks.Any(l => f.LabelIds.Contains(l.LabelId)))
-                return false;
-        }
-
-        // ==========================
-        // 🔹 ASSIGNEE (Bearbeiter)
-        // ==========================
-        var assignee = (t.Assignee ?? "").Trim();
-        var me = (_userId ?? "").Trim();
-
-        // ❌ Kein Bearbeiter
-        if (f.NoAssignee)
-        {
-            if (!string.IsNullOrWhiteSpace(assignee))
-                return false;
-        }
-
-        // 👤 Mir zugewiesen
-        if (f.AssignedToMe)
-        {
-            if (string.IsNullOrWhiteSpace(me))
-                return false;
-
-            if (!string.Equals(assignee, me, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        // ==========================
-        // 👀 MEMBERS = Beobachter
-        // ==========================
-        var members = t.MemberUserIds ?? new List<string>();
-
-        // Konkrete Beobachter ausgewählt
-        if (f.MemberUserIds.Count > 0)
-        {
-            if (members.Count == 0)
-                return false;
-
-            if (!members.Any(m => f.MemberUserIds.Contains(m)))
-                return false;
-        }
-
-        // Keine Beobachter
-        if (f.NoMembers)
-        {
-            if (members.Count > 0)
-                return false;
-        }
-
-        return true;
+        return TodoTaskFilterMatcher.Matches(Filter, t, _userId);
     }
 
 

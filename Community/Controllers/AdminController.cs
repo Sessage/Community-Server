@@ -7,6 +7,7 @@ using Microsoft.Extensions.Localization;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Localization;
 using Klassenbibliothek.Administration;
+using TodoSuite.Server.Services;
 
 namespace TodoSuite.Server.Controllers;
 
@@ -18,12 +19,21 @@ public class AdminController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IStringLocalizer<SharedResource> _localizer;
     private readonly IAuditEventSink _audit;
+    private readonly UserAccountArtifactCleanupService _accountArtifactCleanup;
+    private readonly ILogger<AdminController> _logger;
 
-    public AdminController(UserManager<ApplicationUser> userManager, IStringLocalizer<SharedResource> localizer, IAuditEventSink audit)
+    public AdminController(
+        UserManager<ApplicationUser> userManager,
+        IStringLocalizer<SharedResource> localizer,
+        IAuditEventSink audit,
+        UserAccountArtifactCleanupService accountArtifactCleanup,
+        ILogger<AdminController> logger)
     {
         _userManager = userManager;
         _localizer = localizer;
         _audit = audit;
+        _accountArtifactCleanup = accountArtifactCleanup;
+        _logger = logger;
     }
 
     [HttpGet("users")]
@@ -65,14 +75,18 @@ public class AdminController : ControllerBase
     [HttpPost("users")]
     public async Task<ActionResult<AdminUserDto>> CreateUser([FromBody] CreateUserRequest request)
     {
-        var existing = await _userManager.FindByEmailAsync(request.Email);
+        var email = request.Email?.Trim();
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(request.Password))
+            return BadRequest(new { Error = _localizer["Err_Admin_EmailAndPasswordRequired"].Value });
+
+        var existing = await _userManager.FindByEmailAsync(email);
         if (existing is not null)
             return Conflict(new { Error = _localizer["Err_Admin_UserAlreadyExists"].Value });
 
         var user = new ApplicationUser
         {
-            UserName = request.Email,
-            Email = request.Email,
+            UserName = email,
+            Email = email,
             EmailConfirmed = true
         };
 
@@ -81,10 +95,18 @@ public class AdminController : ControllerBase
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description).ToArray() });
 
         if (request.IsAdmin)
-            await _userManager.AddToRoleAsync(user, "Admin");
+        {
+            var roleResult = await _userManager.AddToRoleAsync(user, "Admin");
+            if (!roleResult.Succeeded)
+            {
+                // Creating a requested administrator as a normal user would be a
+                // misleading partial success. Roll the account back instead.
+                await _userManager.DeleteAsync(user);
+                return BadRequest(new { Error = IdentityErrors(roleResult) });
+            }
+        }
 
-        await _audit.RecordAsync("users", "user-created", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
-            $"userId={user.Id}; isAdmin={request.IsAdmin}", HttpContext.RequestAborted);
+        await TryRecordAuditAsync("user-created", $"userId={user.Id}; isAdmin={request.IsAdmin}");
 
         return Ok(new AdminUserDto(user.Id, user.Email!, user.UserName!, request.IsAdmin));
     }
@@ -99,14 +121,20 @@ public class AdminController : ControllerBase
         var currentCallerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         var isCurrentlyAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+        if (!request.IsAdmin && isCurrentlyAdmin && user.Id == currentCallerId)
+            return BadRequest(new { Error = _localizer["Err_Admin_CannotRemoveOwnAdminRole"].Value });
+
+        IdentityResult? roleResult = null;
         if (request.IsAdmin && !isCurrentlyAdmin)
-            await _userManager.AddToRoleAsync(user, "Admin");
-        else if (!request.IsAdmin && isCurrentlyAdmin && user.Id != currentCallerId)
-            await _userManager.RemoveFromRoleAsync(user, "Admin");
+            roleResult = await _userManager.AddToRoleAsync(user, "Admin");
+        else if (!request.IsAdmin && isCurrentlyAdmin)
+            roleResult = await _userManager.RemoveFromRoleAsync(user, "Admin");
+
+        if (roleResult is { Succeeded: false })
+            return BadRequest(new { Error = IdentityErrors(roleResult) });
 
         var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
-        await _audit.RecordAsync("users", "role-updated", currentCallerId ?? string.Empty,
-            $"userId={user.Id}; isAdmin={isAdmin}", HttpContext.RequestAborted);
+        await TryRecordAuditAsync("role-updated", $"userId={user.Id}; isAdmin={isAdmin}");
         return Ok(new AdminUserDto(user.Id, user.Email ?? string.Empty, user.UserName ?? string.Empty, isAdmin));
     }
 
@@ -121,12 +149,16 @@ public class AdminController : ControllerBase
         if (user is null)
             return NotFound();
 
+        var profilePicturePath = user.ProfilePicturePath;
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)
             return BadRequest(new { Errors = result.Errors.Select(e => e.Description).ToArray() });
 
-        await _audit.RecordAsync("users", "user-deleted", currentCallerId ?? string.Empty,
-            $"userId={userId}", HttpContext.RequestAborted);
+        await _accountArtifactCleanup.CleanupAfterUserDeletionAsync(
+            userId,
+            profilePicturePath,
+            CancellationToken.None);
+        await TryRecordAuditAsync("user-deleted", $"userId={userId}");
 
         return NoContent();
     }
@@ -140,4 +172,26 @@ public class AdminController : ControllerBase
             .Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("%", "\\%", StringComparison.Ordinal)
             .Replace("_", "\\_", StringComparison.Ordinal);
+
+    private static string IdentityErrors(IdentityResult result)
+        => string.Join(" ", result.Errors.Select(error => error.Description));
+
+    private async Task TryRecordAuditAsync(string action, string details)
+    {
+        try
+        {
+            await _audit.RecordAsync(
+                "users",
+                action,
+                User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+                details,
+                CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            // The identity mutation has already completed at this point. Logging the
+            // audit failure avoids returning a misleading error that invites retries.
+            _logger.LogError(exception, "Audit-Eintrag {AuditAction} konnte nicht gespeichert werden.", action);
+        }
+    }
 }

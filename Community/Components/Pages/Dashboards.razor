@@ -20,14 +20,28 @@
 
 <div class="mx-auto h-full min-h-0 flex flex-col overflow-hidden overflow-x-hidden" @onclick="CloseOverlays">
 
+    @if (_loading)
+    {
+        <div class="px-4 pt-4 text-sm text-slate-500">@L["Lbl_Loading"]</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <div class="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+            <div>@_loadError</div>
+            <button type="button" class="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5" @onclick="RetryLoadAsync">
+                @L["Dashboard_Retry"]
+            </button>
+        </div>
+    }
+
     @if (PortfolioId.HasValue)
     {
         <div class="px-4 pt-4 flex items-center justify-between gap-3">
             <div>
-                <div class="text-xs uppercase tracking-wide text-indigo-600">Portfolio</div>
-                <h1 class="text-xl font-semibold text-slate-900">@(_activeDashboard?.Name ?? "Portfolio")</h1>
+                <div class="text-xs uppercase tracking-wide text-indigo-600">@L["Portfolio_Label"]</div>
+                <h1 class="text-xl font-semibold text-slate-900">@(_activeDashboard?.Name ?? L["Portfolio_Label"])</h1>
             </div>
-            @if (_canManagePortfolio) { <FluentButton Appearance="Appearance.Accent" OnClick="OpenPortfolioShareDialog"><span>Portfolio teilen</span></FluentButton> }
+            @if (_canManagePortfolio) { <FluentButton Appearance="Appearance.Accent" OnClick="OpenPortfolioShareDialog"><span>@L["Portfolio_Share"]</span></FluentButton> }
         </div>
     }
 
@@ -36,6 +50,7 @@
                      IsFixedDashboard="@PortfolioId.HasValue"
                      CanEdit="@CanEditDashboard"
                      FilterDraft="_filterDraft"
+                     SaveState="@_saveState"
                      SortsOpen="_sortsOpen"
                      OnDashboardChanged="SelectDashboard"
                      OnDashboardRenamed="InlineRenameDashboardAsync"
@@ -119,7 +134,7 @@
     <FluentDialog id="portfolio-share-dlg" Open="true" Modal="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true" HiddenChanged="@(_ => _portfolioShareOpen = false)">
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
-                <div class="font-semibold">Portfolio teilen</div>
+                <div class="font-semibold">@L["Portfolio_Share"]</div>
                 <FluentButton Appearance="Appearance.Stealth" OnClick="() => _portfolioShareOpen = false">✕</FluentButton>
             </div>
         </FluentDialogHeader>
@@ -145,6 +160,7 @@
 <DashboardSettingsModal IsOpen="_isSettingsDialogOpen"
                         ActiveDashboard="_activeDashboard"
                         AllowDelete="@(!PortfolioId.HasValue)"
+                        IsFixedDashboard="@PortfolioId.HasValue"
                         Lists="_lists"
                         OnClose="() => _isSettingsDialogOpen = false"
                         OnNameInput="OnDashboardNameInput"
@@ -198,6 +214,7 @@
     private bool _hasPendingSave;
     private long _dashboardEditVersion;
     private CancellationTokenSource? _autoSaveCts;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
 
     private ElementReference _widgetContainer;
     private DotNetObjectReference<Dashboards>? _dotNetRef;
@@ -211,6 +228,9 @@
     private bool _portfolioShareHookActive;
     private bool _portfolioShareOpen;
     private bool _initialized;
+    private bool _disposed;
+    private bool _loading = true;
+    private string? _loadError;
     private Guid? _loadedPortfolioId;
     private bool _canManagePortfolio;
     private bool CanEditDashboard => !PortfolioId.HasValue || _canManagePortfolio;
@@ -219,34 +239,68 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        _userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                  ?? authState.User.FindFirst("sub")?.Value
-                  ?? "gast";
-        _lists = await ListService.GetListsAsync(_userId);
-        await ReloadDashboardsAsync();
-        _loadedPortfolioId = PortfolioId;
-        _initialized = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            _userId = authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                      ?? authState.User.FindFirst("sub")?.Value
+                      ?? throw new InvalidOperationException("Authenticated user id is missing.");
+            await LoadCurrentRouteAsync();
+            _initialized = true;
+        }
+        catch
+        {
+            _loadError = L["Dashboard_LoadFailed"];
+        }
+        finally { _loading = false; }
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!_initialized || _loadedPortfolioId == PortfolioId) return;
+        if (!_initialized || _disposed || _loadedPortfolioId == PortfolioId) return;
         if (_hasPendingSave)
         {
             _autoSaveCts?.Cancel();
             await SaveDashboardAsync(ignoreCurrentRoutePermission: true);
         }
+        _loading = true;
+        _loadError = null;
+        try { await LoadCurrentRouteAsync(); }
+        catch { _loadError = L["Dashboard_LoadFailed"]; }
+        finally { _loading = false; }
+    }
+
+    private async Task LoadCurrentRouteAsync()
+    {
         _loadedPortfolioId = PortfolioId;
         _lists = await ListService.GetListsAsync(_userId);
         await ReloadDashboardsAsync();
+    }
+
+    private async Task RetryLoadAsync()
+    {
+        if (_loading) return;
+        _loading = true;
+        _loadError = null;
+        try
+        {
+            await LoadCurrentRouteAsync();
+            _initialized = true;
+        }
+        catch { _loadError = L["Dashboard_LoadFailed"]; }
+        finally { _loading = false; }
     }
 
     // ── Dashboard CRUD ────────────────────────────────────────────────────
 
     private async Task ReloadDashboardsAsync()
     {
+        var preferredDashboardId = PortfolioId.HasValue ? null : _activeDashboardId;
         _dashboards.Clear();
+        _activeDashboardId = null;
+        _activeDashboard = null;
+        _filterDraft = new DashboardFilter();
+        _visibleItems = [];
         if (PortfolioId.HasValue)
         {
             _canManagePortfolio = await PortfolioSharingService.CanManageAsync(_userId, PortfolioId.Value);
@@ -256,8 +310,9 @@
                 _dashboards.Add(portfolioDashboard);
                 _activeDashboardId = portfolioDashboard.Id;
                 await SelectDashboard(portfolioDashboard.Id);
+                return;
             }
-            return;
+            throw new InvalidOperationException("Portfolio dashboard is unavailable.");
         }
         _canManagePortfolio = false;
         _dashboards.AddRange(await DashboardService.GetDashboardsAsync(_userId));
@@ -268,8 +323,8 @@
             return;
         }
 
-        var selected = _activeDashboardId.HasValue
-            ? _dashboards.FirstOrDefault(x => x.Id == _activeDashboardId.Value)
+        var selected = preferredDashboardId.HasValue
+            ? _dashboards.FirstOrDefault(x => x.Id == preferredDashboardId.Value)
             : null;
 
         selected ??= _dashboards.First();
@@ -303,7 +358,15 @@
     {
         var trimmed = string.IsNullOrWhiteSpace(name) ? $"Dashboard {_dashboards.Count + 1}" : name.Trim();
         _isCreateDialogOpen = false;
-        await CreateDashboardInternalAsync(trimmed);
+        _exportError = "";
+        try
+        {
+            await CreateDashboardInternalAsync(trimmed);
+        }
+        catch
+        {
+            _exportError = L["Dashboard_OperationFailed"];
+        }
     }
 
     private async Task CreateDashboardInternalAsync(string name)
@@ -325,9 +388,23 @@
         if (_activeDashboard is null) return;
         _isSettingsDialogOpen = false;
         _autoSaveCts?.Cancel();
-        await DashboardService.DeleteDashboardAsync(_userId, _activeDashboard.Id);
-        _hasPendingSave = false;
-        await ReloadDashboardsAsync();
+        if (_hasPendingSave) await SaveDashboardAsync();
+        _exportError = "";
+        try
+        {
+            if (!await DashboardService.DeleteDashboardAsync(_userId, _activeDashboard.Id))
+            {
+                _exportError = L["Dashboard_OperationFailed"];
+                return;
+            }
+
+            _hasPendingSave = false;
+            await ReloadDashboardsAsync();
+        }
+        catch
+        {
+            _exportError = L["Dashboard_OperationFailed"];
+        }
     }
 
     private void OpenPortfolioShareDialog()
@@ -353,14 +430,14 @@
 
     private async Task OnDashboardNameInput(ChangeEventArgs e)
     {
-        if (_activeDashboard is null || !CanEditDashboard) return;
+        if (_activeDashboard is null || !CanEditDashboard || PortfolioId.HasValue) return;
         _activeDashboard.Name = e.Value?.ToString() ?? string.Empty;
         await MarkDirtyAndAutoSaveAsync();
     }
 
     private async Task InlineRenameDashboardAsync(string newName)
     {
-        if (_activeDashboard is null || !CanEditDashboard) return;
+        if (_activeDashboard is null || !CanEditDashboard || PortfolioId.HasValue) return;
         _activeDashboard.Name = newName;
         await MarkDirtyAndAutoSaveAsync();
     }
@@ -377,7 +454,7 @@
 
     private async Task ToggleListSelectionAsync(Guid listId, bool selected)
     {
-        if (_activeDashboard is null || !CanEditDashboard) return;
+        if (_activeDashboard is null || !CanEditDashboard || PortfolioId.HasValue) return;
         if (selected)
         {
             if (!_activeDashboard.SelectedListIds.Contains(listId))
@@ -484,6 +561,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_disposed) return;
         _dotNetRef ??= DotNetObjectReference.Create(this);
         if (_initSortableAfterRender && _activeDashboard is not null && _view == DashboardView.List)
         {
@@ -522,6 +600,7 @@
     [JSInvokable]
     public async Task CloseFromOutsideClick()
     {
+        if (_disposed) return;
         _isCreateDialogOpen   = false;
         _isFilterDialogOpen   = false;
         _isSettingsDialogOpen = false;
@@ -533,9 +612,9 @@
     [JSInvokable]
     public async Task OnWidgetOrderChanged(string[] newOrder)
     {
-        if (!CanEditDashboard) return;
+        if (_disposed || !CanEditDashboard) return;
         var defaults = DashboardFilter.DefaultWidgetOrder();
-        var normalized = newOrder.Where(defaults.Contains).ToList();
+        var normalized = (newOrder ?? []).Where(defaults.Contains).Distinct(StringComparer.Ordinal).ToList();
         foreach (var id in defaults.Where(d => !normalized.Contains(d)))
             normalized.Add(id);
         _filterDraft.WidgetOrder = normalized;
@@ -544,9 +623,12 @@
 
     public async ValueTask DisposeAsync()
     {
-        _autoSaveCts?.Cancel();
+        if (_disposed) return;
+        var autoSaveCts = Interlocked.Exchange(ref _autoSaveCts, null);
+        try { autoSaveCts?.Cancel(); } catch { }
         if (_hasPendingSave)
             await SaveDashboardAsync(ignoreCurrentRoutePermission: true);
+        _disposed = true;
 
         if (_createHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "dashboard-create-dlg"); } catch { }
@@ -560,19 +642,22 @@
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "portfolio-share-dlg"); } catch { }
         try { await JS.InvokeVoidAsync("todoUi.disposeDashboardSortable"); } catch { }
         _dotNetRef?.Dispose();
+        autoSaveCts?.Dispose();
     }
 
     // ── Autosave ──────────────────────────────────────────────────────────
 
     private async Task MarkDirtyAndAutoSaveAsync()
     {
-        if (!CanEditDashboard) return;
+        if (_disposed || !CanEditDashboard) return;
         _saveState = L["Dashboard_Autosave_Pending"];
         _hasPendingSave = true;
         _dashboardEditVersion++;
-        _autoSaveCts?.Cancel();
-        _autoSaveCts = new CancellationTokenSource();
-        var token = _autoSaveCts.Token;
+        var current = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _autoSaveCts, current);
+        try { previous?.Cancel(); } catch { }
+        previous?.Dispose();
+        var token = current.Token;
         try
         {
             await Task.Delay(600, token);
@@ -584,11 +669,12 @@
     private async Task SaveDashboardAsync(bool ignoreCurrentRoutePermission = false)
     {
         if (_activeDashboard is null || (!ignoreCurrentRoutePermission && !CanEditDashboard)) return;
-        var dashboard = _activeDashboard;
-        var editVersion = _dashboardEditVersion;
-        dashboard.SetFilter(_filterDraft.Clone());
+        await _saveLock.WaitAsync();
         try
         {
+            if (_activeDashboard is null || (!ignoreCurrentRoutePermission && !CanEditDashboard)) return;
+            var editVersion = _dashboardEditVersion;
+            var dashboard = CreateDashboardSnapshot(_activeDashboard, _filterDraft);
             var updated = await DashboardService.UpdateDashboardAsync(_userId, dashboard);
             if (updated is not null && editVersion == _dashboardEditVersion)
             {
@@ -603,9 +689,29 @@
                 _hasPendingSave = false;
                 _saveState = $"{L["Dashboard_Autosave_Saved"]}: {DateTime.Now:HH:mm:ss}";
             }
-            else if (updated is null) _saveState = "Speichern fehlgeschlagen";
+            else if (updated is null) _saveState = L["Dashboard_SaveFailed"];
         }
-        catch { _saveState = "Speichern fehlgeschlagen"; }
+        catch { _saveState = L["Dashboard_SaveFailed"]; }
+        finally { _saveLock.Release(); }
+    }
+
+    private static DashboardEntity CreateDashboardSnapshot(DashboardEntity source, DashboardFilter filter)
+    {
+        var snapshot = new DashboardEntity
+        {
+            Id = source.Id,
+            OwnerId = source.OwnerId,
+            PortfolioGroupId = source.PortfolioGroupId,
+            Name = source.Name,
+            SortOrder = source.SortOrder,
+            CreatedAtUtc = source.CreatedAtUtc,
+            UpdatedAtUtc = source.UpdatedAtUtc,
+            SelectedListIds = [.. source.SelectedListIds],
+            SortMode = source.SortMode,
+            GroupBy = source.GroupBy
+        };
+        snapshot.SetFilter(filter.Clone());
+        return snapshot;
     }
 
     // ── Visible items ─────────────────────────────────────────────────────
@@ -618,8 +724,9 @@
         var now = DateTime.UtcNow;
 
         var items = _lists
-            .Where(l => selected.Contains(l.Id))
+            .Where(l => l.DeletedAt is null && selected.Contains(l.Id))
             .SelectMany(l => (l.Tasks ?? []).Select(t => (List: l, Task: t)))
+            .Where(x => x.Task.DeletedAt is null)
             .Where(x => PassesFilter(x.Task, x.List, now))
             .ToList();
 
@@ -635,12 +742,16 @@
                 return false;
         }
         if (_filterDraft.Done is not null && task.Done != _filterDraft.Done.Value) return false;
-        if (_filterDraft.NoDueDate && task.DueDate is not null) return false;
-        if (_filterDraft.Overdue && (task.DueDate is null || task.DueDate >= now)) return false;
-        if (_filterDraft.DueNextDay && (task.DueDate is null || task.DueDate > now.AddDays(1) || task.DueDate < now)) return false;
-        if (_filterDraft.DueNextWeek && (task.DueDate is null || task.DueDate > now.AddDays(7) || task.DueDate < now)) return false;
-        if (_filterDraft.DueNextMonth && (task.DueDate is null || task.DueDate > now.AddDays(30) || task.DueDate < now)) return false;
-        if (_filterDraft.AssignedToMe && !(task.MemberUserIds?.Contains(_userId) ?? false)) return false;
+        var hasDueFilter = _filterDraft.NoDueDate || _filterDraft.Overdue || _filterDraft.DueNextDay
+            || _filterDraft.DueNextWeek || _filterDraft.DueNextMonth;
+        if (hasDueFilter && !((_filterDraft.NoDueDate && task.DueDate is null)
+            || (_filterDraft.Overdue && task.DueDate < now)
+            || (_filterDraft.DueNextDay && task.DueDate >= now && task.DueDate <= now.AddDays(1))
+            || (_filterDraft.DueNextWeek && task.DueDate >= now && task.DueDate <= now.AddDays(7))
+            || (_filterDraft.DueNextMonth && task.DueDate >= now && task.DueDate <= now.AddDays(30)))) return false;
+        if (_filterDraft.AssignedToMe
+            && !string.Equals(task.Assignee, _userId, StringComparison.OrdinalIgnoreCase)
+            && !(task.MemberUserIds?.Any(id => string.Equals(id, _userId, StringComparison.OrdinalIgnoreCase)) ?? false)) return false;
         if (_filterDraft.NoAssignee && (!string.IsNullOrWhiteSpace(task.Assignee) || (task.MemberUserIds?.Count ?? 0) > 0)) return false;
         if (_filterDraft.IsImportant && !task.IsImportant) return false;
         return true;
@@ -737,8 +848,17 @@
         builder.OpenComponent<DashboardTaskTable>(0);
         builder.AddAttribute(1, "VisibleCount", _visibleItems.Count);
         builder.AddAttribute(2, "GroupedItems", GetGroupedItems());
+        builder.AddAttribute(3, "OnTaskSelected",
+            EventCallback.Factory.Create<(TodoListEntity List, TodoTaskEntity Task)>(this, OpenDashboardTaskAsync));
         builder.CloseComponent();
     };
+
+    private Task OpenDashboardTaskAsync((TodoListEntity List, TodoTaskEntity Task) item)
+    {
+        _selectedTaskList = item.List;
+        _selectedTask = item.Task;
+        return Task.CompletedTask;
+    }
 
     private IReadOnlyList<TodoCalendarItem> BuildDashboardCalendarItems()
         => _visibleItems
@@ -812,7 +932,7 @@
         var hash = 0;
         foreach (var c in userId.Trim())
             hash = unchecked(hash * 31 + c);
-        return colors[Math.Abs(hash) % colors.Length];
+        return colors[(int)((uint)hash % (uint)colors.Length)];
     }
 
     private static string? GetCalendarAssigneeProfilePictureUrl(string? userId)
@@ -866,7 +986,18 @@
 
     private Task HandleTaskUpdated(TodoTaskEntity updatedTask)
     {
+        var list = _lists.FirstOrDefault(candidate => candidate.Id == updatedTask.ListId);
+        foreach (var candidate in _lists.Where(candidate => candidate.Id != updatedTask.ListId))
+            candidate.Tasks.RemoveAll(task => task.Id == updatedTask.Id);
+        var index = list?.Tasks.FindIndex(task => task.Id == updatedTask.Id) ?? -1;
+        if (list is not null)
+        {
+            if (index >= 0) list.Tasks[index] = updatedTask;
+            else list.Tasks.Add(updatedTask);
+        }
+        _selectedTaskList = list ?? _selectedTaskList;
         _selectedTask = updatedTask;
+        RecalculateVisibleItems();
         return Task.CompletedTask;
     }
 

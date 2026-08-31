@@ -94,9 +94,13 @@ public class DashboardFilter
     public void NormalizeWidgetOrder()
     {
         var defaults = DefaultWidgetOrder();
-        foreach (var id in defaults.Where(d => !WidgetOrder.Contains(d)))
-            WidgetOrder.Add(id);
-        WidgetOrder.RemoveAll(id => !defaults.Contains(id));
+        var normalized = (WidgetOrder ?? [])
+            .Where(defaults.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        foreach (var id in defaults.Where(d => !normalized.Contains(d, StringComparer.Ordinal)))
+            normalized.Add(id);
+        WidgetOrder = normalized;
     }
 
     public void ClearCriteria()
@@ -135,6 +139,6 @@ public class DashboardFilter
         ShowStatusChart = ShowStatusChart,
         ShowPriorityChart = ShowPriorityChart,
         ShowDueChart = ShowDueChart,
-        WidgetOrder = new List<string>(WidgetOrder)
+        WidgetOrder = new List<string>(WidgetOrder ?? DefaultWidgetOrder())
     };
 }

@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Http;
 
 namespace TodoSuite.Server.Services;
 
@@ -17,7 +20,7 @@ public sealed class AuthAttemptProtectionService
         if (ipStatus.IsBlocked)
             return ipStatus;
 
-        var subjectKey = CreateSubjectKey(httpContext, subject);
+        var subjectKey = CreateSubjectKey(subject);
         return string.IsNullOrWhiteSpace(subjectKey)
             ? AuthBlockStatus.Allowed
             : CheckKey(subjectKey, now);
@@ -28,16 +31,16 @@ public sealed class AuthAttemptProtectionService
         var now = DateTimeOffset.UtcNow;
         RecordFailure(CreateIpKey(httpContext), now, isIpKey: true);
 
-        var subjectKey = CreateSubjectKey(httpContext, subject);
+        var subjectKey = CreateSubjectKey(subject);
         if (!string.IsNullOrWhiteSpace(subjectKey))
             RecordFailure(subjectKey, now, isIpKey: false);
     }
 
     public void RecordSuccess(HttpContext httpContext, string? subject)
     {
-        _attempts.TryRemove(CreateIpKey(httpContext), out _);
-
-        var subjectKey = CreateSubjectKey(httpContext, subject);
+        // Do not clear the IP-wide bucket here. Otherwise an attacker can reset it by
+        // alternating failed attempts with a successful login to another account.
+        var subjectKey = CreateSubjectKey(subject);
         if (!string.IsNullOrWhiteSpace(subjectKey))
             _attempts.TryRemove(subjectKey, out _);
     }
@@ -102,13 +105,16 @@ public sealed class AuthAttemptProtectionService
         return $"ip:{(string.IsNullOrWhiteSpace(ip) ? "unknown" : ip)}";
     }
 
-    private static string? CreateSubjectKey(HttpContext httpContext, string? subject)
+    private static string? CreateSubjectKey(string? subject)
     {
         if (string.IsNullOrWhiteSpace(subject))
             return null;
 
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return $"subject:{ip}:{subject.Trim().ToUpperInvariant()}";
+        // Deliberately independent from the IP so distributed attempts against one account
+        // share a limit. Hashing avoids keeping email addresses/user IDs in singleton keys.
+        var normalized = subject.Trim().ToUpperInvariant();
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
+        return $"subject:{Convert.ToHexString(hash)}";
     }
 
     private void CleanupExpired()

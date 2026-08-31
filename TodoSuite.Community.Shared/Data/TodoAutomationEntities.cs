@@ -100,10 +100,13 @@ public class TodoAutomationActionEntity
     {
         try
         {
-            return JsonSerializer.Deserialize<TodoAutomationWebhookConfiguration>(ConfigurationJson)
-                   ?? new TodoAutomationWebhookConfiguration();
+            var configuration = JsonSerializer.Deserialize<TodoAutomationWebhookConfiguration>(
+                                    string.IsNullOrWhiteSpace(ConfigurationJson) ? "{}" : ConfigurationJson)
+                                ?? new TodoAutomationWebhookConfiguration();
+            configuration.SelectedFields ??= [];
+            return configuration;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             return new TodoAutomationWebhookConfiguration();
         }
@@ -113,10 +116,11 @@ public class TodoAutomationActionEntity
     {
         try
         {
-            return JsonSerializer.Deserialize<TodoAutomationCardColorConfiguration>(ConfigurationJson)
+            return JsonSerializer.Deserialize<TodoAutomationCardColorConfiguration>(
+                       string.IsNullOrWhiteSpace(ConfigurationJson) ? "{}" : ConfigurationJson)
                    ?? new TodoAutomationCardColorConfiguration();
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             return new TodoAutomationCardColorConfiguration();
         }

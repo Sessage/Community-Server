@@ -112,6 +112,7 @@ public interface INotificationService
     Task SetUserPreferenceAsync(string userId, NotificationDeliveryChannel channel, PushNotificationContentMode? pushContentMode = null, CancellationToken ct = default);
     Task<IReadOnlyList<UserNotificationEntity>> GetLatestAsync(string userId, int take = 20, CancellationToken ct = default);
     Task<int> GetUnreadCountAsync(string userId, CancellationToken ct = default);
+    Task MarkReadAsync(string userId, Guid notificationId, CancellationToken ct = default);
     Task MarkAllReadAsync(string userId, CancellationToken ct = default);
     Task DeleteNotificationAsync(string userId, Guid notificationId, CancellationToken ct = default);
     Task DeleteAllNotificationsAsync(string userId, CancellationToken ct = default);
@@ -231,9 +232,17 @@ public interface ITaskMemberService
     Task CleanupRemovedListMembersAsync(Guid listId, IReadOnlyCollection<string> removedUserIds, CancellationToken ct = default);
 }
 
+public sealed record DeletedTaskTrashItem(
+    Guid TaskId,
+    Guid ListId,
+    string TaskTitle,
+    string ListName,
+    DateTime DeletedAtUtc);
+
 public interface ITodoTrashService
 {
     Task<IReadOnlyList<TodoListEntity>> GetDeletedListsAsync(string userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<DeletedTaskTrashItem>> GetDeletedTaskEntriesAsync(string userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TodoTaskEntity>> GetDeletedTasksAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task<bool> RestoreListAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task<bool> RestoreTaskAsync(string userId, Guid listId, Guid taskId, CancellationToken cancellationToken = default);

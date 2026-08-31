@@ -211,6 +211,8 @@
   <data name="Page_Tasks_Empty" xml:space="preserve">
     <value>You currently have no tasks assigned to you.</value>
   </data>
+  <data name="Page_Tasks_Error" xml:space="preserve"><value>Your assigned tasks could not be loaded. Please try again.</value></data>
+  <data name="Page_Tasks_Retry" xml:space="preserve"><value>Try again</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>Focus</value>
@@ -1166,6 +1168,12 @@
   <data name="Err_Admin_CannotDeleteOwnAccount" xml:space="preserve">
     <value>You cannot delete your own account.</value>
   </data>
+  <data name="Err_Admin_CannotRemoveOwnAdminRole" xml:space="preserve">
+    <value>You cannot remove your own administrator role.</value>
+  </data>
+  <data name="Err_Admin_EmailAndPasswordRequired" xml:space="preserve">
+    <value>Email address and password are required.</value>
+  </data>
   <data name="Err_Auth_RegistrationNotAllowed" xml:space="preserve">
     <value>Registration is currently not allowed.</value>
   </data>
@@ -1189,6 +1197,9 @@
   </data>
   <data name="Err_Profile_DecodeFailed" xml:space="preserve">
     <value>Image could not be decoded.</value>
+  </data>
+  <data name="Err_Profile_InvalidDimensions" xml:space="preserve">
+    <value>The profile picture must be cropped to 128 × 128 pixels.</value>
   </data>
   <data name="Err_Profile_ImageTooLarge" xml:space="preserve">
     <value>The image is too large. Maximum file size: 2 MB.</value>
@@ -1255,6 +1266,9 @@
   <data name="Search_ShowAll" xml:space="preserve">
     <value>Show all results</value>
   </data>
+  <data name="Search_Error" xml:space="preserve"><value>Search could not be loaded. Please try again.</value></data>
+  <data name="Search_OfflineResults" xml:space="preserve"><value>Offline results from this device.</value></data>
+  <data name="Search_Clear" xml:space="preserve"><value>Clear search</value></data>
   <!-- Reminder emails / notifications -->
   <data name="Email_Reminder_Subject" xml:space="preserve">
     <value>Reminder: {0}</value>
@@ -2286,6 +2300,9 @@
   <data name="Account_Loading" xml:space="preserve"><value>Loading account …</value></data>
   <data name="Account_LoadError" xml:space="preserve"><value>Account data could not be loaded.</value></data>
   <data name="Account_EmailChangeError" xml:space="preserve"><value>The email address could not be changed.</value></data>
+  <data name="Account_InvalidEmail" xml:space="preserve"><value>Please enter a valid email address.</value></data>
+  <data name="Account_EmailUnchanged" xml:space="preserve"><value>The new email address is the same as the current address.</value></data>
+  <data name="Account_EmailAlreadyUsed" xml:space="preserve"><value>This email address is already in use.</value></data>
   <data name="Account_ConfirmationEmailSendError" xml:space="preserve"><value>The confirmation email could not be sent.</value></data>
   <data name="Account_ExternalLoginManaged" xml:space="preserve"><value>You are signed in through an external provider. Your email address and password are managed by that provider.</value></data>
   <data name="Account_EmailAddress" xml:space="preserve"><value>Email address</value></data>
@@ -2343,4 +2360,23 @@
   <data name="PersonalData_ManageAccount" xml:space="preserve"><value>Manage data &amp; account</value></data>
   <data name="PersonalData_ManageProfilePicture" xml:space="preserve"><value>Manage profile picture</value></data>
   <data name="PersonalData_ManageApiTokens" xml:space="preserve"><value>Manage API tokens</value></data>
+  <data name="Notifications_Latest" xml:space="preserve"><value>Latest updates</value></data>
+  <data name="Notifications_Empty" xml:space="preserve"><value>No new updates.</value></data>
+  <data name="Notifications_Unread" xml:space="preserve"><value>Unread</value></data>
+  <data name="Notifications_DeleteAll" xml:space="preserve"><value>Delete all</value></data>
+  <data name="Notifications_MarkAllRead" xml:space="preserve"><value>Mark all as read</value></data>
+  <data name="Notifications_ApprovalRequested" xml:space="preserve"><value>Approval requested</value></data>
+  <data name="Notifications_ApprovalGranted" xml:space="preserve"><value>Approval granted</value></data>
+  <data name="Notifications_ApprovalRejected" xml:space="preserve"><value>Approval rejected</value></data>
+  <data name="Err_TaskRestore" xml:space="preserve"><value>Task could not be restored: {0}</value></data>
+  <data name="Trash_ItemNoLongerAvailable" xml:space="preserve"><value>The item is no longer in the recycle bin or its retention period has expired.</value></data>
+  <data name="Dashboard_SaveFailed" xml:space="preserve"><value>Save failed</value></data>
+  <data name="Dashboard_LoadFailed" xml:space="preserve"><value>The dashboard could not be loaded.</value></data>
+  <data name="Dashboard_Retry" xml:space="preserve"><value>Try again</value></data>
+  <data name="Portfolio_Label" xml:space="preserve"><value>Portfolio</value></data>
+  <data name="Portfolio_Share" xml:space="preserve"><value>Share portfolio</value></data>
+  <data name="Dashboard_OperationFailed" xml:space="preserve"><value>The dashboard operation could not be completed.</value></data>
+  <data name="Btn_Retry" xml:space="preserve"><value>Try again</value></data>
+  <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>Create as a portfolio with a dashboard</value></data>
+  <data name="Err_TemplatesLoad" xml:space="preserve"><value>Templates could not be loaded: {0}</value></data>
 </root>

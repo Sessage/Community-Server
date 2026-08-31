@@ -183,13 +183,9 @@
             }
 
             var user = await UserManager.FindByEmailAsync(email);
-            var twoFactorEnabled = user is not null && await UserManager.GetTwoFactorEnabledAsync(user);
-            if (user is not null && twoFactorEnabled && await UserManager.IsLockedOutAsync(user))
-                await UserManager.SetLockoutEndDateAsync(user, null);
-
             result = user is null
-                ? await SignInManager.PasswordSignInAsync(email, Input.Password, Input.RememberMe, lockoutOnFailure: false)
-                : await SignInManager.PasswordSignInAsync(user, Input.Password, Input.RememberMe, lockoutOnFailure: !twoFactorEnabled);
+                ? await SignInManager.PasswordSignInAsync(email, Input.Password, Input.RememberMe, lockoutOnFailure: true)
+                : await SignInManager.PasswordSignInAsync(user, Input.Password, Input.RememberMe, lockoutOnFailure: true);
 
             if (!result.Succeeded && !result.RequiresTwoFactor)
                 AttemptProtection.RecordFailure(HttpContext, subject);
@@ -331,10 +327,7 @@
         var requiresTwoFactor = twoFactorConfigured &&
             !await SignInManager.IsTwoFactorClientRememberedAsync(user);
 
-        if (twoFactorConfigured && UserManager.SupportsUserLockout && await UserManager.IsLockedOutAsync(user))
-            await UserManager.SetLockoutEndDateAsync(user, null);
-
-        if (!twoFactorConfigured && UserManager.SupportsUserLockout && await UserManager.IsLockedOutAsync(user))
+        if (UserManager.SupportsUserLockout && await UserManager.IsLockedOutAsync(user))
             return SignInResult.LockedOut;
 
         if (requiresTwoFactor)

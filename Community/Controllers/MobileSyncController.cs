@@ -134,6 +134,43 @@ public class MobileSyncController : ControllerBase
         return Ok(saved);
     }
 
+    [HttpGet("lists/{listId:guid}/view-preference")]
+    public async Task<ActionResult<ListViewPreferenceEntity>> GetListViewPreference(
+        Guid listId,
+        [FromServices] ITodoListPreferencesService preferencesService,
+        CancellationToken token)
+    {
+        var preference = await preferencesService.GetListPreferencesAsync(ResolveUserId(), listId, token);
+        return preference is null ? NotFound() : Ok(preference);
+    }
+
+    [HttpPut("lists/{listId:guid}/view-preference")]
+    public async Task<ActionResult<ListViewPreferenceEntity>> SetListViewPreference(
+        Guid listId,
+        [FromBody] ListViewPreferenceRequest request,
+        [FromServices] ITodoListPreferencesService preferencesService,
+        CancellationToken token)
+    {
+        var userId = ResolveUserId();
+        try
+        {
+            await preferencesService.SetListPreferencesAsync(
+                userId,
+                listId,
+                request.View,
+                request.ListSortMode,
+                request.KanbanSortMode,
+                token);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+
+        var saved = await preferencesService.GetListPreferencesAsync(userId, listId, token);
+        return saved is null ? NotFound() : Ok(saved);
+    }
+
     [HttpDelete("lists/{listId:guid}")]
     public async Task<ActionResult> DeleteList(Guid listId, [FromServices] ITodoListService listService, CancellationToken token)
     {
@@ -204,7 +241,16 @@ public class MobileSyncController : ControllerBase
         [FromBody] TodoAutomationRuleEntity rule,
         [FromServices] ITodoAutomationService automationService,
         CancellationToken token)
-        => Ok(await automationService.SaveRuleAsync(ResolveUserId(), listId, rule, token));
+    {
+        try
+        {
+            return Ok(await automationService.SaveRuleAsync(ResolveUserId(), listId, rule, token));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 
     [HttpPut("lists/{listId:guid}/automations/{ruleId:guid}/enabled")]
     public async Task<ActionResult> SetAutomationEnabled(
@@ -214,8 +260,15 @@ public class MobileSyncController : ControllerBase
         [FromServices] ITodoAutomationService automationService,
         CancellationToken token)
     {
-        await automationService.SetRuleEnabledAsync(ResolveUserId(), listId, ruleId, enabled, token);
-        return Ok();
+        try
+        {
+            await automationService.SetRuleEnabledAsync(ResolveUserId(), listId, ruleId, enabled, token);
+            return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
     }
 
     [HttpDelete("lists/{listId:guid}/automations/{ruleId:guid}")]
@@ -1423,7 +1476,14 @@ public class MobileSyncController : ControllerBase
         CancellationToken token)
     {
         var userId = ResolveUserId();
-        return Ok(await dashboardService.CreateDashboardAsync(userId, dashboard, token));
+        try
+        {
+            return Ok(await dashboardService.CreateDashboardAsync(userId, dashboard, token));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("dashboards/{dashboardId:guid}")]
@@ -1435,8 +1495,15 @@ public class MobileSyncController : ControllerBase
     {
         var userId = ResolveUserId();
         dashboard.Id = dashboardId;
-        var updated = await dashboardService.UpdateDashboardAsync(userId, dashboard, token);
-        return updated is null ? NotFound() : Ok(updated);
+        try
+        {
+            var updated = await dashboardService.UpdateDashboardAsync(userId, dashboard, token);
+            return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpDelete("dashboards/{dashboardId:guid}")]
@@ -1460,6 +1527,15 @@ public class MobileSyncController : ControllerBase
         var userId = ResolveUserId();
         var lists = await trashService.GetDeletedListsAsync(userId, token);
         return Ok(lists);
+    }
+
+    [HttpGet("trash/tasks")]
+    public async Task<ActionResult<IReadOnlyList<DeletedTaskTrashItem>>> GetDeletedTaskEntries(
+        [FromServices] ITodoTrashService trashService,
+        CancellationToken token)
+    {
+        var userId = ResolveUserId();
+        return Ok(await trashService.GetDeletedTaskEntriesAsync(userId, token));
     }
 
     [HttpGet("trash/lists/{listId:guid}/tasks")]
@@ -1523,6 +1599,17 @@ public class MobileSyncController : ControllerBase
     {
         var userId = ResolveUserId();
         await notificationService.MarkAllReadAsync(userId, token);
+        return Ok();
+    }
+
+    [HttpPost("notifications/{notificationId:guid}/mark-read")]
+    public async Task<ActionResult> MarkNotificationRead(
+        Guid notificationId,
+        [FromServices] INotificationService notificationService,
+        CancellationToken token)
+    {
+        var userId = ResolveUserId();
+        await notificationService.MarkReadAsync(userId, notificationId, token);
         return Ok();
     }
 
@@ -1722,6 +1809,7 @@ public class MobileSyncController : ControllerBase
     public record BoardNotificationRuleRequest(NotificationRecipientGroup Groups);
     public record SetDoneColumnRequest(bool IsDone);
     public record SetWatchingRequest(bool Watching);
+    public record ListViewPreferenceRequest(DefaultListView? View, ListSortMode? ListSortMode, ListSortMode? KanbanSortMode);
     public record ApprovalDecisionRequest(bool Approved);
     public record MoveTaskRequest(Guid ToListId, string? DesiredTargetColumn);
     public record LabelRequest(string Title, string? BackgroundColor, Guid? Id = null);

@@ -211,6 +211,8 @@
   <data name="Page_Tasks_Empty" xml:space="preserve">
     <value>Actualmente no tienes tareas asignadas.</value>
   </data>
+  <data name="Page_Tasks_Error" xml:space="preserve"><value>No se pudieron cargar tus tareas asignadas. Inténtalo de nuevo.</value></data>
+  <data name="Page_Tasks_Retry" xml:space="preserve"><value>Reintentar</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>Enfoque</value>
@@ -1166,6 +1168,12 @@
   <data name="Err_Admin_CannotDeleteOwnAccount" xml:space="preserve">
     <value>No puedes eliminar tu propia cuenta.</value>
   </data>
+  <data name="Err_Admin_CannotRemoveOwnAdminRole" xml:space="preserve">
+    <value>No puedes quitarte tu propio rol de administrador.</value>
+  </data>
+  <data name="Err_Admin_EmailAndPasswordRequired" xml:space="preserve">
+    <value>El correo electrónico y la contraseña son obligatorios.</value>
+  </data>
   <data name="Err_Auth_RegistrationNotAllowed" xml:space="preserve">
     <value>El registro no está permitido actualmente.</value>
   </data>
@@ -1189,6 +1197,9 @@
   </data>
   <data name="Err_Profile_DecodeFailed" xml:space="preserve">
     <value>No se pudo decodificar la imagen.</value>
+  </data>
+  <data name="Err_Profile_InvalidDimensions" xml:space="preserve">
+    <value>La foto de perfil debe recortarse a 128 × 128 píxeles.</value>
   </data>
   <data name="Err_Profile_ImageTooLarge" xml:space="preserve">
     <value>La imagen es demasiado grande. Tamaño máximo de archivo: 2 MB.</value>
@@ -1255,6 +1266,9 @@
   <data name="Search_ShowAll" xml:space="preserve">
     <value>Mostrar todos los resultados</value>
   </data>
+  <data name="Search_Error" xml:space="preserve"><value>No se pudo cargar la búsqueda. Inténtalo de nuevo.</value></data>
+  <data name="Search_OfflineResults" xml:space="preserve"><value>Resultados sin conexión guardados en este dispositivo.</value></data>
+  <data name="Search_Clear" xml:space="preserve"><value>Borrar búsqueda</value></data>
   <!-- Reminder emails / notifications -->
   <data name="Email_Reminder_Subject" xml:space="preserve">
     <value>Recordatorio: {0}</value>
@@ -2286,6 +2300,9 @@
   <data name="Account_Loading" xml:space="preserve"><value>Cargando la cuenta …</value></data>
   <data name="Account_LoadError" xml:space="preserve"><value>No se pudieron cargar los datos de la cuenta.</value></data>
   <data name="Account_EmailChangeError" xml:space="preserve"><value>No se pudo cambiar la dirección de correo.</value></data>
+  <data name="Account_InvalidEmail" xml:space="preserve"><value>Introduzca una dirección de correo electrónico válida.</value></data>
+  <data name="Account_EmailUnchanged" xml:space="preserve"><value>La nueva dirección de correo coincide con la actual.</value></data>
+  <data name="Account_EmailAlreadyUsed" xml:space="preserve"><value>Esta dirección de correo electrónico ya está en uso.</value></data>
   <data name="Account_ConfirmationEmailSendError" xml:space="preserve"><value>No se pudo enviar el correo de confirmación.</value></data>
   <data name="Account_ExternalLoginManaged" xml:space="preserve"><value>Ha iniciado sesión mediante un proveedor externo. El proveedor administra su correo electrónico y contraseña.</value></data>
   <data name="Account_EmailAddress" xml:space="preserve"><value>Dirección de correo electrónico</value></data>
@@ -2343,4 +2360,23 @@
   <data name="PersonalData_ManageAccount" xml:space="preserve"><value>Administrar datos y cuenta</value></data>
   <data name="PersonalData_ManageProfilePicture" xml:space="preserve"><value>Administrar foto de perfil</value></data>
   <data name="PersonalData_ManageApiTokens" xml:space="preserve"><value>Administrar tokens de API</value></data>
+  <data name="Notifications_Latest" xml:space="preserve"><value>Últimas actualizaciones</value></data>
+  <data name="Notifications_Empty" xml:space="preserve"><value>No hay actualizaciones nuevas.</value></data>
+  <data name="Notifications_Unread" xml:space="preserve"><value>No leído</value></data>
+  <data name="Notifications_DeleteAll" xml:space="preserve"><value>Eliminar todo</value></data>
+  <data name="Notifications_MarkAllRead" xml:space="preserve"><value>Marcar todo como leído</value></data>
+  <data name="Notifications_ApprovalRequested" xml:space="preserve"><value>Aprobación solicitada</value></data>
+  <data name="Notifications_ApprovalGranted" xml:space="preserve"><value>Aprobación concedida</value></data>
+  <data name="Notifications_ApprovalRejected" xml:space="preserve"><value>Aprobación rechazada</value></data>
+  <data name="Err_TaskRestore" xml:space="preserve"><value>No se pudo restaurar la tarea: {0}</value></data>
+  <data name="Trash_ItemNoLongerAvailable" xml:space="preserve"><value>El elemento ya no está en la papelera o su período de retención ha caducado.</value></data>
+  <data name="Dashboard_SaveFailed" xml:space="preserve"><value>Error al guardar</value></data>
+  <data name="Dashboard_LoadFailed" xml:space="preserve"><value>No se pudo cargar el panel.</value></data>
+  <data name="Dashboard_Retry" xml:space="preserve"><value>Volver a intentar</value></data>
+  <data name="Portfolio_Label" xml:space="preserve"><value>Portafolio</value></data>
+  <data name="Portfolio_Share" xml:space="preserve"><value>Compartir portafolio</value></data>
+  <data name="Dashboard_OperationFailed" xml:space="preserve"><value>No se pudo completar la operación del panel.</value></data>
+  <data name="Btn_Retry" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>Crear como portafolio con panel</value></data>
+  <data name="Err_TemplatesLoad" xml:space="preserve"><value>No se pudieron cargar las plantillas: {0}</value></data>
 </root>

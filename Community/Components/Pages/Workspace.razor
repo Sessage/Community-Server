@@ -472,13 +472,14 @@
             <div class="space-y-2">
                 <div class="text-sm text-slate-600">@L["Workspace_NewName"]</div>
                 <input class="w-full rounded-xl border border-slate-200 p-2"
+                       maxlength="200"
                        @bind="_renameValue" />
             </div>
         </FluentDialogBody>
 
         <FluentDialogFooter>
             <FluentButton Appearance="Appearance.Stealth" OnClick="CloseRenameDialog" Disabled="@_renameBusy">@L["Btn_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="RenameAsync" Disabled="@(_renameBusy || _listLoading || _list is null)">@L["Btn_Save"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="RenameAsync" Disabled="@(_renameBusy || _listLoading || _list is null || string.IsNullOrWhiteSpace(_renameValue))">@L["Btn_Save"]</FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
 }
@@ -530,6 +531,7 @@
             <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                 <AutomationManagerPanel @key="_list.Id"
                                         List="_list"
+                                        AvailableLists="_lists"
                                         UserId="@_userId"
                                         OnChanged="ReloadAsync" />
             </div>
@@ -673,7 +675,7 @@
                             <div class="min-w-0">
                                 <div class="font-medium truncate">@task.Title</div>
                                 <div class="text-xs text-slate-500">
-                                    @L["Workspace_RestoreDeletedOn"] @task.DeletedAt!.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    @L["Workspace_RestoreDeletedOn"] @task.DeletedAt!.Value.ToLocalTime().ToString("g")
                                     &bull; @string.Format(L["Workspace_RestoreDaysLeft"], daysLeft)
                                 </div>
                             </div>
@@ -753,7 +755,7 @@
                     <div class="rounded-xl border border-slate-200 p-2 space-y-2">
                         <div class="text-xs text-slate-500">@L["Workspace_FilterSelectMembers"]</div>
 
-                        @foreach (var p in (_list.Participants ?? new()))
+                        @foreach (var p in GetFilterParticipants())
                         {
                             var uid = (p.UserId ?? "").Trim();
                             if (string.IsNullOrWhiteSpace(uid)) { continue; }
@@ -763,7 +765,7 @@
                                        class="accent-slate-700"
                                        checked="@IsMemberChecked(uid)"
                                        @onchange="(e) => ToggleMember(uid, e)" />
-                                <span>@p.DisplayName</span>
+                                <span>@GetFilterParticipantLabel(p)</span>
                             </label>
                         }
                     </div>
@@ -875,6 +877,7 @@
                 <div class="space-y-1">
                     <div class="text-sm text-slate-600">@L["Workspace_CopyName"]</div>
                     <input class="w-full rounded-xl border border-slate-200 p-2"
+                           maxlength="200"
                            @bind="_copyName" />
                 </div>
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
@@ -919,6 +922,7 @@
                     <div class="space-y-1">
                         <div class="text-sm text-slate-600">@L["Workspace_TemplateName"]</div>
                         <input class="w-full rounded-xl border border-slate-200 p-2"
+                               maxlength="200"
                                @bind="_templateName" />
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
@@ -958,6 +962,12 @@
 
         <FluentDialogBody>
             <div class="space-y-2">
+                @if (!string.IsNullOrWhiteSpace(_exportError))
+                {
+                    <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        @_exportError
+                    </div>
+                }
                 <div class="text-sm text-slate-500 mb-3">
                     <span class="font-medium text-slate-700">@(_list?.Name)</span> –
                     @string.Format(L["Workspace_ExportTaskCount"], (_list?.Tasks?.Count(t => t.DeletedAt == null)) ?? 0)
@@ -1269,7 +1279,8 @@
     private BoardView _view = BoardView.List;
     private bool _selectionMode;
     private bool SupportsBulkSelection =>
-        _view is BoardView.List or BoardView.Kanban or BoardView.Table;
+        _view is BoardView.List or BoardView.Kanban or BoardView.Table
+        && CanWriteCurrentList();
 
     // SortMode pro View
     private ListSortMode _listSortMode = ListSortMode.Custom;
@@ -1955,6 +1966,7 @@
             _lists = loadedLists;
             _list = nextList;
             _selectedListId = nextList.Id;
+            NormalizeFilterReferences(nextList);
 
             if (!CanAdminCurrentList())
                 CloseAdminDialogs();
@@ -2144,6 +2156,12 @@
 
         if (_disposed || WorkspaceInteractionBlocked || _list?.Id != listId) return;
 
+        if (v == _view)
+        {
+            CloseOverlays();
+            return;
+        }
+
         _view = v;
         var preferenceVersion = ++_viewPreferenceVersion;
         _prefsLoadedForListId = listId;
@@ -2156,14 +2174,7 @@
 
         CloseOverlays();
 
-        var prefView = _view switch
-        {
-            BoardView.Kanban => DefaultListView.Kanban,
-            BoardView.Calendar => DefaultListView.Calendar,
-            BoardView.Table => DefaultListView.Tabelle,
-            BoardView.Forms => DefaultListView.Forms,
-            _ => DefaultListView.Liste
-        };
+        var prefView = ToDefaultListView(_view);
 
         await PersistListPreferencesAsync(
             listId,
@@ -2205,7 +2216,7 @@
 
         await PersistListPreferencesAsync(
             listId,
-            null,
+            ToDefaultListView(_view),
             _listSortMode,
             _kanbanSortMode,
             preferenceVersion,
@@ -2298,6 +2309,16 @@
         }
     }
 
+    private static DefaultListView ToDefaultListView(BoardView view)
+        => view switch
+        {
+            BoardView.Kanban => DefaultListView.Kanban,
+            BoardView.Calendar => DefaultListView.Calendar,
+            BoardView.Table => DefaultListView.Tabelle,
+            BoardView.Forms => DefaultListView.Forms,
+            _ => DefaultListView.Liste
+        };
+
     private async Task OpenEmailImportDialogAsync()
     {
         _actionsOpen = false;
@@ -2309,7 +2330,7 @@
         var operationVersion = _emailImportOperationVersion;
         try
         {
-            var config = await EmailImportService.GetConfigurationAsync(_userId, listId);
+            var config = await EmailImportService.GetConfigurationAsync(_userId, listId, _disposeCts.Token);
             if (!IsCurrentEmailImportContext(listId, operationVersion) || _listLoading || !CanAdminCurrentList()) return;
 
             if (config is not null)
@@ -2370,7 +2391,7 @@
 
         try
         {
-            var result = await EmailImportService.TestConnectionAsync(_userId, listId, request);
+            var result = await EmailImportService.TestConnectionAsync(_userId, listId, request, _disposeCts.Token);
             if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
 
             _emailImportStatus = result.Message;
@@ -2412,7 +2433,7 @@
 
         try
         {
-            var result = await EmailImportService.ImportListAsync(_userId, listId);
+            var result = await EmailImportService.ImportListAsync(_userId, listId, _disposeCts.Token);
             if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
 
             _emailImportCreatedTasks = result.ImportedTasks.ToList();
@@ -2459,7 +2480,7 @@
 
         try
         {
-            await EmailImportService.SaveConfigurationAsync(_userId, listId, request);
+            await EmailImportService.SaveConfigurationAsync(_userId, listId, request, _disposeCts.Token);
             if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
 
             CompleteEmailImportDialog();
@@ -2489,7 +2510,7 @@
         _emailImportCreatedTasks.Clear();
         try
         {
-            await EmailImportService.DeleteConfigurationAsync(_userId, listId);
+            await EmailImportService.DeleteConfigurationAsync(_userId, listId, _disposeCts.Token);
             if (!IsCurrentEmailImportContext(listId, operationVersion) || !_emailImportOpen) return;
 
             CompleteEmailImportDialog();
@@ -2623,7 +2644,7 @@
 
         try
         {
-            await NotificationService.SetBoardRuleAsync(_userId, listId, eventType, rule.RecipientGroups);
+            await NotificationService.SetBoardRuleAsync(_userId, listId, eventType, rule.RecipientGroups, _disposeCts.Token);
         }
         catch (Exception ex)
         {
@@ -2651,9 +2672,9 @@
             NotificationEventType.CommentDeleted => L["Notifications_CommentDeleted"],
             NotificationEventType.AttachmentAdded => L["Notifications_AttachmentAdded"],
             NotificationEventType.AttachmentDeleted => L["Notifications_AttachmentDeleted"],
-            NotificationEventType.ApprovalRequested => "Genehmigung angefordert",
-            NotificationEventType.ApprovalGranted => "Genehmigung erfolgt",
-            NotificationEventType.ApprovalRejected => "Genehmigung abgelehnt",
+            NotificationEventType.ApprovalRequested => L["Notifications_ApprovalRequested"],
+            NotificationEventType.ApprovalGranted => L["Notifications_ApprovalGranted"],
+            NotificationEventType.ApprovalRejected => L["Notifications_ApprovalRejected"],
             _ => eventType.ToString()
         };
 
@@ -2745,35 +2766,7 @@
 
     private bool PassesCalendarFilter(TodoTaskEntity task)
     {
-        var query = (_filter.Query ?? string.Empty).Trim();
-        if (!string.IsNullOrWhiteSpace(query)
-            && !$"{task.Title} {task.Description}".Contains(query, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (_filter.Done is not null && task.Done != _filter.Done.Value) return false;
-        if (_filter.NoDueDate || _filter.Overdue || _filter.DueNextDay || _filter.DueNextWeek || _filter.DueNextMonth)
-        {
-            var today = DateTime.Today;
-            var due = task.DueDate?.Date;
-            var dueMatches =
-                (_filter.NoDueDate && due is null) ||
-                (_filter.Overdue && due is not null && due.Value < today) ||
-                (_filter.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1)) ||
-                (_filter.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7)) ||
-                (_filter.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
-
-            if (!dueMatches) return false;
-        }
-
-        if (_filter.NoMembers && (task.MemberUserIds?.Count ?? 0) > 0) return false;
-        if (_filter.AssignedToMe && !string.Equals(task.Assignee?.Trim(), _userId, StringComparison.OrdinalIgnoreCase)) return false;
-        if (_filter.NoAssignee && !string.IsNullOrWhiteSpace(task.Assignee)) return false;
-        if (_filter.MemberUserIds.Count > 0 && !(task.MemberUserIds ?? []).Any(memberId => _filter.MemberUserIds.Contains(memberId))) return false;
-        if (_filter.LabelIds.Count > 0 && !(task.LabelLinks ?? []).Any(link => _filter.LabelIds.Contains(link.LabelId))) return false;
-
-        return true;
+        return TodoTaskFilterMatcher.Matches(_filter, task, _userId);
     }
 
     private Task OpenCalendarTaskAsync(TodoCalendarItem item)
@@ -2807,7 +2800,7 @@
     {
         if (WorkspaceInteractionBlocked) return;
 
-        if (_view == BoardView.Calendar)
+        if (_view is not (BoardView.List or BoardView.Kanban))
         {
             _sortsOpen = false;
             return;
@@ -2993,7 +2986,7 @@
         _renameBusy = true;
         try
         {
-            await ListService.RenameListAsync(_userId, list.Id, newName);
+            await ListService.RenameListAsync(_userId, list.Id, newName, _disposeCts.Token);
             if (_disposed || _list?.Id != list.Id) return;
 
             _renameOpen = false;
@@ -3036,7 +3029,7 @@
 
         try
         {
-            var deleted = await ListService.DeleteListAsync(_userId, list.Id);
+            var deleted = await ListService.DeleteListAsync(_userId, list.Id, _disposeCts.Token);
             if (_disposed || _list?.Id != list.Id) return;
 
             if (!deleted)
@@ -3173,8 +3166,25 @@
             AssignedToMe = src.AssignedToMe,
             NoAssignee = src.NoAssignee,
             MemberUserIds = new HashSet<string>(src.MemberUserIds ?? new(), StringComparer.OrdinalIgnoreCase),
+            MemberKeys = new HashSet<string>(src.MemberKeys ?? new(), StringComparer.OrdinalIgnoreCase),
             LabelIds = new HashSet<Guid>(src.LabelIds ?? new())
         };
+    }
+
+    private void NormalizeFilterReferences(TodoListEntity list)
+    {
+        var validLabelIds = (list.Labels ?? []).Select(label => label.Id).ToHashSet();
+        var validMemberIds = (list.Participants ?? [])
+            .Where(participant => !participant.InvitationPending && !string.IsNullOrWhiteSpace(participant.UserId))
+            .Select(participant => participant.UserId!.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var filter in new[] { _filter, _filterDraft })
+        {
+            filter.LabelIds?.RemoveWhere(labelId => !validLabelIds.Contains(labelId));
+            filter.MemberUserIds?.RemoveWhere(memberId => !validMemberIds.Contains(memberId));
+            filter.MemberKeys?.RemoveWhere(memberId => !validMemberIds.Contains(memberId));
+        }
     }
 
 
@@ -3203,6 +3213,20 @@
 
     private bool IsMemberChecked(string userId)
     => _filterDraft.MemberUserIds.Contains(userId);
+
+    private IEnumerable<ListParticipantEntity> GetFilterParticipants()
+        => (_list?.Participants ?? [])
+            .Where(participant => !participant.InvitationPending && !string.IsNullOrWhiteSpace(participant.UserId))
+            .GroupBy(participant => participant.UserId!.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(GetFilterParticipantLabel, StringComparer.OrdinalIgnoreCase);
+
+    private static string GetFilterParticipantLabel(ListParticipantEntity participant)
+        => !string.IsNullOrWhiteSpace(participant.DisplayName)
+            ? participant.DisplayName.Trim()
+            : !string.IsNullOrWhiteSpace(participant.Email)
+                ? participant.Email.Trim()
+                : participant.UserId?.Trim() ?? string.Empty;
 
     private void ToggleMember(string userId, ChangeEventArgs e)
     {
@@ -3321,7 +3345,7 @@
         _backgroundBusy = true;
         try
         {
-            await ListService.SetBackgroundColorAsync(_userId, listId, background);
+            await ListService.SetBackgroundColorAsync(_userId, listId, background, _disposeCts.Token);
             if (_disposed || _list?.Id != listId) return;
 
             _backgroundOpen = false;
@@ -3361,7 +3385,7 @@
 
         try
         {
-            var deletedTasks = (await TrashService.GetDeletedTasksAsync(_userId, listId)).ToList();
+            var deletedTasks = (await TrashService.GetDeletedTasksAsync(_userId, listId, _disposeCts.Token)).ToList();
             if (!IsCurrentRestoreTasksLoad(listId, loadVersion) || _listLoading || !CanWriteCurrentList()) return;
 
             _deletedTasks = deletedTasks;
@@ -3370,7 +3394,7 @@
         {
             if (IsCurrentRestoreTasksLoad(listId, loadVersion))
             {
-                _error = $"Gelöschte Aufgaben konnten nicht geladen werden. Details: {ex.Message}";
+                _error = string.Format(L["Err_TrashLoad"], ex.Message);
                 _restoreTasksOpen = false;
             }
         }
@@ -3409,12 +3433,12 @@
 
         try
         {
-            var restored = await TrashService.RestoreTaskAsync(_userId, listId, taskId);
+            var restored = await TrashService.RestoreTaskAsync(_userId, listId, taskId, _disposeCts.Token);
             if (_disposed || _list?.Id != listId) return;
 
             if (!restored)
             {
-                _error = "Aufgabe konnte nicht wiederhergestellt werden, da sie nicht mehr im Papierkorb vorhanden ist.";
+                _error = string.Format(L["Err_TaskRestore"], L["Trash_ItemNoLongerAvailable"]);
                 _deletedTasks.RemoveAll(task => task.Id == taskId);
                 return;
             }
@@ -3425,7 +3449,7 @@
         catch (Exception ex)
         {
             if (!_disposed && _list?.Id == listId)
-                _error = $"Aufgabe konnte nicht wiederhergestellt werden. Details: {ex.Message}";
+                _error = string.Format(L["Err_TaskRestore"], ex.Message);
         }
         finally
         {
@@ -3454,6 +3478,8 @@
 
         CloseOverlays();
         _copyName = $"Kopie von {_list?.Name ?? ""}";
+        if (_copyName.Length > 200)
+            _copyName = _copyName[..200];
         _copyIncludeTasks = false;
         _copyOpen = true;
     }
@@ -3479,6 +3505,8 @@
         try
         {
 
+        var newListId = Guid.NewGuid();
+
         // Label-ID-Mapping: alt -> neu
         var labelIdMap = new Dictionary<Guid, Guid>();
         var newLabels = (sourceList.Labels ?? new()).Select(l =>
@@ -3501,7 +3529,7 @@
                 Name = f.Name,
                 Type = f.Type,
                 IsRequired = f.IsRequired,
-                SourceTaskListId = f.SourceTaskListId,
+                SourceTaskListId = f.SourceTaskListId == sourceListId ? newListId : f.SourceTaskListId,
                 SortOrder = index,
                 Options = (f.Options ?? new()).OrderBy(o => o.SortOrder).Select((o, optionIndex) => new TodoCustomFieldOptionEntity
                 {
@@ -3558,6 +3586,7 @@
 
         var newList = new TodoListEntity
         {
+            Id = newListId,
             Name = name,
             Columns = new List<string>(sourceList.Columns ?? new()),
             DoneColumns = new List<string>(sourceList.DoneColumns ?? new()),
@@ -3568,7 +3597,7 @@
             Tasks = newTasks
         };
 
-            var created = await ListService.AddListAsync(_userId, newList);
+            var created = await ListService.AddListAsync(_userId, newList, _disposeCts.Token);
             if (_disposed || _list?.Id != sourceListId || !_copyOpen) return;
 
             _copyOpen = false;
@@ -3628,6 +3657,7 @@
         try
         {
 
+        var templateId = Guid.NewGuid();
         var newLabels = (sourceList.Labels ?? new()).Select(l => new TodoLabelEntity
         {
             Id = Guid.NewGuid(),
@@ -3642,7 +3672,7 @@
             Name = f.Name,
             Type = f.Type,
             IsRequired = f.IsRequired,
-            SourceTaskListId = f.SourceTaskListId,
+            SourceTaskListId = f.SourceTaskListId == sourceListId ? templateId : f.SourceTaskListId,
             SortOrder = index,
             Options = (f.Options ?? new()).OrderBy(o => o.SortOrder).Select((o, optionIndex) => new TodoCustomFieldOptionEntity
             {
@@ -3654,6 +3684,7 @@
 
         var template = new TodoListEntity
         {
+            Id = templateId,
             Name = name,
             Columns = new List<string>(sourceList.Columns ?? new()),
             DoneColumns = new List<string>(sourceList.DoneColumns ?? new()),
@@ -3664,7 +3695,7 @@
             IsTemplate = true
         };
 
-            await ListService.AddListAsync(_userId, template);
+            await ListService.AddListAsync(_userId, template, _disposeCts.Token);
             if (!_disposed && _list?.Id == sourceListId && _templateOpen)
                 _templateSaved = true;
         }
@@ -3685,12 +3716,14 @@
 
     /* ─── Exportieren ────────────────────────────────────────────────────── */
     private bool _exportOpen;
+    private string _exportError = "";
 
     private void OpenExportDialog()
     {
         if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()) return;
 
         CloseOverlays();
+        _exportError = "";
         _exportOpen = true;
     }
 
@@ -3699,6 +3732,7 @@
     private async Task ExportJsonAsync()
     {
         if (_list is null) return;
+        _exportError = "";
 
         var tasks = (_list.Tasks ?? new()).Where(t => t.DeletedAt == null).Select(t => new
         {
@@ -3724,13 +3758,21 @@
         var json = System.Text.Json.JsonSerializer.Serialize(export,
             new System.Text.Json.JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
 
-        var filename = $"{SanitizeFilename(_list.Name)}_{DateTime.Now:yyyy-MM-dd}.json";
-        await JS.InvokeVoidAsync("todoUi.downloadFile", filename, json, "application/json");
+        try
+        {
+            var filename = $"{SanitizeFilename(_list.Name)}_{DateTime.Now:yyyy-MM-dd}.json";
+            await JS.InvokeVoidAsync("todoUi.downloadFile", filename, json, "application/json");
+        }
+        catch (Exception ex)
+        {
+            _exportError = string.Format(L["Workspace_ExportJsonError"], ex.Message);
+        }
     }
 
     private async Task ExportCsvAsync()
     {
         if (_list is null) return;
+        _exportError = "";
 
         var sb = new System.Text.StringBuilder();
         sb.AppendLine(string.Join(",", new[]
@@ -3759,13 +3801,21 @@
             }));
         }
 
-        var filename = $"{SanitizeFilename(_list.Name)}_{DateTime.Now:yyyy-MM-dd}.csv";
-        await JS.InvokeVoidAsync("todoUi.downloadFile", filename, "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
+        try
+        {
+            var filename = $"{SanitizeFilename(_list.Name)}_{DateTime.Now:yyyy-MM-dd}.csv";
+            await JS.InvokeVoidAsync("todoUi.downloadFile", filename, "\uFEFF" + sb.ToString(), "text/csv;charset=utf-8");
+        }
+        catch (Exception ex)
+        {
+            _exportError = string.Format(L["Workspace_ExportCsvError"], ex.Message);
+        }
     }
 
     private async Task ExportPdfAsync()
     {
         if (_list is null) return;
+        _exportError = "";
 
         var tasks = (_list.Tasks ?? new()).Where(t => t.DeletedAt == null).ToList();
 
@@ -3807,7 +3857,14 @@
             </body></html>
             """;
 
-        await JS.InvokeVoidAsync("todoUi.printContent", html);
+        try
+        {
+            await JS.InvokeVoidAsync("todoUi.printContent", html);
+        }
+        catch (Exception ex)
+        {
+            _exportError = string.Format(L["Workspace_ExportPdfError"], ex.Message);
+        }
     }
 
     private static string CsvEscape(string? value)

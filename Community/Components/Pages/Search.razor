@@ -1,4 +1,5 @@
 @page "/search"
+@implements IDisposable
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @inject ISearchService SearchService
@@ -24,6 +25,8 @@
             <FluentIcon Value="@(new Icons.Regular.Size20.Search())" Color="Color.Neutral" />
             <input class="flex-1 outline-none text-base bg-transparent"
                    type="search"
+                   maxlength="@SearchUtilities.MaxQueryLength"
+                   aria-label="@L["Search_Placeholder"]"
                    placeholder="@L["Search_Placeholder"]"
                    @bind="_query"
                    @bind:event="oninput"
@@ -32,7 +35,7 @@
                    autofocus />
             @if (!string.IsNullOrEmpty(_query))
             {
-                <button type="button" class="text-slate-400 hover:text-slate-600" @onclick="ClearSearch">
+                <button type="button" class="text-slate-400 hover:text-slate-600" title="@L["Search_Clear"]" aria-label="@L["Search_Clear"]" @onclick="ClearSearch">
                     <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
                 </button>
             }
@@ -131,6 +134,7 @@
     private string? _error;
     private string? _lastProcessedQuery;
     private long _searchVersion;
+    private CancellationTokenSource? _searchCts;
     private List<SearchResultItem> _results = new();
     private List<SearchResultItem> _listResults = new();
     private List<SearchResultItem> _taskResults = new();
@@ -147,7 +151,7 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        var query = QueryParam?.Trim() ?? string.Empty;
+        var query = SearchUtilities.NormalizeQuery(QueryParam);
         if (string.Equals(query, _lastProcessedQuery, StringComparison.Ordinal))
             return;
 
@@ -172,7 +176,7 @@
 
     private void NavigateToQuery()
     {
-        _query = _query.Trim();
+        _query = SearchUtilities.NormalizeQuery(_query);
         var target = string.IsNullOrWhiteSpace(_query)
             ? "/search"
             : $"/search?q={Uri.EscapeDataString(_query)}";
@@ -182,6 +186,10 @@
     private async Task RunSearchAsync(string query)
     {
         var version = ++_searchVersion;
+        var current = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _searchCts, current);
+        try { previous?.Cancel(); } catch { }
+        previous?.Dispose();
         _error = null;
 
         if (string.IsNullOrWhiteSpace(query))
@@ -200,7 +208,7 @@
 
         try
         {
-            var all = await SearchService.SearchAsync(_userId, query);
+            var all = await SearchService.SearchAsync(_userId, query, current.Token);
             if (version != _searchVersion)
                 return;
 
@@ -208,6 +216,7 @@
             _listResults = _results.Where(r => r.Kind == SearchResultKind.List).ToList();
             _taskResults = _results.Where(r => r.Kind == SearchResultKind.Task).ToList();
         }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
         catch
         {
             if (version == _searchVersion)
@@ -215,7 +224,7 @@
                 _results.Clear();
                 _listResults.Clear();
                 _taskResults.Clear();
-                _error = "Die Suche konnte nicht geladen werden. Bitte versuche es erneut.";
+                _error = L["Search_Error"];
             }
         }
         finally
@@ -235,5 +244,13 @@
             Navigation.NavigateTo($"/list/{item.ListId}?taskId={item.TaskId}");
         else
             Navigation.NavigateTo($"/list/{item.ListId}");
+    }
+
+    public void Dispose()
+    {
+        _searchVersion++;
+        var cts = Interlocked.Exchange(ref _searchCts, null);
+        try { cts?.Cancel(); } catch { }
+        cts?.Dispose();
     }
 }

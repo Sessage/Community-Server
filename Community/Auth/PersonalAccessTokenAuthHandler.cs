@@ -5,6 +5,7 @@ using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Klassenbibliothek.Data;
 
@@ -20,6 +21,7 @@ public class PersonalAccessTokenAuthHandler(
 {
     public const string SchemeName = "PersonalAccessToken";
     private const string TokenPrefix = "tsa_";
+    private const int EncodedTokenLength = 43;
     private static readonly TimeSpan LastUsedUpdateInterval = TimeSpan.FromMinutes(10);
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -29,15 +31,16 @@ public class PersonalAccessTokenAuthHandler(
             return AuthenticateResult.NoResult();
 
         var rawToken = authHeader["Bearer ".Length..].Trim();
-        if (!rawToken.StartsWith(TokenPrefix, StringComparison.Ordinal))
+        if (!IsWellFormedToken(rawToken))
             return AuthenticateResult.NoResult();
 
         var hash = HashToken(rawToken);
+        var cancellationToken = Context.RequestAborted;
 
-        await using var db = await dbFactory.CreateDbContextAsync();
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var pat = await db.PersonalAccessTokens
-            .Where(t => t.TokenHash == hash)
-            .FirstOrDefaultAsync();
+            .AsTracking()
+            .FirstOrDefaultAsync(t => t.TokenHash == hash, cancellationToken);
 
         if (pat is null)
             return AuthenticateResult.Fail("Ungültiger Zugriffstoken.");
@@ -50,10 +53,20 @@ public class PersonalAccessTokenAuthHandler(
         if (user is null)
             return AuthenticateResult.Fail("Benutzer nicht gefunden.");
 
+        if (await userManager.IsLockedOutAsync(user))
+            return AuthenticateResult.Fail("Das Benutzerkonto ist gesperrt.");
+
         if (pat.LastUsedAtUtc is null || now - pat.LastUsedAtUtc.Value >= LastUsedUpdateInterval)
         {
             pat.LastUsedAtUtc = now;
-            await db.SaveChangesAsync();
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex)
+            {
+                Logger.LogWarning(ex, "Could not update LastUsedAtUtc for personal access token {TokenId}.", pat.Id);
+            }
         }
 
         var isAdmin = await userManager.IsInRoleAsync(user, "Admin");
@@ -75,6 +88,18 @@ public class PersonalAccessTokenAuthHandler(
         var ticket = new AuthenticationTicket(principal, SchemeName);
 
         return AuthenticateResult.Success(ticket);
+    }
+
+    internal static bool IsWellFormedToken(string rawToken)
+    {
+        if (rawToken.Length != TokenPrefix.Length + EncodedTokenLength
+            || !rawToken.StartsWith(TokenPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return rawToken.AsSpan(TokenPrefix.Length).IndexOfAnyExcept(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".AsSpan()) < 0;
     }
 
     public static string HashToken(string rawToken)

@@ -372,9 +372,7 @@ else
                 var column = BaseColumns.FirstOrDefault(c => c.Key == _sortColumn);
                 if (column is not null)
                 {
-                    tasks = _sortAscending
-                        ? tasks.OrderBy(t => column.Value(t), StringComparer.OrdinalIgnoreCase).ThenBy(t => t.ListSortOrder)
-                        : tasks.OrderByDescending(t => column.Value(t), StringComparer.OrdinalIgnoreCase).ThenBy(t => t.ListSortOrder);
+                    tasks = SortByColumn(tasks, column, _sortAscending);
                 }
             }
             else
@@ -385,6 +383,38 @@ else
             return tasks.ToList();
         }
     }
+
+    private static IEnumerable<TodoTaskEntity> SortByColumn(
+        IEnumerable<TodoTaskEntity> tasks,
+        TableColumn column,
+        bool ascending)
+    {
+        return column.Key switch
+        {
+            "start" => SortNullableDate(tasks, task => task.StartDate, ascending),
+            "due" => SortNullableDate(tasks, task => task.DueDate, ascending),
+            "created" => ascending
+                ? tasks.OrderBy(task => task.CreatedAtUtc).ThenBy(task => task.ListSortOrder)
+                : tasks.OrderByDescending(task => task.CreatedAtUtc).ThenBy(task => task.ListSortOrder),
+            "done" => ascending
+                ? tasks.OrderBy(task => task.Done).ThenBy(task => task.ListSortOrder)
+                : tasks.OrderByDescending(task => task.Done).ThenBy(task => task.ListSortOrder),
+            "important" => ascending
+                ? tasks.OrderBy(task => task.IsImportant).ThenBy(task => task.ListSortOrder)
+                : tasks.OrderByDescending(task => task.IsImportant).ThenBy(task => task.ListSortOrder),
+            _ => ascending
+                ? tasks.OrderBy(task => column.Value(task), StringComparer.OrdinalIgnoreCase).ThenBy(task => task.ListSortOrder)
+                : tasks.OrderByDescending(task => column.Value(task), StringComparer.OrdinalIgnoreCase).ThenBy(task => task.ListSortOrder)
+        };
+    }
+
+    private static IEnumerable<TodoTaskEntity> SortNullableDate(
+        IEnumerable<TodoTaskEntity> tasks,
+        Func<TodoTaskEntity, DateTime?> selector,
+        bool ascending)
+        => ascending
+            ? tasks.OrderBy(task => selector(task) is null).ThenBy(selector).ThenBy(task => task.ListSortOrder)
+            : tasks.OrderBy(task => selector(task) is null).ThenByDescending(selector).ThenBy(task => task.ListSortOrder);
 
     private TableColumn? AddInputColumn
         => VisibleColumns.FirstOrDefault(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase))
@@ -471,6 +501,10 @@ else
 
         if (_columnOrderListId != List?.Id)
         {
+            _selectedTaskIds.Clear();
+            _filters.Clear();
+            _sortColumn = null;
+            _sortAscending = true;
             _columnOrderListId = List?.Id;
             _sortableInitialized = false;
             _columnOrder = List?.TableColumnOrder?.ToList() ?? new();
@@ -490,6 +524,8 @@ else
 
         EnsureColumnOrder();
         SyncPendingTaskOrderWithIncomingList();
+
+        PruneSelectionToVisibleTasks();
     }
 
     protected override bool ShouldRender() => !_isTaskDragging;
@@ -1462,36 +1498,18 @@ else
 
     private bool MatchesFilter(TodoTaskEntity t)
     {
-        var f = Filter;
-        if (f is null || !f.IsActive()) return true;
-        if (!string.IsNullOrWhiteSpace(f.Query) && !$"{t.Title} {t.Description}".Contains(f.Query.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
-        if (f.Done is not null && t.Done != f.Done.Value) return false;
-        if (f.LabelIds.Count > 0 && (t.LabelLinks is null || !t.LabelLinks.Any(l => f.LabelIds.Contains(l.LabelId)))) return false;
-        if (f.NoAssignee && !string.IsNullOrWhiteSpace(t.Assignee)) return false;
-        if (f.AssignedToMe && !string.Equals(t.Assignee?.Trim(), _userId, StringComparison.OrdinalIgnoreCase)) return false;
-        var members = t.MemberUserIds ?? new List<string>();
-        if (f.MemberUserIds.Count > 0 && !members.Any(m => f.MemberUserIds.Contains(m))) return false;
-        if (f.NoMembers && members.Count > 0) return false;
-
-        if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
-        {
-            var today = DateTime.Today;
-            var due = t.DueDate?.Date;
-            return (f.NoDueDate && due is null)
-                   || (f.Overdue && due is not null && due.Value < today)
-                   || (f.DueNextDay && due is not null && due.Value >= today && due.Value <= today.AddDays(1))
-                   || (f.DueNextWeek && due is not null && due.Value >= today && due.Value <= today.AddDays(7))
-                   || (f.DueNextMonth && due is not null && due.Value >= today && due.Value <= today.AddDays(30));
-        }
-
-        return true;
+        return TodoTaskFilterMatcher.Matches(Filter, t, _userId);
     }
 
     private bool FilterActive => Filter?.IsActive() == true;
     private bool ColumnFilterActive => _filters.Values.Any(value => !string.IsNullOrWhiteSpace(value));
 
     private string GetFilter(string key) => _filters.TryGetValue(key, out var value) ? value : "";
-    private void SetFilter(string key, string? value) => _filters[key] = value ?? "";
+    private void SetFilter(string key, string? value)
+    {
+        _filters[key] = value ?? "";
+        PruneSelectionToVisibleTasks();
+    }
     private void SetSort(string key, bool ascending) { _sortColumn = key; _sortAscending = ascending; }
     private void ResetSort() { _sortColumn = null; _sortAscending = true; }
 
@@ -1507,6 +1525,12 @@ else
     private bool CanReorderTask(TodoTaskEntity task) => CanReorderTasks && !task.Done && task.DeletedAt == null;
 
     private bool IsTaskSelected(Guid taskId) => _selectedTaskIds.Contains(taskId);
+
+    private void PruneSelectionToVisibleTasks()
+    {
+        var visibleTaskIds = VisibleTasks.Select(task => task.Id).ToHashSet();
+        _selectedTaskIds.RemoveWhere(taskId => !visibleTaskIds.Contains(taskId));
+    }
 
     private void ToggleTaskSelection(Guid taskId, ChangeEventArgs e)
     {

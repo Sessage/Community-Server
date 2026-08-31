@@ -1,16 +1,9 @@
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using System.Net;
 using Klassenbibliothek.Data;
-using Klassenbibliothek.Localization;
 using Klassenbibliothek.Services;
 using Klassenbibliothek.Hubs;
 using Klassenbibliothek.Features;
-using TodoSuite.Server.Services.Sharing;
 
 namespace TodoSuite.Server.Services;
 
@@ -19,12 +12,8 @@ namespace TodoSuite.Server.Services;
 /// </summary>
 public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 {
-    private readonly IEmailSender _emailSender;
-    private readonly SmtpOptions _smtpOptions;
-    private readonly IStringLocalizer<SharedResource> _localizer;
     private readonly INotificationService _notificationService;
     private readonly ITodoAutomationService _automationService;
-    private readonly ILogger<TodoTaskService> _logger;
     private readonly IProductFeatureCatalog _features;
     private bool CustomFieldsEnabled => _features.IsEnabled(ProductFeatureIds.Forms);
 
@@ -36,21 +25,13 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         IHubContext<TodoHubEndpoint> hubContext,
         IWebHostEnvironment env,
         ITaskMemberService taskMemberService,
-        IEmailSender emailSender,
-        IOptions<SmtpOptions> smtpOptions,
-        IStringLocalizer<SharedResource> localizer,
         INotificationService notificationService,
         ITodoAutomationService automationService,
-        ILogger<TodoTaskService> logger,
         IProductFeatureCatalog features)
         : base(dbContextFactory, hubContext, env, taskMemberService)
     {
-        _emailSender = emailSender;
-        _smtpOptions = smtpOptions.Value;
-        _localizer = localizer;
         _notificationService = notificationService;
         _automationService = automationService;
-        _logger = logger;
         _features = features;
     }
 
@@ -125,9 +106,6 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         db.TodoTasks.Add(entity);
 
         await db.SaveChangesAsync(cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(entity.Assignee))
-            await TrySendAssigneeNotificationAsync(entity, list, cancellationToken);
 
         await _notificationService.NotifyTaskEventAsync(
             userId,
@@ -329,10 +307,6 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             throw new WorkspaceConcurrencyException("Die Aufgabe wurde gleichzeitig auf einem anderen Gerät geändert.");
         }
 
-        await _automationService.ExecuteAsync(
-            new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskUpdated),
-            cancellationToken);
-
         if (!string.Equals(previousTask.Column, entity.Column, StringComparison.OrdinalIgnoreCase))
         {
             await _automationService.ExecuteAsync(
@@ -360,13 +334,20 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
                 cancellationToken);
         }
 
+        // Process the concrete user transitions before the generic update. A generic
+        // automation may itself change column, completion or assignee and already emits
+        // the corresponding follow-up trigger. Running it first would then replay the
+        // original transition with stale pre-update state.
+        await _automationService.ExecuteAsync(
+            new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskUpdated),
+            cancellationToken);
+
         await db.Entry(entity).ReloadAsync(cancellationToken);
 
         var newAssignee = entity.Assignee;
         if (!string.Equals((oldAssignee ?? "").Trim(), (newAssignee ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(newAssignee))
         {
-            await TrySendAssigneeNotificationAsync(entity, list, cancellationToken);
             await _notificationService.NotifyTaskEventAsync(
                 userId,
                 listId,
@@ -571,6 +552,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         // Soft-Delete: In Papierkorb verschieben
         task.DeletedAt = DateTime.UtcNow;
         task.DeletedByUserId = userId;
+        task.ContentVersion++;
 
         await db.SaveChangesAsync(cancellationToken);
 
@@ -946,77 +928,6 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
                 })
                 .ToList()
         };
-
-    private async Task TrySendAssigneeNotificationAsync(
-        TodoTaskEntity task,
-        TodoListEntity list,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(_smtpOptions.Host) || string.IsNullOrWhiteSpace(_smtpOptions.FromAddress))
-            return;
-
-        if (string.IsNullOrWhiteSpace(task.Assignee))
-            return;
-
-        var participant = list.Participants?.FirstOrDefault(p =>
-            string.Equals(p.UserId, task.Assignee, StringComparison.OrdinalIgnoreCase));
-
-        if (participant is null || string.IsNullOrWhiteSpace(participant.Email))
-            return;
-
-        try
-        {
-            var subject = string.Format(_localizer["Email_NewAssignee_Subject"].Value, task.Title);
-            var body = BuildAssigneeNotificationEmail(task, list.Name ?? "");
-            await _emailSender.SendEmailAsync(participant.Email, subject, body);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Zuweisungs-E-Mail konnte nicht gesendet werden. TaskId={TaskId}, Recipient={RecipientEmail}", task.Id, participant.Email);
-        }
-    }
-
-    private string BuildAssigneeNotificationEmail(TodoTaskEntity task, string listName)
-    {
-        var descEncoded = WebUtility.HtmlEncode(task.Description ?? "");
-
-        var appBase = (_smtpOptions.AppBaseUrl ?? "").TrimEnd('/');
-        var taskUrl = string.IsNullOrWhiteSpace(appBase)
-            ? $"/list/{task.ListId}?taskId={task.Id}"
-            : $"{appBase}/list/{task.ListId}?taskId={task.Id}";
-        var taskUrlEncoded = WebUtility.HtmlEncode(taskUrl);
-
-        var heading = WebUtility.HtmlEncode(_localizer["Email_NewAssignee_Heading"].Value);
-        var intro = WebUtility.HtmlEncode(string.Format(_localizer["Email_NewAssignee_Intro"].Value, task.Title, listName));
-        var goToTask = WebUtility.HtmlEncode(_localizer["Email_NewAssignee_GoToTask"].Value);
-        var linkFallback = WebUtility.HtmlEncode(_localizer["Email_NewAssignee_LinkFallback"].Value);
-
-        return $@"<!doctype html>
-<html lang=""de"">
-<head>
-  <meta charset=""utf-8"" />
-</head>
-<body style=""font-family:Segoe UI, Arial, sans-serif; background:#f8fafc; padding:24px;"">
-  <div style=""max-width:560px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; padding:20px;"">
-    <h2 style=""margin:0 0 12px 0; font-size:18px; color:#0f172a;"">{heading}</h2>
-    <p style=""margin:0 0 16px 0; color:#334155; font-size:14px;"">{intro}</p>
-    {(string.IsNullOrWhiteSpace(task.Description) ? "" : $@"<p style=""margin:0 0 16px 0; color:#334155; font-size:14px;"">{descEncoded}</p>")}
-    <p style=""margin:0 0 18px 0;"">
-      <a href=""{taskUrlEncoded}""
-         style=""display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:12px; font-weight:600;"">
-        {goToTask}
-      </a>
-    </p>
-    <p style=""margin:0 0 12px 0; color:#64748b; font-size:12px;"">
-      {linkFallback}
-    </p>
-    <p style=""margin:0 0 16px 0; font-size:12px; color:#0f172a; word-break:break-all;"">
-      {taskUrlEncoded}
-    </p>
-  </div>
-</body>
-</html>";
-    }
 
     /// <inheritdoc />
     public async Task ReorderKanbanColumnAsync(string userId, Guid listId, string column, IReadOnlyList<Guid> orderedTaskIds, CancellationToken cancellationToken = default)

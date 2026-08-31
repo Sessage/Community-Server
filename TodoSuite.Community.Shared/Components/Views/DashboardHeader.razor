@@ -47,6 +47,7 @@
             @if (_editingName && ActiveDashboard is not null)
             {
                 <input class="w-full max-w-sm text-center text-xl font-bold text-slate-800 bg-transparent border-b-2 border-blue-400 focus:outline-none px-1 py-0.5"
+                       maxlength="160"
                        @ref="_nameInputRef"
                        value="@_editNameValue"
                        @oninput="e => _editNameValue = e.Value?.ToString() ?? string.Empty"
@@ -72,6 +73,11 @@
         </div>
 
         <div class="flex items-center flex-wrap gap-2 shrink-0" @onclick:stopPropagation="true">
+
+            @if (CanEdit && !string.IsNullOrWhiteSpace(SaveState))
+            {
+                <span class="text-xs text-slate-500" role="status">@SaveState</span>
+            }
 
             @if (CanEdit)
             {
@@ -163,6 +169,7 @@
     [Parameter] public bool SortsOpen { get; set; }
     [Parameter] public bool IsFixedDashboard { get; set; }
     [Parameter] public bool CanEdit { get; set; } = true;
+    [Parameter] public string SaveState { get; set; } = string.Empty;
 
     [Parameter] public EventCallback<Guid> OnDashboardChanged { get; set; }
     [Parameter] public EventCallback<string> OnDashboardRenamed { get; set; }

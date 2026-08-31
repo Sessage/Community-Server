@@ -3,20 +3,25 @@ using Microsoft.EntityFrameworkCore;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Services;
 using Klassenbibliothek.Hubs;
+using Klassenbibliothek.Features;
 
 namespace TodoSuite.Server.Services;
 
 public sealed class TodoNavigationService : ITodoNavigationService
 {
+    private const int MaxGroupNameLength = 200;
     private readonly IDbContextFactory<ApplicationDbContext> _dbContextFactory;
     private readonly IHubContext<TodoHubEndpoint> _hubContext;
+    private readonly IProductFeatureCatalog? _features;
 
     public TodoNavigationService(
         IDbContextFactory<ApplicationDbContext> dbContextFactory,
-        IHubContext<TodoHubEndpoint> hubContext)
+        IHubContext<TodoHubEndpoint> hubContext,
+        IProductFeatureCatalog? features = null)
     {
         _dbContextFactory = dbContextFactory;
         _hubContext = hubContext;
+        _features = features;
     }
 
     public async Task<IReadOnlyList<TodoListGroupEntity>> GetListGroupsAsync(string userId, CancellationToken ct = default)
@@ -55,11 +60,10 @@ public sealed class TodoNavigationService : ITodoNavigationService
 
     public async Task<TodoListGroupEntity> AddListGroupAsync(string userId, string name, bool isPortfolio = false, CancellationToken ct = default, Guid? id = null)
     {
+        EnsurePortfolioFeatureAvailable(isPortfolio);
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
 
-        var trimmed = (name ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(trimmed))
-            throw new ArgumentException($"Gruppe konnte nicht angelegt werden: Name ist leer. UserId='{userId}'.", nameof(name));
+        var trimmed = NormalizeGroupName(name, nameof(name));
 
         if (id is { } requestedId && requestedId != Guid.Empty)
         {
@@ -107,6 +111,7 @@ public sealed class TodoNavigationService : ITodoNavigationService
 
     public async Task SetListGroupPortfolioAsync(string userId, Guid groupId, bool isPortfolio, CancellationToken ct = default)
     {
+        EnsurePortfolioFeatureAvailable(isPortfolio);
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var group = await db.TodoListGroups.FirstOrDefaultAsync(x => x.Id == groupId, ct);
         if (group is null) return;
@@ -197,9 +202,7 @@ public sealed class TodoNavigationService : ITodoNavigationService
         else
             EnsureOwner(userId, g.OwnerId, $"Gruppe kann nicht umbenannt werden (GroupId='{groupId}').");
 
-        var trimmed = (newName ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(trimmed))
-            throw new ArgumentException($"Gruppe konnte nicht umbenannt werden: Name ist leer. GroupId='{groupId}'.", nameof(newName));
+        var trimmed = NormalizeGroupName(newName, nameof(newName));
 
         g.Name = trimmed;
         g.UpdatedAtUtc = DateTime.UtcNow;
@@ -317,11 +320,24 @@ public sealed class TodoNavigationService : ITodoNavigationService
                 if (!await PortfolioAccessCoordinator.CanManagePortfolioAsync(db, userId, portfolio.Id, ct))
                     throw new UnauthorizedAccessException("Nur Portfolio-Admins dürfen die Listenreihenfolge ändern.");
                 affectedUserIds.UnionWith(await GetPortfolioMemberUserIdsAsync(db, portfolio.Id, ct));
-                var memberships = await db.PortfolioLists.Where(p => p.PortfolioGroupId == portfolio.Id).ToListAsync(ct);
-                var order = orderedListIds.Select((id, index) => (id, index)).ToDictionary(x => x.id, x => x.index);
+                var memberships = await db.PortfolioLists
+                    .Where(p => p.PortfolioGroupId == portfolio.Id)
+                    .OrderBy(p => p.SortOrder)
+                    .ThenBy(p => p.Id)
+                    .ToListAsync(ct);
+                var requestedOrder = (orderedListIds ?? [])
+                    .Where(id => memberships.Any(membership => membership.ListId == id))
+                    .Distinct()
+                    .ToList();
+                var requestedIds = requestedOrder.ToHashSet();
+                var normalizedOrder = requestedOrder
+                    .Concat(memberships.Where(membership => !requestedIds.Contains(membership.ListId))
+                        .Select(membership => membership.ListId))
+                    .Select((id, index) => (id, index))
+                    .ToDictionary(item => item.id, item => item.index);
                 foreach (var membership in memberships)
                 {
-                    membership.SortOrder = order.TryGetValue(membership.ListId, out var index) ? index : int.MaxValue;
+                    membership.SortOrder = normalizedOrder[membership.ListId];
                     membership.UpdatedAtUtc = DateTime.UtcNow;
                 }
             }
@@ -539,6 +555,22 @@ public sealed class TodoNavigationService : ITodoNavigationService
         var members = await db.PortfolioParticipants.Where(p => p.PortfolioGroupId == portfolioGroupId).ToListAsync(ct);
         foreach (var member in members)
             await PortfolioAccessCoordinator.RevokePortfolioAccessAsync(db, portfolioGroupId, listId, member.UserId, member.Email, ct);
+    }
+
+    private static string NormalizeGroupName(string? name, string parameterName)
+    {
+        var trimmed = (name ?? string.Empty).Trim();
+        if (trimmed.Length == 0)
+            throw new ArgumentException("Gruppenname darf nicht leer sein.", parameterName);
+        if (trimmed.Length > MaxGroupNameLength)
+            throw new ArgumentException($"Ein Gruppenname darf höchstens {MaxGroupNameLength} Zeichen lang sein.", parameterName);
+        return trimmed;
+    }
+
+    private void EnsurePortfolioFeatureAvailable(bool isPortfolio)
+    {
+        if (isPortfolio && _features?.IsEnabled(ProductFeatureIds.Portfolios) == false)
+            throw new UnauthorizedAccessException("Portfolios sind in dieser Edition oder Lizenz nicht verfügbar.");
     }
 
     private static Task<List<string>> GetPortfolioMemberUserIdsAsync(

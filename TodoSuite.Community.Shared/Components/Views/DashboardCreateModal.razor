@@ -6,13 +6,14 @@
         </FluentDialogHeader>
         <FluentDialogBody>
             <input class="w-full rounded-xl border border-slate-200 p-2"
+                   maxlength="160"
                    value="@_name"
                    @oninput="e => _name = e.Value?.ToString() ?? string.Empty"
                    placeholder="@L["Dashboard_Name"]" />
         </FluentDialogBody>
         <FluentDialogFooter>
             <FluentButton Appearance="Appearance.Outline" OnClick="OnClose">@L["Dialog_Cancel"]</FluentButton>
-            <FluentButton Appearance="Appearance.Accent" OnClick="HandleCreate">@L["Dialog_Create"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="HandleCreate" Disabled="@string.IsNullOrWhiteSpace(_name)">@L["Dialog_Create"]</FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
 }

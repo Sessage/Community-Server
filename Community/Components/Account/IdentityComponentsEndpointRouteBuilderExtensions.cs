@@ -122,6 +122,7 @@ namespace Microsoft.AspNetCore.Routing
             manageGroup.MapPost("/DownloadPersonalData", async (
                 HttpContext context,
                 [FromServices] UserManager<ApplicationUser> userManager,
+                [FromServices] TodoSuite.Server.Services.PersonalAccessTokenService personalAccessTokens,
                 [FromServices] IAntiforgery antiforgery) =>
             {
                 await antiforgery.ValidateRequestAsync(context);
@@ -151,6 +152,9 @@ namespace Microsoft.AspNetCore.Routing
                 }
 
                 personalData.Add("Authenticator Key", (await userManager.GetAuthenticatorKeyAsync(user))!);
+                personalData.Add(
+                    "Personal access tokens",
+                    JsonSerializer.Serialize(await personalAccessTokens.ListAsync(userId, context.RequestAborted)));
                 var fileBytes = JsonSerializer.SerializeToUtf8Bytes(personalData);
 
                 context.Response.Headers.TryAdd("Content-Disposition", "attachment; filename=PersonalData.json");

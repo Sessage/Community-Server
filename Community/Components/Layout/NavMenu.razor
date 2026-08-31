@@ -39,6 +39,8 @@
             <FluentIcon Value="@(new Icons.Regular.Size16.Search())" Color="Color.Neutral" />
             <input class="p-2 flex-1 outline-none text-sm bg-transparent min-w-0"
                    type="text"
+                   maxlength="@SearchUtilities.MaxQueryLength"
+                   aria-label="@L["Search_Placeholder"]"
                    placeholder="@L["Search_Placeholder"]"
                    value="@_searchQuery"
                    @oninput="OnSearchInput"
@@ -46,7 +48,7 @@
                    @onkeydown="OnSearchKeyDown" />
             @if (!string.IsNullOrEmpty(_searchQuery))
             {
-                <button type="button" class="text-slate-400 hover:text-slate-600 shrink-0" @onclick="ClearSearchAsync">
+                <button type="button" class="text-slate-400 hover:text-slate-600 shrink-0" title="@L["Search_Clear"]" aria-label="@L["Search_Clear"]" @onclick="ClearSearchAsync">
                     <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
                 </button>
             }
@@ -58,6 +60,10 @@
                 @if (_searchLoading)
                 {
                     <div class="px-3 py-2 text-sm text-slate-500">@L["Lbl_Loading"]</div>
+                }
+                else if (_searchFailed)
+                {
+                    <div class="px-3 py-2 text-sm text-red-700" role="alert">@L["Search_Error"]</div>
                 }
                 else if (_searchResults.Count == 0)
                 {
@@ -141,8 +147,8 @@
             <div class="text-xs uppercase tracking-wide text-slate-500">@L["Nav_Lists"]</div>
 
             <div class="flex items-center gap-1">
-                <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleCreateGroup"><FluentIcon Value="@(new Icons.Regular.Size16.FolderAdd())" Color="Color.Accent" /></FluentButton>
-                <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleCreateList">
+                <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleCreateGroup" Title="@L["Nav_NewGroup"]" aria-label="@L["Nav_NewGroup"]"><FluentIcon Value="@(new Icons.Regular.Size16.FolderAdd())" Color="Color.Accent" /></FluentButton>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="ToggleCreateList" Title="@L["Nav_NewList"]">
                     <div class="flex">
                         <FluentIcon Value="@(new Icons.Regular.Size16.Add())" Class="mr-1" Color="Color.Accent" />
                         @L["Nav_NewList"]
@@ -163,18 +169,18 @@
         {
             <div class="bg-white rounded-lg border border-slate-200 p-2 shadow-sm mb-2">
                 <div class="text-xs uppercase tracking-wide text-slate-500 mb-2">@L["Nav_NewGroup"]</div>
-                <div @onkeydown="HandleCreateGroupKeyDown">
-                    <input class="p-1 flex-1 outline-none w-full align-middle" @ref="_groupInputRef" @bind-Value="_newGroupName" @bind-Value:event="oninput" Placeholder="@L["Lbl_GroupName"]" />
+                <div>
+                    <input class="p-1 flex-1 outline-none w-full align-middle" @ref="_groupInputRef" @bind-Value="_newGroupName" @bind-Value:event="oninput" @onkeydown="HandleCreateGroupKeyDown" maxlength="200" disabled="@_createGroupBusy" aria-label="@L["Lbl_GroupName"]" Placeholder="@L["Lbl_GroupName"]" />
                     @if (ProductFeatures.IsEnabled(ProductFeatureIds.Portfolios))
                     {
                         <label class="mt-2 flex items-center gap-2 text-sm text-slate-600">
-                            <input type="checkbox" @bind="_newGroupIsPortfolio" />
-                            <span>Als Portfolio mit Dashboard erstellen</span>
+                            <input type="checkbox" @bind="_newGroupIsPortfolio" disabled="@_createGroupBusy" />
+                            <span>@L["Nav_CreateAsPortfolio"]</span>
                         </label>
                     }
                     <div class="mt-2 flex items-center justify-end gap-2">
-                        <FluentButton Appearance="Appearance.Stealth" OnClick="() => _showCreateGroup = false">@L["Btn_Cancel"]</FluentButton>
-                        <FluentButton Appearance="Appearance.Accent" OnClick="CreateGroupAsync">@L["Btn_Create"]</FluentButton>
+                        <FluentButton Appearance="Appearance.Stealth" OnClick="CancelCreateGroup" Disabled="@_createGroupBusy">@L["Btn_Cancel"]</FluentButton>
+                        <FluentButton Appearance="Appearance.Accent" OnClick="CreateGroupAsync" Disabled="@(_createGroupBusy || string.IsNullOrWhiteSpace(_newGroupName))">@L["Btn_Create"]</FluentButton>
                     </div>
                 </div>
             </div>
@@ -183,12 +189,19 @@
         @if (_showCreateList)
         {
             <div class="bg-white rounded-lg border border-slate-200 p-2 shadow-sm mb-2">
-                <div @onkeydown="HandleCreateListKeyDown">
-                    <input class="p-1 flex-1 outline-none w-full align-middle" @ref="_listInputRef" @bind-Value="_newList.Name" @bind-Value:event="oninput" Placeholder="@L["Lbl_ListName"]" />
+                <div>
+                    <input class="p-1 flex-1 outline-none w-full align-middle" @ref="_listInputRef" @bind-Value="_newList.Name" @bind-Value:event="oninput" @onkeydown="HandleCreateListKeyDown" maxlength="200" disabled="@_createListBusy" aria-label="@L["Lbl_ListName"]" Placeholder="@L["Lbl_ListName"]" />
 
                     @if (_templatesLoading)
                     {
                         <div class="mt-2 text-xs text-slate-400">@L["Lbl_Loading"]</div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_templatesError))
+                    {
+                        <div class="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                            <span>@_templatesError</span>
+                            <button type="button" class="ml-1 underline" @onclick="LoadTemplatesAsync">@L["Btn_Retry"]</button>
+                        </div>
                     }
                     else if (_availableTemplates.Count > 0)
                     {
@@ -213,8 +226,8 @@
                     }
 
                     <div class="mt-2 flex items-center justify-end gap-2">
-                        <FluentButton Appearance="Appearance.Stealth" OnClick="() => _showCreateList = false">@L["Btn_Cancel"]</FluentButton>
-                        <FluentButton Appearance="Appearance.Accent" OnClick="CreateListAsync">@L["Btn_Create"]</FluentButton>
+                        <FluentButton Appearance="Appearance.Stealth" OnClick="CancelCreateList" Disabled="@_createListBusy">@L["Btn_Cancel"]</FluentButton>
+                        <FluentButton Appearance="Appearance.Accent" OnClick="CreateListAsync" Disabled="@(_createListBusy || string.IsNullOrWhiteSpace(_newList.Name))">@L["Btn_Create"]</FluentButton>
                     </div>
                 </div>
             </div>
@@ -419,27 +432,34 @@
                             <DropdownContent>
                                 <div class="w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
                                     <div class="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 bg-slate-50 flex items-center justify-between gap-2">
-                                        <span>Neueste Änderungen</span>
-                                        <FluentButton Appearance="Appearance.Stealth" Title="Schließen" @onclick="CloseNotificationsPanel">x</FluentButton>
+                                        <span>@L["Notifications_Latest"]</span>
+                                        <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" @onclick="CloseNotificationsPanel">x</FluentButton>
                                     </div>
                                     <div class="max-h-80 overflow-auto divide-y divide-slate-100">
                                         @if (_latestNotifications.Count == 0)
                                         {
-                                            <div class="px-3 py-4 text-sm text-slate-500">Keine neuen Änderungen.</div>
+                                            <div class="px-3 py-4 text-sm text-slate-500">@L["Notifications_Empty"]</div>
                                         }
                                         else
                                         {
                                             @foreach (var n in _latestNotifications)
                                             {
-                                                <div class="flex items-start gap-1 px-3 py-2 hover:bg-slate-50">
+                                                <div class="flex items-start gap-1 px-3 py-2 hover:bg-slate-50 @(n.ReadAtUtc is null ? "bg-blue-50/60" : "")">
                                                     <button class="min-w-0 flex-1 text-left"
                                                             @onclick="() => OpenNotificationAsync(n)">
-                                                        <div class="text-sm font-medium text-slate-800">@n.Title</div>
+                                                        <div class="flex items-center gap-2 text-sm font-medium text-slate-800">
+                                                            @if (n.ReadAtUtc is null)
+                                                            {
+                                                                <span class="h-2 w-2 shrink-0 rounded-full bg-blue-600" aria-label="@L["Notifications_Unread"]"></span>
+                                                            }
+                                                            <span>@n.Title</span>
+                                                        </div>
                                                         <div class="text-xs text-slate-500">@n.Message</div>
                                                         <div class="text-[11px] text-slate-400">@n.CreatedAtUtc.ToLocalTime().ToString("g")</div>
                                                     </button>
                                                     <FluentButton Appearance="Appearance.Stealth"
-                                                                  Title="Benachrichtigung löschen"
+                                                                  Title="@L["Btn_Delete"]"
+                                                                  Disabled="@_notificationMutationBusy"
                                                                   OnClick="() => DeleteNotificationAsync(n.Id)">
                                                         <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
                                                     </FluentButton>
@@ -449,11 +469,11 @@
                                     </div>
                                     <div class="border-t border-slate-100 p-2 flex items-center justify-between gap-2">
                                         <FluentButton Appearance="Appearance.Stealth"
-                                                      Disabled="@(_latestNotifications.Count == 0)"
+                                                      Disabled="@(_notificationMutationBusy || _latestNotifications.Count == 0)"
                                                       OnClick="DeleteAllNotificationsAsync">
-                                            Alle löschen
+                                            @L["Notifications_DeleteAll"]
                                         </FluentButton>
-                                        <FluentButton Appearance="Appearance.Stealth" OnClick="MarkNotificationsReadAsync">Gelesen</FluentButton>
+                                        <FluentButton Appearance="Appearance.Stealth" Disabled="@(_notificationMutationBusy || _unreadNotifications == 0)" OnClick="MarkNotificationsReadAsync">@L["Notifications_MarkAllRead"]</FluentButton>
                                     </div>
                                 </div>
                             </DropdownContent>
@@ -569,9 +589,9 @@
                 <div class="flex-1">
                     <div class="text-sm font-medium text-slate-700 mb-1">@ManageGroupCreateLabel</div>
                     <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                           placeholder="@L["Lbl_ListName"]" @bind-value="_manageNewListName" @bind-value:event="oninput" @onkeydown="HandleManageNewListKeyDown" />
+                           placeholder="@L["Lbl_ListName"]" aria-label="@L["Lbl_ListName"]" maxlength="200" disabled="@_manageCreateBusy" @bind-value="_manageNewListName" @bind-value:event="oninput" @onkeydown="HandleManageNewListKeyDown" />
                 </div>
-                <FluentButton Appearance="Appearance.Accent" Disabled="_manageCreateBusy" OnClick="CreateListInManagedGroupAsync">@L["Btn_Create"]</FluentButton>
+                <FluentButton Appearance="Appearance.Accent" Disabled="@(_manageCreateBusy || string.IsNullOrWhiteSpace(_manageNewListName))" OnClick="CreateListInManagedGroupAsync">@L["Btn_Create"]</FluentButton>
             </div>
 
             <div class="space-y-2 max-h-[55vh] overflow-auto pr-1">
@@ -672,10 +692,14 @@
     private List<TodoListEntity> _availableTemplates = new();
     private Guid? _selectedTemplateId;
     private bool _templatesLoading;
+    private string _templatesError = "";
+    private long _templateLoadVersion;
+    private bool _createListBusy;
 
     private bool _showCreateGroup;
     private string _newGroupName = "";
     private bool _newGroupIsPortfolio;
+    private bool _createGroupBusy;
 
     private string _error = "";
 
@@ -683,6 +707,7 @@
     private string _searchQuery = "";
     private bool _searchOpen;
     private bool _searchLoading;
+    private bool _searchFailed;
     private List<SearchResultItem> _searchResults = new();
     private List<SearchResultItem> _searchListResults = new();
     private List<SearchResultItem> _searchTaskResults = new();
@@ -776,6 +801,7 @@
     {
         _searchQuery = e.Value?.ToString() ?? "";
         var requestVersion = ++_searchRequestVersion;
+        _searchFailed = false;
 
         _searchDebounce?.Cancel();
         _searchDebounce?.Dispose();
@@ -784,6 +810,7 @@
         if (string.IsNullOrWhiteSpace(_searchQuery))
         {
             _searchOpen = false;
+            _searchLoading = false;
             _searchResults.Clear();
             _searchListResults.Clear();
             _searchTaskResults.Clear();
@@ -805,13 +832,14 @@
             return;
         }
 
-        await RunNavSearchAsync(query, requestVersion);
+        await RunNavSearchAsync(query, requestVersion, token);
     }
 
     private async Task OnSearchKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchQuery))
         {
+            _searchQuery = SearchUtilities.NormalizeQuery(_searchQuery);
             _searchOpen = false;
             Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_searchQuery)}");
         }
@@ -829,27 +857,31 @@
         _searchDebounce = null;
         _searchQuery = "";
         _searchOpen = false;
+        _searchLoading = false;
+        _searchFailed = false;
         _searchResults.Clear();
         _searchListResults.Clear();
         _searchTaskResults.Clear();
         await Task.CompletedTask;
     }
 
-    private async Task RunNavSearchAsync(string query, long requestVersion)
+    private async Task RunNavSearchAsync(string query, long requestVersion, CancellationToken cancellationToken)
     {
         _searchLoading = true;
         await SafeStateHasChangedAsync();
 
         try
         {
-            var all = await SearchService.SearchAsync(_userId, query);
+            var all = await SearchService.SearchAsync(_userId, query, cancellationToken);
             if (_disposed || requestVersion != _searchRequestVersion)
                 return;
 
             _searchResults = all.ToList();
             _searchListResults = _searchResults.Where(r => r.Kind == SearchResultKind.List).ToList();
             _searchTaskResults = _searchResults.Where(r => r.Kind == SearchResultKind.Task).ToList();
+            _searchFailed = false;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch
         {
             if (_disposed || requestVersion != _searchRequestVersion)
@@ -858,6 +890,7 @@
             _searchResults.Clear();
             _searchListResults.Clear();
             _searchTaskResults.Clear();
+            _searchFailed = true;
         }
         finally
         {
@@ -880,6 +913,7 @@
 
     private void ShowAllSearchResults()
     {
+        _searchQuery = SearchUtilities.NormalizeQuery(_searchQuery);
         _searchOpen = false;
         Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_searchQuery)}");
     }
@@ -1205,44 +1239,77 @@
 
     private void ToggleCreateList()
     {
+        if (_createListBusy) return;
         _showCreateList = !_showCreateList;
         if (_showCreateList)
         {
+            CancelCreateGroup();
             _newList = new TodoListEntity { Name = "" };
             _selectedTemplateId = null;
+            _templatesError = "";
             _focusListInput = true;
             _ = LoadTemplatesAsync();
         }
+        else CancelCreateList();
     }
 
     private async Task LoadTemplatesAsync()
     {
+        var requestVersion = ++_templateLoadVersion;
         _templatesLoading = true;
+        _templatesError = "";
         await InvokeAsync(StateHasChanged);
         try
         {
-            _availableTemplates = (await ListService.GetTemplatesAsync(_userId)).ToList();
+            var templates = (await ListService.GetTemplatesAsync(_userId)).ToList();
+            if (requestVersion == _templateLoadVersion && _showCreateList && !_disposed)
+                _availableTemplates = templates;
         }
-        catch
+        catch (Exception ex)
         {
-            _availableTemplates = new List<TodoListEntity>();
+            if (requestVersion == _templateLoadVersion && _showCreateList && !_disposed)
+            {
+                _availableTemplates = new List<TodoListEntity>();
+                _templatesError = string.Format(L["Err_TemplatesLoad"], ex.Message);
+            }
         }
         finally
         {
-            _templatesLoading = false;
+            if (requestVersion == _templateLoadVersion) _templatesLoading = false;
         }
-        await InvokeAsync(StateHasChanged);
+        if (!_disposed) await InvokeAsync(StateHasChanged);
     }
 
     private void ToggleCreateGroup()
     {
+        if (_createGroupBusy) return;
         _showCreateGroup = !_showCreateGroup;
         if (_showCreateGroup)
         {
+            CancelCreateList();
             _newGroupName = "";
             _newGroupIsPortfolio = false;
             _focusGroupInput = true;
         }
+        else CancelCreateGroup();
+    }
+
+    private void CancelCreateList()
+    {
+        if (_createListBusy) return;
+        _showCreateList = false;
+        _templatesLoading = false;
+        _templatesError = "";
+        _selectedTemplateId = null;
+        _templateLoadVersion++;
+    }
+
+    private void CancelCreateGroup()
+    {
+        if (_createGroupBusy) return;
+        _showCreateGroup = false;
+        _newGroupName = "";
+        _newGroupIsPortfolio = false;
     }
 
     private async Task ToggleGroupCollapseAsync(Guid groupId)
@@ -1257,7 +1324,12 @@
 
     private async Task HandleCreateGroupKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key != "Enter")
+        if (e.Key == "Escape")
+        {
+            CancelCreateGroup();
+            return;
+        }
+        if (e.Key != "Enter" || e.Repeat || e.IsComposing || _createGroupBusy)
             return;
 
         await CreateGroupAsync();
@@ -1265,6 +1337,7 @@
 
     private async Task CreateGroupAsync()
     {
+        if (_createGroupBusy) return;
         _error = "";
         var name = (_newGroupName ?? "").Trim();
 
@@ -1274,6 +1347,7 @@
             return;
         }
 
+        _createGroupBusy = true;
         try
         {
             await NavService.AddListGroupAsync(_userId, name, _newGroupIsPortfolio);
@@ -1286,6 +1360,7 @@
         {
             _error = string.Format(L["Err_GroupCreate"], ex.Message);
         }
+        finally { _createGroupBusy = false; }
     }
 
     private async Task TogglePortfolioAsync(TodoListGroupEntity group)
@@ -1305,7 +1380,12 @@
 
     private async Task HandleCreateListKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key != "Enter")
+        if (e.Key == "Escape")
+        {
+            CancelCreateList();
+            return;
+        }
+        if (e.Key != "Enter" || e.Repeat || e.IsComposing || _createListBusy)
             return;
 
         await CreateListAsync();
@@ -1313,6 +1393,7 @@
 
     private async Task CreateListAsync()
     {
+        if (_createListBusy) return;
         _error = "";
 
         var listName = (_newList.Name ?? "").Trim();
@@ -1322,6 +1403,7 @@
             return;
         }
 
+        _createListBusy = true;
         try
         {
             TodoListEntity created;
@@ -1352,6 +1434,7 @@
         {
             _error = string.Format(L["Err_ListCreate"], ex.Message);
         }
+        finally { _createListBusy = false; }
     }
 
     private bool CanManageListPlacement(Guid? groupId)
@@ -1392,20 +1475,25 @@
 
     private async Task HandleManageNewListKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") await CreateListInManagedGroupAsync();
+        if (e.Key == "Enter" && !e.Repeat && !e.IsComposing && !_manageCreateBusy)
+            await CreateListInManagedGroupAsync();
     }
 
     private async Task CreateListInManagedGroupAsync()
     {
+        if (_manageCreateBusy) return;
         var name = (_manageNewListName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(name) || _manageGroupId == Guid.Empty || !CanManageListPlacement(_manageGroupId)) return;
         _manageCreateBusy = true;
         _error = "";
         try
         {
-            var created = await ListService.AddListAsync(_userId, new TodoListEntity { Id = Guid.NewGuid(), Name = name });
-            var targetIds = _lists.Where(x => x.NavigationGroupId == _manageGroupId).OrderBy(x => x.NavigationSortOrder).Select(x => x.Id).Append(created.Id).ToList();
-            await NavService.MoveListAsync(_userId, created.Id, null, _manageGroupId, [], targetIds);
+            await ListService.AddListAsync(_userId, new TodoListEntity
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                NavigationGroupId = _manageGroupId
+            });
             _manageNewListName = "";
             await LoadNavigationAsync();
         }
@@ -1944,18 +2032,37 @@
     }
 
     private CancellationTokenSource? _reloadCts;
+    private bool _notificationMutationBusy;
+    private long _notificationRefreshVersion;
 
     private async Task RefreshNotificationsAsync()
     {
+        var requestVersion = Interlocked.Increment(ref _notificationRefreshVersion);
         if (_userId == "gast")
         {
-            _unreadNotifications = 0;
-            _latestNotifications.Clear();
+            if (!_disposed && requestVersion == _notificationRefreshVersion)
+            {
+                _unreadNotifications = 0;
+                _latestNotifications.Clear();
+            }
             return;
         }
 
-        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
-        _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
+        try
+        {
+            var unread = await NotificationService.GetUnreadCountAsync(_userId);
+            var latest = (await NotificationService.GetLatestAsync(_userId)).ToList();
+            if (_disposed || requestVersion != _notificationRefreshVersion)
+                return;
+
+            _unreadNotifications = unread;
+            _latestNotifications = latest;
+        }
+        catch (Exception ex)
+        {
+            if (!_disposed && requestVersion == _notificationRefreshVersion)
+                _error = $"Benachrichtigungen konnten nicht geladen werden: {ex.Message}";
+        }
     }
 
     private async Task ToggleNotificationsPanelAsync()
@@ -1973,26 +2080,48 @@
 
     private async Task MarkNotificationsReadAsync()
     {
-        await NotificationService.MarkAllReadAsync(_userId);
-        _unreadNotifications = 0;
-        _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
-        StateHasChanged();
+        if (_notificationMutationBusy) return;
+        _notificationMutationBusy = true;
+        try
+        {
+            await NotificationService.MarkAllReadAsync(_userId);
+            _unreadNotifications = 0;
+            _latestNotifications = (await NotificationService.GetLatestAsync(_userId)).ToList();
+        }
+        catch (Exception ex) { _error = $"Benachrichtigungen konnten nicht aktualisiert werden: {ex.Message}"; }
+        finally { _notificationMutationBusy = false; }
+        if (!_disposed)
+            StateHasChanged();
     }
 
     private async Task DeleteNotificationAsync(Guid notificationId)
     {
-        await NotificationService.DeleteNotificationAsync(_userId, notificationId);
-        _latestNotifications.RemoveAll(n => n.Id == notificationId);
-        _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
-        await RefreshNotificationsDropdownAsync();
+        if (_notificationMutationBusy) return;
+        _notificationMutationBusy = true;
+        try
+        {
+            await NotificationService.DeleteNotificationAsync(_userId, notificationId);
+            _latestNotifications.RemoveAll(n => n.Id == notificationId);
+            _unreadNotifications = await NotificationService.GetUnreadCountAsync(_userId);
+            await RefreshNotificationsDropdownAsync();
+        }
+        catch (Exception ex) { _error = $"Benachrichtigung konnte nicht gelöscht werden: {ex.Message}"; }
+        finally { _notificationMutationBusy = false; }
     }
 
     private async Task DeleteAllNotificationsAsync()
     {
-        await NotificationService.DeleteAllNotificationsAsync(_userId);
-        _latestNotifications.Clear();
-        _unreadNotifications = 0;
-        await RefreshNotificationsDropdownAsync();
+        if (_notificationMutationBusy) return;
+        _notificationMutationBusy = true;
+        try
+        {
+            await NotificationService.DeleteAllNotificationsAsync(_userId);
+            _latestNotifications.Clear();
+            _unreadNotifications = 0;
+            await RefreshNotificationsDropdownAsync();
+        }
+        catch (Exception ex) { _error = $"Benachrichtigungen konnten nicht gelöscht werden: {ex.Message}"; }
+        finally { _notificationMutationBusy = false; }
     }
 
     private async Task RefreshNotificationsDropdownAsync()
@@ -2010,6 +2139,11 @@
     private async Task OpenNotificationAsync(UserNotificationEntity notification)
     {
         await CloseNotificationsPanel();
+        if (notification.ReadAtUtc is null)
+        {
+            try { await NotificationService.MarkReadAsync(_userId, notification.Id); }
+            catch (Exception ex) { _error = $"Benachrichtigung konnte nicht als gelesen markiert werden: {ex.Message}"; }
+        }
         if (notification.TaskId.HasValue)
             Navigation.NavigateTo($"/list/{notification.ListId}?taskId={notification.TaskId.Value}");
         else

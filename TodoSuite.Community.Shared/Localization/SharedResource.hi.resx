@@ -211,6 +211,8 @@
   <data name="Page_Tasks_Empty" xml:space="preserve">
     <value>वर्तमान में आपको कोई कार्य सौंपा नहीं गया है।</value>
   </data>
+  <data name="Page_Tasks_Error" xml:space="preserve"><value>आपको सौंपे गए कार्य लोड नहीं हो सके। कृपया फिर से प्रयास करें।</value></data>
+  <data name="Page_Tasks_Retry" xml:space="preserve"><value>फिर से प्रयास करें</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>फ़ोकस</value>
@@ -1166,6 +1168,12 @@
   <data name="Err_Admin_CannotDeleteOwnAccount" xml:space="preserve">
     <value>आप अपना खाता नहीं हटा सकते।</value>
   </data>
+  <data name="Err_Admin_CannotRemoveOwnAdminRole" xml:space="preserve">
+    <value>आप अपनी प्रशासक भूमिका नहीं हटा सकते।</value>
+  </data>
+  <data name="Err_Admin_EmailAndPasswordRequired" xml:space="preserve">
+    <value>ईमेल पता और पासवर्ड आवश्यक हैं।</value>
+  </data>
   <data name="Err_Auth_RegistrationNotAllowed" xml:space="preserve">
     <value>वर्तमान में पंजीकरण की अनुमति नहीं है।</value>
   </data>
@@ -1189,6 +1197,9 @@
   </data>
   <data name="Err_Profile_DecodeFailed" xml:space="preserve">
     <value>छवि को डीकोड नहीं किया जा सका।</value>
+  </data>
+  <data name="Err_Profile_InvalidDimensions" xml:space="preserve">
+    <value>प्रोफ़ाइल चित्र को 128 × 128 पिक्सेल में क्रॉप किया जाना चाहिए।</value>
   </data>
   <data name="Err_Profile_ImageTooLarge" xml:space="preserve">
     <value>छवि बहुत बड़ी है। अधिकतम फ़ाइल आकार: 2 MB।</value>
@@ -1255,6 +1266,9 @@
   <data name="Search_ShowAll" xml:space="preserve">
     <value>सभी परिणाम दिखाएं</value>
   </data>
+  <data name="Search_Error" xml:space="preserve"><value>खोज लोड नहीं हो सकी। कृपया फिर से प्रयास करें।</value></data>
+  <data name="Search_OfflineResults" xml:space="preserve"><value>इस डिवाइस पर सहेजे गए ऑफ़लाइन परिणाम।</value></data>
+  <data name="Search_Clear" xml:space="preserve"><value>खोज साफ़ करें</value></data>
   <!-- Reminder emails / notifications -->
   <data name="Email_Reminder_Subject" xml:space="preserve">
     <value>अनुस्मारक: {0}</value>
@@ -2286,6 +2300,9 @@
   <data name="Account_Loading" xml:space="preserve"><value>खाता लोड हो रहा है …</value></data>
   <data name="Account_LoadError" xml:space="preserve"><value>खाते का डेटा लोड नहीं किया जा सका।</value></data>
   <data name="Account_EmailChangeError" xml:space="preserve"><value>ईमेल पता बदला नहीं जा सका।</value></data>
+  <data name="Account_InvalidEmail" xml:space="preserve"><value>कृपया एक मान्य ईमेल पता दर्ज करें।</value></data>
+  <data name="Account_EmailUnchanged" xml:space="preserve"><value>नया ईमेल पता वर्तमान पते के समान है।</value></data>
+  <data name="Account_EmailAlreadyUsed" xml:space="preserve"><value>यह ईमेल पता पहले से उपयोग में है।</value></data>
   <data name="Account_ConfirmationEmailSendError" xml:space="preserve"><value>पुष्टिकरण ईमेल भेजा नहीं जा सका।</value></data>
   <data name="Account_ExternalLoginManaged" xml:space="preserve"><value>आप किसी बाहरी प्रदाता के माध्यम से साइन इन हैं। आपका ईमेल पता और पासवर्ड उसी प्रदाता द्वारा प्रबंधित किए जाते हैं।</value></data>
   <data name="Account_EmailAddress" xml:space="preserve"><value>ईमेल पता</value></data>
@@ -2343,4 +2360,23 @@
   <data name="PersonalData_ManageAccount" xml:space="preserve"><value>डेटा और खाता प्रबंधित करें</value></data>
   <data name="PersonalData_ManageProfilePicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र प्रबंधित करें</value></data>
   <data name="PersonalData_ManageApiTokens" xml:space="preserve"><value>API टोकन प्रबंधित करें</value></data>
+  <data name="Notifications_Latest" xml:space="preserve"><value>नवीनतम अपडेट</value></data>
+  <data name="Notifications_Empty" xml:space="preserve"><value>कोई नया अपडेट नहीं है।</value></data>
+  <data name="Notifications_Unread" xml:space="preserve"><value>अपठित</value></data>
+  <data name="Notifications_DeleteAll" xml:space="preserve"><value>सभी हटाएँ</value></data>
+  <data name="Notifications_MarkAllRead" xml:space="preserve"><value>सभी को पढ़ा हुआ चिह्नित करें</value></data>
+  <data name="Notifications_ApprovalRequested" xml:space="preserve"><value>अनुमोदन का अनुरोध किया गया</value></data>
+  <data name="Notifications_ApprovalGranted" xml:space="preserve"><value>अनुमोदन दिया गया</value></data>
+  <data name="Notifications_ApprovalRejected" xml:space="preserve"><value>अनुमोदन अस्वीकार किया गया</value></data>
+  <data name="Err_TaskRestore" xml:space="preserve"><value>कार्य को पुनर्स्थापित नहीं किया जा सका: {0}</value></data>
+  <data name="Trash_ItemNoLongerAvailable" xml:space="preserve"><value>यह आइटम अब ट्रैश में नहीं है या इसकी अवधारण अवधि समाप्त हो गई है।</value></data>
+  <data name="Dashboard_SaveFailed" xml:space="preserve"><value>सहेजना विफल रहा</value></data>
+  <data name="Dashboard_LoadFailed" xml:space="preserve"><value>डैशबोर्ड लोड नहीं किया जा सका।</value></data>
+  <data name="Dashboard_Retry" xml:space="preserve"><value>फिर से प्रयास करें</value></data>
+  <data name="Portfolio_Label" xml:space="preserve"><value>पोर्टफोलियो</value></data>
+  <data name="Portfolio_Share" xml:space="preserve"><value>पोर्टफोलियो साझा करें</value></data>
+  <data name="Dashboard_OperationFailed" xml:space="preserve"><value>डैशबोर्ड कार्रवाई पूरी नहीं की जा सकी।</value></data>
+  <data name="Btn_Retry" xml:space="preserve"><value>फिर से प्रयास करें</value></data>
+  <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>डैशबोर्ड के साथ पोर्टफ़ोलियो के रूप में बनाएँ</value></data>
+  <data name="Err_TemplatesLoad" xml:space="preserve"><value>टेम्पलेट लोड नहीं किए जा सके: {0}</value></data>
 </root>

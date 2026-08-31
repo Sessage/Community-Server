@@ -126,18 +126,29 @@ public sealed class AutomationPluginActionConfiguration
         try
         {
             var configuration = JsonSerializer.Deserialize<AutomationPluginActionConfiguration>(json ?? "{}") ?? new();
-            configuration.Values = configuration.Values is null
-                ? new(StringComparer.OrdinalIgnoreCase)
-                : new(configuration.Values, StringComparer.OrdinalIgnoreCase);
-            configuration.ConfiguredSecrets ??= [];
-            configuration.ProtectedSecrets = configuration.ProtectedSecrets is null
-                ? new(StringComparer.OrdinalIgnoreCase)
-                : new(configuration.ProtectedSecrets, StringComparer.OrdinalIgnoreCase);
+            configuration.Values = NormalizeDictionary(configuration.Values);
+            configuration.ConfiguredSecrets = (configuration.ConfiguredSecrets ?? [])
+                .Where(key => !string.IsNullOrWhiteSpace(key))
+                .Select(key => key.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            configuration.ProtectedSecrets = NormalizeDictionary(configuration.ProtectedSecrets);
             return configuration;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             return new();
         }
+    }
+
+    private static Dictionary<string, TValue> NormalizeDictionary<TValue>(Dictionary<string, TValue>? source)
+    {
+        var normalized = new Dictionary<string, TValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in source ?? [])
+        {
+            if (!string.IsNullOrWhiteSpace(pair.Key))
+                normalized[pair.Key.Trim()] = pair.Value;
+        }
+        return normalized;
     }
 }

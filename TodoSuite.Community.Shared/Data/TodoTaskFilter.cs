@@ -33,10 +33,10 @@ public class TodoTaskFilter
         if (NoDueDate || Overdue || DueNextDay || DueNextWeek || DueNextMonth)
             return true;
 
-        if (NoMembers || AssignedToMe || MemberUserIds.Count > 0)
+        if (NoMembers || AssignedToMe || (MemberUserIds?.Count ?? 0) > 0 || (MemberKeys?.Count ?? 0) > 0)
             return true;
 
-        if (LabelIds.Count > 0) return true;
+        if ((LabelIds?.Count ?? 0) > 0) return true;
 
         return false;
     }

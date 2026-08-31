@@ -8,7 +8,8 @@
 <div class="flex flex-col gap-4">
     @if (!_imageLoaded)
     {
-        <div class="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-8 cursor-pointer"
+        <div id="@_dropZoneId"
+             class="flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-8 cursor-pointer"
              @onclick="TriggerFileInput">
             <div class="text-slate-400">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -70,6 +71,7 @@
     private readonly string _canvasId = $"cropper-canvas-{Guid.NewGuid():N}";
     private readonly string _fileInputId = $"cropper-file-{Guid.NewGuid():N}";
     private readonly string _previewCanvasId = $"cropper-preview-{Guid.NewGuid():N}";
+    private readonly string _dropZoneId = $"cropper-drop-{Guid.NewGuid():N}";
 
     private DotNetObjectReference<ProfilePictureCropper>? _dotNetRef;
     private bool _imageLoaded;
@@ -83,7 +85,7 @@
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {
-                await JS.InvokeVoidAsync("imageCropper.init", _canvasId, _fileInputId, _previewCanvasId, _dotNetRef);
+                await JS.InvokeVoidAsync("imageCropper.init", _canvasId, _fileInputId, _previewCanvasId, _dropZoneId, _dotNetRef);
                 _initialized = true;
             }
             catch { /* Prerender ignorieren */ }

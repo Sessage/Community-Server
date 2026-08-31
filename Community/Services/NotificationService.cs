@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using TodoSuite.Server.Services.Sharing;
 using Klassenbibliothek.Features;
 
@@ -18,6 +19,9 @@ namespace TodoSuite.Server.Services;
 /// </summary>
 public sealed class NotificationService : INotificationService
 {
+    private const int MaxNotificationTitleLength = 240;
+    private const int MaxNotificationMessageLength = 4000;
+
     private static readonly NotificationEventType[] DefaultEvents =
     [
         NotificationEventType.TaskCreated,
@@ -41,6 +45,7 @@ public sealed class NotificationService : INotificationService
     private readonly SmtpOptions _smtpOptions;
     private readonly IPushNotificationDispatcher _push;
     private readonly IProductFeatureCatalog _features;
+    private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
         IDbContextFactory<ApplicationDbContext> dbContextFactory,
@@ -48,7 +53,8 @@ public sealed class NotificationService : INotificationService
         IEmailSender emailSender,
         IOptions<SmtpOptions> smtpOptions,
         IPushNotificationDispatcher push,
-        IProductFeatureCatalog features)
+        IProductFeatureCatalog features,
+        ILogger<NotificationService> logger)
     {
         _dbContextFactory = dbContextFactory;
         _hubContext = hubContext;
@@ -56,6 +62,7 @@ public sealed class NotificationService : INotificationService
         _smtpOptions = smtpOptions.Value;
         _push = push;
         _features = features;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<BoardNotificationRuleEntity>> GetBoardRulesAsync(string userId, Guid listId, CancellationToken ct = default)
@@ -80,6 +87,17 @@ public sealed class NotificationService : INotificationService
 
     public async Task SetBoardRuleAsync(string userId, Guid listId, NotificationEventType eventType, NotificationRecipientGroup groups, CancellationToken ct = default)
     {
+        if (!Enum.IsDefined(eventType))
+            throw new ArgumentOutOfRangeException(nameof(eventType));
+        const NotificationRecipientGroup validGroups = NotificationRecipientGroup.Admins
+            | NotificationRecipientGroup.Members
+            | NotificationRecipientGroup.ProjectWatchers
+            | NotificationRecipientGroup.TaskWatchers
+            | NotificationRecipientGroup.Assignee
+            | NotificationRecipientGroup.Author;
+        if ((groups & ~validGroups) != 0)
+            throw new ArgumentOutOfRangeException(nameof(groups));
+
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var list = await db.TodoLists
             .Include(l => l.Participants)
@@ -137,7 +155,12 @@ public sealed class NotificationService : INotificationService
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         return await db.UserNotifications
-            .Where(n => n.UserId == userId)
+            .Where(n => n.UserId == userId
+                && db.TodoLists.Any(list => list.Id == n.ListId
+                    && list.DeletedAt == null
+                    && (list.OwnerId == userId
+                        || list.Participants.Any(participant => !participant.InvitationPending
+                            && (participant.UserId == userId || participant.Email == userId)))))
             .OrderByDescending(n => n.CreatedAtUtc)
             .Take(Math.Clamp(take, 1, 100))
             .AsNoTracking()
@@ -147,41 +170,67 @@ public sealed class NotificationService : INotificationService
     public async Task<int> GetUnreadCountAsync(string userId, CancellationToken ct = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
-        return await db.UserNotifications.CountAsync(n => n.UserId == userId && n.ReadAtUtc == null, ct);
+        return await db.UserNotifications.CountAsync(n => n.UserId == userId
+            && n.ReadAtUtc == null
+            && db.TodoLists.Any(list => list.Id == n.ListId
+                && list.DeletedAt == null
+                && (list.OwnerId == userId
+                    || list.Participants.Any(participant => !participant.InvitationPending
+                        && (participant.UserId == userId || participant.Email == userId)))), ct);
+    }
+
+    public async Task MarkReadAsync(string userId, Guid notificationId, CancellationToken ct = default)
+    {
+        await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
+        var notification = await db.UserNotifications
+            .FirstOrDefaultAsync(n => n.UserId == userId && n.Id == notificationId && n.ReadAtUtc == null, ct);
+
+        if (notification is null)
+            return;
+
+        notification.ReadAtUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await TrySignalInboxChangedAsync(userId, ct);
     }
 
     public async Task MarkAllReadAsync(string userId, CancellationToken ct = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
-        await db.UserNotifications
+        var changed = await db.UserNotifications
             .Where(n => n.UserId == userId && n.ReadAtUtc == null)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ReadAtUtc, DateTime.UtcNow), ct);
 
-        await _hubContext.Clients.Group(TodoHub.UserGroup(userId)).SendAsync(TodoHub.BrowserNotification, ct);
+        if (changed > 0)
+            await TrySignalInboxChangedAsync(userId, ct);
     }
 
     public async Task DeleteNotificationAsync(string userId, Guid notificationId, CancellationToken ct = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
-        await db.UserNotifications
+        var changed = await db.UserNotifications
             .Where(n => n.UserId == userId && n.Id == notificationId)
             .ExecuteDeleteAsync(ct);
 
-        await _hubContext.Clients.Group(TodoHub.UserGroup(userId)).SendAsync(TodoHub.BrowserNotification, ct);
+        if (changed > 0)
+            await TrySignalInboxChangedAsync(userId, ct);
     }
 
     public async Task DeleteAllNotificationsAsync(string userId, CancellationToken ct = default)
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
-        await db.UserNotifications
+        var changed = await db.UserNotifications
             .Where(n => n.UserId == userId)
             .ExecuteDeleteAsync(ct);
 
-        await _hubContext.Clients.Group(TodoHub.UserGroup(userId)).SendAsync(TodoHub.BrowserNotification, ct);
+        if (changed > 0)
+            await TrySignalInboxChangedAsync(userId, ct);
     }
 
     public async Task NotifyTaskEventAsync(string actorUserId, Guid listId, Guid? taskId, NotificationEventType eventType, string title, string message, string? assigneeUserId = null, CancellationToken ct = default)
     {
+        title = NormalizeNotificationText(title, MaxNotificationTitleLength);
+        message = NormalizeNotificationText(message, MaxNotificationMessageLength);
+
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var list = await db.TodoLists
             .Include(l => l.Participants)
@@ -192,8 +241,6 @@ public sealed class NotificationService : INotificationService
         if (list is null)
             return;
 
-        await EnsureDefaultRulesAsync(db, listId, ct);
-
         var rule = await db.BoardNotificationRules
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.ListId == listId && r.EventType == eventType, ct);
@@ -203,7 +250,8 @@ public sealed class NotificationService : INotificationService
             return;
 
         var recipients = await ResolveRecipientsAsync(db, list, taskId, groups, assigneeUserId, actorUserId, ct);
-        recipients.RemoveWhere(id => string.Equals(id, actorUserId, StringComparison.OrdinalIgnoreCase));
+        if ((groups & NotificationRecipientGroup.Author) == 0)
+            recipients.RemoveWhere(id => string.Equals(id, actorUserId, StringComparison.OrdinalIgnoreCase));
 
         if (recipients.Count == 0)
             return;
@@ -241,22 +289,30 @@ public sealed class NotificationService : INotificationService
             var preference = prefs.GetValueOrDefault(recipient);
             var channel = preference?.Channel ?? NotificationDeliveryChannel.Browser;
             if ((channel & NotificationDeliveryChannel.Browser) != 0)
-                await _hubContext.Clients.Group(TodoHub.UserGroup(recipient)).SendAsync(TodoHub.BrowserNotification, ct);
+                await TrySignalInboxChangedAsync(recipient, ct);
 
             if ((channel & NotificationDeliveryChannel.Email) != 0)
                 await TrySendEmailAsync(db, recipient, title, message, listId, taskId, ct);
 
             if ((channel & NotificationDeliveryChannel.Push) != 0)
             {
-                await _push.SendAsync(
-                    recipient,
-                    title,
-                    message,
-                    listId,
-                    taskId,
-                    eventType,
-                    preference?.PushContentMode ?? PushNotificationContentMode.Anonymous,
-                    ct);
+                try
+                {
+                    await _push.SendAsync(
+                        recipient,
+                        title,
+                        message,
+                        listId,
+                        taskId,
+                        eventType,
+                        preference?.PushContentMode ?? PushNotificationContentMode.Anonymous,
+                        ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Push-Benachrichtigung konnte nicht zugestellt werden. ListId={ListId}, TaskId={TaskId}, UserId={UserId}", listId, taskId, recipient);
+                }
             }
         }
     }
@@ -278,6 +334,9 @@ public sealed class NotificationService : INotificationService
         if (recipient.Length == 0)
             return;
 
+        title = NormalizeNotificationText(title, MaxNotificationTitleLength);
+        message = NormalizeNotificationText(message, MaxNotificationMessageLength);
+
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var canRead = await db.TodoLists
             .Where(l => l.Id == listId && l.DeletedAt == null)
@@ -285,6 +344,10 @@ public sealed class NotificationService : INotificationService
                 || l.Participants.Any(p => !p.InvitationPending && p.UserId == recipient), ct);
         if (!canRead)
             return;
+
+        var preference = await db.UserNotificationPreferences.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == recipient, ct);
+        var channel = preference?.Channel ?? NotificationDeliveryChannel.Browser;
 
         db.UserNotifications.Add(new UserNotificationEntity
         {
@@ -298,16 +361,24 @@ public sealed class NotificationService : INotificationService
         });
         await db.SaveChangesAsync(ct);
 
-        await _hubContext.Clients.Group(TodoHub.UserGroup(recipient)).SendAsync(TodoHub.BrowserNotification, ct);
-        await TrySendEmailAsync(db, recipient, title, message, listId, taskId, ct);
+        if ((channel & NotificationDeliveryChannel.Browser) != 0)
+            await TrySignalInboxChangedAsync(recipient, ct);
+        if ((channel & NotificationDeliveryChannel.Email) != 0)
+            await TrySendEmailAsync(db, recipient, title, message, listId, taskId, ct);
 
-        var preference = await db.UserNotificationPreferences.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.UserId == recipient, ct);
-        if (preference is not null && (preference.Channel & NotificationDeliveryChannel.Push) != 0)
+        if ((channel & NotificationDeliveryChannel.Push) != 0)
         {
-            await _push.SendAsync(
-                recipient, title, message, listId, taskId, eventType,
-                preference.PushContentMode, ct);
+            try
+            {
+                await _push.SendAsync(
+                    recipient, title, message, listId, taskId, eventType,
+                    preference?.PushContentMode ?? PushNotificationContentMode.Anonymous, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Direkte Push-Benachrichtigung konnte nicht zugestellt werden. ListId={ListId}, TaskId={TaskId}, UserId={UserId}", listId, taskId, recipient);
+            }
         }
     }
 
@@ -359,7 +430,25 @@ public sealed class NotificationService : INotificationService
         if ((groups & NotificationRecipientGroup.Author) != 0 && !string.IsNullOrWhiteSpace(actorUserId))
             recipients.Add(actorUserId.Trim());
 
+        var allowedUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { list.OwnerId.Trim() };
+        foreach (var participant in list.Participants.Where(participant => !participant.InvitationPending && !string.IsNullOrWhiteSpace(participant.UserId)))
+            allowedUsers.Add(participant.UserId!.Trim());
+        recipients.IntersectWith(allowedUsers);
+
         return recipients;
+    }
+
+    private async Task TrySignalInboxChangedAsync(string userId, CancellationToken ct)
+    {
+        try
+        {
+            await _hubContext.Clients.Group(TodoHub.UserGroup(userId)).SendAsync(TodoHub.BrowserNotification, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Live-Aktualisierung des Benachrichtigungspostfachs ist fehlgeschlagen. UserId={UserId}", userId);
+        }
     }
 
     private async Task TrySendEmailAsync(ApplicationDbContext db, string userId, string title, string message, Guid listId, Guid? taskId, CancellationToken ct)
@@ -392,8 +481,14 @@ public sealed class NotificationService : INotificationService
             </html>
             """;
 
-        try { await _emailSender.SendEmailAsync(email, title, body); }
-        catch { }
+        try
+        {
+            await _emailSender.SendEmailAsync(email, title, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Benachrichtigungs-E-Mail konnte nicht zugestellt werden. ListId={ListId}, TaskId={TaskId}, UserId={UserId}", listId, taskId, userId);
+        }
     }
 
     private static NotificationRecipientGroup DefaultGroups(NotificationEventType eventType)
@@ -438,4 +533,10 @@ public sealed class NotificationService : INotificationService
 
     private static bool EqualsUserKey(string? a, string? b)
         => string.Equals((a ?? "").Trim(), (b ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeNotificationText(string? value, int maxLength)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
 }

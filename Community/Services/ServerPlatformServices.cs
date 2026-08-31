@@ -25,7 +25,7 @@ public sealed class ServerTodoCurrentUserService(AuthenticationStateProvider aut
                               ?? user.FindFirst(ClaimTypes.Email)?.Value
                               ?? userId;
 
-            return new TodoCurrentUser(true, userId, displayName);
+            return new TodoCurrentUser(true, userId, displayName, user.FindFirst(ClaimTypes.Email)?.Value);
         }
 
         return new TodoCurrentUser(false, "gast", "Gast");
