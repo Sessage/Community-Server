@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "tw:build": "tailwindcss -i ./Styles/tailwind.input.css -o ../TodoSuite.Community.Shared/wwwroot/lib/tailwind/tailwind.css --minify",
-    "tw:watch": "tailwindcss -i ./Styles/tailwind.input.css -o ../TodoSuite.Community.Shared/wwwroot/lib/tailwind/tailwind.css --watch"
+    "tw:watch": "tailwindcss -i ./Styles/tailwind.input.css -o ../TodoSuite.Community.Shared/wwwroot/lib/tailwind/tailwind.css --watch",
+    "editor:build": "esbuild ./Scripts/tiptap-editor.js --bundle --minify --format=esm --target=es2020 --outfile=../TodoSuite.Community.Shared/wwwroot/js/tiptap-editor.js",
+    "assets:build": "npm run tw:build && npm run editor:build"
   },
   "keywords": [],
   "author": "",
@@ -13,7 +15,13 @@
   "type": "commonjs",
   "devDependencies": {
     "autoprefixer": "^10.4.24",
+    "esbuild": "^0.28.2",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17"
+  },
+  "dependencies": {
+    "@tiptap/core": "^3.31.0",
+    "@tiptap/pm": "^3.31.0",
+    "@tiptap/starter-kit": "^3.31.0"
   }
 }

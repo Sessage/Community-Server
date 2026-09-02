@@ -94,7 +94,7 @@
                     <h1 id="public-form-heading" class="mt-1 text-2xl font-semibold text-slate-900" tabindex="-1">@_form.Name</h1>
                     @if (!string.IsNullOrWhiteSpace(_form.Description))
                     {
-                        <p class="mt-2 whitespace-pre-line break-words text-sm text-slate-600">@LinkifiedText.ToMarkupString(_form.Description)</p>
+                        <div class="mt-2 text-sm text-slate-600"><RichTextDisplay Value="@_form.Description" /></div>
                     }
                     @if (OrderedFields.Any(field => field.IsRequired))
                     {
@@ -183,6 +183,7 @@
     private readonly List<IBrowserFile> _attachments = new();
     private string? _loadedSlug;
     private long _loadVersion;
+    private RichTextInput? _publicDescriptionInput;
 
     private IEnumerable<TodoFormFieldEntity> OrderedFields =>
         (_form?.Fields ?? []).OrderBy(f => f.SortOrder);
@@ -225,6 +226,7 @@
         var version = ++_loadVersion;
         _loading = true;
         _form = null;
+        _publicDescriptionInput = null;
         _values.Clear();
         _fieldErrors.Clear();
         _attachments.Clear();
@@ -323,6 +325,9 @@
     {
         if (_form is null || _submitting)
             return;
+
+        if (_publicDescriptionInput is not null)
+            await _publicDescriptionInput.CommitAsync();
 
         _submitting = true;
         _error = "";
@@ -441,15 +446,17 @@
 
         if (field.StandardField == TodoFormStandardField.Description)
         {
-            builder.OpenElement(seq++, "textarea");
-            builder.AddAttribute(seq++, "id", id);
-            builder.AddAttribute(seq++, "class", css);
-            AddValidationAttributes(builder, ref seq, field);
-            AddAccessibilityAttributes(builder, ref seq, field);
-            builder.AddAttribute(seq++, "value", GetValue(key));
-            builder.AddAttribute(seq++, "onchange", EventCallback.Factory.Create<ChangeEventArgs>(this, e => SetValueAndValidate(field, key, e.Value?.ToString())));
-            builder.AddAttribute(seq++, "onblur", EventCallback.Factory.Create<FocusEventArgs>(this, _ => ValidateField(field)));
-            builder.CloseElement();
+            builder.OpenComponent<RichTextInput>(seq++);
+            builder.AddAttribute(seq++, nameof(RichTextInput.InputId), id);
+            builder.AddAttribute(seq++, nameof(RichTextInput.AriaLabel), DisplayLabel(field));
+            builder.AddAttribute(seq++, nameof(RichTextInput.DescribedBy), FieldDescribedBy(field));
+            builder.AddAttribute(seq++, nameof(RichTextInput.Invalid), _fieldErrors.ContainsKey(key));
+            builder.AddAttribute(seq++, nameof(RichTextInput.Required), field.IsRequired);
+            builder.AddAttribute(seq++, nameof(RichTextInput.Placeholder), DisplayLabel(field));
+            builder.AddAttribute(seq++, nameof(RichTextInput.Value), GetValue(key));
+            builder.AddAttribute(seq++, nameof(RichTextInput.ValueChanged), EventCallback.Factory.Create<string?>(this, value => SetValueAndValidate(field, key, value)));
+            builder.AddComponentReferenceCapture(seq++, instance => _publicDescriptionInput = (RichTextInput)instance);
+            builder.CloseComponent();
             return;
         }
 
@@ -827,7 +834,9 @@
             return string.IsNullOrWhiteSpace(attachmentMessage) && string.IsNullOrWhiteSpace(_attachmentError);
         }
 
-        var value = GetValue(key).Trim();
+        var value = field.StandardField == TodoFormStandardField.Description
+            ? RichTextContent.ToPlainText(GetValue(key)).Trim()
+            : GetValue(key).Trim();
         var message = ValidateFieldValue(field, value);
         if (string.IsNullOrWhiteSpace(message))
             _fieldErrors.Remove(key);

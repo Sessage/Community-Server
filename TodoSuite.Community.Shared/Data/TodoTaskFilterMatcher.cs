@@ -1,3 +1,5 @@
+using Klassenbibliothek.Services;
+
 namespace Klassenbibliothek.Data;
 
 /// <summary>
@@ -23,7 +25,7 @@ public static class TodoTaskFilterMatcher
 
         var query = (f.Query ?? string.Empty).Trim();
         if (query.Length > 0
-            && !$"{task.Title} {task.Description}".Contains(query, StringComparison.OrdinalIgnoreCase))
+            && !$"{task.Title} {RichTextContent.ToPlainText(task.Description)}".Contains(query, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

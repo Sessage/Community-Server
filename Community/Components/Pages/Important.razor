@@ -34,7 +34,7 @@
                         <div class="text-lg font-semibold">@task.Title</div>
                         <span class="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">@L["Page_Important_Badge"]</span>
                     </div>
-                    <div class="text-sm text-slate-600">@task.Description</div>
+                    <div class="text-sm text-slate-600"><RichTextDisplay Value="@task.Description" /></div>
                     <div class="text-xs text-slate-500">@L["Page_Important_List"] @task.ListName</div>
                 </div>
             }

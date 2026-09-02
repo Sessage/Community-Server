@@ -3737,7 +3737,7 @@
         var tasks = (_list.Tasks ?? new()).Where(t => t.DeletedAt == null).Select(t => new
         {
             titel = t.Title,
-            beschreibung = t.Description,
+            beschreibung = RichTextContent.ToPlainText(t.Description),
             spalte = t.Column,
             erledigt = t.Done,
             wichtig = t.IsImportant,
@@ -3792,7 +3792,7 @@
             sb.AppendLine(string.Join(",", new[]
             {
                 CsvEscape(t.Title),
-                CsvEscape(t.Description ?? ""),
+                CsvEscape(RichTextContent.ToPlainText(t.Description)),
                 CsvEscape(t.Column),
                 CsvEscape(t.Done ? L["Common_Yes"] : L["Common_No"]),
                 CsvEscape(t.IsImportant ? L["Common_Yes"] : L["Common_No"]),

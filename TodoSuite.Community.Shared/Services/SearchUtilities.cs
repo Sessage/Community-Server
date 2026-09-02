@@ -97,7 +97,7 @@ public static class SearchUtilities
     private static string? MatchField(TodoTaskEntity task, string query)
     {
         if (Contains(task.Title, query)) return "title";
-        if (Contains(task.Description, query)) return "description";
+        if (Contains(RichTextContent.ToPlainText(task.Description), query)) return "description";
         return (task.Steps ?? []).Any(step => Contains(step.Title, query)) ? "step" : null;
     }
 

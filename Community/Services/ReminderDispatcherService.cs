@@ -109,7 +109,11 @@ public sealed class ReminderDispatcherService : BackgroundService
         {
             var (recipientUserId, recipientEmail) = ResolveRecipient(task);
             var title = LimitText(string.Format(_localizer["Email_Reminder_Subject"].Value, task.Title), MaxNotificationTitleLength);
-            var message = LimitText(task.Description ?? _localizer["Email_Reminder_TaskDue"].Value, MaxNotificationMessageLength);
+            var message = LimitText(
+                string.IsNullOrWhiteSpace(task.Description)
+                    ? _localizer["Email_Reminder_TaskDue"].Value
+                    : RichTextContent.ToPlainText(task.Description),
+                MaxNotificationMessageLength);
             var delivered = false;
             var preference = string.IsNullOrWhiteSpace(recipientUserId)
                 ? null
@@ -216,7 +220,7 @@ public sealed class ReminderDispatcherService : BackgroundService
     private string BuildReminderEmail(TodoTaskEntity task)
     {
         var titleEncoded = WebUtility.HtmlEncode(task.Title);
-        var descEncoded = WebUtility.HtmlEncode(task.Description ?? "");
+        var descriptionHtml = RichTextContent.ToSafeHtml(task.Description);
         var listUrl = string.IsNullOrWhiteSpace(_appBaseUrl)
             ? $"/list/{task.ListId}"
             : $"{_appBaseUrl}/list/{task.ListId}";
@@ -233,7 +237,7 @@ public sealed class ReminderDispatcherService : BackgroundService
 <body style=""font-family:Segoe UI, Arial, sans-serif; background:#f8fafc; padding:24px;"">
   <div style=""max-width:560px; margin:0 auto; background:#ffffff; border:1px solid #e2e8f0; border-radius:16px; padding:20px;"">
     <h2 style=""margin:0 0 12px 0; font-size:18px; color:#0f172a;"">{heading}</h2>
-    {(string.IsNullOrWhiteSpace(task.Description) ? "" : $@"<p style=""margin:0 0 16px 0; color:#334155; font-size:14px;"">{descEncoded}</p>")}
+    {(string.IsNullOrWhiteSpace(descriptionHtml) ? "" : $@"<div style=""margin:0 0 16px 0; color:#334155; font-size:14px;"">{descriptionHtml}</div>")}
     <p style=""margin:0 0 18px 0;"">
       <a href=""{listUrlEncoded}""
          style=""display:inline-block; background:#2563eb; color:#ffffff; text-decoration:none; padding:10px 14px; border-radius:12px; font-weight:600;"">

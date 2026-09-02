@@ -1,0 +1,10 @@
+::deep p { margin: .35rem 0; }
+::deep h1 { font-size: 1.5rem; font-weight: 700; margin: .65rem 0; }
+::deep h2 { font-size: 1.25rem; font-weight: 700; margin: .6rem 0; }
+::deep h3 { font-size: 1.1rem; font-weight: 650; margin: .5rem 0; }
+::deep ul { list-style: disc; margin: .4rem 0; padding-left: 1.5rem; }
+::deep ol { list-style: decimal; margin: .4rem 0; padding-left: 1.5rem; }
+::deep blockquote { border-left: 3px solid #cbd5e1; color: #475569; margin: .5rem 0; padding-left: .75rem; }
+::deep code { background: #f1f5f9; border-radius: .25rem; padding: .1rem .25rem; }
+::deep pre { background: #0f172a; border-radius: .5rem; color: #f8fafc; margin: .5rem 0; overflow-x: auto; padding: .75rem; }
+::deep a { color: #1d4ed8; text-decoration: underline; text-underline-offset: 2px; }

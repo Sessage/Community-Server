@@ -455,14 +455,45 @@
                                             <div class="h-px bg-slate-100"></div>
                                         }
 
-                                        <!-- Beschreibung (immer sichtbar) -->
+                                        <!-- Beschreibung: TipTap wird erst beim Bearbeiten geladen. -->
                                         <div class="p-4 space-y-2">
-                                            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Description"]</div>
+                                            <div class="flex items-center justify-between gap-2">
+                                                <div class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Description"]</div>
+                                                @if (!_descriptionEditing && CanWriteToList())
+                                                {
+                                                    <button type="button" class="rounded-lg px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50" @onclick="BeginDescriptionEdit">
+                                                        @L["Btn_Edit"]
+                                                    </button>
+                                                }
+                                            </div>
 
-                                            <InputTextArea class="w-full rounded-xl border border-slate-200 p-2 min-h-[140px]"
-                                                           Value="@_editableTask?.Description"
-                                                           ValueChanged="@(v => OnDescriptionChanged(v))"
-                                                           ValueExpression="@(() => _editableTask!.Description)" />
+                                            @if (_descriptionEditing)
+                                            {
+                                                <RichTextEditor @ref="_descriptionEditor" Value="@_editableTask!.Description" AriaLabel="@L["Task_Description"]" />
+                                                <div class="flex justify-end gap-2">
+                                                    <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700" @onclick="CancelDescriptionEdit">@L["Btn_Cancel"]</button>
+                                                    <button type="button" class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white" @onclick="CommitDescriptionEditAsync">@L["Btn_Save"]</button>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                @if (string.IsNullOrWhiteSpace(_editableTask!.Description))
+                                                {
+                                                    <button type="button"
+                                                            class="min-h-[76px] w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left text-sm text-slate-400 hover:border-blue-300 disabled:cursor-default disabled:hover:border-slate-200"
+                                                            disabled="@(!CanWriteToList())"
+                                                            @onclick="BeginDescriptionEdit">
+                                                        <span class="text-slate-400">@L["Task_Description"]</span>
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <div class="min-h-[76px] w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 @(CanWriteToList() ? "cursor-text" : "")"
+                                                         @ondblclick="BeginDescriptionEdit">
+                                                        <RichTextDisplay Value="@_editableTask!.Description" />
+                                                    </div>
+                                                }
+                                            }
                                         </div>
 
                                         @if (EnableCustomFields && (_showCustomFieldsSection || HasCustomFieldValues))
@@ -912,7 +943,7 @@
                     {
                             <div class="comments-root text-sm text-slate-700 min-h-0 min-w-0">
                                 <!-- Nachrichten-Bereich (scrollbar) -->
-                                <div class="comments-scroll flex-1 overflow-y-auto min-h-0">
+                                <div @ref="_commentsScrollHost" class="comments-scroll flex-1 overflow-y-auto min-h-0">
                                     @if (_editableTask.Comments.Count == 0)
                                     {
                                         <div class="flex items-center justify-center h-full">
@@ -1406,6 +1437,8 @@
     private bool _moveBusy;
     private bool _deleteBusy;
     private bool _checklistBusy;
+    private bool _descriptionEditing;
+    private RichTextEditor? _descriptionEditor;
 
     // ✅ Add-Menü (Zu Karte hinzufügen)
     private bool _addMenuOpen = false;
@@ -1672,8 +1705,7 @@
         _closeBusy = true;
         try
         {
-            CancelPendingAutosave();
-            if (_dirty && !await SaveTaskInternalAsync())
+            if (!await FlushPendingTaskEditsAsync())
                 return;
 
             if (OnClose.HasDelegate)
@@ -1774,6 +1806,8 @@
     private string _newCommentMessage = "";
     private bool _commentSubmitting;
     private readonly HashSet<Guid> _commentsBeingRemoved = [];
+    private ElementReference _commentsScrollHost;
+    private bool _scrollCommentsToBottomPending;
 
     /* Upload */
     private ElementReference _scrollHost;
@@ -2012,8 +2046,7 @@
             if (!ok) return;
             if (!IsCurrentTaskContext(contextVersion, taskId, sourceListId)) return;
 
-            CancelPendingAutosave();
-            if (_dirty && !await SaveTaskInternalAsync())
+            if (!await FlushPendingTaskEditsAsync())
                 return;
             if (!IsCurrentTaskContext(contextVersion, taskId, sourceListId)) return;
 
@@ -2229,7 +2262,9 @@
         _tabIdBacking = normalized;
         _activeTab = TabIdToPanelTab(normalized);
 
-        if (scrollToTop)
+        if (_activeTab == PanelTab.Comments)
+            _scrollCommentsToBottomPending = true;
+        else if (scrollToTop)
             _ = InvokeAsync(ScrollContentToTopAsync);
     }
 
@@ -2237,6 +2272,13 @@
     {
         try { await SyncOutsideClickCloseHookAsync(); } catch { }
         try { await EnsureHubSubscriptionAsync(); } catch { }
+
+        if (_scrollCommentsToBottomPending && _activeTab == PanelTab.Comments)
+        {
+            _scrollCommentsToBottomPending = false;
+            try { await JS.InvokeVoidAsync("todoUi.scrollToBottom", _commentsScrollHost); }
+            catch { /* JS ist während des Prerenderings möglicherweise noch nicht verfügbar. */ }
+        }
 
         if (firstRender)
         {
@@ -2475,6 +2517,8 @@
 
     private async Task<bool> FlushPendingTaskEditsAsync()
     {
+        if (_descriptionEditing)
+            await CommitDescriptionEditAsync();
         CancelPendingAutosave();
         return !_dirty || await SaveTaskInternalAsync();
     }
@@ -2595,7 +2639,31 @@
 
     // Field handlers
     private void OnTitleChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Title = v ?? ""; ScheduleAutosave(); }
-    private void OnDescriptionChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Description = v; ScheduleAutosave(); }
+    private void BeginDescriptionEdit()
+    {
+        if (_editableTask is null || !CanWriteToList()) return;
+        _descriptionEditing = true;
+    }
+
+    private void CancelDescriptionEdit()
+    {
+        _descriptionEditing = false;
+        _descriptionEditor = null;
+    }
+
+    private async Task CommitDescriptionEditAsync()
+    {
+        if (!_descriptionEditing || _editableTask is null || !CanWriteToList()) return;
+        var value = _descriptionEditor is null
+            ? _editableTask.Description
+            : await _descriptionEditor.GetValueAsync();
+        _descriptionEditing = false;
+        _descriptionEditor = null;
+
+        if (string.Equals(_editableTask.Description, value, StringComparison.Ordinal)) return;
+        _editableTask.Description = value;
+        ScheduleAutosave();
+    }
     private void OnColumnChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Column = v ?? _editableTask.Column; ScheduleAutosave(200); }
 
     private void OnStartDateChanged(DateTime? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.StartDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
@@ -2982,6 +3050,7 @@
             {
                 _newCommentMessage = "";
                 _editableTask.Comments.Add(added);
+                _scrollCommentsToBottomPending = true;
                 if (OnTaskUpdated.HasDelegate)
                     await OnTaskUpdated.InvokeAsync(_editableTask);
             }
@@ -3204,7 +3273,7 @@
                 if (_isDisposed) return;
                 if (listId != ListId || _taskId != taskId) return;
                 if (_saveInProgress || _dirty || _commentSubmitting || _commentsBeingRemoved.Count > 0) return;
-                try { await InvokeAsync(RefreshTaskAsync); } catch { }
+                try { await InvokeAsync(() => RefreshTaskAsync(scrollToNewestComment: true)); } catch { }
             });
 
             _hubConnection.On<Guid, Guid>(TodoHub.TaskAttachmentsUpdated, async (listId, taskId) =>
@@ -3212,7 +3281,7 @@
                 if (_isDisposed) return;
                 if (listId != ListId || _taskId != taskId) return;
                 if (_saveInProgress || _dirty || _isUploading || _attachmentsBeingRemoved.Count > 0) return;
-                try { await InvokeAsync(RefreshTaskAsync); } catch { }
+                try { await InvokeAsync(() => RefreshTaskAsync()); } catch { }
             });
 
             _hubConnection.Reconnected += async _ =>
@@ -3236,7 +3305,7 @@
         }
     }
 
-    private async Task RefreshTaskAsync()
+    private async Task RefreshTaskAsync(bool scrollToNewestComment = false)
     {
         if (_taskId is null) return;
         if (_saveInProgress || _dirty) return;
@@ -3251,6 +3320,12 @@
 
         if (updated is not null)
         {
+            var previousCommentIds = scrollToNewestComment
+                ? (_editableTask?.Comments ?? []).Select(comment => comment.Id).ToHashSet()
+                : null;
+            var containsNewComment = previousCommentIds is not null
+                && (updated.Comments ?? []).Any(comment => !previousCommentIds.Contains(comment.Id));
+
             _suppressAutosave = true;
             _editableTask = CloneTask(updated);
 
@@ -3268,6 +3343,9 @@
             _suppressAutosave = false;
 
             SyncSectionVisibilityFromData();
+
+            if (containsNewComment)
+                _scrollCommentsToBottomPending = true;
 
             if (OnTaskUpdated.HasDelegate)
                 await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
@@ -3289,6 +3367,8 @@
     private void BeginNewTaskContext()
     {
         CancelPendingAutosave();
+        _descriptionEditing = false;
+        _descriptionEditor = null;
         try { _taskContextCts.Cancel(); } catch { }
         _taskContextCts.Dispose();
         _taskContextCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
@@ -3300,6 +3380,7 @@
         _newCommentMessage = "";
         _commentSubmitting = false;
         _commentsBeingRemoved.Clear();
+        _scrollCommentsToBottomPending = _activeTab == PanelTab.Comments;
         _uploadErrors.Clear();
         _attachmentsBeingRemoved.Clear();
         _attachmentsBeingDownloaded.Clear();
@@ -3336,8 +3417,7 @@
         _approvalError = null;
         try
         {
-            CancelPendingAutosave();
-            if (_dirty && !await SaveTaskInternalAsync())
+            if (!await FlushPendingTaskEditsAsync())
                 return;
 
             var contextVersion = _taskContextVersion;

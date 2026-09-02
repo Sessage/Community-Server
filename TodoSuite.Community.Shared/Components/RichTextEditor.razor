@@ -1,0 +1,113 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+
+<div class="rich-text-editor rounded-xl border border-slate-200 bg-white">
+    <div class="flex flex-wrap gap-1 border-b border-slate-200 p-2" role="toolbar" aria-label="@L["RichText_Toolbar"]">
+        <button type="button" class="editor-tool" title='@L["RichText_Bold"]' aria-label='@L["RichText_Bold"]' @onclick='() => ExecuteAsync("bold")'><strong>B</strong></button>
+        <button type="button" class="editor-tool italic" title='@L["RichText_Italic"]' aria-label='@L["RichText_Italic"]' @onclick='() => ExecuteAsync("italic")'>I</button>
+        <button type="button" class="editor-tool line-through" title='@L["RichText_Strike"]' aria-label='@L["RichText_Strike"]' @onclick='() => ExecuteAsync("strike")'>S</button>
+        <button type="button" class="editor-tool" title='@L["RichText_Heading"]' aria-label='@L["RichText_Heading"]' @onclick='() => ExecuteAsync("heading2")'>H2</button>
+        <button type="button" class="editor-tool" title='@L["RichText_BulletList"]' aria-label='@L["RichText_BulletList"]' @onclick='() => ExecuteAsync("bulletList")'><FluentIcon Value="@(new Icons.Regular.Size20.TextBulletListLtr())" /></button>
+        <button type="button" class="editor-tool" title='@L["RichText_NumberedList"]' aria-label='@L["RichText_NumberedList"]' @onclick='() => ExecuteAsync("orderedList")'><FluentIcon Value="@(new Icons.Regular.Size20.TextNumberListLtr())" /></button>
+        <button type="button" class="editor-tool" title='@L["RichText_Quote"]' aria-label='@L["RichText_Quote"]' @onclick='() => ExecuteAsync("blockquote")'>“”</button>
+        <button type="button" class="editor-tool" title='@L["RichText_Code"]' aria-label='@L["RichText_Code"]' @onclick='() => ExecuteAsync("code")'>&lt;/&gt;</button>
+        <span class="mx-1 border-l border-slate-200" aria-hidden="true"></span>
+        <button type="button" class="editor-tool" title='@L["RichText_Undo"]' aria-label='@L["RichText_Undo"]' @onclick='() => ExecuteAsync("undo")'>↶</button>
+        <button type="button" class="editor-tool" title='@L["RichText_Redo"]' aria-label='@L["RichText_Redo"]' @onclick='() => ExecuteAsync("redo")'>↷</button>
+    </div>
+
+    @if (_loadFailed)
+    {
+        <textarea class="min-h-[140px] w-full resize-y rounded-b-xl p-3 outline-none"
+                  aria-label="@AriaLabel"
+                  @bind="_fallbackValue"></textarea>
+    }
+    else
+    {
+        <div @ref="_host" class="min-h-[140px]"></div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+
+    private const string ModulePath = "./_content/TodoSuite.Community.Shared/js/tiptap-editor.js";
+    private readonly string _editorId = $"rich-text-{Guid.NewGuid():N}";
+    private ElementReference _host;
+    private IJSObjectReference? _module;
+    private string _fallbackValue = string.Empty;
+    private bool _initialized;
+    private bool _loadFailed;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+        => _fallbackValue = RichTextContent.ToPlainText(Value);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _disposed || _loadFailed)
+            return;
+
+        try
+        {
+            var module = await JS.InvokeAsync<IJSObjectReference>("import", ModulePath);
+            if (_disposed)
+            {
+                await module.DisposeAsync();
+                return;
+            }
+
+            _module = module;
+            await _module.InvokeVoidAsync(
+                "create",
+                _editorId,
+                _host,
+                RichTextContent.ToEditorHtml(Value),
+                AriaLabel ?? L["Task_Description"].Value);
+            _initialized = true;
+        }
+        catch (JSException)
+        {
+            _loadFailed = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public async Task<string?> GetValueAsync()
+    {
+        if (_initialized && _module is not null)
+        {
+            var html = await _module.InvokeAsync<string>("getHtml", _editorId);
+            return RichTextContent.FromEditorHtml(html);
+        }
+
+        return string.IsNullOrWhiteSpace(_fallbackValue) ? null : _fallbackValue;
+    }
+
+    private async Task ExecuteAsync(string command)
+    {
+        if (_initialized && _module is not null)
+            await _module.InvokeVoidAsync("execute", _editorId, command);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        if (_module is not null)
+        {
+            try
+            {
+                if (_initialized)
+                    await _module.InvokeVoidAsync("destroy", _editorId);
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+            catch (ObjectDisposedException) { }
+        }
+    }
+}

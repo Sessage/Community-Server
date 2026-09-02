@@ -85,7 +85,7 @@
                                         @L["Btn_Delete"]
                                     </button>
                                     <div class="flex flex-wrap gap-2">
-                                        <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700" @onclick="OpenPreview">
+                                        <button type="button" class="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700" @onclick="OpenPreviewAsync">
                                             @L["FormDesigner_Preview"]
                                         </button>
                                         <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700" @onclick="OpenEmbedModal">
@@ -146,10 +146,38 @@
                                                @onchange="e => _selectedForm.ButtonColor = e.Value?.ToString()" />
                                     </label>
                                 </div>
-                                <label class="mt-3 block space-y-1">
-                                    <span class="text-xs font-medium text-slate-500">@L["Task_Description"]</span>
-                                    <textarea class="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" @bind="_selectedForm.Description"></textarea>
-                                </label>
+                                <div class="mt-3 space-y-2">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-xs font-medium text-slate-500">@L["Task_Description"]</span>
+                                        @if (!_formDescriptionEditing)
+                                        {
+                                            <button type="button" class="rounded-lg px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50" @onclick="BeginFormDescriptionEdit">@L["Btn_Edit"]</button>
+                                        }
+                                    </div>
+                                    @if (_formDescriptionEditing)
+                                    {
+                                        <RichTextEditor @ref="_formDescriptionEditor" Value="@_selectedForm.Description" AriaLabel="@L["Task_Description"]" />
+                                        <div class="flex justify-end gap-2">
+                                            <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm" @onclick="CancelFormDescriptionEdit">@L["Btn_Cancel"]</button>
+                                            <button type="button" class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white" @onclick="CommitFormDescriptionAsync">@L["Btn_Save"]</button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @if (string.IsNullOrWhiteSpace(_selectedForm.Description))
+                                        {
+                                            <button type="button" class="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-400 hover:border-blue-300" @onclick="BeginFormDescriptionEdit">
+                                                <span class="text-slate-400">@L["Task_Description"]</span>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <div class="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                                                <RichTextDisplay Value="@_selectedForm.Description" />
+                                            </div>
+                                        }
+                                    }
+                                </div>
                                 @if (HasAttachmentField)
                                 {
                                     <div class="rounded-lg border border-slate-200 bg-white p-3">
@@ -350,7 +378,7 @@
                         <div class="text-lg font-semibold text-slate-900">@_selectedForm.Name</div>
                         @if (!string.IsNullOrWhiteSpace(_selectedForm.Description))
                         {
-                            <div class="whitespace-pre-line break-words text-sm text-slate-500">@LinkifiedText.ToMarkupString(_selectedForm.Description)</div>
+                            <div class="text-sm text-slate-500"><RichTextDisplay Value="@_selectedForm.Description" /></div>
                         }
                     </div>
                     @foreach (var field in SelectedFields)
@@ -453,6 +481,8 @@
     private string _error = "";
     private string _embedCopyMessage = "";
     private bool _disposed;
+    private bool _formDescriptionEditing;
+    private RichTextEditor? _formDescriptionEditor;
     private long _loadVersion;
     private long _selectionVersion;
 
@@ -566,6 +596,8 @@
         _message = "";
         _error = "";
         _passwordDraft = "";
+        _formDescriptionEditing = false;
+        _formDescriptionEditor = null;
         try
         {
             var selected = await FormService.GetFormForEditAsync(UserId, formId);
@@ -616,6 +648,8 @@
     private async Task SaveSelectedAsync()
     {
         if (_selectedForm is null || _creating || _saving || _deleting || _selecting) return;
+        if (_formDescriptionEditing)
+            await CommitFormDescriptionAsync();
         var formId = _selectedForm.Id;
         var listId = _selectedForm.ListId;
         _saving = true;
@@ -642,6 +676,27 @@
         {
             _saving = false;
         }
+    }
+
+    private void BeginFormDescriptionEdit()
+    {
+        if (_selectedForm is null) return;
+        _formDescriptionEditing = true;
+    }
+
+    private void CancelFormDescriptionEdit()
+    {
+        _formDescriptionEditing = false;
+        _formDescriptionEditor = null;
+    }
+
+    private async Task CommitFormDescriptionAsync()
+    {
+        if (!_formDescriptionEditing || _selectedForm is null) return;
+        if (_formDescriptionEditor is not null)
+            _selectedForm.Description = await _formDescriptionEditor.GetValueAsync();
+        _formDescriptionEditing = false;
+        _formDescriptionEditor = null;
     }
 
     private async Task SyncFieldOrderFromDomAsync()
@@ -831,9 +886,11 @@
         await JS.InvokeVoidAsync("open", PublicLink(_selectedForm), "_blank", "noopener,noreferrer");
     }
 
-    private void OpenPreview()
+    private async Task OpenPreviewAsync()
     {
         if (_selectedForm is null) return;
+        if (_formDescriptionEditing)
+            await CommitFormDescriptionAsync();
         _previewOpen = true;
     }
 

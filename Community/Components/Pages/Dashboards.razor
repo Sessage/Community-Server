@@ -738,7 +738,7 @@
         if (!string.IsNullOrWhiteSpace(_filterDraft.Query))
         {
             var q = _filterDraft.Query.Trim();
-            if (!$"{task.Title} {task.Description} {list.Name}".Contains(q, StringComparison.OrdinalIgnoreCase))
+            if (!$"{task.Title} {RichTextContent.ToPlainText(task.Description)} {list.Name}".Contains(q, StringComparison.OrdinalIgnoreCase))
                 return false;
         }
         if (_filterDraft.Done is not null && task.Done != _filterDraft.Done.Value) return false;

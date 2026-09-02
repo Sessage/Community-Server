@@ -79,7 +79,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             Id = task.Id == Guid.Empty ? Guid.NewGuid() : task.Id,
             ListId = listId,
             Title = (task.Title ?? "").Trim(),
-            Description = task.Description,
+            Description = RichTextContent.NormalizeForStorage(task.Description),
             StartDate = task.StartDate,
             DueDate = task.DueDate,
             Done = task.Done,
@@ -168,7 +168,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         var wasAlreadyDone = entity.Done;
         var oldAssignee = entity.Assignee;
 
-        entity.Description = task.Description;
+        entity.Description = RichTextContent.NormalizeForStorage(task.Description);
         entity.StartDate = task.StartDate;
         entity.DueDate = task.DueDate;
         entity.Done = task.Done;

@@ -3,6 +3,34 @@
 
 window.todoUi = window.todoUi || {};
 
+window.todoUi.scrollToTop = function (element) {
+    if (!element) return false;
+
+    const applyPosition = function () {
+        element.scrollTop = 0;
+    };
+
+    applyPosition();
+    if (typeof window.requestAnimationFrame === "function")
+        window.requestAnimationFrame(applyPosition);
+    return true;
+};
+
+window.todoUi.scrollToBottom = function (element) {
+    if (!element) return false;
+
+    const applyPosition = function () {
+        element.scrollTop = element.scrollHeight;
+    };
+
+    // Once immediately and once after the browser's next layout pass. This covers
+    // Blazor DOM updates as well as delayed font/layout changes in the MAUI WebView.
+    applyPosition();
+    if (typeof window.requestAnimationFrame === "function")
+        window.requestAnimationFrame(applyPosition);
+    return true;
+};
+
 (function () {
     // ── Globaler Pointer-Tracker (einmalig, geteilt zwischen list- und kanban-Modul) ──
     if (!window._todoUiPointerTracker) {

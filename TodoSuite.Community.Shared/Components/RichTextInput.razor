@@ -1,0 +1,78 @@
+<div class="space-y-2">
+    @if (_editing)
+    {
+        <RichTextEditor @ref="_editor" Value="@Value" AriaLabel="@AriaLabel" />
+        <div class="flex justify-end gap-2">
+            <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700" @onclick="Cancel">@L["Btn_Cancel"]</button>
+            <button type="button" class="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white" @onclick="CommitAsync">@L["Btn_Save"]</button>
+        </div>
+    }
+    else
+    {
+        <div id="@InputId"
+                class="min-h-[96px] w-full rounded-lg border bg-white px-3 py-2 text-left text-sm hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-300 @(Invalid ? "border-red-400" : "border-slate-200")"
+                role="button"
+                tabindex="@(ReadOnly ? -1 : 0)"
+                aria-label="@AriaLabel"
+                aria-describedby="@DescribedBy"
+                aria-required="@(Required ? "true" : "false")"
+                aria-invalid="@(Invalid ? "true" : "false")"
+                aria-disabled="@(ReadOnly ? "true" : "false")"
+                @onclick="BeginEdit"
+                @onkeydown="HandleKeyDown">
+            @if (string.IsNullOrWhiteSpace(Value))
+            {
+                <span class="text-slate-400">@Placeholder</span>
+            }
+            else
+            {
+                <RichTextDisplay Value="@Value" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? InputId { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? DescribedBy { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Invalid { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+
+    private bool _editing;
+    private RichTextEditor? _editor;
+
+    private void BeginEdit()
+    {
+        if (!ReadOnly)
+            _editing = true;
+    }
+
+    private void Cancel()
+    {
+        _editing = false;
+        _editor = null;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "Enter" or " ")
+            BeginEdit();
+    }
+
+    public async Task CommitAsync()
+    {
+        if (!_editing)
+            return;
+
+        var value = _editor is null ? Value : await _editor.GetValueAsync();
+        _editing = false;
+        _editor = null;
+        if (!string.Equals(value, Value, StringComparison.Ordinal))
+            await ValueChanged.InvokeAsync(value);
+    }
+}

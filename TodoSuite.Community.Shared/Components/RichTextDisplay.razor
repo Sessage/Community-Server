@@ -1,0 +1,20 @@
+@if (!string.IsNullOrWhiteSpace(Value))
+{
+    <div class="rich-text-display break-words">@_markup</div>
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+
+    private string? _renderedValue;
+    private MarkupString _markup;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(Value, _renderedValue, StringComparison.Ordinal))
+            return;
+
+        _renderedValue = Value;
+        _markup = RichTextContent.ToMarkupString(Value);
+    }
+}
