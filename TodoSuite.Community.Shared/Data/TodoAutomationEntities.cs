@@ -47,7 +47,8 @@ public enum TodoAutomationActionType
     ClearAssignee = 12,
     SetApprover = 13,
     RequestApproval = 14,
-    PluginAction = 15
+    PluginAction = 15,
+    MoveToList = 16
 }
 
 public class TodoAutomationRuleEntity

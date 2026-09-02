@@ -2379,4 +2379,13 @@
   <data name="Btn_Retry" xml:space="preserve"><value>Try again</value></data>
   <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>Create as a portfolio with a dashboard</value></data>
   <data name="Err_TemplatesLoad" xml:space="preserve"><value>Templates could not be loaded: {0}</value></data>
+  <data name="FormDesigner_DeleteConfirm" xml:space="preserve"><value>Delete this form? Tasks already created from it will be kept.</value></data>
+  <data name="PublicForm_LoadError" xml:space="preserve"><value>The form could not be loaded. Please try again.</value></data>
+  <data name="PublicForm_MaxAttachments" xml:space="preserve"><value>Please upload no more than {0} files.</value></data>
+  <data name="PublicForm_FileEmpty" xml:space="preserve"><value>The file “{0}” is empty.</value></data>
+  <data name="PublicForm_FileTooLarge" xml:space="preserve"><value>The file “{0}” is too large. The maximum size is {1} MB.</value></data>
+  <data name="PublicForm_FileTypeNotAllowed" xml:space="preserve"><value>The file type of “{0}” is not allowed for this form.</value></data>
+  <data name="PublicForm_RequiredField" xml:space="preserve"><value>Please complete the “{0}” field.</value></data>
+  <data name="PublicForm_InvalidField" xml:space="preserve"><value>Please check the “{0}” field.</value></data>
+  <data name="Err_ShareLinksLoad" xml:space="preserve"><value>The share links for “{0}” could not be loaded: {1}</value></data>
 </root>

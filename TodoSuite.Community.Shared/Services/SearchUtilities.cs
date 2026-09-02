@@ -1,4 +1,5 @@
 using Klassenbibliothek.Data;
+using System.Net;
 
 namespace Klassenbibliothek.Services;
 
@@ -14,6 +15,12 @@ public static class SearchUtilities
             ? normalized
             : normalized[..MaxQueryLength];
     }
+
+    public static bool CanUseCacheFallback(HttpStatusCode statusCode)
+        => statusCode == HttpStatusCode.NotFound
+            || statusCode == HttpStatusCode.RequestTimeout
+            || statusCode == HttpStatusCode.TooManyRequests
+            || (int)statusCode >= 500;
 
     public static IReadOnlyList<SearchResultItem> SearchCachedLists(
         IEnumerable<TodoListEntity> lists,

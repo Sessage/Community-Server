@@ -2379,4 +2379,13 @@
   <data name="Btn_Retry" xml:space="preserve"><value>重试</value></data>
   <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>创建为带仪表板的项目组合</value></data>
   <data name="Err_TemplatesLoad" xml:space="preserve"><value>无法加载模板：{0}</value></data>
+  <data name="FormDesigner_DeleteConfirm" xml:space="preserve"><value>确定删除此表单吗？已通过该表单创建的任务将保留。</value></data>
+  <data name="PublicForm_LoadError" xml:space="preserve"><value>无法加载表单，请重试。</value></data>
+  <data name="PublicForm_MaxAttachments" xml:space="preserve"><value>最多只能上传 {0} 个文件。</value></data>
+  <data name="PublicForm_FileEmpty" xml:space="preserve"><value>文件“{0}”为空。</value></data>
+  <data name="PublicForm_FileTooLarge" xml:space="preserve"><value>文件“{0}”过大，最大允许 {1} MB。</value></data>
+  <data name="PublicForm_FileTypeNotAllowed" xml:space="preserve"><value>此表单不允许“{0}”的文件类型。</value></data>
+  <data name="PublicForm_RequiredField" xml:space="preserve"><value>请填写“{0}”字段。</value></data>
+  <data name="PublicForm_InvalidField" xml:space="preserve"><value>请检查“{0}”字段。</value></data>
+  <data name="Err_ShareLinksLoad" xml:space="preserve"><value>无法加载“{0}”的共享链接：{1}</value></data>
 </root>

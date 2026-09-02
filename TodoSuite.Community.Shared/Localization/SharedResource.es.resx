@@ -2379,4 +2379,13 @@
   <data name="Btn_Retry" xml:space="preserve"><value>Reintentar</value></data>
   <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>Crear como portafolio con panel</value></data>
   <data name="Err_TemplatesLoad" xml:space="preserve"><value>No se pudieron cargar las plantillas: {0}</value></data>
+  <data name="FormDesigner_DeleteConfirm" xml:space="preserve"><value>¿Eliminar este formulario? Las tareas ya creadas a partir de él se conservarán.</value></data>
+  <data name="PublicForm_LoadError" xml:space="preserve"><value>No se pudo cargar el formulario. Inténtalo de nuevo.</value></data>
+  <data name="PublicForm_MaxAttachments" xml:space="preserve"><value>Sube como máximo {0} archivos.</value></data>
+  <data name="PublicForm_FileEmpty" xml:space="preserve"><value>El archivo «{0}» está vacío.</value></data>
+  <data name="PublicForm_FileTooLarge" xml:space="preserve"><value>El archivo «{0}» es demasiado grande. El tamaño máximo es de {1} MB.</value></data>
+  <data name="PublicForm_FileTypeNotAllowed" xml:space="preserve"><value>El tipo de archivo de «{0}» no está permitido para este formulario.</value></data>
+  <data name="PublicForm_RequiredField" xml:space="preserve"><value>Completa el campo «{0}».</value></data>
+  <data name="PublicForm_InvalidField" xml:space="preserve"><value>Revisa el campo «{0}».</value></data>
+  <data name="Err_ShareLinksLoad" xml:space="preserve"><value>No se pudieron cargar los enlaces para compartir de «{0}»: {1}</value></data>
 </root>

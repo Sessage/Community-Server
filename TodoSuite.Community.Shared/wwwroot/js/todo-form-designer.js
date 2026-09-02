@@ -1,7 +1,9 @@
 window.todoUi = window.todoUi || {};
 
 (function () {
-    const instances = new Map();
+    // DOM nodes are replaced after a reorder. A WeakMap prevents detached designer
+    // elements and their Sortable instances from being retained indefinitely.
+    const instances = new WeakMap();
 
     async function safeInvoke(dotNetRef, methodName, ...args) {
         try {

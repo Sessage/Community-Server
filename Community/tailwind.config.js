@@ -5,7 +5,8 @@ module.exports = {
         "./**/*.cshtml",
         "./wwwroot/**/*.html",
         "./wwwroot/**/*.js",
-        "../TodoSuite.Community.Shared/**/*.razor"
+        "../TodoSuite.Community.Shared/**/*.razor",
+        "../TodoSuite.Mobile/**/*.razor"
     ],
     theme: { extend: {} },
     plugins: []

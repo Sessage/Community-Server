@@ -2374,4 +2374,13 @@
   <data name="Btn_Retry" xml:space="preserve"><value>Réessayer</value></data>
   <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>Créer comme portefeuille avec tableau de bord</value></data>
   <data name="Err_TemplatesLoad" xml:space="preserve"><value>Impossible de charger les modèles : {0}</value></data>
+  <data name="FormDesigner_DeleteConfirm" xml:space="preserve"><value>Supprimer ce formulaire ? Les tâches déjà créées à partir de celui-ci seront conservées.</value></data>
+  <data name="PublicForm_LoadError" xml:space="preserve"><value>Le formulaire n’a pas pu être chargé. Veuillez réessayer.</value></data>
+  <data name="PublicForm_MaxAttachments" xml:space="preserve"><value>Veuillez importer au maximum {0} fichiers.</value></data>
+  <data name="PublicForm_FileEmpty" xml:space="preserve"><value>Le fichier « {0} » est vide.</value></data>
+  <data name="PublicForm_FileTooLarge" xml:space="preserve"><value>Le fichier « {0} » est trop volumineux. La taille maximale est de {1} Mo.</value></data>
+  <data name="PublicForm_FileTypeNotAllowed" xml:space="preserve"><value>Le type du fichier « {0} » n’est pas autorisé pour ce formulaire.</value></data>
+  <data name="PublicForm_RequiredField" xml:space="preserve"><value>Veuillez remplir le champ « {0} ».</value></data>
+  <data name="PublicForm_InvalidField" xml:space="preserve"><value>Veuillez vérifier le champ « {0} ».</value></data>
+  <data name="Err_ShareLinksLoad" xml:space="preserve"><value>Impossible de charger les liens de partage pour « {0} » : {1}</value></data>
 </root>

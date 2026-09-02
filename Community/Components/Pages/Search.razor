@@ -13,29 +13,32 @@
 
 <PageTitle>@L["Search_Title"]</PageTitle>
 
-<div class="space-y-6">
+<main class="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:space-y-6 lg:px-8">
     <div>
         <div class="text-xs uppercase text-slate-500">@L["Search_Section"]</div>
-        <h1 class="text-3xl font-semibold">@L["Search_Title"]</h1>
+        <h1 class="text-2xl font-semibold sm:text-3xl">@L["Search_Title"]</h1>
     </div>
 
     <!-- Search input -->
     <div class="relative">
         <div class="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
             <FluentIcon Value="@(new Icons.Regular.Size20.Search())" Color="Color.Neutral" />
-            <input class="flex-1 outline-none text-base bg-transparent"
+            <input class="min-w-0 flex-1 bg-transparent text-base outline-none"
                    type="search"
                    maxlength="@SearchUtilities.MaxQueryLength"
+                   autocomplete="off"
+                   enterkeyhint="search"
+                   spellcheck="false"
                    aria-label="@L["Search_Placeholder"]"
                    placeholder="@L["Search_Placeholder"]"
                    @bind="_query"
                    @bind:event="oninput"
-                   @onchange="OnQueryCommit"
+                   @bind:after="OnQueryInput"
                    @onkeydown="OnKeyDown"
                    autofocus />
             @if (!string.IsNullOrEmpty(_query))
             {
-                <button type="button" class="text-slate-400 hover:text-slate-600" title="@L["Search_Clear"]" aria-label="@L["Search_Clear"]" @onclick="ClearSearch">
+                <button type="button" class="flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500" title="@L["Search_Clear"]" aria-label="@L["Search_Clear"]" @onclick="ClearSearch">
                     <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
                 </button>
             }
@@ -44,7 +47,7 @@
 
     @if (_loading)
     {
-        <div class="text-slate-500">@L["Lbl_Loading"]</div>
+        <div class="text-slate-500" role="status" aria-live="polite">@L["Lbl_Loading"]</div>
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -56,11 +59,11 @@
     }
     else if (_searched && _results.Count == 0)
     {
-        <div class="text-slate-500">@string.Format(L["Search_NoResults"], _query)</div>
+        <div class="text-slate-500" role="status">@string.Format(L["Search_NoResults"], ProcessedQuery)</div>
     }
     else if (_searched)
     {
-        <div class="text-sm text-slate-500">@string.Format(L["Search_ResultCount"], _results.Count, _query)</div>
+        <div class="text-sm text-slate-500" role="status" aria-live="polite">@string.Format(L["Search_ResultCount"], _results.Count, ProcessedQuery)</div>
 
         <!-- Lists section -->
         @if (_listResults.Count > 0)
@@ -70,14 +73,14 @@
                     <FluentIcon Value="@(new Icons.Regular.Size20.DocumentBulletList())" Color="Color.Accent" />
                     <span class="text-sm font-semibold uppercase tracking-wide text-slate-600">@L["Search_GroupLists"] (@_listResults.Count)</span>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div class="grid grid-cols-1 gap-3 2xl:grid-cols-2">
                     @foreach (var item in _listResults)
                     {
                         <button type="button"
-                                class="text-left bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                class="w-full min-w-0 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                                 @onclick="() => NavigateTo(item)">
-                            <div class="flex items-center gap-2">
-                                <FluentIcon Value="@(new Icons.Regular.Size20.DocumentBulletList())" Color="Color.Accent" />
+                            <div class="flex min-w-0 items-center gap-2">
+                                <span class="shrink-0"><FluentIcon Value="@(new Icons.Regular.Size20.DocumentBulletList())" Color="Color.Accent" /></span>
                                 <span class="font-medium truncate">@item.Title</span>
                             </div>
                         </button>
@@ -94,26 +97,26 @@
                     <FluentIcon Value="@(new Icons.Filled.Size20.TaskListSquareSparkle())" Color="Color.Accent" />
                     <span class="text-sm font-semibold uppercase tracking-wide text-slate-600">@L["Search_GroupTasks"] (@_taskResults.Count)</span>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div class="grid grid-cols-1 gap-3 2xl:grid-cols-2">
                     @foreach (var item in _taskResults)
                     {
                         <button type="button"
-                                class="text-left bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                class="w-full min-w-0 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                                 @onclick="() => NavigateTo(item)">
                             <div class="flex items-center gap-2 min-w-0">
-                                <FluentIcon Value="@(new Icons.Filled.Size20.TaskListSquareSparkle())" Color="Color.Neutral" />
+                                <span class="shrink-0"><FluentIcon Value="@(new Icons.Filled.Size20.TaskListSquareSparkle())" Color="Color.Neutral" /></span>
                                 <span class="font-medium truncate">@item.Title</span>
                             </div>
-                            <div class="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                                <FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" Color="Color.Neutral" />
-                                <span class="truncate">@item.ListName</span>
+                            <div class="mt-1 flex min-w-0 flex-wrap items-center gap-1 text-xs text-slate-500">
+                                <span class="shrink-0"><FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" Color="Color.Neutral" /></span>
+                                <span class="min-w-0 truncate">@item.ListName</span>
                                 @if (item.MatchField == "description")
                                 {
-                                    <span class="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full">@L["Search_MatchDescription"]</span>
+                                    <span class="ml-1 shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-700">@L["Search_MatchDescription"]</span>
                                 }
                                 else if (item.MatchField == "step")
                                 {
-                                    <span class="ml-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">@L["Search_MatchStep"]</span>
+                                    <span class="ml-1 shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-blue-700">@L["Search_MatchStep"]</span>
                                 }
                             </div>
                         </button>
@@ -122,7 +125,7 @@
             </div>
         }
     }
-</div>
+</main>
 
 @code {
     [SupplyParameterFromQuery(Name = "q")]
@@ -135,18 +138,20 @@
     private string? _lastProcessedQuery;
     private long _searchVersion;
     private CancellationTokenSource? _searchCts;
+    private CancellationTokenSource? _inputDebounceCts;
     private List<SearchResultItem> _results = new();
     private List<SearchResultItem> _listResults = new();
     private List<SearchResultItem> _taskResults = new();
 
-    private string _userId = "gast";
+    private string _userId = string.Empty;
+    private string ProcessedQuery => _lastProcessedQuery ?? string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
         _userId = auth.User.FindFirstValue(ClaimTypes.NameIdentifier)
             ?? auth.User.FindFirstValue("sub")
-            ?? "gast";
+            ?? string.Empty;
     }
 
     protected override async Task OnParametersSetAsync()
@@ -160,27 +165,76 @@
         await RunSearchAsync(query);
     }
 
-    private void OnQueryCommit(ChangeEventArgs _) => NavigateToQuery();
+    private void OnQueryInput()
+    {
+        CancelInputDebounce();
+        var normalized = SearchUtilities.NormalizeQuery(_query);
+        if (string.Equals(normalized, _lastProcessedQuery, StringComparison.Ordinal))
+            return;
+
+        if (normalized.Length == 0)
+        {
+            NavigateToQuery();
+            return;
+        }
+
+        _loading = true;
+        _searched = false;
+        var current = new CancellationTokenSource();
+        _inputDebounceCts = current;
+        _ = NavigateAfterInputDelayAsync(normalized, current);
+    }
+
+    private async Task NavigateAfterInputDelayAsync(string query, CancellationTokenSource current)
+    {
+        try
+        {
+            await Task.Delay(300, current.Token);
+            await InvokeAsync(() => NavigateToQuery(query));
+        }
+        catch (OperationCanceledException) when (current.IsCancellationRequested) { }
+        catch (ObjectDisposedException) { }
+        finally
+        {
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _inputDebounceCts, null, current), current))
+                current.Dispose();
+        }
+    }
 
     private void OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
+        {
+            CancelInputDebounce();
             NavigateToQuery();
+        }
+        else if (e.Key == "Escape")
+        {
+            ClearSearch();
+        }
     }
 
     private void ClearSearch()
     {
+        CancelInputDebounce();
         _query = "";
         Navigation.NavigateTo("/search", replace: true);
     }
 
-    private void NavigateToQuery()
+    private void NavigateToQuery(string? query = null)
     {
-        _query = SearchUtilities.NormalizeQuery(_query);
+        _query = SearchUtilities.NormalizeQuery(query ?? _query);
         var target = string.IsNullOrWhiteSpace(_query)
             ? "/search"
             : $"/search?q={Uri.EscapeDataString(_query)}";
         Navigation.NavigateTo(target, replace: true);
+    }
+
+    private void CancelInputDebounce()
+    {
+        var cts = Interlocked.Exchange(ref _inputDebounceCts, null);
+        try { cts?.Cancel(); } catch { }
+        cts?.Dispose();
     }
 
     private async Task RunSearchAsync(string query)
@@ -249,6 +303,7 @@
     public void Dispose()
     {
         _searchVersion++;
+        CancelInputDebounce();
         var cts = Interlocked.Exchange(ref _searchCts, null);
         try { cts?.Cancel(); } catch { }
         cts?.Dispose();

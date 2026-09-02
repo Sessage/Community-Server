@@ -391,6 +391,7 @@
     private Guid? _loadedListId;
     private long _loadedListVersion = -1;
     private string _loadedRequestingUserId = string.Empty;
+    private long _shareLinksLoadVersion;
 
     private string TabButtonClass(SharePanelTab tab)
         => "share-mode-tab rounded-lg px-4 py-2 text-sm font-medium transition focus:outline-none "
@@ -412,6 +413,7 @@
 
         if (List is null || string.IsNullOrWhiteSpace(RequestingUserId))
         {
+            _shareLinksLoadVersion++;
             _loadedListId = null;
             _loadedListVersion = -1;
             _loadedRequestingUserId = string.Empty;
@@ -425,6 +427,9 @@
 
         if (identityChanged)
         {
+            _shareLinksLoadVersion++;
+            _shareLinks = [];
+            _editComments.Clear();
             ResetMessages();
         }
         _loadedListId = List.Id;
@@ -481,9 +486,21 @@
 
     private async Task LoadShareLinksAsync()
     {
+        if (List is null || string.IsNullOrWhiteSpace(RequestingUserId))
+            return;
+
+        var listId = List.Id;
+        var requestingUserId = RequestingUserId;
+        var loadVersion = ++_shareLinksLoadVersion;
         try
         {
-            _shareLinks = await SharingService.GetShareLinksAsync(RequestingUserId, List!.Id);
+            var shareLinks = await SharingService.GetShareLinksAsync(requestingUserId, listId);
+            if (loadVersion != _shareLinksLoadVersion
+                || List?.Id != listId
+                || !string.Equals(RequestingUserId, requestingUserId, StringComparison.Ordinal))
+                return;
+
+            _shareLinks = shareLinks;
 
             var ids = new HashSet<Guid>(_shareLinks.Select(x => x.Id));
             foreach (var k in _editComments.Keys.ToList())
@@ -494,10 +511,10 @@
                 if (!_editComments.ContainsKey(s.Id))
                     _editComments[s.Id] = s.Comment ?? "";
         }
-        catch
+        catch (Exception ex)
         {
-            _shareLinks = Array.Empty<ShareLinkInfo>();
-            _editComments.Clear();
+            if (loadVersion == _shareLinksLoadVersion && List?.Id == listId)
+                _error = string.Format(L["Err_ShareLinksLoad"].Value, List.Name, ex.Message);
         }
     }
 

@@ -2379,4 +2379,13 @@
   <data name="Btn_Retry" xml:space="preserve"><value>फिर से प्रयास करें</value></data>
   <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>डैशबोर्ड के साथ पोर्टफ़ोलियो के रूप में बनाएँ</value></data>
   <data name="Err_TemplatesLoad" xml:space="preserve"><value>टेम्पलेट लोड नहीं किए जा सके: {0}</value></data>
+  <data name="FormDesigner_DeleteConfirm" xml:space="preserve"><value>क्या इस फ़ॉर्म को हटाना है? इससे पहले बनाई गई कार्य प्रविष्टियाँ सुरक्षित रहेंगी।</value></data>
+  <data name="PublicForm_LoadError" xml:space="preserve"><value>फ़ॉर्म लोड नहीं हो सका। कृपया फिर से प्रयास करें।</value></data>
+  <data name="PublicForm_MaxAttachments" xml:space="preserve"><value>कृपया अधिकतम {0} फ़ाइलें अपलोड करें।</value></data>
+  <data name="PublicForm_FileEmpty" xml:space="preserve"><value>फ़ाइल “{0}” खाली है।</value></data>
+  <data name="PublicForm_FileTooLarge" xml:space="preserve"><value>फ़ाइल “{0}” बहुत बड़ी है। अधिकतम आकार {1} एमबी है।</value></data>
+  <data name="PublicForm_FileTypeNotAllowed" xml:space="preserve"><value>“{0}” का फ़ाइल प्रकार इस फ़ॉर्म के लिए अनुमत नहीं है।</value></data>
+  <data name="PublicForm_RequiredField" xml:space="preserve"><value>कृपया “{0}” फ़ील्ड भरें।</value></data>
+  <data name="PublicForm_InvalidField" xml:space="preserve"><value>कृपया “{0}” फ़ील्ड जाँचें।</value></data>
+  <data name="Err_ShareLinksLoad" xml:space="preserve"><value>“{0}” के साझाकरण लिंक लोड नहीं किए जा सके: {1}</value></data>
 </root>

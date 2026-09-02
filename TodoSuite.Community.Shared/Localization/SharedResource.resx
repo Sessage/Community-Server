@@ -2434,4 +2434,13 @@
   <data name="Btn_Retry" xml:space="preserve"><value>Erneut versuchen</value></data>
   <data name="Nav_CreateAsPortfolio" xml:space="preserve"><value>Als Portfolio mit Dashboard erstellen</value></data>
   <data name="Err_TemplatesLoad" xml:space="preserve"><value>Vorlagen konnten nicht geladen werden: {0}</value></data>
+  <data name="FormDesigner_DeleteConfirm" xml:space="preserve"><value>Dieses Formular wirklich löschen? Bereits erstellte Aufgaben bleiben erhalten.</value></data>
+  <data name="PublicForm_LoadError" xml:space="preserve"><value>Das Formular konnte nicht geladen werden. Bitte versuchen Sie es erneut.</value></data>
+  <data name="PublicForm_MaxAttachments" xml:space="preserve"><value>Bitte laden Sie maximal {0} Dateien hoch.</value></data>
+  <data name="PublicForm_FileEmpty" xml:space="preserve"><value>Die Datei „{0}“ ist leer.</value></data>
+  <data name="PublicForm_FileTooLarge" xml:space="preserve"><value>Die Datei „{0}“ ist zu groß. Maximal erlaubt sind {1} MB.</value></data>
+  <data name="PublicForm_FileTypeNotAllowed" xml:space="preserve"><value>Der Dateityp von „{0}“ ist für dieses Formular nicht erlaubt.</value></data>
+  <data name="PublicForm_RequiredField" xml:space="preserve"><value>Bitte füllen Sie das Feld „{0}“ aus.</value></data>
+  <data name="PublicForm_InvalidField" xml:space="preserve"><value>Bitte prüfen Sie das Feld „{0}“.</value></data>
+  <data name="Err_ShareLinksLoad" xml:space="preserve"><value>Die Freigabelinks für „{0}“ konnten nicht geladen werden: {1}</value></data>
 </root>

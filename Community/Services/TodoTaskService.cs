@@ -584,7 +584,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
         var fromList = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == fromListId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == fromListId && l.DeletedAt == null && !l.IsTemplate, cancellationToken);
 
         if (fromList is null)
             throw new InvalidOperationException(
@@ -593,7 +593,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         var toList = await db.TodoLists
             .Include(l => l.Participants)
             .Include(l => l.Labels)
-            .FirstOrDefaultAsync(l => l.Id == toListId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == toListId && l.DeletedAt == null && !l.IsTemplate, cancellationToken);
 
         if (toList is null)
             throw new InvalidOperationException(
@@ -614,7 +614,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .Include(t => t.LabelLinks)
             .ThenInclude(ll => ll.Label)
             .Include(t => t.CustomFieldValues)
-            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == fromListId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == fromListId && t.DeletedAt == null, cancellationToken);
 
         if (task is null)
             throw new InvalidOperationException(
@@ -684,6 +684,9 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
         task.ListId = toListId;
         task.Column = targetColumn;
+        task.Done = (toList.DoneColumns ?? []).Contains(targetColumn, StringComparer.OrdinalIgnoreCase);
+        if (task.Done)
+            task.ReminderAtUtc = null;
         task.ListSortOrder = nextListOrder;
         task.KanbanSortOrder = nextKanbanOrder;
 

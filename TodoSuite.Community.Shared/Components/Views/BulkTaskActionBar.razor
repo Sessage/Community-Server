@@ -2,6 +2,7 @@
 @using Klassenbibliothek.Services
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
 @inject ITodoTaskService TaskService
+@inject ITodoListService ListService
 @inject ITodoCurrentUserService CurrentUserService
 
 @if (SelectedTaskIds.Count > 0)
@@ -21,9 +22,19 @@
         @if (_action == ActionMove)
         {
             <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    aria-label="@L["Task_Move_TargetList"]"
+                    value="@_targetListId"
+                    @onchange="ChangeTargetList">
+                @foreach (var targetList in _targetLists)
+                {
+                    <option value="@targetList.Id">@targetList.Name</option>
+                }
+            </select>
+            <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+                    aria-label="@L["Task_Move_TargetColumn"]"
                     @bind="_targetColumn">
                 <option value="">@L["Task_Move_TargetColumn"]</option>
-                @foreach (var column in List.Columns ?? [])
+                @foreach (var column in TargetColumns)
                 {
                     <option value="@column">@column</option>
                 }
@@ -76,9 +87,11 @@
     private const string ActionColor = "color";
     private const string ActionClearColor = "clear-color";
 
-    private string _userId = "gast";
+    private string _userId = string.Empty;
     private string _action = "";
+    private Guid _targetListId;
     private string _targetColumn = "";
+    private readonly List<TodoListEntity> _targetLists = [];
     private string _cardColor = "#3b82f6";
     private TaskCardColorMode _cardColorMode = TaskCardColorMode.TopOnly;
     private string _error = "";
@@ -86,10 +99,11 @@
 
     private bool CanApply =>
         !_busy
+        && !string.IsNullOrWhiteSpace(_userId)
         && SelectedTaskIds.Count > 0
         && _action switch
         {
-            ActionMove => !string.IsNullOrWhiteSpace(_targetColumn),
+            ActionMove => TargetList is not null && !string.IsNullOrWhiteSpace(_targetColumn),
             ActionColor => !string.IsNullOrWhiteSpace(_cardColor),
             ActionComplete or ActionDelete or ActionClearColor => true,
             _ => false
@@ -97,17 +111,58 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try { _userId = (await CurrentUserService.GetCurrentUserAsync()).UserId; } catch { }
+        try
+        {
+            _userId = (await CurrentUserService.GetCurrentUserAsync()).UserId;
+            var lists = await ListService.GetListOptionsAsync(_userId);
+            _targetLists.Clear();
+            _targetLists.AddRange(lists
+                .Where(candidate => AssigneeIdentityKeys.CanWrite(candidate, [_userId]))
+                .OrderBy(candidate => candidate.Id == List.Id ? 0 : 1)
+                .ThenBy(candidate => candidate.Name, StringComparer.CurrentCultureIgnoreCase));
+        }
+        catch
+        {
+            // The current list remains a valid target even if loading the other list options fails.
+        }
+        EnsureTargetSelection();
     }
 
     protected override void OnParametersSet()
     {
-        var columns = List.Columns ?? [];
+        EnsureTargetSelection();
+    }
+
+    private TodoListEntity? TargetList => _targetLists.FirstOrDefault(candidate => candidate.Id == _targetListId);
+    private IReadOnlyList<string> TargetColumns => TargetList?.Columns ?? [];
+
+    private void EnsureTargetSelection()
+    {
+        var currentIndex = _targetLists.FindIndex(candidate => candidate.Id == List.Id);
+        if (currentIndex >= 0)
+            _targetLists[currentIndex] = List;
+        else
+            _targetLists.Insert(0, List);
+
+        if (_targetListId == Guid.Empty || _targetLists.All(candidate => candidate.Id != _targetListId))
+            _targetListId = List.Id;
+
+        var columns = TargetColumns;
         if (string.IsNullOrWhiteSpace(_targetColumn)
             || !columns.Contains(_targetColumn, StringComparer.OrdinalIgnoreCase))
         {
             _targetColumn = columns.FirstOrDefault() ?? "";
         }
+    }
+
+    private void ChangeTargetList(ChangeEventArgs args)
+    {
+        if (!Guid.TryParse(args.Value?.ToString(), out var targetListId)
+            || _targetLists.All(candidate => candidate.Id != targetListId))
+            return;
+
+        _targetListId = targetListId;
+        _targetColumn = TargetColumns.FirstOrDefault() ?? "";
     }
 
     private async Task ApplyAsync()
@@ -128,6 +183,22 @@
 
             foreach (var task in selected)
             {
+                if (_action == ActionMove && _targetListId != List.Id)
+                {
+                    var moved = await TaskService.MoveTaskToListAsync(
+                        _userId,
+                        List.Id,
+                        _targetListId,
+                        task.Id,
+                        _targetColumn);
+                    if (moved is null || moved.ListId != _targetListId)
+                        throw new InvalidOperationException($"Die Aufgabe '{task.Title}' konnte nicht verschoben werden.");
+
+                    List.Tasks?.Remove(task);
+                    persistedAny = true;
+                    continue;
+                }
+
                 if (_action == ActionDelete)
                 {
                     if (!await TaskService.DeleteTaskAsync(_userId, List.Id, task.Id))

@@ -276,7 +276,9 @@
                     title="@L["Btn_Add"]"
                     disabled="@(!CanAddOption(state))"
                     @onclick="() => AddOption(state)">
-                <FluentIcon Value="@(new Icons.Regular.Size16.Add())" />
+                <FluentIcon Value="@(new Icons.Regular.Size16.Add())"
+                            Color="Color.Custom"
+                            CustomColor="#ffffff" />
                 <span class="sr-only">@L["Btn_Add"]</span>
             </button>
         </div>
@@ -303,14 +305,14 @@
                                     title="@L["Btn_Save"]"
                                     disabled="@(!CanSaveOptionEdit(state))"
                                     @onclick="() => SaveOptionEdit(state)">
-                                <FluentIcon Value="@(new Icons.Regular.Size16.Checkmark())" />
+                                <FluentIcon Value="@(new Icons.Regular.Size16.Checkmark())" Color="Color.Accent" />
                                 <span class="sr-only">@L["Btn_Save"]</span>
                             </button>
                             <button type="button"
                                     class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
                                     title="@L["Btn_Cancel"]"
                                     @onclick="() => CancelOptionEdit(state)">
-                                <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" />
+                                <FluentIcon Value="@(new Icons.Regular.Size16.Dismiss())" Color="Color.Neutral" />
                                 <span class="sr-only">@L["Btn_Cancel"]</span>
                             </button>
                         }
@@ -321,7 +323,7 @@
                                     class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100"
                                     title="@L["Btn_Edit"]"
                                     @onclick="() => StartOptionEdit(state, item.index)">
-                                <FluentIcon Value="@(new Icons.Regular.Size16.Edit())" />
+                                <FluentIcon Value="@(new Icons.Regular.Size16.Edit())" Color="Color.Neutral" />
                                 <span class="sr-only">@L["Btn_Edit"]</span>
                             </button>
                         }
@@ -329,7 +331,7 @@
                                 class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 hover:bg-red-50"
                                 title="@L["Btn_Delete"]"
                                 @onclick="() => DeleteOption(state, item.index)">
-                            <FluentIcon Value="@(new Icons.Regular.Size16.Delete())" />
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Delete())" Color="Color.Error" />
                             <span class="sr-only">@L["Btn_Delete"]</span>
                         </button>
                     </div>
