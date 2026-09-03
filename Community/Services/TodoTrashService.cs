@@ -193,8 +193,13 @@ public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
             .Where(notification => expiredListIds.Contains(notification.ListId)
                 || (notification.TaskId.HasValue && expiredTaskIds.Contains(notification.TaskId.Value)))
             .ToListAsync(cancellationToken);
+        var expiredDirectoryGrants = await db.DirectoryShareGrants
+            .Where(grant => grant.ResourceType == DirectoryShareResourceType.List
+                            && expiredListIds.Contains(grant.ResourceId))
+            .ToListAsync(cancellationToken);
 
         db.UserNotifications.RemoveRange(expiredNotifications);
+        db.DirectoryShareGrants.RemoveRange(expiredDirectoryGrants);
         db.TodoTasks.RemoveRange(expiredTasks);
         db.TodoLists.RemoveRange(expiredLists);
         await db.SaveChangesAsync(cancellationToken);

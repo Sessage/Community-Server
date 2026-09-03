@@ -2389,4 +2389,19 @@
   <data name="PublicForm_InvalidField" xml:space="preserve"><value>Please check the “{0}” field.</value></data>
   <data name="Err_ShareLinksLoad" xml:space="preserve"><value>The share links for “{0}” could not be loaded: {1}</value></data>
   <data name="RichText_Toolbar" xml:space="preserve"><value>Formatting</value></data><data name="RichText_Bold" xml:space="preserve"><value>Bold</value></data><data name="RichText_Italic" xml:space="preserve"><value>Italic</value></data><data name="RichText_Strike" xml:space="preserve"><value>Strikethrough</value></data><data name="RichText_Heading" xml:space="preserve"><value>Heading</value></data><data name="RichText_BulletList" xml:space="preserve"><value>Bullet list</value></data><data name="RichText_NumberedList" xml:space="preserve"><value>Numbered list</value></data><data name="RichText_Quote" xml:space="preserve"><value>Quote</value></data><data name="RichText_Code" xml:space="preserve"><value>Code</value></data><data name="RichText_Undo" xml:space="preserve"><value>Undo</value></data><data name="RichText_Redo" xml:space="preserve"><value>Redo</value></data>
+  <data name="Directory_Unavailable" xml:space="preserve"><value>Directory sharing is unavailable. Check the Enterprise license and Active Directory configuration.</value></data>
+  <data name="Directory_PrincipalLabel" xml:space="preserve"><value>AD user or AD group</value></data>
+  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>Enter at least 2 characters…</value></data>
+  <data name="Directory_Search" xml:space="preserve"><value>Search</value></data>
+  <data name="Directory_Group" xml:space="preserve"><value>AD group</value></data>
+  <data name="Directory_User" xml:space="preserve"><value>AD user</value></data>
+  <data name="Directory_Grant" xml:space="preserve"><value>Grant access</value></data>
+  <data name="Directory_GrantedEntries" xml:space="preserve"><value>Authorized directory entries</value></data>
+  <data name="Directory_None" xml:space="preserve"><value>No directory shares yet.</value></data>
+  <data name="Directory_MinimumQuery" xml:space="preserve"><value>Please enter at least two characters.</value></data>
+  <data name="Directory_NoResults" xml:space="preserve"><value>No matching entries found.</value></data>
+  <data name="Directory_GroupGranted" xml:space="preserve"><value>The directory group has been granted access.</value></data>
+  <data name="Directory_UserGranted" xml:space="preserve"><value>The directory user has been granted access.</value></data>
+  <data name="Directory_RoleSaved" xml:space="preserve"><value>The role has been saved.</value></data>
+  <data name="Directory_Removed" xml:space="preserve"><value>The directory share has been removed.</value></data>
 </root>

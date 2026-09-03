@@ -2384,4 +2384,19 @@
   <data name="PublicForm_InvalidField" xml:space="preserve"><value>Veuillez vérifier le champ « {0} ».</value></data>
   <data name="Err_ShareLinksLoad" xml:space="preserve"><value>Impossible de charger les liens de partage pour « {0} » : {1}</value></data>
   <data name="RichText_Toolbar" xml:space="preserve"><value>Mise en forme</value></data><data name="RichText_Bold" xml:space="preserve"><value>Gras</value></data><data name="RichText_Italic" xml:space="preserve"><value>Italique</value></data><data name="RichText_Strike" xml:space="preserve"><value>Barré</value></data><data name="RichText_Heading" xml:space="preserve"><value>Titre</value></data><data name="RichText_BulletList" xml:space="preserve"><value>Liste à puces</value></data><data name="RichText_NumberedList" xml:space="preserve"><value>Liste numérotée</value></data><data name="RichText_Quote" xml:space="preserve"><value>Citation</value></data><data name="RichText_Code" xml:space="preserve"><value>Code</value></data><data name="RichText_Undo" xml:space="preserve"><value>Annuler</value></data><data name="RichText_Redo" xml:space="preserve"><value>Rétablir</value></data>
+  <data name="Directory_Unavailable" xml:space="preserve"><value>Le partage d’annuaire n’est pas disponible. Vérifiez la licence Enterprise et la configuration d’Active Directory.</value></data>
+  <data name="Directory_PrincipalLabel" xml:space="preserve"><value>Utilisateur ou groupe AD</value></data>
+  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>Saisissez au moins 2 caractères…</value></data>
+  <data name="Directory_Search" xml:space="preserve"><value>Rechercher</value></data>
+  <data name="Directory_Group" xml:space="preserve"><value>Groupe AD</value></data>
+  <data name="Directory_User" xml:space="preserve"><value>Utilisateur AD</value></data>
+  <data name="Directory_Grant" xml:space="preserve"><value>Accorder l’accès</value></data>
+  <data name="Directory_GrantedEntries" xml:space="preserve"><value>Entrées d’annuaire autorisées</value></data>
+  <data name="Directory_None" xml:space="preserve"><value>Aucun partage d’annuaire pour le moment.</value></data>
+  <data name="Directory_MinimumQuery" xml:space="preserve"><value>Saisissez au moins deux caractères.</value></data>
+  <data name="Directory_NoResults" xml:space="preserve"><value>Aucune entrée correspondante trouvée.</value></data>
+  <data name="Directory_GroupGranted" xml:space="preserve"><value>L’accès a été accordé au groupe d’annuaire.</value></data>
+  <data name="Directory_UserGranted" xml:space="preserve"><value>L’accès a été accordé à l’utilisateur de l’annuaire.</value></data>
+  <data name="Directory_RoleSaved" xml:space="preserve"><value>Le rôle a été enregistré.</value></data>
+  <data name="Directory_Removed" xml:space="preserve"><value>Le partage d’annuaire a été supprimé.</value></data>
 </root>

@@ -16,17 +16,20 @@ public class ListSharingService : IListSharingService
     private readonly SmtpOptions _smtp;
     private readonly IConfiguration _cfg;
     private readonly IHubContext<TodoHubEndpoint> _hubContext;
+    private readonly ILogger<ListSharingService> _logger;
 
     public ListSharingService(
         IDbContextFactory<ApplicationDbContext> dbFactory,
         IOptions<SmtpOptions> smtpOptions,
         IConfiguration cfg,
-        IHubContext<TodoHubEndpoint> hubContext)
+        IHubContext<TodoHubEndpoint> hubContext,
+        ILogger<ListSharingService> logger)
     {
         _dbFactory = dbFactory;
         _smtp = smtpOptions.Value;
         _cfg = cfg;
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     public async Task<(bool Success, string Message, string? Link)> CreateShareLinkAsync(
@@ -36,7 +39,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return (false, "Liste nicht gefunden.", null);
@@ -84,7 +87,7 @@ public class ListSharingService : IListSharingService
         var list = await db.TodoLists
             .AsNoTracking()
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return new InviteResult(false, "Liste nicht gefunden.");
@@ -152,7 +155,8 @@ public class ListSharingService : IListSharingService
         }
         catch (DbUpdateException ex)
         {
-            return new InviteResult(false, $"Datenbankfehler beim Speichern der Einladung. Details: {ex.InnerException?.Message ?? ex.Message}");
+            _logger.LogError(ex, "Einladung konnte nicht gespeichert werden. ListId={ListId}", listId);
+            return new InviteResult(false, "Einladung konnte nicht gespeichert werden.");
         }
 
         var link = BuildShareUrl(listId, token);
@@ -178,7 +182,10 @@ public class ListSharingService : IListSharingService
         }
         catch (Exception ex)
         {
-            return new InviteResult(false, $"Einladung konnte nicht per E-Mail versendet werden. Details: {ex.Message}");
+            _logger.LogWarning(ex, "Einladungs-E-Mail konnte nicht versendet werden. ListId={ListId}", listId);
+            // Einladung und ausstehende Mitgliedschaft sind bereits gespeichert. Ein
+            // Fehlschlag würde beim Retry weitere gültige Einladungen erzeugen.
+            return new InviteResult(true, "Einladung wurde gespeichert, konnte aber nicht per E-Mail versendet werden.");
         }
     }
 
@@ -192,7 +199,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return (false, "Liste nicht gefunden.");
@@ -220,64 +227,76 @@ public class ListSharingService : IListSharingService
             ? displayName!.Trim()
             : (string.IsNullOrWhiteSpace(idEmail) ? acceptingUserId : idEmail);
 
-        // UsedAtUtc setzen:
-        // - ShareLink: nur Statistik (einmalig setzen wenn null)
-        // - EmailInvite: nutzen wir als "consumed"-Marker
-        _ = await db.ListInvites
-            .Where(x => x.Id == invite.Id && x.UsedAtUtc == null)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UsedAtUtc, DateTime.UtcNow));
-
-        // E-Mail Invite: wenn SingleUse -> nach Annahme widerrufen (oder löschen)
-        // ShareLink: bleibt bestehen
-        if (invite.Type == ListInviteType.EmailInvite && invite.SingleUse)
-        {
-            _ = await db.ListInvites
-                .Where(x => x.Id == invite.Id)
-                .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.Revoked, true));
-        }
-
-        // Participant Upsert ohne Concurrency
-        var participant = await db.ListParticipants
-            .Where(p => p.ListId == listId)
-            .Where(p =>
-                (!string.IsNullOrWhiteSpace(p.UserId) && p.UserId == acceptingUserId)
-                || (!string.IsNullOrWhiteSpace(idEmail) && p.Email == idEmail))
-            .FirstOrDefaultAsync();
-
-        if (participant is not null)
-        {
-            participant.UserId = acceptingUserId;
-            participant.Email = idEmail;
-            participant.DisplayName = disp;
-            PortfolioAccessCoordinator.SetDirectAccess(participant, invite.Role, invitationPending: false);
-            await db.SaveChangesAsync();
-            await NotifyListMembershipChangedAsync(listId);
-            return (true, "Liste wurde hinzugefügt.");
-        }
-
-        db.ListParticipants.Add(new ListParticipantEntity
-        {
-            Id = Guid.NewGuid(),
-            ListId = listId,
-            UserId = acceptingUserId,
-            Email = idEmail,
-            DisplayName = disp,
-            InvitationPending = false,
-            DirectInvitationPending = false,
-            Role = invite.Role,
-            DirectRole = invite.Role
-        });
+        if (invite.Type == ListInviteType.EmailInvite && !EqualsEmail(invite.InviteEmail, idEmail))
+            return (false, "Diese E-Mail-Einladung ist für ein anderes Benutzerkonto bestimmt.");
 
         try
         {
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var usedAt = DateTime.UtcNow;
+            if (invite.Type == ListInviteType.EmailInvite && invite.SingleUse)
+            {
+                var claimed = await db.ListInvites
+                    .Where(x => x.Id == invite.Id && !x.Revoked && x.UsedAtUtc == null)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(x => x.UsedAtUtc, usedAt)
+                        .SetProperty(x => x.Revoked, true));
+                if (claimed == 0)
+                    return (false, "Einladungslink wurde bereits verwendet.");
+            }
+            else
+            {
+                _ = await db.ListInvites
+                    .Where(x => x.Id == invite.Id && x.UsedAtUtc == null)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UsedAtUtc, usedAt));
+            }
+
+            var participant = await db.ListParticipants
+                .Where(p => p.ListId == listId)
+                .Where(p =>
+                    (!string.IsNullOrWhiteSpace(p.UserId) && p.UserId == acceptingUserId)
+                    || (!string.IsNullOrWhiteSpace(idEmail) && p.Email == idEmail))
+                .FirstOrDefaultAsync();
+
+            if (participant is not null)
+            {
+                participant.UserId = acceptingUserId;
+                participant.Email = idEmail;
+                participant.DisplayName = disp;
+                PortfolioAccessCoordinator.SetDirectAccess(participant, invite.Role, invitationPending: false);
+            }
+            else
+            {
+                db.ListParticipants.Add(new ListParticipantEntity
+                {
+                    Id = Guid.NewGuid(),
+                    ListId = listId,
+                    UserId = acceptingUserId,
+                    Email = idEmail,
+                    DisplayName = disp,
+                    InvitationPending = false,
+                    DirectInvitationPending = false,
+                    Role = invite.Role,
+                    DirectRole = invite.Role
+                });
+            }
+
             await db.SaveChangesAsync();
-            await NotifyListMembershipChangedAsync(listId);
-            return (true, "Liste wurde hinzugefügt.");
+            await transaction.CommitAsync();
         }
         catch (DbUpdateException ex)
         {
-            return (false, $"Annahme des Share-Links ist fehlgeschlagen. Details: {ex.Message}");
+            _logger.LogError(ex, "Annahme eines Share-Links konnte nicht gespeichert werden. ListId={ListId}", listId);
+            return (false, "Annahme des Share-Links ist fehlgeschlagen.");
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Annahme eines Share-Links ist unerwartet fehlgeschlagen. ListId={ListId}", listId);
+            return (false, "Annahme des Share-Links ist fehlgeschlagen.");
+        }
+
+        await TryNotifyListMembershipChangedAsync(listId);
+        return (true, "Liste wurde hinzugefügt.");
     }
 
     public async Task<IReadOnlyList<ShareLinkInfo>> GetShareLinksAsync(string requestingUserId, Guid listId)
@@ -286,7 +305,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return Array.Empty<ShareLinkInfo>();
@@ -335,7 +354,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return (false, "Liste nicht gefunden.");
@@ -366,7 +385,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return (false, "Liste nicht gefunden.");
@@ -396,7 +415,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return (false, "Liste nicht gefunden.");
@@ -437,7 +456,7 @@ public class ListSharingService : IListSharingService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null);
 
         if (list is null)
             return (false, "Liste nicht gefunden.");
@@ -486,6 +505,18 @@ public class ListSharingService : IListSharingService
         => _hubContext.Clients
             .Group(TodoHub.ListGroup(listId))
             .SendAsync(TodoHub.ListsUpdated, listId);
+
+    private async Task TryNotifyListMembershipChangedAsync(Guid listId)
+    {
+        try
+        {
+            await NotifyListMembershipChangedAsync(listId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Live-Aktualisierung nach Freigabeannahme fehlgeschlagen. ListId={ListId}", listId);
+        }
+    }
 
     private string GetBaseUrl()
     {

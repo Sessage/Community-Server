@@ -45,7 +45,7 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return null;
 
@@ -61,7 +61,7 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
 
         var taskTitle = await db.TodoTasks
             .AsNoTracking()
-            .Where(t => t.Id == taskId && t.ListId == listId)
+            .Where(t => t.Id == taskId && t.ListId == listId && t.DeletedAt == null)
             .Select(t => t.Title)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -128,7 +128,7 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return false;
 
@@ -136,7 +136,11 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
             throw new UnauthorizedAccessException($"Kommentar kann nicht entfernt werden (Liste='{list.Name}', User='{userId}').");
 
         var comment = await db.Set<TodoCommentEntity>()
-            .FirstOrDefaultAsync(c => c.Id == commentId && c.TaskId == taskId, cancellationToken);
+            .FirstOrDefaultAsync(c => c.Id == commentId
+                                      && c.TaskId == taskId
+                                      && c.Task!.ListId == listId
+                                      && c.Task.DeletedAt == null,
+                cancellationToken);
 
         if (comment is null) return false;
 

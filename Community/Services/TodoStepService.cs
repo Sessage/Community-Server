@@ -35,7 +35,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return null;
 
@@ -44,7 +44,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
 
         var taskExists = await db.TodoTasks
             .AsNoTracking()
-            .AnyAsync(x => x.Id == taskId && x.ListId == listId, cancellationToken);
+            .AnyAsync(x => x.Id == taskId && x.ListId == listId && x.DeletedAt == null, cancellationToken);
 
         if (!taskExists) return null;
 
@@ -80,7 +80,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return false;
 
@@ -88,7 +88,11 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
             throw new UnauthorizedAccessException($"Schritt kann nicht geändert werden (Liste='{list.Name}', User='{userId}').");
 
         var step = await db.Set<TodoStepEntity>()
-            .FirstOrDefaultAsync(s => s.Id == stepId && s.TaskId == taskId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == stepId
+                                      && s.TaskId == taskId
+                                      && s.Task!.ListId == listId
+                                      && s.Task.DeletedAt == null,
+                cancellationToken);
 
         if (step is null) return false;
 
@@ -111,7 +115,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return false;
 
@@ -119,7 +123,11 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
             throw new UnauthorizedAccessException($"Schritt kann nicht geändert werden (Liste='{list.Name}', User='{userId}').");
 
         var step = await db.Set<TodoStepEntity>()
-            .FirstOrDefaultAsync(s => s.Id == stepId && s.TaskId == taskId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == stepId
+                                      && s.TaskId == taskId
+                                      && s.Task!.ListId == listId
+                                      && s.Task.DeletedAt == null,
+                cancellationToken);
 
         if (step is null) return false;
 
@@ -138,7 +146,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return false;
 
@@ -146,7 +154,11 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
             throw new UnauthorizedAccessException($"Schritt kann nicht entfernt werden (Liste='{list.Name}', User='{userId}').");
 
         var step = await db.Set<TodoStepEntity>()
-            .FirstOrDefaultAsync(s => s.Id == stepId && s.TaskId == taskId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == stepId
+                                      && s.TaskId == taskId
+                                      && s.Task!.ListId == listId
+                                      && s.Task.DeletedAt == null,
+                cancellationToken);
 
         if (step is null) return false;
 
@@ -165,7 +177,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .Include(l => l.Tasks)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return null;
 
@@ -173,7 +185,11 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
             throw new UnauthorizedAccessException($"Schritt kann nicht konvertiert werden (Liste='{list.Name}', User='{userId}').");
 
         var step = await db.Set<TodoStepEntity>()
-            .FirstOrDefaultAsync(s => s.Id == stepId && s.TaskId == taskId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == stepId
+                                      && s.TaskId == taskId
+                                      && s.Task!.ListId == listId
+                                      && s.Task.DeletedAt == null,
+                cancellationToken);
 
         if (step is null) return null;
 

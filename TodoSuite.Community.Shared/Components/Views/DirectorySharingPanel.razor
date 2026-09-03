@@ -1,46 +1,65 @@
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Services
+@implements IAsyncDisposable
 @inject IDirectorySharingService DirectorySharing
 
-<div class="space-y-4">
+<div class="space-y-4" aria-busy="@_busy">
     @if (!DirectorySharing.IsAvailable)
     {
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Verzeichnisfreigaben sind nicht verfügbar. Prüfe Enterprise-Lizenz und Active-Directory-Konfiguration.</div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">@L["Directory_Unavailable"]</div>
     }
     else
     {
-        <div class="flex flex-col md:flex-row md:items-end gap-2">
+        <form class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+              @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
             <div class="flex-1">
-                <div class="text-sm text-slate-700 mb-1">AD-Benutzer oder AD-Gruppe</div>
-                <input class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_query" @bind:event="oninput" placeholder="Mindestens 2 Zeichen eingeben …" />
+                <label for="directory-search" class="mb-1 block text-sm text-slate-700">@L["Directory_PrincipalLabel"]</label>
+                <input id="directory-search" class="min-h-11 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                       maxlength="200" autocomplete="off" disabled="@_busy"
+                       @bind="_query" @bind:event="oninput" placeholder="@L["Directory_SearchPlaceholder"]" />
             </div>
-            <FluentButton Appearance="Appearance.Neutral" Disabled="_busy" OnClick="SearchAsync">Suchen</FluentButton>
-        </div>
+            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Neutral" Disabled="_busy">@L["Directory_Search"]</FluentButton>
+        </form>
 
         @if (!string.IsNullOrWhiteSpace(_message))
         {
-            <div class="text-sm @(_error ? "text-red-700" : "text-emerald-700")">@_message</div>
+            <div class="text-sm @(_error ? "text-red-700" : "text-emerald-700")" role="status">@_message</div>
         }
         @foreach (var principal in _results)
         {
-            <div class="flex flex-col md:flex-row md:items-center gap-2 rounded-xl border border-slate-200 p-3">
-                <div class="min-w-0 flex-1"><div class="font-semibold truncate">@principal.DisplayName</div><div class="text-xs text-slate-600 truncate">@(principal.Type == DirectoryPrincipalType.Group ? "AD-Gruppe" : "AD-Benutzer") · @(principal.UserPrincipalName ?? principal.Id)</div></div>
-                <select class="rounded-xl border border-slate-200 p-2 bg-white" @bind="_newRole"><option value="@ListRole.Observer">Beobachter</option><option value="@ListRole.Member">Mitglied</option><option value="@ListRole.Admin">Admin</option></select>
-                <FluentButton Appearance="Appearance.Accent" Disabled="_busy" OnClick="() => GrantAsync(principal)">Berechtigen</FluentButton>
+            <div class="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                <div class="min-w-0">
+                    <div class="truncate font-semibold">@principal.DisplayName</div>
+                    <div class="truncate text-xs text-slate-600">@PrincipalTypeLabel(principal.Type) · @(principal.UserPrincipalName ?? principal.Id)</div>
+                    @if (!string.IsNullOrWhiteSpace(principal.Description))
+                    {
+                        <div class="mt-1 line-clamp-2 text-xs text-slate-500">@principal.Description</div>
+                    }
+                </div>
+                <select class="min-h-11 w-full rounded-xl border border-slate-200 bg-white p-2 sm:w-auto" disabled="@_busy" @bind="_newRole" aria-label="@L["Lbl_Role"]">
+                    <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
+                    <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
+                    <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
+                </select>
+                <FluentButton Appearance="Appearance.Accent" Disabled="_busy" OnClick="() => GrantAsync(principal)">@L["Directory_Grant"]</FluentButton>
             </div>
         }
 
         <div class="pt-2 space-y-2">
-            <div class="text-xs uppercase tracking-wide text-slate-500">Berechtigte Verzeichniseinträge</div>
+            <div class="text-xs uppercase tracking-wide text-slate-500">@L["Directory_GrantedEntries"]</div>
             @foreach (var grant in _grants)
             {
-                <div class="flex flex-col md:flex-row md:items-center gap-2 rounded-xl border border-slate-200 p-3">
-                    <div class="min-w-0 flex-1"><div class="font-semibold truncate">@grant.DisplayName</div><div class="text-xs text-slate-600">@(grant.PrincipalType == DirectoryPrincipalType.Group ? "AD-Gruppe" : "AD-Benutzer")</div></div>
-                    <select class="rounded-xl border border-slate-200 p-2 bg-white" disabled="@_busy" value="@grant.Role" @onchange="e => ChangeRoleAsync(grant, e)"><option value="@ListRole.Observer">Beobachter</option><option value="@ListRole.Member">Mitglied</option><option value="@ListRole.Admin">Admin</option></select>
-                    <FluentButton Appearance="Appearance.Outline" Disabled="_busy" OnClick="() => RemoveAsync(grant.Id)">Entfernen</FluentButton>
+                <div class="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                    <div class="min-w-0"><div class="truncate font-semibold">@grant.DisplayName</div><div class="truncate text-xs text-slate-600">@PrincipalTypeLabel(grant.PrincipalType)</div></div>
+                    <select class="min-h-11 w-full rounded-xl border border-slate-200 bg-white p-2 sm:w-auto" disabled="@_busy" value="@grant.Role" @onchange="e => ChangeRoleAsync(grant, e)" aria-label="@L["Lbl_Role"]">
+                        <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
+                        <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
+                        <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
+                    </select>
+                    <FluentButton Appearance="Appearance.Outline" Disabled="_busy" OnClick="() => RemoveAsync(grant.Id)">@L["Btn_Remove"]</FluentButton>
                 </div>
             }
-            @if (_grants.Count == 0) { <div class="text-sm text-slate-600">Noch keine Verzeichnisfreigaben.</div> }
+            @if (_grants.Count == 0) { <div class="text-sm text-slate-600">@L["Directory_None"]</div> }
         </div>
     }
 </div>
@@ -53,32 +72,49 @@
     private string _query = string.Empty, _message = string.Empty;
     private bool _busy, _error;
     private int _loadVersion;
+    private Guid _loadedResourceId;
+    private DirectoryShareResourceType _loadedResourceType;
+    private string _loadedRequestingUserId = string.Empty;
+    private CancellationTokenSource? _contextCts;
+    private bool _disposed;
     private ListRole _newRole = ListRole.Member;
     private IReadOnlyList<DirectoryPrincipal> _results = [];
     private IReadOnlyList<DirectoryShareGrantEntity> _grants = [];
 
     protected override async Task OnParametersSetAsync()
     {
-        var loadVersion = ++_loadVersion;
-        if (ResourceId == Guid.Empty || !DirectorySharing.IsAvailable)
-        {
-            _grants = [];
-            _results = [];
+        if (_loadedResourceId == ResourceId
+            && _loadedResourceType == ResourceType
+            && string.Equals(_loadedRequestingUserId, RequestingUserId, StringComparison.Ordinal))
             return;
-        }
+
+        _loadedResourceId = ResourceId;
+        _loadedResourceType = ResourceType;
+        _loadedRequestingUserId = RequestingUserId;
+        var contextCts = ReplaceContextCancellation();
+        var loadVersion = ++_loadVersion;
+        _query = string.Empty;
+        _message = string.Empty;
+        _error = false;
+        _busy = false;
+        _grants = [];
+        _results = [];
+        if (ResourceId == Guid.Empty || !DirectorySharing.IsAvailable)
+            return;
 
         var resourceId = ResourceId;
         var resourceType = ResourceType;
         var requestingUserId = RequestingUserId;
         try
         {
-            var grants = await DirectorySharing.GetGrantsAsync(requestingUserId, resourceType, resourceId);
-            if (loadVersion == _loadVersion)
+            var grants = await DirectorySharing.GetGrantsAsync(requestingUserId, resourceType, resourceId, contextCts.Token);
+            if (IsCurrentContext(loadVersion, contextCts))
                 _grants = grants;
         }
+        catch (OperationCanceledException) when (contextCts.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (loadVersion == _loadVersion)
+            if (IsCurrentContext(loadVersion, contextCts))
                 ShowResult(false, ex.Message);
         }
     }
@@ -89,95 +125,138 @@
         ClearMessage();
         if (query.Length < 2)
         {
-            ShowResult(false, "Bitte mindestens zwei Zeichen eingeben.");
+            ShowResult(false, L["Directory_MinimumQuery"]);
             return;
         }
 
+        var loadVersion = _loadVersion;
+        var contextCts = _contextCts;
+        if (contextCts is null) return;
         _busy = true;
         try
         {
-            _results = await DirectorySharing.SearchAsync(RequestingUserId, ResourceType, ResourceId, query);
-            if (_results.Count == 0)
-                ShowResult(true, "Keine passenden Einträge gefunden.");
+            var results = await DirectorySharing.SearchAsync(RequestingUserId, ResourceType, ResourceId, query, contextCts.Token);
+            if (!IsCurrentContext(loadVersion, contextCts)) return;
+            _results = results;
+            if (results.Count == 0)
+                ShowResult(true, L["Directory_NoResults"]);
         }
+        catch (OperationCanceledException) when (contextCts.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            ShowResult(false, ex.Message);
+            if (IsCurrentContext(loadVersion, contextCts)) ShowResult(false, ex.Message);
         }
         finally
         {
-            _busy = false;
+            if (IsCurrentContext(loadVersion, contextCts)) _busy = false;
         }
     }
 
     private async Task GrantAsync(DirectoryPrincipal principal)
     {
         if (_busy) return;
+        var loadVersion = _loadVersion;
+        var contextCts = _contextCts;
+        if (contextCts is null) return;
         _busy = true;
         try
         {
-            var result = await DirectorySharing.GrantAsync(RequestingUserId, ResourceType, ResourceId, principal, _newRole);
-            ShowResult(result.Success, result.Message);
+            var result = await DirectorySharing.GrantAsync(RequestingUserId, ResourceType, ResourceId, principal, _newRole, contextCts.Token);
+            if (!IsCurrentContext(loadVersion, contextCts)) return;
+            ShowResult(result.Success, result.Success
+                ? L[principal.Type == DirectoryPrincipalType.Group ? "Directory_GroupGranted" : "Directory_UserGranted"]
+                : result.Message);
             if (result.Success)
-                await ReloadAsync();
+            {
+                _results = _results.Where(resultPrincipal => resultPrincipal != principal).ToArray();
+                await ReloadAsync(loadVersion, contextCts);
+            }
         }
+        catch (OperationCanceledException) when (contextCts.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            ShowResult(false, ex.Message);
+            if (IsCurrentContext(loadVersion, contextCts)) ShowResult(false, ex.Message);
         }
         finally
         {
-            _busy = false;
+            if (IsCurrentContext(loadVersion, contextCts)) _busy = false;
         }
     }
 
     private async Task ChangeRoleAsync(DirectoryShareGrantEntity grant, ChangeEventArgs e)
     {
         if (_busy || !Enum.TryParse<ListRole>(e.Value?.ToString(), out var role)) return;
+        var loadVersion = _loadVersion;
+        var contextCts = _contextCts;
+        if (contextCts is null) return;
         _busy = true;
         try
         {
-            var result = await DirectorySharing.UpdateRoleAsync(RequestingUserId, grant.Id, role);
-            ShowResult(result.Success, result.Message);
+            var result = await DirectorySharing.UpdateRoleAsync(RequestingUserId, grant.Id, role, contextCts.Token);
+            if (!IsCurrentContext(loadVersion, contextCts)) return;
+            ShowResult(result.Success, result.Success ? L["Directory_RoleSaved"] : result.Message);
             if (result.Success)
-                await ReloadAsync();
+                await ReloadAsync(loadVersion, contextCts);
         }
+        catch (OperationCanceledException) when (contextCts.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            ShowResult(false, ex.Message);
+            if (IsCurrentContext(loadVersion, contextCts)) ShowResult(false, ex.Message);
         }
         finally
         {
-            _busy = false;
+            if (IsCurrentContext(loadVersion, contextCts)) _busy = false;
         }
     }
 
     private async Task RemoveAsync(Guid id)
     {
         if (_busy) return;
+        var loadVersion = _loadVersion;
+        var contextCts = _contextCts;
+        if (contextCts is null) return;
         _busy = true;
         try
         {
-            var result = await DirectorySharing.RemoveAsync(RequestingUserId, id);
-            ShowResult(result.Success, result.Message);
+            var result = await DirectorySharing.RemoveAsync(RequestingUserId, id, contextCts.Token);
+            if (!IsCurrentContext(loadVersion, contextCts)) return;
+            ShowResult(result.Success, result.Success ? L["Directory_Removed"] : result.Message);
             if (result.Success)
-                await ReloadAsync();
+                await ReloadAsync(loadVersion, contextCts);
         }
+        catch (OperationCanceledException) when (contextCts.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            ShowResult(false, ex.Message);
+            if (IsCurrentContext(loadVersion, contextCts)) ShowResult(false, ex.Message);
         }
         finally
         {
-            _busy = false;
+            if (IsCurrentContext(loadVersion, contextCts)) _busy = false;
         }
     }
 
-    private async Task ReloadAsync()
+    private async Task ReloadAsync(int loadVersion, CancellationTokenSource contextCts)
     {
-        _grants = await DirectorySharing.GetGrantsAsync(RequestingUserId, ResourceType, ResourceId);
+        var grants = await DirectorySharing.GetGrantsAsync(RequestingUserId, ResourceType, ResourceId, contextCts.Token);
+        if (!IsCurrentContext(loadVersion, contextCts)) return;
+        _grants = grants;
         await OnChanged.InvokeAsync();
     }
+
+    private string PrincipalTypeLabel(DirectoryPrincipalType type) =>
+        type == DirectoryPrincipalType.Group ? L["Directory_Group"] : L["Directory_User"];
+
+    private CancellationTokenSource ReplaceContextCancellation()
+    {
+        var next = new CancellationTokenSource();
+        var previous = Interlocked.Exchange(ref _contextCts, next);
+        try { previous?.Cancel(); } catch { }
+        previous?.Dispose();
+        return next;
+    }
+
+    private bool IsCurrentContext(int loadVersion, CancellationTokenSource contextCts) =>
+        !_disposed && loadVersion == _loadVersion && ReferenceEquals(contextCts, _contextCts);
 
     private void ClearMessage()
     {
@@ -189,5 +268,15 @@
     {
         _error = !success;
         _message = message;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _disposed = true;
+        ++_loadVersion;
+        var contextCts = Interlocked.Exchange(ref _contextCts, null);
+        try { contextCts?.Cancel(); } catch { }
+        contextCts?.Dispose();
+        return ValueTask.CompletedTask;
     }
 }

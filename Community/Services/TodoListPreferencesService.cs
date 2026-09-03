@@ -34,7 +34,7 @@ public class TodoListPreferencesService : TodoWorkspaceServiceBase, ITodoListPre
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return null;
 
@@ -68,7 +68,7 @@ public class TodoListPreferencesService : TodoWorkspaceServiceBase, ITodoListPre
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null) return;
 

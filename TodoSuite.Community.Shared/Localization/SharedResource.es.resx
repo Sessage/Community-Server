@@ -2389,4 +2389,19 @@
   <data name="PublicForm_InvalidField" xml:space="preserve"><value>Revisa el campo «{0}».</value></data>
   <data name="Err_ShareLinksLoad" xml:space="preserve"><value>No se pudieron cargar los enlaces para compartir de «{0}»: {1}</value></data>
   <data name="RichText_Toolbar" xml:space="preserve"><value>Formato</value></data><data name="RichText_Bold" xml:space="preserve"><value>Negrita</value></data><data name="RichText_Italic" xml:space="preserve"><value>Cursiva</value></data><data name="RichText_Strike" xml:space="preserve"><value>Tachado</value></data><data name="RichText_Heading" xml:space="preserve"><value>Encabezado</value></data><data name="RichText_BulletList" xml:space="preserve"><value>Lista con viñetas</value></data><data name="RichText_NumberedList" xml:space="preserve"><value>Lista numerada</value></data><data name="RichText_Quote" xml:space="preserve"><value>Cita</value></data><data name="RichText_Code" xml:space="preserve"><value>Código</value></data><data name="RichText_Undo" xml:space="preserve"><value>Deshacer</value></data><data name="RichText_Redo" xml:space="preserve"><value>Rehacer</value></data>
+  <data name="Directory_Unavailable" xml:space="preserve"><value>El uso compartido del directorio no está disponible. Comprueba la licencia Enterprise y la configuración de Active Directory.</value></data>
+  <data name="Directory_PrincipalLabel" xml:space="preserve"><value>Usuario o grupo de AD</value></data>
+  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>Introduce al menos 2 caracteres…</value></data>
+  <data name="Directory_Search" xml:space="preserve"><value>Buscar</value></data>
+  <data name="Directory_Group" xml:space="preserve"><value>Grupo de AD</value></data>
+  <data name="Directory_User" xml:space="preserve"><value>Usuario de AD</value></data>
+  <data name="Directory_Grant" xml:space="preserve"><value>Conceder acceso</value></data>
+  <data name="Directory_GrantedEntries" xml:space="preserve"><value>Entradas de directorio autorizadas</value></data>
+  <data name="Directory_None" xml:space="preserve"><value>Todavía no hay recursos compartidos del directorio.</value></data>
+  <data name="Directory_MinimumQuery" xml:space="preserve"><value>Introduce al menos dos caracteres.</value></data>
+  <data name="Directory_NoResults" xml:space="preserve"><value>No se encontraron entradas coincidentes.</value></data>
+  <data name="Directory_GroupGranted" xml:space="preserve"><value>Se ha concedido acceso al grupo del directorio.</value></data>
+  <data name="Directory_UserGranted" xml:space="preserve"><value>Se ha concedido acceso al usuario del directorio.</value></data>
+  <data name="Directory_RoleSaved" xml:space="preserve"><value>Se ha guardado el rol.</value></data>
+  <data name="Directory_Removed" xml:space="preserve"><value>Se ha eliminado el recurso compartido del directorio.</value></data>
 </root>

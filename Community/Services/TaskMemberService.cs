@@ -24,12 +24,10 @@ public class TaskMemberService : ITaskMemberService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .AsNoTracking()
-            .FirstOrDefaultAsync(l => l.Id == listId, ct);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, ct);
 
-        if (list is null) return Array.Empty<ListParticipantEntity>();
-
-        // Optional: Rechte prüfen (analog zu CanWrite)
-        // -> hier weggelassen, weil du es im WorkspaceService zentral machst
+        if (list is null || !CanRead(callerUserId, list))
+            return Array.Empty<ListParticipantEntity>();
 
         return (list.Participants ?? new())
             .Where(p => !p.InvitationPending)
@@ -52,14 +50,17 @@ public class TaskMemberService : ITaskMemberService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, ct);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, ct);
 
         if (list is null)
             throw new InvalidOperationException(
                 $"Mitglieder konnten nicht gesetzt werden: Liste nicht gefunden. ListId='{listId}', CallerUserId='{callerUserId}'.");
 
+        if (!CanWrite(callerUserId, list))
+            throw new UnauthorizedAccessException("Aufgabenmitglieder können nur mit Schreibberechtigung geändert werden.");
+
         var taskExists = await db.TodoTasks
-            .AnyAsync(t => t.Id == taskId && t.ListId == listId, ct);
+            .AnyAsync(t => t.Id == taskId && t.ListId == listId && t.DeletedAt == null, ct);
 
         if (!taskExists)
             throw new InvalidOperationException(
@@ -120,6 +121,26 @@ public class TaskMemberService : ITaskMemberService
 
         await db.SaveChangesAsync(ct);
     }
+
+    private static bool CanRead(string userId, TodoListEntity list)
+        => EqualsUserKey(list.OwnerId, userId)
+           || list.Participants.Any(participant =>
+               !participant.InvitationPending
+               && (EqualsUserKey(participant.UserId, userId) || EqualsUserKey(participant.Email, userId)));
+
+    private static bool CanWrite(string userId, TodoListEntity list)
+    {
+        if (EqualsUserKey(list.OwnerId, userId))
+            return true;
+
+        var participant = list.Participants.FirstOrDefault(candidate =>
+            !candidate.InvitationPending
+            && (EqualsUserKey(candidate.UserId, userId) || EqualsUserKey(candidate.Email, userId)));
+        return participant is not null && participant.Role != ListRole.Observer;
+    }
+
+    private static bool EqualsUserKey(string? left, string? right)
+        => string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);
 
 
     public async Task CleanupRemovedListMembersAsync(

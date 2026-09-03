@@ -232,6 +232,12 @@ public sealed class TodoNavigationService : ITodoNavigationService
             foreach (var membership in memberships)
                 foreach (var member in members)
                     await PortfolioAccessCoordinator.RevokePortfolioAccessAsync(db, groupId, membership.ListId, member.UserId, member.Email, ct);
+
+            var directoryGrants = await db.DirectoryShareGrants
+                .Where(grant => grant.ResourceType == DirectoryShareResourceType.Portfolio
+                                && grant.ResourceId == groupId)
+                .ToListAsync(ct);
+            db.DirectoryShareGrants.RemoveRange(directoryGrants);
         }
 
         if (ungroupLists)

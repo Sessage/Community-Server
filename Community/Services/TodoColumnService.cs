@@ -34,7 +34,7 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             throw new InvalidOperationException($"Spalte konnte nicht angelegt werden: Liste nicht gefunden. ListId='{listId}'.");
@@ -70,7 +70,7 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .Include(l => l.Tasks)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             throw new InvalidOperationException($"Spalte konnte nicht umbenannt werden: Liste nicht gefunden. ListId='{listId}'.");
@@ -120,7 +120,7 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
         var list = await db.TodoLists
             .Include(l => l.Participants)
             .Include(l => l.Tasks)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             throw new InvalidOperationException($"Spalte konnte nicht gelöscht werden: Liste nicht gefunden. ListId='{listId}'.");
@@ -189,7 +189,7 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             throw new InvalidOperationException($"Spaltenreihenfolge konnte nicht gespeichert werden: Liste nicht gefunden. ListId='{listId}'.");
@@ -229,7 +229,7 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             throw new InvalidOperationException($"Erledigt-Spalte konnte nicht gesetzt werden: Liste nicht gefunden. ListId='{listId}'.");

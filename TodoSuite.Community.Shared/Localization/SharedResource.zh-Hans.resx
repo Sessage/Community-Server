@@ -2389,4 +2389,19 @@
   <data name="PublicForm_InvalidField" xml:space="preserve"><value>请检查“{0}”字段。</value></data>
   <data name="Err_ShareLinksLoad" xml:space="preserve"><value>无法加载“{0}”的共享链接：{1}</value></data>
   <data name="RichText_Toolbar" xml:space="preserve"><value>格式</value></data><data name="RichText_Bold" xml:space="preserve"><value>粗体</value></data><data name="RichText_Italic" xml:space="preserve"><value>斜体</value></data><data name="RichText_Strike" xml:space="preserve"><value>删除线</value></data><data name="RichText_Heading" xml:space="preserve"><value>标题</value></data><data name="RichText_BulletList" xml:space="preserve"><value>项目符号列表</value></data><data name="RichText_NumberedList" xml:space="preserve"><value>编号列表</value></data><data name="RichText_Quote" xml:space="preserve"><value>引用</value></data><data name="RichText_Code" xml:space="preserve"><value>代码</value></data><data name="RichText_Undo" xml:space="preserve"><value>撤销</value></data><data name="RichText_Redo" xml:space="preserve"><value>重做</value></data>
+  <data name="Directory_Unavailable" xml:space="preserve"><value>目录共享不可用。请检查 Enterprise 许可证和 Active Directory 配置。</value></data>
+  <data name="Directory_PrincipalLabel" xml:space="preserve"><value>AD 用户或 AD 组</value></data>
+  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>请输入至少 2 个字符…</value></data>
+  <data name="Directory_Search" xml:space="preserve"><value>搜索</value></data>
+  <data name="Directory_Group" xml:space="preserve"><value>AD 组</value></data>
+  <data name="Directory_User" xml:space="preserve"><value>AD 用户</value></data>
+  <data name="Directory_Grant" xml:space="preserve"><value>授予访问权限</value></data>
+  <data name="Directory_GrantedEntries" xml:space="preserve"><value>已授权的目录条目</value></data>
+  <data name="Directory_None" xml:space="preserve"><value>尚无目录共享。</value></data>
+  <data name="Directory_MinimumQuery" xml:space="preserve"><value>请输入至少两个字符。</value></data>
+  <data name="Directory_NoResults" xml:space="preserve"><value>未找到匹配的条目。</value></data>
+  <data name="Directory_GroupGranted" xml:space="preserve"><value>已向目录组授予访问权限。</value></data>
+  <data name="Directory_UserGranted" xml:space="preserve"><value>已向目录用户授予访问权限。</value></data>
+  <data name="Directory_RoleSaved" xml:space="preserve"><value>角色已保存。</value></data>
+  <data name="Directory_Removed" xml:space="preserve"><value>目录共享已移除。</value></data>
 </root>

@@ -661,7 +661,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             throw new InvalidOperationException(

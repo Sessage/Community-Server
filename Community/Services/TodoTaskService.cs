@@ -587,8 +587,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .FirstOrDefaultAsync(l => l.Id == fromListId && l.DeletedAt == null && !l.IsTemplate, cancellationToken);
 
         if (fromList is null)
-            throw new InvalidOperationException(
-                $"Verschieben fehlgeschlagen: Quell-Liste nicht gefunden. FromListId='{fromListId}'.");
+            return null;
 
         var toList = await db.TodoLists
             .Include(l => l.Participants)
@@ -596,8 +595,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .FirstOrDefaultAsync(l => l.Id == toListId && l.DeletedAt == null && !l.IsTemplate, cancellationToken);
 
         if (toList is null)
-            throw new InvalidOperationException(
-                $"Verschieben fehlgeschlagen: Ziel-Liste nicht gefunden. ToListId='{toListId}'.");
+            return null;
 
         if (!CanWrite(userId, fromList))
             throw new UnauthorizedAccessException(
@@ -617,8 +615,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == fromListId && t.DeletedAt == null, cancellationToken);
 
         if (task is null)
-            throw new InvalidOperationException(
-                $"Verschieben fehlgeschlagen: Aufgabe nicht gefunden. TaskId='{taskId}', FromListId='{fromListId}'.");
+            return null;
 
         if (fromListId == toListId)
             return task;
@@ -690,7 +687,14 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         task.ListSortOrder = nextListOrder;
         task.KanbanSortOrder = nextKanbanOrder;
 
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new WorkspaceConcurrencyException("Die Aufgabe wurde während des Verschiebens auf einem anderen Gerät geändert.");
+        }
 
         var persistedListId = await db.TodoTasks
             .AsNoTracking()
@@ -700,8 +704,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
         if (persistedListId != toListId)
         {
-            throw new InvalidOperationException(
-                $"Verschieben fehlgeschlagen: Aufgabe wurde nicht in der Datenbank verschoben. TaskId='{taskId}', PersistedListId='{persistedListId}', ExpectedListId='{toListId}'.");
+            throw new WorkspaceConcurrencyException(
+                "Die Aufgabe konnte wegen einer gleichzeitigen Änderung nicht verschoben werden.");
         }
 
         await _automationService.ExecuteAsync(
@@ -732,7 +736,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             return;
@@ -939,7 +943,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
         var list = await db.TodoLists
             .Include(l => l.Participants)
-            .FirstOrDefaultAsync(l => l.Id == listId, cancellationToken);
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
 
         if (list is null)
             return;

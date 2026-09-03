@@ -186,7 +186,11 @@ public static class CommunityApplication
         builder.Services.AddScoped<INotificationService, NotificationService>();
         builder.Services.AddSingleton<IPushNotificationDispatcher, NoOpPushNotificationDispatcher>();
         builder.Services.AddSingleton<AuthAttemptProtectionService>();
-        builder.Services.Configure<ClientCompatibilityOptions>(builder.Configuration.GetSection("ClientCompatibility"));
+        builder.Services.AddOptions<ClientCompatibilityOptions>()
+            .Bind(builder.Configuration.GetSection("ClientCompatibility"))
+            .Validate(ClientCompatibilityService.IsValidConfiguration,
+                "ClientCompatibility enthält ungültige Versionswerte oder eine unsichere Update-URL.")
+            .ValidateOnStart();
         builder.Services.AddSingleton<ClientCompatibilityService>();
         
         var jwtKey = GetConfigurationValue(
@@ -339,11 +343,13 @@ public static class CommunityApplication
             {
                 policy.AddAuthenticationSchemes("MobileBearer", IdentityConstants.ApplicationScheme, PersonalAccessTokenAuthHandler.SchemeName);
                 policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(context => ApiIdentityBinding.HasSingleAuthenticatedSubject(context.User));
             });
             options.AddPolicy("MobileApiAdmin", policy =>
             {
                 policy.AddAuthenticationSchemes("MobileBearer", IdentityConstants.ApplicationScheme, PersonalAccessTokenAuthHandler.SchemeName);
                 policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(context => ApiIdentityBinding.HasSingleAuthenticatedSubject(context.User));
                 policy.RequireRole("Admin");
             });
         });
@@ -439,10 +445,11 @@ public static class CommunityApplication
         
         app.UseForwardedHeaders();
         
-        using (var scope = app.Services.CreateScope())
+        await using (var scope = app.Services.CreateAsyncScope())
         {
+            var startupCancellation = app.Lifetime.ApplicationStopping;
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            db.Database.Migrate();
+            await db.Database.MigrateAsync(startupCancellation);
         
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
@@ -487,13 +494,14 @@ public static class CommunityApplication
                 if (writePasswordFile && string.IsNullOrWhiteSpace(configuredPassword))
                 {
                     var passwordFilePath = Path.Combine(app.Environment.ContentRootPath, "bitte_loeschen.txt");
-                    await File.WriteAllTextAsync(passwordFilePath,
+                    await WriteFileAtomicallyAsync(passwordFilePath,
                         $"Initiales Admin-Passwort\n" +
                         $"========================\n" +
                         $"E-Mail:   {adminEmail}\n" +
                         $"Passwort: {password}\n\n" +
                         $"!!! BITTE DIESE DATEI NACH DEM ERSTEN LOGIN LOESCHEN !!!\n" +
-                        $"Erstellt am: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n");
+                        $"Erstellt am: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n",
+                        startupCancellation);
                 }
             }
 
@@ -556,37 +564,46 @@ public static class CommunityApplication
         });
         app.Use(async (context, next) =>
         {
-            if (context.Request.Path.StartsWithSegments("/api/mobile"))
-                context.Features.Get<IStatusCodePagesFeature>()?.Enabled = false;
-        
             try
             {
                 await next();
             }
             catch (BadHttpRequestException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {
-                if (!context.Response.HasStarted)
-                {
-                    app.Logger.LogWarning(ex, "Mobile request could not be read.");
-                    context.Response.Clear();
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    await context.Response.WriteAsync("Mobile-Anfrage konnte nicht gelesen werden.");
-                }
+                if (context.Response.HasStarted) throw;
+                app.Logger.LogWarning(ex, "Mobile request could not be read.");
+                context.Response.Clear();
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    new { error = "Mobile-Anfrage konnte nicht gelesen werden." },
+                    context.RequestAborted);
             }
             catch (InvalidDataException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {
-                if (!context.Response.HasStarted)
-                {
-                    app.Logger.LogWarning(ex, "Mobile upload contains invalid data.");
-                    context.Response.Clear();
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    await context.Response.WriteAsync("Mobile-Upload konnte nicht gelesen werden.");
-                }
+                if (context.Response.HasStarted) throw;
+                app.Logger.LogWarning(ex, "Mobile upload contains invalid data.");
+                context.Response.Clear();
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsJsonAsync(
+                    new { error = "Mobile-Upload konnte nicht gelesen werden." },
+                    context.RequestAborted);
             }
         });
         app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+        app.Use(async (context, next) =>
+        {
+            // UseStatusCodePages installs the feature while invoking the next middleware.
+            // This must therefore run after it in registration order. API and health
+            // responses must retain their machine-readable status instead of becoming HTML.
+            if (context.Request.Path.StartsWithSegments("/api")
+                || context.Request.Path.StartsWithSegments("/healthz"))
+            {
+                context.Features.Get<IStatusCodePagesFeature>()?.Enabled = false;
+            }
+
+            await next();
+        });
         app.UseHttpsRedirection();
-        app.UseAntiforgery();
         app.UseRateLimiter();
         app.UseAuthentication();
         app.Use(async (context, next) =>
@@ -626,6 +643,10 @@ public static class CommunityApplication
             await next();
         });
         app.UseAuthorization();
+        // Antiforgery tokens are bound to the authenticated principal. Running this after
+        // authentication and authorization prevents evaluation against an anonymous
+        // principal while still keeping the middleware before endpoint execution.
+        app.UseAntiforgery();
         app.Use(async (context, next) =>
         {
             var patIdentity = context.User.Identities.FirstOrDefault(identity =>
@@ -659,21 +680,29 @@ public static class CommunityApplication
             }
             catch (UnauthorizedAccessException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {
+                if (context.Response.HasStarted) throw;
                 app.Logger.LogWarning(ex, "Unauthorized mobile API access.");
+                context.Response.Clear();
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsync("Zugriff verweigert.");
+                await context.Response.WriteAsJsonAsync(new { error = "Zugriff verweigert." }, context.RequestAborted);
             }
             catch (ArgumentException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {
+                if (context.Response.HasStarted) throw;
                 app.Logger.LogWarning(ex, "Invalid mobile API request.");
+                context.Response.Clear();
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Die Anfrage ist ungültig.");
+                await context.Response.WriteAsJsonAsync(new { error = "Die Anfrage ist ungültig." }, context.RequestAborted);
             }
             catch (InvalidOperationException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {
+                if (context.Response.HasStarted) throw;
                 app.Logger.LogWarning(ex, "Mobile API operation failed.");
+                context.Response.Clear();
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Die Aktion konnte nicht ausgefuehrt werden.");
+                await context.Response.WriteAsJsonAsync(
+                    new { error = "Die Aktion konnte nicht ausgeführt werden." },
+                    context.RequestAborted);
             }
         });
         
@@ -697,6 +726,21 @@ public static class CommunityApplication
             }
         
             return null;
+        }
+
+        static async Task WriteFileAtomicallyAsync(string path, string content, CancellationToken ct)
+        {
+            var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                await File.WriteAllTextAsync(temporaryPath, content, ct);
+                File.Move(temporaryPath, path, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath))
+                    File.Delete(temporaryPath);
+            }
         }
         
         static string GenerateStrongPassword(int length = 48)

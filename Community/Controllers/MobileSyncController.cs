@@ -333,7 +333,15 @@ public class MobileSyncController : ControllerBase
         CancellationToken token)
     {
         var userId = ResolveUserId();
-        var moved = await taskService.MoveTaskToListAsync(userId, listId, request.ToListId, taskId, request.DesiredTargetColumn, token);
+        TodoTaskEntity? moved;
+        try
+        {
+            moved = await taskService.MoveTaskToListAsync(userId, listId, request.ToListId, taskId, request.DesiredTargetColumn, token);
+        }
+        catch (WorkspaceConcurrencyException ex)
+        {
+            return Conflict(new { error = ex.Message, entity = "task", listId, taskId });
+        }
         return moved is null ? NotFound() : Ok(moved);
     }
 
@@ -391,7 +399,15 @@ public class MobileSyncController : ControllerBase
         CancellationToken token)
     {
         var userId = ResolveUserId();
-        var updated = await taskService.DecideApprovalAsync(userId, listId, taskId, request.Approved, token);
+        TodoTaskEntity? updated;
+        try
+        {
+            updated = await taskService.DecideApprovalAsync(userId, listId, taskId, request.Approved, token);
+        }
+        catch (WorkspaceConcurrencyException ex)
+        {
+            return Conflict(new { error = ex.Message, entity = "task", listId, taskId });
+        }
         if (updated is null) return NotFound();
         var refreshed = (await listService.GetListAsync(userId, listId, token))?.Tasks.FirstOrDefault(task => task.Id == taskId) ?? updated;
         refreshed.SyncToken = MobileSyncFingerprint.ForTask(refreshed);
@@ -479,6 +495,7 @@ public class MobileSyncController : ControllerBase
         Guid listId,
         Guid taskId,
         [FromQuery] string? fileName,
+        [FromQuery] Guid? id,
         [FromServices] ITodoAttachmentService attachmentService,
         CancellationToken token)
     {
@@ -498,7 +515,8 @@ public class MobileSyncController : ControllerBase
                 taskId,
                 string.IsNullOrWhiteSpace(fileName) ? "datei" : fileName,
                 Request.Body,
-                token);
+                token,
+                id);
 
             return attachment is null ? NotFound() : Ok(attachment);
         }
@@ -512,7 +530,8 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Upload konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "raw upload");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Upload konnte nicht gespeichert werden.");
         }
     }
 
@@ -562,7 +581,8 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Upload konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "base64 upload");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Upload konnte nicht gespeichert werden.");
         }
     }
 
@@ -587,11 +607,13 @@ public class MobileSyncController : ControllerBase
         }
         catch (InvalidDataException ex)
         {
-            return BadRequest($"Upload konnte nicht gelesen werden: {ex.Message}");
+            LogInvalidUpload(ex, "multipart parsing");
+            return BadRequest("Upload konnte nicht gelesen werden.");
         }
         catch (BadHttpRequestException ex)
         {
-            return BadRequest($"Upload konnte nicht gelesen werden: {ex.Message}");
+            LogInvalidUpload(ex, "multipart parsing");
+            return BadRequest("Upload konnte nicht gelesen werden.");
         }
 
         if (file is null)
@@ -616,7 +638,8 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Upload konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "multipart upload");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Upload konnte nicht gespeichert werden.");
         }
     }
 
@@ -674,7 +697,16 @@ public class MobileSyncController : ControllerBase
 
     public sealed record StartChunkUploadRequest(string FileName, long TotalBytes);
     public sealed record StartChunkUploadResponse(Guid UploadId);
-    private sealed record ChunkUploadSession(string UserId, string? UserEmail, Guid ListId, Guid TaskId, string FileName, long TotalBytes, DateTime CreatedAtUtc);
+    private sealed record ChunkUploadSession(
+        string UserId,
+        string? UserEmail,
+        Guid ListId,
+        Guid TaskId,
+        string FileName,
+        long TotalBytes,
+        DateTime CreatedAtUtc,
+        int NextJsonChunkNumber = 1,
+        int? JsonTotalChunks = null);
     public sealed record JsonChunkUploadRequest(int ChunkNumber, int TotalChunks, string? FileName, string ContentBase64);
     public sealed record JsonChunkUploadResult(bool Completed, TodoAttachmentEntity? Attachment, string? Error);
 
@@ -716,20 +748,47 @@ public class MobileSyncController : ControllerBase
 
         try
         {
-            var session = await TryReadChunkSessionAsync(uploadId, token);
-            if (session is null)
-                return BadRequest("Upload-Session wurde nicht gefunden oder ist abgelaufen.");
-            if (!IsSessionForRequest(session, ResolveUserId(), ResolveUserEmail(), listId, taskId))
-                return Forbid();
-
-            var path = GetChunkUploadPath(uploadId);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
             long uploadLength;
-            await using (var target = System.IO.File.Open(path, FileMode.Append, FileAccess.Write, FileShare.None))
+            long sessionTotalBytes;
+            string sessionFileName;
+            var path = GetChunkUploadPath(uploadId);
+            await ChunkSessionGate.WaitAsync(token);
+            try
             {
-                await target.WriteAsync(chunkBytes.AsMemory(), token);
-                uploadLength = target.Length;
+                var session = await TryReadChunkSessionAsync(uploadId, token);
+                if (session is null)
+                    return BadRequest("Upload-Session wurde nicht gefunden oder ist abgelaufen.");
+                if (!IsSessionForRequest(session, ResolveUserId(), ResolveUserEmail(), listId, taskId))
+                    return Forbid();
+                sessionFileName = session.FileName;
+                sessionTotalBytes = session.TotalBytes;
+                if (session.JsonTotalChunks is not null && session.JsonTotalChunks != request.TotalChunks)
+                    return Conflict("Die Gesamtzahl der Upload-Chunks wurde während des Uploads geändert.");
+                if (request.ChunkNumber < session.NextJsonChunkNumber)
+                    return Ok(new JsonChunkUploadResult(false, null, null));
+                if (request.ChunkNumber > session.NextJsonChunkNumber)
+                    return Conflict($"Upload-Chunk {session.NextJsonChunkNumber} wird als Nächstes erwartet.");
+
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                await using (var target = System.IO.File.Open(path, FileMode.Append, FileAccess.Write, FileShare.None))
+                {
+                    await target.WriteAsync(chunkBytes.AsMemory(), token);
+                    uploadLength = target.Length;
+                }
+
+                var updatedSession = session with
+                {
+                    NextJsonChunkNumber = session.NextJsonChunkNumber + 1,
+                    JsonTotalChunks = request.TotalChunks
+                };
+                await System.IO.File.WriteAllTextAsync(
+                    GetChunkSessionPath(uploadId),
+                    JsonSerializer.Serialize(updatedSession, ChunkEnvelopeJson),
+                    token);
+            }
+            finally
+            {
+                ChunkSessionGate.Release();
             }
 
             if (uploadLength > MaxAttachmentSizeBytes)
@@ -739,7 +798,7 @@ public class MobileSyncController : ControllerBase
                 return BadRequest($"Datei ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.");
             }
 
-            if (uploadLength > session.TotalBytes)
+            if (uploadLength > sessionTotalBytes)
             {
                 try { System.IO.File.Delete(path); } catch { }
                 try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
@@ -751,10 +810,14 @@ public class MobileSyncController : ControllerBase
 
             var finalFileName = !string.IsNullOrWhiteSpace(request.FileName)
                 ? request.FileName
-                : session!.FileName;
+                : sessionFileName;
 
-            if (uploadLength != session.TotalBytes)
-                return Ok(new JsonChunkUploadResult(true, null, "Upload ist unvollstaendig."));
+            if (uploadLength != sessionTotalBytes)
+            {
+                try { System.IO.File.Delete(path); } catch { }
+                try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
+                return BadRequest("Upload ist unvollständig.");
+            }
 
             var result = await TryCompleteChunkUploadAsync(
                 listId,
@@ -767,7 +830,8 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Upload-Chunk konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "JSON chunk upload");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Upload-Chunk konnte nicht gespeichert werden.");
         }
     }
 
@@ -852,7 +916,8 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Upload-Chunk konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "binary chunk upload");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Upload-Chunk konnte nicht gespeichert werden.");
         }
     }
 
@@ -922,7 +987,8 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, $"Upload konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "chunk completion");
+            return StatusCode(StatusCodes.Status500InternalServerError, "Upload konnte nicht gespeichert werden.");
         }
         finally
         {
@@ -985,11 +1051,13 @@ public class MobileSyncController : ControllerBase
         }
         catch (IOException ex)
         {
-            return new JsonChunkUploadResult(true, null, $"Upload konnte nicht gespeichert werden: {ex.Message}");
+            LogUploadFailure(ex, "JSON chunk completion");
+            return new JsonChunkUploadResult(true, null, "Upload konnte nicht gespeichert werden.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return new JsonChunkUploadResult(true, null, $"Upload konnte nicht abgeschlossen werden: {ex.Message}");
+            LogUploadFailure(ex, "JSON chunk completion");
+            return new JsonChunkUploadResult(true, null, "Upload konnte nicht abgeschlossen werden.");
         }
         finally
         {
@@ -1067,6 +1135,16 @@ public class MobileSyncController : ControllerBase
                && !string.IsNullOrWhiteSpace(userEmail)
                && string.Equals(session.UserEmail, userEmail, StringComparison.OrdinalIgnoreCase);
     }
+
+    private void LogUploadFailure(Exception exception, string operation)
+        => HttpContext.RequestServices
+            .GetRequiredService<ILogger<MobileSyncController>>()
+            .LogError(exception, "Mobile attachment operation {Operation} failed.", operation);
+
+    private void LogInvalidUpload(Exception exception, string operation)
+        => HttpContext.RequestServices
+            .GetRequiredService<ILogger<MobileSyncController>>()
+            .LogWarning(exception, "Invalid mobile attachment operation {Operation} was rejected.", operation);
 
     private async Task<bool> CanUploadAttachmentAsync(
         IDbContextFactory<ApplicationDbContext> dbFactory,

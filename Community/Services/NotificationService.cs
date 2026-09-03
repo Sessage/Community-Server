@@ -110,6 +110,7 @@ public sealed class NotificationService : INotificationService
             throw new UnauthorizedAccessException("Nur Admins können Benachrichtigungen für dieses Board ändern.");
 
         var rule = await db.BoardNotificationRules.FirstOrDefaultAsync(r => r.ListId == listId && r.EventType == eventType, ct);
+        var created = rule is null;
         if (rule is null)
         {
             rule = new BoardNotificationRuleEntity { ListId = listId, EventType = eventType };
@@ -117,7 +118,20 @@ public sealed class NotificationService : INotificationService
         }
 
         rule.RecipientGroups = groups;
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException) when (created)
+        {
+            db.ChangeTracker.Clear();
+            rule = await db.BoardNotificationRules
+                .FirstOrDefaultAsync(candidate => candidate.ListId == listId && candidate.EventType == eventType, ct);
+            if (rule is null)
+                throw;
+            rule.RecipientGroups = groups;
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     public async Task<UserNotificationPreferenceEntity> GetUserPreferenceAsync(string userId, CancellationToken ct = default)
@@ -139,6 +153,7 @@ public sealed class NotificationService : INotificationService
 
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var pref = await db.UserNotificationPreferences.FirstOrDefaultAsync(p => p.UserId == userId, ct);
+        var createdPreference = pref is null;
         if (pref is null)
         {
             pref = new UserNotificationPreferenceEntity { UserId = userId };
@@ -148,7 +163,22 @@ public sealed class NotificationService : INotificationService
         pref.Channel = channel;
         if (pushContentMode.HasValue)
             pref.PushContentMode = pushContentMode.Value;
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException) when (createdPreference)
+        {
+            db.ChangeTracker.Clear();
+            pref = await db.UserNotificationPreferences
+                .FirstOrDefaultAsync(candidate => candidate.UserId == userId, ct);
+            if (pref is null)
+                throw;
+            pref.Channel = channel;
+            if (pushContentMode.HasValue)
+                pref.PushContentMode = pushContentMode.Value;
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     public async Task<IReadOnlyList<UserNotificationEntity>> GetLatestAsync(string userId, int take = 20, CancellationToken ct = default)
@@ -520,7 +550,20 @@ public sealed class NotificationService : INotificationService
             }
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            db.ChangeTracker.Clear();
+            var persistedEvents = await db.BoardNotificationRules
+                .Where(rule => rule.ListId == listId)
+                .Select(rule => rule.EventType)
+                .ToListAsync(ct);
+            if (!DefaultEvents.All(persistedEvents.Contains))
+                throw;
+        }
     }
 
     private static bool CanRead(string userId, TodoListEntity list)

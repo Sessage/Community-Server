@@ -63,13 +63,21 @@ public static class PushNotificationContentPolicy
 {
     public static PushDisplayContent Create(PushNotificationContentMode mode, string? title, string? message)
         => mode == PushNotificationContentMode.Detailed
-            ? new PushDisplayContent(Limit(title, 160), Limit(message, 500))
+            ? new PushDisplayContent(
+                LimitOrFallback(title, 160, "Sessage"),
+                LimitOrFallback(message, 500, "Eine Benachrichtigung von Sessage ist eingegangen"))
             : new PushDisplayContent("Sessage", "Eine Benachrichtigung von Sessage ist eingegangen");
 
     private static string Limit(string? value, int maxLength)
     {
         var normalized = (value ?? string.Empty).Trim();
         return normalized.Length <= maxLength ? normalized : normalized[..maxLength];
+    }
+
+    private static string LimitOrFallback(string? value, int maxLength, string fallback)
+    {
+        var limited = Limit(value, maxLength);
+        return limited.Length == 0 ? fallback : limited;
     }
 }
 

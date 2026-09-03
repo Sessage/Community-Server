@@ -34,7 +34,9 @@ public class TodoApiController : ControllerBase
     {
         var userId = ResolveUserId();
         model.Id = listId;
-        var updated = await listService.UpdateListAsync(userId, model, ct);
+        TodoListEntity? updated;
+        try { updated = await listService.UpdateListAsync(userId, model, ct); }
+        catch (WorkspaceConcurrencyException ex) { return Conflict(new { error = ex.Message, entity = "list", listId }); }
         return updated is null ? NotFound() : Ok(updated);
     }
 
@@ -51,7 +53,9 @@ public class TodoApiController : ControllerBase
     {
         var userId = ResolveUserId();
         task.Id = taskId;
-        var updated = await taskService.UpdateTaskAsync(userId, listId, task, ct);
+        TodoTaskEntity? updated;
+        try { updated = await taskService.UpdateTaskAsync(userId, listId, task, ct); }
+        catch (WorkspaceConcurrencyException ex) { return Conflict(new { error = ex.Message, entity = "task", listId, taskId }); }
         return updated is null ? NotFound() : Ok(updated);
     }
 
@@ -63,7 +67,9 @@ public class TodoApiController : ControllerBase
         [FromServices] ITodoTaskService taskService,
         CancellationToken ct)
     {
-        var updated = await taskService.DecideApprovalAsync(ResolveUserId(), listId, taskId, request.Approved, ct);
+        TodoTaskEntity? updated;
+        try { updated = await taskService.DecideApprovalAsync(ResolveUserId(), listId, taskId, request.Approved, ct); }
+        catch (WorkspaceConcurrencyException ex) { return Conflict(new { error = ex.Message, entity = "task", listId, taskId }); }
         return updated is null ? NotFound() : Ok(updated);
     }
 

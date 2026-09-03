@@ -178,7 +178,9 @@ public sealed class TodoTableColumnOrderService : TodoWorkspaceServiceBase, ITod
             await db.SaveChangesAsync(cancellationToken);
             return;
         }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+        catch (DbUpdateException) when (db.ChangeTracker
+                   .Entries<ListViewPreferenceEntity>()
+                   .Any(entry => entry.State == EntityState.Added))
         {
             foreach (var entry in db.ChangeTracker.Entries<ListViewPreferenceEntity>().Where(e => e.State == EntityState.Added))
                 entry.State = EntityState.Detached;
@@ -194,6 +196,4 @@ public sealed class TodoTableColumnOrderService : TodoWorkspaceServiceBase, ITod
         }
     }
 
-    private static bool IsUniqueViolation(DbUpdateException ex)
-        => ex.InnerException?.GetType().GetProperty("SqlState")?.GetValue(ex.InnerException) as string == "23505";
 }

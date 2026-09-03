@@ -28,20 +28,52 @@ public sealed class ClientCompatibilityService(IOptions<ClientCompatibilityOptio
             clientVersion,
             latestVersion,
             minSupportedVersion,
-            _options.UpdateUrl,
+            string.IsNullOrWhiteSpace(_options.UpdateUrl) ? null : _options.UpdateUrl.Trim(),
             updateAvailable,
             updateRequired,
             message);
     }
 
+    public static bool IsValidConfiguration(ClientCompatibilityOptions options)
+    {
+        if (options is null
+            || NormalizeVersion(options.LatestVersion, allowEmpty: true, out var latest) is false
+            || NormalizeVersion(options.MinSupportedVersion, allowEmpty: true, out var minimum) is false)
+            return false;
+
+        if (latest is not null && minimum is not null && CompareVersions(latest, minimum) < 0)
+            return false;
+        if (!string.IsNullOrWhiteSpace(options.UpdateUrl)
+            && (!Uri.TryCreate(options.UpdateUrl.Trim(), UriKind.Absolute, out var updateUri)
+                || updateUri.Scheme != Uri.UriSchemeHttps
+                || !string.IsNullOrEmpty(updateUri.UserInfo)))
+            return false;
+        return options.Message?.Length is not > 500;
+    }
+
     private static string? NormalizeVersion(string? value)
     {
+        return NormalizeVersion(value, allowEmpty: true, out var normalized) ? normalized : null;
+    }
+
+    private static bool NormalizeVersion(string? value, bool allowEmpty, out string? normalized)
+    {
+        normalized = null;
         if (string.IsNullOrWhiteSpace(value))
-            return null;
+            return allowEmpty;
 
         var version = value.Trim();
         var separatorIndex = version.IndexOfAny(['+', '-']);
-        return separatorIndex > 0 ? version[..separatorIndex] : version;
+        var core = separatorIndex > 0 ? version[..separatorIndex] : version;
+        var parts = core.Split('.', StringSplitOptions.None);
+        if (parts.Length is < 1 or > 4
+            || parts.Any(part => part.Length == 0
+                                 || !part.All(char.IsAsciiDigit)
+                                 || !int.TryParse(part, out _)))
+            return false;
+
+        normalized = core;
+        return true;
     }
 
     private static int CompareVersions(string left, string right)

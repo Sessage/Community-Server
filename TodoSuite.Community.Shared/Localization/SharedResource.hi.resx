@@ -2389,4 +2389,19 @@
   <data name="PublicForm_InvalidField" xml:space="preserve"><value>कृपया “{0}” फ़ील्ड जाँचें।</value></data>
   <data name="Err_ShareLinksLoad" xml:space="preserve"><value>“{0}” के साझाकरण लिंक लोड नहीं किए जा सके: {1}</value></data>
   <data name="RichText_Toolbar" xml:space="preserve"><value>फ़ॉर्मेटिंग</value></data><data name="RichText_Bold" xml:space="preserve"><value>बोल्ड</value></data><data name="RichText_Italic" xml:space="preserve"><value>इटैलिक</value></data><data name="RichText_Strike" xml:space="preserve"><value>स्ट्राइकथ्रू</value></data><data name="RichText_Heading" xml:space="preserve"><value>शीर्षक</value></data><data name="RichText_BulletList" xml:space="preserve"><value>बुलेट सूची</value></data><data name="RichText_NumberedList" xml:space="preserve"><value>क्रमांकित सूची</value></data><data name="RichText_Quote" xml:space="preserve"><value>उद्धरण</value></data><data name="RichText_Code" xml:space="preserve"><value>कोड</value></data><data name="RichText_Undo" xml:space="preserve"><value>पूर्ववत करें</value></data><data name="RichText_Redo" xml:space="preserve"><value>फिर से करें</value></data>
+  <data name="Directory_Unavailable" xml:space="preserve"><value>डायरेक्टरी साझाकरण उपलब्ध नहीं है। Enterprise लाइसेंस और Active Directory कॉन्फ़िगरेशन जाँचें।</value></data>
+  <data name="Directory_PrincipalLabel" xml:space="preserve"><value>AD उपयोगकर्ता या AD समूह</value></data>
+  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>कम से कम 2 अक्षर दर्ज करें…</value></data>
+  <data name="Directory_Search" xml:space="preserve"><value>खोजें</value></data>
+  <data name="Directory_Group" xml:space="preserve"><value>AD समूह</value></data>
+  <data name="Directory_User" xml:space="preserve"><value>AD उपयोगकर्ता</value></data>
+  <data name="Directory_Grant" xml:space="preserve"><value>पहुँच दें</value></data>
+  <data name="Directory_GrantedEntries" xml:space="preserve"><value>अधिकृत डायरेक्टरी प्रविष्टियाँ</value></data>
+  <data name="Directory_None" xml:space="preserve"><value>अभी कोई डायरेक्टरी साझाकरण नहीं है।</value></data>
+  <data name="Directory_MinimumQuery" xml:space="preserve"><value>कृपया कम से कम दो अक्षर दर्ज करें।</value></data>
+  <data name="Directory_NoResults" xml:space="preserve"><value>कोई मेल खाती प्रविष्टि नहीं मिली।</value></data>
+  <data name="Directory_GroupGranted" xml:space="preserve"><value>डायरेक्टरी समूह को पहुँच दे दी गई है।</value></data>
+  <data name="Directory_UserGranted" xml:space="preserve"><value>डायरेक्टरी उपयोगकर्ता को पहुँच दे दी गई है।</value></data>
+  <data name="Directory_RoleSaved" xml:space="preserve"><value>भूमिका सहेज दी गई है।</value></data>
+  <data name="Directory_Removed" xml:space="preserve"><value>डायरेक्टरी साझाकरण हटा दिया गया है।</value></data>
 </root>

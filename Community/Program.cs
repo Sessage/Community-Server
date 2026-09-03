@@ -1,6 +1,6 @@
 using TodoSuite.Server;
 
 var app = await CommunityApplication.BuildAsync(args);
-app.Run();
+await app.RunAsync();
 
 public partial class Program;
