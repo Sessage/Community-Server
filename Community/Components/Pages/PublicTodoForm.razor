@@ -2,6 +2,8 @@
 @layout TodoSuite.Server.Components.Layout.BodyOnlyLayout
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [AllowAnonymous]
+@* Anonymous form renderer. Only published form fields are shown; submission validation and task creation
+   remain in TodoFormService, including password-attempt protection and attachment policy. *@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Rendering

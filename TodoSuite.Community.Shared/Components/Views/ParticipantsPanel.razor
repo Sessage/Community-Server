@@ -2,6 +2,7 @@
 ﻿@using Microsoft.FluentUI.AspNetCore.Components
 @using Klassenbibliothek.Data
 @inject IListSharingService SharingService
+@* List participant and invitation management. Available actions are derived from the caller's effective role. *@
 @inject IDirectorySharingService DirectorySharing
 @inject IJSRuntime JS
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
@@ -436,7 +437,8 @@
         _loadedListVersion = List.ContentVersion;
         _loadedRequestingUserId = RequestingUserId;
 
-        // UI nur für Admin
+        // UI nur für Admin. Dies ist eine Bedienhilfe, keine Sicherheitsgrenze; jeder schreibende
+        // Sharing-Service prüft Rolle und Ressourcenbezug serverseitig erneut.
         _isAdmin = IsAdminForList(List, RequestingUserId);
         _isAdminChecked = true;
 
@@ -491,6 +493,8 @@
 
         var listId = List.Id;
         var requestingUserId = RequestingUserId;
+        // Die Versionsmarke verhindert, dass eine langsame Antwort für die zuvor geöffnete
+        // Liste deren Links in den inzwischen gewechselten Komponentenkontext schreibt.
         var loadVersion = ++_shareLinksLoadVersion;
         try
         {

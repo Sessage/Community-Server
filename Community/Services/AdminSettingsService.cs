@@ -3,6 +3,10 @@ using Microsoft.Extensions.Configuration;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Reads and updates installation-wide administrative settings from the database.
+/// The service is the single source of truth for runtime switches such as self-registration.
+/// </summary>
 public class AdminSettingsService
 {
     public bool AllowSelfRegistration { get; private set; }

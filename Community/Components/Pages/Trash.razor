@@ -1,6 +1,7 @@
 @page "/trash"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
+@* Trash view for authorized soft-deleted lists and tasks. Permanent deletion requires an explicit user action. *@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Klassenbibliothek.Data

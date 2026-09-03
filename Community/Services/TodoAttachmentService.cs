@@ -7,7 +7,8 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Verwaltung von Aufgabenanhängen.
+/// Stores and retrieves task attachments with list authorization, size limits, and safe server-side paths.
+/// Metadata is committed only when the corresponding file operation succeeds.
 /// </summary>
 public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentService
 {
@@ -53,6 +54,8 @@ public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentSe
         if (!CanWrite(userId, list))
             throw new UnauthorizedAccessException($"Anhang kann nicht hochgeladen werden (Liste='{list.Name}', User='{userId}').");
 
+        // The task must belong to the already authorized list; a task ID alone never crosses
+        // a workspace boundary.
         var task = await db.TodoTasks
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == listId && t.DeletedAt == null, cancellationToken);
@@ -60,6 +63,8 @@ public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentSe
         if (task is null) return null;
 
         var attachmentId = id ?? Guid.NewGuid();
+        // Client-generated IDs make retries idempotent. A striped lock serializes competing
+        // attempts without retaining one SemaphoreSlim for every historical attachment.
         var attachmentLock = GetAttachmentLock(attachmentId);
         await attachmentLock.WaitAsync(cancellationToken);
         try
@@ -102,14 +107,31 @@ public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentSe
         var storedFileName = attachmentId.ToString("N");
         var diskPath = Path.Combine(UploadRoot, storedFileName);
 
+        var fileCreatedByThisAttempt = false;
         try
         {
-            await using var fs = File.Create(diskPath);
-            await CopyToWithLimitAsync(content, fs, MaxAttachmentSizeBytes, cancellationToken);
+            // Write the bounded file first. Metadata must never point at partial content.
+            // Never overwrite storage selected by a client-stable ID. The in-process striped
+            // lock handles local retries; CreateNew is the cross-instance safety boundary when
+            // multiple application nodes share the upload volume.
+            await using (var fs = new FileStream(
+                             diskPath,
+                             FileMode.CreateNew,
+                             FileAccess.Write,
+                             FileShare.None,
+                             bufferSize: 81920,
+                             useAsync: true))
+            {
+                fileCreatedByThisAttempt = true;
+                await CopyToWithLimitAsync(content, fs, MaxAttachmentSizeBytes, cancellationToken);
+            }
         }
         catch
         {
-            try { if (File.Exists(diskPath)) File.Delete(diskPath); } catch { }
+            // A CreateNew collision belongs to another instance or an earlier committed upload;
+            // never delete that file while compensating this failed attempt.
+            if (fileCreatedByThisAttempt)
+                try { if (File.Exists(diskPath)) File.Delete(diskPath); } catch { }
             throw;
         }
 
@@ -131,6 +153,8 @@ public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentSe
         }
         catch (DbUpdateException)
         {
+            // Another retry may have committed the same client-generated ID while this request
+            // wrote its file. Return that row only when it belongs to this task.
             db.Entry(entity).State = EntityState.Detached;
             var existingAfterRace = await db.TodoAttachments.AsNoTracking()
                 .FirstOrDefaultAsync(a => a.Id == attachmentId && a.TaskId == task.Id, cancellationToken);

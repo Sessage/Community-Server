@@ -1,5 +1,6 @@
 namespace TodoSuite.Server.Services;
 
+/// <summary>Configuration for minimum, recommended, and latest supported native client versions.</summary>
 public sealed class ClientCompatibilityOptions
 {
     public string? LatestVersion { get; set; }

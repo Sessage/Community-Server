@@ -7,7 +7,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Verwaltung von Aufgaben-Schritten.
+/// Manages ordered checklist steps belonging to a task, including completion state and reordering.
 /// </summary>
 public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
 {

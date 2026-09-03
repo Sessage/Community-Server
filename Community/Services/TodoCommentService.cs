@@ -7,7 +7,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Verwaltung von Aufgabenkommentaren.
+/// Manages task comments and enforces list visibility and author-sensitive edit/delete rules.
 /// </summary>
 public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
 {

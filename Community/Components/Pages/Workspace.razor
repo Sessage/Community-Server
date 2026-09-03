@@ -1,6 +1,8 @@
 ﻿@page "/list/{ListId:guid?}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
+@* Main workspace editor. Service interfaces own authorization and persistence; this component
+   coordinates view state, dialogs, optimistic UI updates, and real-time refreshes. *@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Klassenbibliothek.Components.Views
@@ -1506,6 +1508,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        // Route und geladener Zustand sind zwei getrennte Quellen. Nur echte Parameterwechsel
+        // starten einen Abgleich; normale Parent-Renders dürfen keinen weiteren Reload auslösen.
         var taskRouteChanged = !_routeParametersInitialized || _lastRouteTaskId != TaskId;
         var routeChanged = !_routeParametersInitialized
                            || _lastRouteListId != ListId
@@ -2024,6 +2028,8 @@
 
     private CancellationTokenSource BeginReload()
     {
+        // Ein neuer Reload ersetzt den vorherigen atomar. Selbst wenn dessen Serviceaufruf spät
+        // zurückkehrt, verhindert IsCurrentReload die Übernahme veralteter Daten.
         var current = CancellationTokenSource.CreateLinkedTokenSource(_disposeCts.Token);
         var previous = Interlocked.Exchange(ref _reloadCts, current);
         try { previous?.Cancel(); } catch { }
@@ -2076,6 +2082,8 @@
             return;
         }
 
+        // Eine Task-ID aus der URL öffnet nur Aufgaben der bereits autorisiert geladenen Liste.
+        // Nicht auffindbare IDs werden anschließend aus dem lokalen Auswahlzustand entfernt.
         _selectedTask = (_list.Tasks ?? []).FirstOrDefault(task => task.Id == _selectedTaskId.Value);
         if (_selectedTask is null)
         {
@@ -3868,19 +3876,7 @@
     }
 
     private static string CsvEscape(string? value)
-    {
-        if (value is null) return "";
-
-        // Spreadsheet applications execute cells beginning with these characters
-        // as formulas. Prefix user-controlled values so a CSV export stays data.
-        var safeValue = value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
-            ? $"'{value}"
-            : value;
-
-        if (safeValue.Contains(',') || safeValue.Contains('"') || safeValue.Contains('\n') || safeValue.Contains('\r'))
-            return $"\"{safeValue.Replace("\"", "\"\"")}\"";
-        return safeValue;
-    }
+        => CsvExportEncoding.Escape(value);
 
     private static string HtmlEncode(string? value)
         => System.Net.WebUtility.HtmlEncode(value ?? "");

@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Tracks short-lived authentication failures by subject and client address to slow credential attacks.
+/// Successful authentication clears the subject bucket; expired entries are pruned opportunistically.
+/// </summary>
 public sealed class AuthAttemptProtectionService
 {
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(15);

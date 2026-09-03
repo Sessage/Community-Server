@@ -6,6 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Community implementation for custom-field access and mutation, including validation of field values
+/// against the definition owned by the same list.
+/// </summary>
 public class TodoCustomFieldService : TodoWorkspaceServiceBase, ITodoCustomFieldService
 {
     public TodoCustomFieldService(

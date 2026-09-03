@@ -74,6 +74,9 @@ public class TodoFormFieldValidationRule
     public string Message { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Public task-entry form definition. Publication state controls whether anonymous submission is possible.
+/// </summary>
 public class TodoFormEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -167,12 +170,16 @@ public class TodoFormFieldEntity
         }
         catch
         {
+            // Ungültige Alt-/Importdaten werden nicht in ausführbare Validierungsregeln
+            // umgewandelt. Die Servervalidierung des eigentlichen Formulars bleibt davon unberührt.
             ValidationRules = new();
         }
     }
 
     public void StoreValidationRules()
     {
+        // Nur Regeln mit einer sichtbaren Fehlermeldung werden gespeichert. Werte und Meldungen
+        // werden normalisiert, damit Editor-Roundtrips deterministisch bleiben.
         var rules = ValidationRules
             .Where(r => !string.IsNullOrWhiteSpace(r.Message))
             .Select(r => new TodoFormFieldValidationRule
@@ -198,6 +205,8 @@ public class TodoFormSubmissionKeyEntity
 
     public TodoFormEntity? Form { get; set; }
 
+    // Pro Formular eindeutig indizierter Idempotenzschlüssel: wiederholte Browser-/Mobile-
+    // Übertragungen erzeugen nach einem Timeout nicht versehentlich eine zweite Aufgabe.
     [Required]
     public string SubmissionKey { get; set; } = string.Empty;
 

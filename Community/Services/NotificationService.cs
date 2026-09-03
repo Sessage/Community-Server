@@ -312,6 +312,8 @@ public sealed class NotificationService : INotificationService
             }
         }
 
+        // Commit the durable inbox before auxiliary delivery. SignalR, SMTP, or push failures
+        // must not erase the notification or produce an incorrect unread count.
         await db.SaveChangesAsync(ct);
 
         foreach (var recipient in recipients)

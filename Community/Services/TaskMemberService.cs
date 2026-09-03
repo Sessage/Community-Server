@@ -4,6 +4,9 @@ using Klassenbibliothek.Services;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Maintains task-level member assignments after verifying that the caller can access the parent list.
+/// </summary>
 public class TaskMemberService : ITaskMemberService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;

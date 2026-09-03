@@ -7,6 +7,10 @@ using Klassenbibliothek.Data;
 
 namespace TodoSuite.Server.Services.Sharing;
 
+/// <summary>
+/// Adapts ASP.NET Core Identity email operations to the installation's SMTP transport.
+/// Authentication links are passed as already constructed URLs and encoded by the email template.
+/// </summary>
 public class SmtpEmailSender : IEmailSender, IEmailSender<ApplicationUser>
 {
     private readonly SmtpOptions _opt;

@@ -66,6 +66,7 @@ public record EmailImportRunResult(IReadOnlyList<EmailImportedTaskDto> ImportedT
     public int Count => ImportedTasks.Count;
 }
 
+/// <summary>Configures and executes mailbox-to-task imports when supported by the product edition.</summary>
 public interface IListEmailImportService
 {
     Task<ListEmailImportConfigurationDto?> GetConfigurationAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
@@ -76,7 +77,7 @@ public interface IListEmailImportService
     Task<int> ImportAllAsync(CancellationToken cancellationToken = default);
 }
 
-/// <summary>Mutates tasks inside an authorized list aggregate.</summary>
+/// <summary>Defines task lifecycle, ordering, completion, and assignment operations.</summary>
 public interface ITodoTaskService
 {
     Task<TodoTaskEntity?> AddTaskAsync(string userId, Guid listId, TodoTaskEntity task, CancellationToken cancellationToken = default);
@@ -89,7 +90,7 @@ public interface ITodoTaskService
     Task<bool> SetTaskWatchingAsync(string userId, Guid listId, Guid taskId, bool watching, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Stores and executes list automation rules behind a product-neutral contract.</summary>
+/// <summary>Defines list automation rules and their execution history.</summary>
 public interface ITodoAutomationService
 {
     Task<IReadOnlyList<AutomationPluginActionDescriptor>> GetPluginActionsAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
@@ -132,12 +133,14 @@ public interface IPushNotificationDispatcher
     Task SendAsync(string userId, string title, string message, Guid listId, Guid? taskId, NotificationEventType eventType, PushNotificationContentMode contentMode, CancellationToken ct = default);
 }
 
+/// <summary>Stores presentation preferences that belong to a user rather than to shared list content.</summary>
 public interface ITodoListPreferencesService
 {
     Task<ListViewPreferenceEntity?> GetListPreferencesAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task SetListPreferencesAsync(string userId, Guid listId, DefaultListView? view, ListSortMode? listSortMode, ListSortMode? kanbanSortMode, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Defines board-column lifecycle, ordering, and task movement.</summary>
 public interface ITodoColumnService
 {
     Task AddColumnAsync(string userId, Guid listId, string columnName, CancellationToken cancellationToken = default);
@@ -147,6 +150,7 @@ public interface ITodoColumnService
     Task SetDoneColumnAsync(string userId, Guid listId, string columnName, bool isDone, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Provides authorized task-attachment metadata and binary transfer operations.</summary>
 public interface ITodoAttachmentService
 {
     Task<TodoAttachmentEntity?> AddAttachmentAsync(string userId, Guid listId, Guid taskId, string fileName, Stream content, CancellationToken cancellationToken = default, Guid? id = null);
@@ -154,18 +158,21 @@ public interface ITodoAttachmentService
     Task<(Stream Stream, string FileName)?> GetAttachmentStreamAsync(string userId, Guid listId, Guid attachmentId, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Defines task comment creation, editing, and deletion.</summary>
 public interface ITodoCommentService
 {
     Task<TodoCommentEntity?> AddCommentAsync(string userId, Guid listId, Guid taskId, string message, CancellationToken cancellationToken = default, Guid? id = null);
     Task<bool> RemoveCommentAsync(string userId, Guid listId, Guid taskId, Guid commentId, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Defines ordered checklist-step operations for tasks.</summary>
 public interface ITodoStepService
 {
     Task<TodoStepEntity?> AddStepAsync(string userId, Guid listId, Guid taskId, string title, CancellationToken cancellationToken = default);
     Task<bool> RemoveStepAsync(string userId, Guid listId, Guid taskId, Guid stepId, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Defines list label management and task-label assignments.</summary>
 public interface ITodoLabelService
 {
     Task<TodoLabelEntity?> AddLabelAsync(string userId, Guid listId, string title, string? backgroundColor, CancellationToken cancellationToken = default, Guid? id = null);
@@ -173,7 +180,7 @@ public interface ITodoLabelService
     Task<bool> DeleteLabelAsync(string userId, Guid listId, Guid labelId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Manages form-backed custom fields whose availability is enforced server-side.</summary>
+/// <summary>Defines custom-field schemas and task-specific field values.</summary>
 public interface ITodoCustomFieldService
 {
     Task<TodoCustomFieldDefinitionEntity?> AddFieldAsync(string userId, Guid listId, TodoCustomFieldDefinitionEntity field, CancellationToken cancellationToken = default);
@@ -198,12 +205,14 @@ public interface ITodoFormService
     Task<TodoFormSubmitResult> SubmitAsync(TodoFormSubmitRequest request, string? userId, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Stores a user's preferred order for columns in tabular list views.</summary>
 public interface ITodoTableColumnOrderService
 {
     Task<IReadOnlyList<string>> SetTableColumnOrderAsync(string userId, Guid listId, IReadOnlyList<string> orderedColumnKeys, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<string>> SetTableHiddenColumnsAsync(string userId, Guid listId, IReadOnlyList<string> hiddenColumnKeys, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Defines navigation groups, portfolios, ordering, and collapsed-state persistence.</summary>
 public interface ITodoNavigationService
 {
     Task<IReadOnlyList<TodoListGroupEntity>> GetListGroupsAsync(string userId, CancellationToken ct = default);
@@ -225,6 +234,7 @@ public interface ITodoNavigationService
     Task ReorderMixedNavigationAsync(string userId, IReadOnlyList<string> orderedDescriptors, CancellationToken ct = default);
 }
 
+/// <summary>Maintains the members explicitly assigned to a task.</summary>
 public interface ITaskMemberService
 {
     Task<IReadOnlyList<ListParticipantEntity>> GetEligibleMembersAsync(string callerUserId, Guid listId, CancellationToken ct = default);
@@ -239,6 +249,7 @@ public sealed record DeletedTaskTrashItem(
     string ListName,
     DateTime DeletedAtUtc);
 
+/// <summary>Provides soft-delete retention, restoration, and permanent task deletion.</summary>
 public interface ITodoTrashService
 {
     Task<IReadOnlyList<TodoListEntity>> GetDeletedListsAsync(string userId, CancellationToken cancellationToken = default);
@@ -259,11 +270,13 @@ public record SearchResultItem(
     string Title,
     string? MatchField);
 
+/// <summary>Searches workspace entities visible to the current user.</summary>
 public interface ISearchService
 {
     Task<IReadOnlyList<SearchResultItem>> SearchAsync(string userId, string query, CancellationToken ct = default);
 }
 
+/// <summary>Defines configurable dashboard widgets and their calculated data.</summary>
 public interface IDashboardService
 {
     Task<IReadOnlyList<DashboardEntity>> GetDashboardsAsync(string userId, CancellationToken ct = default);
@@ -279,11 +292,13 @@ public record PortfolioInviteResult(bool Success, string Message, string? Link);
 public sealed record DirectoryPrincipal(string Id, DirectoryPrincipalType Type, string DisplayName, string? UserPrincipalName, string? Description = null);
 public sealed record DirectoryIdentitySnapshot(string PrincipalId, string UserPrincipalName, string DisplayName, IReadOnlyCollection<string> GroupIds);
 
+/// <summary>Synchronizes external directory identities used by Enterprise sharing rules.</summary>
 public interface IDirectoryIdentitySynchronizer
 {
     Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default);
 }
 
+/// <summary>Defines list sharing with users and groups from an external directory.</summary>
 public interface IDirectorySharingService
 {
     bool IsAvailable { get; }
@@ -294,6 +309,7 @@ public interface IDirectorySharingService
     Task<(bool Success, string Message)> RemoveAsync(string requestingUserId, Guid grantId, CancellationToken ct = default);
 }
 
+/// <summary>Defines portfolio-level invitations and participant administration.</summary>
 public interface IPortfolioSharingService
 {
     Task<bool> CanManageAsync(string requestingUserId, Guid portfolioGroupId, CancellationToken ct = default);
@@ -312,6 +328,7 @@ public record ShareLinkInfo(Guid Id, Guid ListId, string Token, string Link, Lis
 
 public record TodoTaskOpenRequest(TodoTaskEntity Task, string? TabId = null);
 
+/// <summary>Defines list invitations, participant roles, share links, and ownership transfer.</summary>
 public interface IListSharingService
 {
     Task<(bool Success, string Message, string? Link)> CreateShareLinkAsync(string requestingUserId, Guid listId, ListRole role, string? comment);

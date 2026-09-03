@@ -3,6 +3,7 @@ using System.Net;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>Provides normalization and matching helpers shared by server and client search implementations.</summary>
 public static class SearchUtilities
 {
     public const int MaxQueryLength = 200;

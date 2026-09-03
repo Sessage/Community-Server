@@ -9,7 +9,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Verwaltet den Papierkorb: gelöschte Listen und Aufgaben, Wiederherstellung und Endgültig-Löschen.
+/// Lists, restores, and permanently deletes soft-deleted tasks while retaining parent-list authorization.
 /// </summary>
 public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
 {
@@ -103,6 +103,8 @@ public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
 
         var entity = await db.TodoLists
             .Include(l => l.Participants)
+            // Nur Einträge innerhalb der Aufbewahrungsfrist sind wiederherstellbar; ältere
+            // Objekte können bereits durch den Hintergrundlauf physisch bereinigt worden sein.
             .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt >= cutoff, cancellationToken);
 
         if (entity is null)
@@ -143,6 +145,8 @@ public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
         if (task is null)
             return false;
 
+        // Die frühere Spalte kann inzwischen gelöscht worden sein. Die Wiederherstellung wählt
+        // daher eine gültige Spalte und hängt die Aufgabe konfliktarm ans Ende der Sortierung.
         task.Column = ResolveRestoreColumn(list, task);
         task.Done = (list.DoneColumns ?? []).Contains(task.Column, StringComparer.OrdinalIgnoreCase);
         task.ListSortOrder = await GetNextListSortOrderAsync(db, listId, cancellationToken);
@@ -161,6 +165,8 @@ public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
     public async Task<int> PurgeExpiredAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        // In PostgreSQL verhindert ein Advisory Lock, dass mehrere Serverinstanzen dieselben
+        // Datensätze und Anhangsdateien parallel endgültig bereinigen.
         await using var cleanupLease = await TryAcquireCleanupLeaseAsync(db, cancellationToken);
         if (cleanupLease is null)
         {

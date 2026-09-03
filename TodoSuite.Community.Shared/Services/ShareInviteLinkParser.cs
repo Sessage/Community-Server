@@ -8,6 +8,10 @@ public enum ShareInviteResourceType
 
 public sealed record ShareInviteLink(ShareInviteResourceType ResourceType, Guid ResourceId, string Token);
 
+/// <summary>
+/// Parses list and portfolio invitation links into a normalized resource identifier and token.
+/// Parsing is intentionally strict so arbitrary URLs are never interpreted as trusted invitations.
+/// </summary>
 public static class ShareInviteLinkParser
 {
     public static bool TryParse(string? value, out ShareInviteLink? invite)
@@ -30,6 +34,8 @@ public static class ShareInviteLinkParser
                 _ => (ShareInviteResourceType?)null
             };
 
+            // Nach der Ressourcen-ID sind keine weiteren Pfadsegmente zulässig. Dadurch wird
+            // ein beliebiger Link mit zufällig enthaltenem /share/... nicht als Einladung erkannt.
             if (resourceType is null || i + 3 != segments.Length
                 || !Guid.TryParse(segments[i + 2], out var resourceId) || resourceId == Guid.Empty)
                 continue;
@@ -44,6 +50,8 @@ public static class ShareInviteLinkParser
                 return false;
             }
             token = token?.Trim();
+            // Die Obergrenze verhindert übergroße QR-/Deep-Link-Payloads, bevor sie an API oder
+            // Secure Storage weitergereicht werden.
             if (string.IsNullOrWhiteSpace(token) || token.Length > 4096)
                 return false;
 

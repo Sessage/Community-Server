@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Components;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>
+/// Converts plain text URLs into safe links while HTML-encoding every non-link segment.
+/// </summary>
 public static partial class LinkifiedText
 {
     public static MarkupString ToMarkupString(string? text)

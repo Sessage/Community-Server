@@ -2,6 +2,7 @@ using Klassenbibliothek.Data;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>Parses, normalizes, and serializes the option set of a single-select custom field.</summary>
 public static class CustomFieldSelectOptions
 {
     public static string TaskValue(Guid taskId) => taskId.ToString("N");

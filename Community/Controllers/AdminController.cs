@@ -11,6 +11,11 @@ using TodoSuite.Server.Services;
 
 namespace TodoSuite.Server.Controllers;
 
+/// <summary>
+/// Exposes the Community administration API for managing local users and their roles.
+/// Every action requires an administrator identity; user lifecycle work is delegated to
+/// ASP.NET Core Identity so password policy, normalization, and security stamps stay consistent.
+/// </summary>
 [ApiController]
 [Route("api/mobile/admin")]
 [Authorize(Policy = "MobileApiAdmin")]
@@ -49,6 +54,8 @@ public class AdminController : ControllerBase
         var query = _userManager.Users.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
         {
+            // Escape LIKE metacharacters before adding the surrounding wildcard so user input
+            // cannot broaden the intended literal substring search.
             query = query.Where(u =>
                 (u.Email != null && EF.Functions.ILike(u.Email, $"%{EscapeLikePattern(normalizedSearch)}%", "\\"))
                 || (u.UserName != null && EF.Functions.ILike(u.UserName, $"%{EscapeLikePattern(normalizedSearch)}%", "\\")));
@@ -121,6 +128,7 @@ public class AdminController : ControllerBase
         var currentCallerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         var isCurrentlyAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+        // Prevent an administrator from removing the permission needed to restore their own role.
         if (!request.IsAdmin && isCurrentlyAdmin && user.Id == currentCallerId)
             return BadRequest(new { Error = _localizer["Err_Admin_CannotRemoveOwnAdminRole"].Value });
 
@@ -142,6 +150,8 @@ public class AdminController : ControllerBase
     public async Task<IActionResult> DeleteUser(string userId)
     {
         var currentCallerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        // Self-deletion follows the account-owned flow, which requires password verification and
+        // avoids accidentally removing the administrator currently performing maintenance.
         if (userId == currentCallerId)
             return BadRequest(new { Error = _localizer["Err_Admin_CannotDeleteOwnAccount"].Value });
 

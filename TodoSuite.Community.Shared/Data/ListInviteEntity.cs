@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>Pending or accepted list invitation backed by an opaque token or target email.</summary>
 public class ListInviteEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

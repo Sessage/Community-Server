@@ -10,6 +10,10 @@ using Klassenbibliothek.Localization;
 
 namespace TodoSuite.Server.Controllers;
 
+/// <summary>
+/// Validates, stores, serves, and removes user profile images.
+/// Uploads are constrained by size and supported image formats before any file is published.
+/// </summary>
 [ApiController]
 [Route("api/profile-picture")]
 public class ProfilePictureController : ControllerBase
@@ -45,6 +49,8 @@ public class ProfilePictureController : ControllerBase
         if (user?.ProfilePicturePath is null)
             return NotFound();
 
+        // The database stores a relative path, but serving is allowed only after canonicalizing
+        // it beneath the dedicated profile-picture root.
         var fullPath = ResolveProfilePicturePath(user.ProfilePicturePath);
         if (fullPath is null)
             return NotFound();
@@ -109,6 +115,8 @@ public class ProfilePictureController : ControllerBase
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
 
+        // Serialize replacement/deletion for one user so a slower upload cannot overwrite a
+        // newer database path or delete the newer file during cleanup.
         var userLock = UserLocks.GetOrAdd(userId, static _ => new SemaphoreSlim(1, 1));
         await userLock.WaitAsync(cancellationToken);
         try
@@ -127,6 +135,7 @@ public class ProfilePictureController : ControllerBase
 
             try
             {
+                // Persist the new file before publishing its relative path through Identity.
                 await System.IO.File.WriteAllBytesAsync(fullPath, imageBytes, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -142,6 +151,7 @@ public class ProfilePictureController : ControllerBase
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
             {
+                // Compensate the filesystem write when the Identity update cannot be committed.
                 TryDeleteFile(fullPath);
                 return StatusCode(500, new { Error = _localizer["Err_Profile_SaveFailed"].Value });
             }
@@ -331,6 +341,7 @@ public class ProfilePictureController : ControllerBase
         var webRoot = GetWebRootPath();
         var root = Path.GetFullPath(Path.Combine(webRoot, "profile-pictures"));
         var fullPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
+        // The separator prevents sibling prefixes such as "profile-pictures-archive" from matching.
         return fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
             ? fullPath
             : null;

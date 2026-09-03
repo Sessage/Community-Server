@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>Persisted comment associated with a task and its author.</summary>
 public class TodoCommentEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

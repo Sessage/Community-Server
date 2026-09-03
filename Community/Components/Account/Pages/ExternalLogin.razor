@@ -23,7 +23,9 @@
 <hr />
 
 <div  class="alert alert-info">
-    @((MarkupString)string.Format(L["Account_ExternalLogin_Info"].Value, $"<strong>{ProviderDisplayName}</strong>"))
+    @((MarkupString)string.Format(
+        L["Account_ExternalLogin_Info"].Value,
+        $"<strong>{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(ProviderDisplayName ?? string.Empty)}</strong>"))
 </div>
 
 <div class="row">

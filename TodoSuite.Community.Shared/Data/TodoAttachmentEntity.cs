@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>Metadata for a task attachment; binary content is stored outside this entity.</summary>
 public class TodoAttachmentEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

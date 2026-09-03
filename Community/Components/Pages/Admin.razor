@@ -1,5 +1,6 @@
 @page "/admin"
 @attribute [Authorize(Roles = "Admin")]
+@* Community administration UI. The controller/service layer rechecks administrator authorization for every mutation. *@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore

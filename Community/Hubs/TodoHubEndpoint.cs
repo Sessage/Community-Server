@@ -7,6 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TodoSuite.Server.Hubs;
 
+/// <summary>
+/// SignalR hub used to notify connected clients that workspace state has changed.
+/// Group membership is derived from persisted access instead of trusting arbitrary client group names.
+/// </summary>
 [Authorize(Policy = "MobileApi")]
 public class TodoHubEndpoint(IDbContextFactory<ApplicationDbContext> dbFactory) : Hub
 {

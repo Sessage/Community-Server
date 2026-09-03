@@ -5,6 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace TodoSuite.Server.Controllers;
 
+/// <summary>
+/// Describes the product edition and server features available to the current client.
+/// Mobile and web clients use this endpoint to hide unsupported Enterprise workflows without
+/// duplicating license decisions in presentation code.
+/// </summary>
 [ApiController]
 [Route("api/capabilities")]
 [Authorize(Policy = "MobileApi")]

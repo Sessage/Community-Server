@@ -2,6 +2,7 @@ using Klassenbibliothek.Data;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>Creates stable keys that distinguish local users from external-directory assignees.</summary>
 public static class AssigneeIdentityKeys
 {
     public static HashSet<string> Create(string? userId, params string?[] aliases)
@@ -51,6 +52,8 @@ public static class AssigneeIdentityKeys
 
     public static bool CanWrite(TodoListEntity list, IEnumerable<string> identityKeys)
     {
+        // Diese gemeinsame UI-/Client-Hilfe spiegelt die Rollenlogik wider, ersetzt aber nie
+        // die erneute Autorisierung im Server-Service.
         var keys = ExpandWithAcceptedParticipants(identityKeys, [list]);
         if (Matches(list.OwnerId, keys)) return true;
 

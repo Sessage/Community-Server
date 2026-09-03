@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>Reconciles list access inherited from Enterprise portfolio membership.</summary>
 internal static class PortfolioAccessCoordinator
 {
     internal static async Task<IReadOnlyList<PortfolioListEntity>> EnsurePortfolioMembershipsAsync(

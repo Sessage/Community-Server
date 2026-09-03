@@ -1,6 +1,7 @@
 @page "/access-tokens"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
+@* Personal access-token management. Newly generated token material is displayed once and is never reloadable. *@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Identity
 @using Klassenbibliothek.Data

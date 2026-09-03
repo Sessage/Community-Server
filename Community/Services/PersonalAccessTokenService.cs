@@ -7,6 +7,13 @@ using TodoSuite.Server.Auth;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Creates, validates, lists, and revokes personal access tokens for API clients.
+/// </summary>
+/// <remarks>
+/// Tokens are generated with cryptographic randomness and persisted only as hashes. The plaintext
+/// token returned by <c>CreateAsync</c> cannot be recovered later.
+/// </remarks>
 public sealed class PersonalAccessTokenService(
     IDbContextFactory<ApplicationDbContext> dbFactory,
     IConfiguration configuration)
@@ -45,6 +52,8 @@ public sealed class PersonalAccessTokenService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         var normalizedName = NormalizeName(name);
+        // Count and insert form one logical operation per user. Without this gate, concurrent
+        // requests could all observe a count below the configured token limit.
         var creationLock = CreationLocks.GetOrAdd(userId, static _ => new SemaphoreSlim(1, 1));
         await creationLock.WaitAsync(cancellationToken);
         try
@@ -57,6 +66,8 @@ public sealed class PersonalAccessTokenService(
             if (activeTokenCount >= MaxTokensPerUser)
                 throw new PersonalAccessTokenLimitExceededException(MaxTokensPerUser);
 
+            // Persist only a one-way hash. The raw bearer value leaves this method exactly once
+            // in CreatedPersonalAccessToken and cannot be reconstructed from the database.
             var rawToken = GenerateRawToken();
             var lifetimeDays = ResolveLifetimeDays(configuration);
             var entity = new PersonalAccessTokenEntity
@@ -92,6 +103,7 @@ public sealed class PersonalAccessTokenService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        // Include the owner in the predicate so a guessed token ID cannot revoke another user's token.
         var token = await db.PersonalAccessTokens
             .FirstOrDefaultAsync(item => item.Id == tokenId && item.UserId == userId, cancellationToken);
         if (token is null)

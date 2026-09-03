@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>Reusable label scoped to a single list.</summary>
 public class TodoLabelEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

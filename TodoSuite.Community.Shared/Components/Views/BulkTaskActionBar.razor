@@ -178,6 +178,8 @@
         try
         {
             var selected = (List.Tasks ?? [])
+                // Nur Aufgaben aus dem aktuellen, autorisiert geladenen Listenaggregat werden
+                // verarbeitet; unbekannte IDs aus einem manipulierten UI-Zustand werden ignoriert.
                 .Where(t => SelectedTaskIds.Contains(t.Id))
                 .ToList();
 
@@ -209,6 +211,8 @@
                     continue;
                 }
 
+                // Nicht-destruktive Massenänderungen werden optimistisch angezeigt. Scheitert
+                // die Persistierung, stellt der Snapshot exakt die lokal geänderten Felder wieder her.
                 var snapshot = TaskMutationSnapshot.Capture(task);
                 ApplyUpdate(task);
                 try

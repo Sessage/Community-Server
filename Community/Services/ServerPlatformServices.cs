@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>Resolves the current web user from the Blazor authentication state.</summary>
 public sealed class ServerTodoCurrentUserService(AuthenticationStateProvider authStateProvider) : ITodoCurrentUserService
 {
     public async Task<TodoCurrentUser> GetCurrentUserAsync(CancellationToken cancellationToken = default)
@@ -32,6 +33,7 @@ public sealed class ServerTodoCurrentUserService(AuthenticationStateProvider aut
     }
 }
 
+/// <summary>Creates a cookie-authenticated SignalR connection for server-rendered workspace components.</summary>
 public sealed class ServerTodoHubConnectionFactory(
     NavigationManager navigationManager,
     IHttpContextAccessor httpContextAccessor) : ITodoHubConnectionFactory

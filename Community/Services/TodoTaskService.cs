@@ -8,7 +8,8 @@ using Klassenbibliothek.Features;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Aufgabenverwaltung des Workspaces.
+/// Implements task lifecycle operations and preserves list ordering, revision metadata, and notifications.
+/// Mutations verify access to the owning list before touching the task.
 /// </summary>
 public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 {
@@ -155,6 +156,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         if (entity is null)
             return null;
 
+        // Mobile full updates carry the version they read. Reject stale versions before copying
+        // any fields so a delayed offline write cannot silently replace a newer edit.
         if (task.SyncVersion.HasValue && task.SyncVersion.Value != entity.ContentVersion)
             throw new WorkspaceConcurrencyException("Die Aufgabe wurde zwischenzeitlich auf einem anderen Gerät geändert.");
         entity.ContentVersion++;
@@ -189,6 +192,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // Task membership cannot grant access. Accept only stable IDs of already accepted list
+        // participants; legacy email-shaped values are deliberately rejected for new writes.
         var eligibleMemberIds = (list.Participants ?? [])
             .Where(participant => !participant.InvitationPending && !string.IsNullOrWhiteSpace(participant.UserId))
             .Select(participant => participant.UserId!.Trim())
@@ -214,6 +219,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             db.TodoTaskMembers.Add(member);
         }
 
+        // Validate every label against the parent list before replacing the join collection.
+        // This prevents cross-list relationships when clients submit arbitrary GUIDs.
         var validLabelIds = await db.TodoLabels
             .Where(x => x.ListId == listId)
             .Select(x => x.Id)
@@ -267,6 +274,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         var oldReminderAtUtc = entity.ReminderAtUtc;
         entity.ReminderAtUtc = task.ReminderAtUtc;
 
+        // A changed schedule represents a new reminder occurrence and must clear the previous
+        // delivery marker; otherwise the dispatcher would suppress it as already sent.
         if (oldReminderAtUtc != entity.ReminderAtUtc)
             entity.ReminderSentAtUtc = null;
 
@@ -307,6 +316,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             throw new WorkspaceConcurrencyException("Die Aufgabe wurde gleichzeitig auf einem anderen Gerät geändert.");
         }
 
+        // Run automations only after the initiating mutation is durable. Rule failures therefore
+        // cannot roll back the user's edit, and trigger comparisons use the pre-save snapshot.
         if (!string.Equals(previousTask.Column, entity.Column, StringComparison.OrdinalIgnoreCase))
         {
             await _automationService.ExecuteAsync(

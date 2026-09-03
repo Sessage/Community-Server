@@ -7,6 +7,10 @@ using TodoSuite.Server.Services;
 
 namespace TodoSuite.Server.Controllers;
 
+/// <summary>
+/// Lets an authenticated user create, enumerate, and revoke personal access tokens.
+/// Raw token material is returned once at creation; subsequent operations use the stored hash and metadata.
+/// </summary>
 [ApiController]
 [Route("api/tokens")]
 [Authorize(Policy = "MobileApi")]
@@ -49,6 +53,7 @@ public class PersonalAccessTokenController(
                 request.Name,
                 request.ReadOnly,
                 cancellationToken);
+            // This response is the sole disclosure of the raw token; list operations expose metadata only.
             return Ok(new CreateTokenResponse(
                 created.Id,
                 created.Name,

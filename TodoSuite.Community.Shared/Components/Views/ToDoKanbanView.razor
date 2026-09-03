@@ -2,6 +2,7 @@
 ﻿@using Microsoft.FluentUI.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
 @inject ITodoColumnService ColumnService
+@* Kanban projection. Drag results are persisted as ordered column/task mutations rather than trusted DOM state. *@
 @inject ITodoTaskService TaskService
 @inject ITodoCurrentUserService CurrentUserService
 @inject IJSRuntime JS

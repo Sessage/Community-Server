@@ -4,7 +4,10 @@ using Klassenbibliothek.AutomationPlugins;
 
 namespace TodoSuite.Server.Services;
 
-/// <summary>No-op event sink used by Community so core task operations stay independent of Enterprise automation.</summary>
+/// <summary>
+/// Community-edition implementation of the automation contract.
+/// It preserves a stable client-facing API while reporting Enterprise-only operations as unavailable.
+/// </summary>
 public sealed class CommunityAutomationService : ITodoAutomationService
 {
     public Task<IReadOnlyList<AutomationPluginActionDescriptor>> GetPluginActionsAsync(string userId, Guid listId, CancellationToken cancellationToken = default)

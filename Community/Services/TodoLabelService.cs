@@ -7,7 +7,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Verwaltung von Labels.
+/// Maintains list-scoped labels and task-label assignments without allowing labels to cross list boundaries.
 /// </summary>
 public class TodoLabelService : TodoWorkspaceServiceBase, ITodoLabelService
 {

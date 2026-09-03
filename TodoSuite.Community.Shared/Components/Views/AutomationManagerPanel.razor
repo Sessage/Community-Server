@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Services
+@* Automation rule editor. Trigger/action options come from the active product edition and plug-in catalog. *@
 @using Klassenbibliothek.AutomationPlugins
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
@@ -319,6 +320,8 @@
     private void EditRule(TodoAutomationRuleEntity source)
     {
         _error = string.Empty;
+        // Bedingungen und Aktionen werden tief kopiert. Formularänderungen dürfen die aktuell
+        // ausgeführte Regel erst nach einem erfolgreichen Save beeinflussen.
         _editingRule = new TodoAutomationRuleEntity
         {
             Id = source.Id,
@@ -413,6 +416,8 @@
             action.FieldKey = null;
             action.LabelId = null;
             action.Value = null;
+            // Nur die im serverseitigen Plugin-Descriptor definierten Eingabeschlüssel werden
+            // initialisiert; beliebige Clientfelder werden nicht aus einer alten Aktion übernommen.
             action.ConfigurationJson = JsonSerializer.Serialize(new AutomationPluginActionConfiguration
             {
                 Values = descriptor.Inputs
@@ -503,6 +508,8 @@
         {
             foreach (var action in _editingRule.Actions.Where(x => x.Type == TodoAutomationActionType.PostWebhook))
             {
+                // Die sichtbare URL ist nur ein Editorfeld. Vor dem Speichern wird sie zusammen
+                // mit der normalisierten Feldauswahl in die persistierte Konfiguration überführt.
                 var configuration = action.GetWebhookConfiguration();
                 configuration.Url = action.Value?.Trim() ?? "";
                 configuration.SelectedFields = configuration.GetSelectedFields().ToList();

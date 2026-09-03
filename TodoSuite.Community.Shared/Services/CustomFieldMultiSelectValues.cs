@@ -2,6 +2,7 @@ using System.Text.Json;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>Normalizes multi-select values against their field definition for stable storage and comparison.</summary>
 public static class CustomFieldMultiSelectValues
 {
     private const int MaxNestedJsonDepth = 16;

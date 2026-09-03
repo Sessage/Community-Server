@@ -37,6 +37,8 @@ public static class TodoTaskFilterMatcher
         {
             var referenceDate = (today ?? DateTime.Today).Date;
             var due = task.DueDate?.Date;
+            // Mehrere aktivierte Fälligkeitsoptionen werden als ODER behandelt. Die übrigen
+            // Filtergruppen werden anschließend per UND mit diesem Ergebnis kombiniert.
             var dueMatches =
                 (f.NoDueDate && due is null)
                 || (f.Overdue && due is not null && due.Value < referenceDate)
@@ -49,6 +51,8 @@ public static class TodoTaskFilterMatcher
         }
 
         var selectedLabelIds = f.LabelIds ?? [];
+        // Bei mehreren ausgewählten Labels genügt mindestens ein Treffer; dies entspricht
+        // der Mehrfachauswahl in allen Listen-, Tabellen-, Kanban- und Kalenderansichten.
         if (selectedLabelIds.Count > 0
             && !(task.LabelLinks ?? []).Any(link => selectedLabelIds.Contains(link.LabelId)))
         {
@@ -73,6 +77,8 @@ public static class TodoTaskFilterMatcher
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
+        // MemberKeys bleibt für ältere gespeicherte Filter erhalten. Beide Felder werden vor
+        // dem Vergleich zusammengeführt und ohne Beachtung der Groß-/Kleinschreibung dedupliziert.
         var selectedMembers = (f.MemberUserIds ?? [])
             .Concat(f.MemberKeys ?? [])
             .Select(member => (member ?? string.Empty).Trim())

@@ -4,6 +4,10 @@ using Klassenbibliothek.Services;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Searches only workspace objects visible to the current user and projects matching entities
+/// into UI-neutral search results.
+/// </summary>
 public class SearchService : ISearchService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
@@ -22,12 +26,16 @@ public class SearchService : ISearchService
         if (q.Length == 0)
             return [];
 
+        // %, _ und der Escape-Character dürfen nicht als vom Benutzer steuerbare LIKE-Wildcards
+        // wirken; Parameterisierung schützt zusätzlich vor SQL-Injection.
         var escapedQuery = EscapeLikePattern(q);
         var pattern = $"%{escapedQuery}%";
         var prefixPattern = $"{escapedQuery}%";
 
         await using var db = await _dbFactory.CreateDbContextAsync(ct);
 
+        // Die Zugriffsmenge wird vor der Textsuche eingeschränkt. Treffer aus fremden Listen
+        // können deshalb weder im Resultat noch über Trefferanzahlen offengelegt werden.
         var accessibleLists = db.TodoLists
             .AsNoTracking()
             .Where(l => l.DeletedAt == null && !l.IsTemplate &&
@@ -76,6 +84,8 @@ public class SearchService : ISearchService
                         : "step"))
             .ToListAsync(ct);
 
+        // Die gemeinsame Obergrenze wird ausgewogen auf Listen und Aufgaben verteilt, damit
+        // eine Trefferart die andere nicht vollständig aus der Ergebnisliste verdrängt.
         return SearchUtilities.TakeBalanced(listResults, taskResults);
     }
 

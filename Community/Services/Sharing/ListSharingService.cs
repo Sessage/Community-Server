@@ -10,6 +10,10 @@ using QRCoder;
 
 namespace TodoSuite.Server.Services.Sharing;
 
+/// <summary>
+/// Coordinates direct invitations, share links, participant roles, and ownership transfer for lists.
+/// Every operation recalculates the caller's role and prevents removal of the last valid owner.
+/// </summary>
 public class ListSharingService : IListSharingService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
@@ -232,6 +236,8 @@ public class ListSharingService : IListSharingService
 
         try
         {
+            // Claiming a single-use token and granting membership must commit atomically. The
+            // conditional update below is also the cross-instance race winner check.
             await using var transaction = await db.Database.BeginTransactionAsync();
             var usedAt = DateTime.UtcNow;
             if (invite.Type == ListInviteType.EmailInvite && invite.SingleUse)
@@ -251,6 +257,8 @@ public class ListSharingService : IListSharingService
                     .ExecuteUpdateAsync(setters => setters.SetProperty(x => x.UsedAtUtc, usedAt));
             }
 
+            // Merge legacy email-only participants into the authenticated user instead of
+            // creating a second row with independently calculated access.
             var participant = await db.ListParticipants
                 .Where(p => p.ListId == listId)
                 .Where(p =>
@@ -442,6 +450,8 @@ public class ListSharingService : IListSharingService
         var participant = list.Participants.FirstOrDefault(p => p.Id == participantId);
         if (participant is null) return (false, "Teilnehmer nicht gefunden.");
         PortfolioAccessCoordinator.NormalizeLegacyAccess(participant);
+        // Effective roles may come from a portfolio or directory group. Editing that projection
+        // here would be overwritten by the next synchronization, so change it at its source.
         if (participant.DirectRole is null && (participant.PortfolioRole is not null || participant.DirectoryRole is not null))
             return (false, "Diese Rolle wird geerbt und muss an ihrer Freigabequelle geändert werden.");
         PortfolioAccessCoordinator.SetDirectAccess(participant, role, participant.DirectInvitationPending);

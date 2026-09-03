@@ -82,6 +82,8 @@
     {
         if (firstRender)
         {
+            // Die eindeutigen Element-IDs erlauben mehrere Cropper-Instanzen, ohne dass deren
+            // Canvas-, Datei- oder Drag-Handler miteinander kollidieren.
             _dotNetRef = DotNetObjectReference.Create(this);
             try
             {
@@ -138,6 +140,8 @@
     {
         if (_initialized)
         {
+            // JavaScript registriert native Datei-, Pointer- und Drag-Events. Diese müssen vor
+            // dem Freigeben der .NET-Referenz explizit entfernt werden.
             try { await JS.InvokeVoidAsync("imageCropper.cleanup", _fileInputId); } catch { }
         }
 

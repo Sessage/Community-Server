@@ -2,6 +2,7 @@
 ﻿@using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Forms
+@* Shared task editor used by web and native hosts. A local draft is validated before service calls update the persisted task and child collections. *@
 @using Microsoft.AspNetCore.Components.Web
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
 @using Klassenbibliothek.Data
@@ -2180,6 +2181,8 @@
 
         if (_taskId != Task.Id || _editableTask is null)
         {
+            // Jeder Aufgabenwechsel erzeugt einen neuen Kontext und verwirft ausstehende
+            // Autosaves/Callbacks. Antworten der vorherigen Aufgabe dürfen das Modal nicht ändern.
             BeginNewTaskContext();
             _suppressAutosave = true;
             _editableTask = CloneTask(Task);
@@ -2477,6 +2480,8 @@
         if (_editableTask is null || !CanWriteToList()) return;
         if (_suppressAutosave) return;
 
+        // Jede lokale Änderung erhöht die Revision. Nur der zuletzt geplante Stand darf nach
+        // Ablauf des Debounce-Fensters gespeichert werden.
         _dirty = true;
         _editRevision++;
 
@@ -2559,6 +2564,8 @@
             _error = "";
 
             var saveRevision = _editRevision;
+            // Der Service erhält einen tiefen Snapshot. Weitere Tastatureingaben während des
+            // Requests verändern daher weder dessen Payload noch dessen Nebenläufigkeits-Token.
             var snapshot = CloneTask(_editableTask);
 
             snapshot.MemberUserIds ??= new List<string>();
@@ -2580,6 +2587,8 @@
                 return false;
             }
 
+            // Nur wenn während des Requests nichts Neues editiert wurde, ersetzt die Antwort
+            // das lokale Modell vollständig. Andernfalls werden nur die neuen Sync-Tokens übernommen.
             if (saveRevision == _editRevision)
             {
                 _suppressAutosave = true;
@@ -3156,6 +3165,8 @@
 
         try
         {
+            // Die Browserdatei wird bereits beim Öffnen hart begrenzt. Der Service validiert
+            // Größe, Typ und Inhalt nochmals, bevor Metadaten veröffentlicht werden.
             await using var stream = file.OpenReadStream(MaxUploadBytes);
 
             var added = await AttachmentService.AddAttachmentAsync(
@@ -3371,6 +3382,8 @@
         _descriptionEditor = null;
         try { _taskContextCts.Cancel(); } catch { }
         _taskContextCts.Dispose();
+        // Der neue Token ist sowohl an die neue Aufgabe als auch an die Lebensdauer des Modals
+        // gebunden; Dispose beendet dadurch sämtliche noch laufenden Operationen.
         _taskContextCts = CancellationTokenSource.CreateLinkedTokenSource(_lifetimeCts.Token);
         _taskContextVersion++;
         _editRevision = 0;
@@ -3492,6 +3505,8 @@
 
     private static TodoTaskEntity CloneTask(TodoTaskEntity task)
     {
+        // Navigation Collections werden ebenfalls kopiert. Ohne Deep Copy würden Änderungen im
+        // Editor schon vor dem Speichern in das vom Parent gerenderte Listenmodell durchsickern.
         return new TodoTaskEntity
         {
             Id = task.Id,

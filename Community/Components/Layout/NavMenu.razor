@@ -3,6 +3,8 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Microsoft.AspNetCore.Identity
 @implements IAsyncDisposable
+@* Application navigation projection. It combines persisted groups/portfolios with current list access
+   and refreshes on SignalR or NavigationRefreshNotifier events. *@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ITodoListService ListService

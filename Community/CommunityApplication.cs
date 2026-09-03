@@ -388,6 +388,17 @@ public static class CommunityApplication
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddSignInManager()
             .AddDefaultTokenProviders();
+
+        builder.Services.ConfigureApplicationCookie(options =>
+        {
+            // Lax preserves external-login return flows while keeping the session cookie out of
+            // ordinary cross-site subrequests. Production cookies must never traverse HTTP.
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
+        });
         
         builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
         builder.Services.AddScoped<Microsoft.AspNetCore.Identity.IEmailSender<ApplicationUser>, SmtpEmailSender>();
@@ -604,6 +615,30 @@ public static class CommunityApplication
             await next();
         });
         app.UseHttpsRedirection();
+        app.Use(async (context, next) =>
+        {
+            context.Response.OnStarting(() =>
+            {
+                context.Response.Headers.XContentTypeOptions = "nosniff";
+                context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+                context.Response.Headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=(), payment=(), usb=()";
+                context.Response.Headers["X-Permitted-Cross-Domain-Policies"] = "none";
+
+                // Authenticated API payloads and authentication responses can contain
+                // personal data or credentials and must not be retained by shared caches.
+                if (context.Request.Path.StartsWithSegments("/api")
+                    && (context.User.Identity?.IsAuthenticated == true
+                        || context.Request.Path.StartsWithSegments("/api/mobile/auth")))
+                {
+                    context.Response.Headers.CacheControl = "no-store";
+                    context.Response.Headers.Pragma = "no-cache";
+                }
+
+                return Task.CompletedTask;
+            });
+
+            await next();
+        });
         app.UseRateLimiter();
         app.UseAuthentication();
         app.Use(async (context, next) =>
@@ -734,12 +769,16 @@ public static class CommunityApplication
             try
             {
                 await File.WriteAllTextAsync(temporaryPath, content, ct);
+                // The bootstrap file contains a plaintext initial password and must not inherit
+                // a permissive process umask on Unix hosts.
+                if (!OperatingSystem.IsWindows())
+                    File.SetUnixFileMode(temporaryPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
                 File.Move(temporaryPath, path, overwrite: true);
             }
             finally
             {
-                if (File.Exists(temporaryPath))
-                    File.Delete(temporaryPath);
+                try { File.Delete(temporaryPath); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             }
         }
         

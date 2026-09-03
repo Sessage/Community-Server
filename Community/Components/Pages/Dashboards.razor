@@ -3,6 +3,8 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @implements IAsyncDisposable
+@* Dashboard and portfolio analytics surface. Widget definitions are persisted by DashboardService;
+   export helpers convert the visible, already-authorized data into PNG, PDF, or inert CSV. *@
 @using Microsoft.AspNetCore.Authorization
 @using System.Globalization
 @using System.Text
@@ -1107,10 +1109,5 @@
     private string BuildFileName(string ext) => $"dashboard-{DateTime.UtcNow:yyyyMMdd-HHmmss}.{ext}";
 
     private static string CsvEscape(string? value)
-    {
-        if (value is null) return string.Empty;
-        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
-            return $"\"{value.Replace("\"", "\"\"")}\"";
-        return value;
-    }
+        => CsvExportEncoding.Escape(value);
 }

@@ -2,6 +2,7 @@ using System.Net;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>Builds escaped, copy-ready embed markup for a published task form.</summary>
 public static class TodoFormEmbedCode
 {
     public static string Build(Guid formId, string? formName, string publicUrl)

@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Hintergrunddienst: löscht täglich abgelaufene Papierkorb-Einträge (älter als 14 Tage) endgültig.
+/// Runs daily and permanently removes soft-deleted workspace data older than the 14-day retention period.
+/// Cleanup runs in a background scope and treats cancellation as a normal shutdown path.
 /// </summary>
 public class TrashCleanupService : BackgroundService
 {

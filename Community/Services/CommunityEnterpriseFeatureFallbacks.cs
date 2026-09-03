@@ -7,6 +7,7 @@ namespace TodoSuite.Server.Services;
 // behavior. Reads return an empty/unavailable projection; writes fail explicitly so a stale or
 // malicious client cannot mistake a hidden UI control for server-side feature enforcement.
 
+/// <summary>Fail-closed Community fallback for licensed custom-field mutations.</summary>
 public sealed class CommunityCustomFieldService : ITodoCustomFieldService
 {
     private static InvalidOperationException Unavailable()
@@ -22,6 +23,7 @@ public sealed class CommunityCustomFieldService : ITodoCustomFieldService
         => Task.FromException(Unavailable());
 }
 
+/// <summary>Unavailable Community implementation of the mailbox-import contract.</summary>
 public sealed class CommunityEmailImportService : IListEmailImportService
 {
     public Task<ListEmailImportConfigurationDto?> GetConfigurationAsync(string userId, Guid listId, CancellationToken cancellationToken = default) => Task.FromResult<ListEmailImportConfigurationDto?>(null);
@@ -33,6 +35,7 @@ public sealed class CommunityEmailImportService : IListEmailImportService
     private static InvalidOperationException Unavailable(string name) => new($"{name} ist ein Enterprise-Modul.");
 }
 
+/// <summary>Unavailable Community implementation of the public-form contract.</summary>
 public sealed class CommunityFormService : ITodoFormService
 {
     public Task<IReadOnlyList<TodoFormEntity>> GetFormsAsync(string userId, Guid listId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<TodoFormEntity>>([]);
@@ -46,6 +49,7 @@ public sealed class CommunityFormService : ITodoFormService
     private static InvalidOperationException Unavailable() => new("Formulare sind ein Enterprise-Modul.");
 }
 
+/// <summary>Unavailable Community implementation of the dashboard contract.</summary>
 public sealed class CommunityDashboardService : IDashboardService
 {
     public Task<IReadOnlyList<DashboardEntity>> GetDashboardsAsync(string userId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<DashboardEntity>>([]);
@@ -56,6 +60,7 @@ public sealed class CommunityDashboardService : IDashboardService
     private static InvalidOperationException Unavailable() => new("Dashboards sind ein Enterprise-Modul.");
 }
 
+/// <summary>Unavailable Community implementation of portfolio sharing.</summary>
 public sealed class CommunityPortfolioSharingService : IPortfolioSharingService
 {
     public Task<bool> CanManageAsync(string requestingUserId, Guid portfolioGroupId, CancellationToken ct = default) => Task.FromResult(false);
@@ -70,6 +75,7 @@ public sealed class CommunityPortfolioSharingService : IPortfolioSharingService
     public Task<(bool Success, string Message)> AcceptAsync(string acceptingUserId, Guid portfolioGroupId, string token, CancellationToken ct = default) => Task.FromResult((false, "Portfolios sind ein Enterprise-Modul."));
 }
 
+/// <summary>Unavailable Community implementation of external-directory sharing.</summary>
 public sealed class CommunityDirectorySharingService : IDirectorySharingService
 {
     public bool IsAvailable => false;
@@ -80,6 +86,7 @@ public sealed class CommunityDirectorySharingService : IDirectorySharingService
     public Task<(bool Success, string Message)> RemoveAsync(string u, Guid g, CancellationToken ct = default) => Task.FromResult((false, "Verzeichnisfreigaben sind ein Enterprise-Modul."));
 }
 
+/// <summary>Community identity synchronizer that intentionally persists no Enterprise directory state.</summary>
 public sealed class NoOpDirectoryIdentitySynchronizer : IDirectoryIdentitySynchronizer
 {
     public Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default) => Task.CompletedTask;

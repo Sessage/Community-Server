@@ -1,6 +1,8 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
+@* JS-backed calendar projection. Events are derived from authorized tasks and callbacks return only task identifiers. *@
+
 <div class="@HostClass">
     <div class="@ContainerClass" @ref="_calendarEl"></div>
 
@@ -24,6 +26,8 @@
 
     protected override void OnParametersSet()
     {
+        // Das JS-Widget besitzt eine eigene Ereigniskopie. Parameteränderungen ersetzen diese
+        // vollständig und markieren genau einen Neuabgleich nach dem nächsten Blazor-Render.
         _events.Clear();
         if (Items is not null)
         {
@@ -65,6 +69,8 @@
             return;
         }
 
+        // JavaScript liefert nur eine ID zurück. Der Callback wird ausschließlich für ein
+        // Element der aktuell von .NET bereitgestellten, bereits gefilterten Projektion ausgelöst.
         var item = _events.FirstOrDefault(candidate => candidate.TaskId == parsedTaskId);
         if (item is null)
         {

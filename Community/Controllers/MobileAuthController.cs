@@ -19,6 +19,11 @@ using Klassenbibliothek.Administration;
 
 namespace TodoSuite.Server.Controllers;
 
+/// <summary>
+/// Implements the authentication and account-management surface consumed by native clients.
+/// It issues short-lived bearer tokens, applies shared login-attempt protection, and keeps
+/// account mutations inside ASP.NET Core Identity so lockout and security-stamp rules apply.
+/// </summary>
 [ApiController]
 [Route("api/mobile/auth")]
 public class MobileAuthController : ControllerBase
@@ -85,6 +90,8 @@ public class MobileAuthController : ControllerBase
     {
         var loginName = (request.Email ?? string.Empty).Trim();
         var password = request.Password ?? string.Empty;
+        // Apply the application-level subject/address throttle before looking up a user. This
+        // keeps timing and error behavior independent of whether the account exists.
         var subject = NormalizeLoginSubject(loginName);
         var block = _attemptProtection.Check(HttpContext, subject);
         if (block.IsBlocked)
@@ -152,6 +159,8 @@ public class MobileAuthController : ControllerBase
         var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
         if (await _userManager.GetTwoFactorEnabledAsync(user))
         {
+            // The short-lived challenge grants no API access. It is accepted only by the 2FA
+            // endpoint and is bound to the user's current security stamp.
             _attemptProtection.RecordSuccess(HttpContext, subject);
             return Ok(LoginResponse.TwoFactorRequired(await CreateTwoFactorChallengeTokenAsync(user)));
         }
@@ -184,6 +193,8 @@ public class MobileAuthController : ControllerBase
             return Unauthorized();
         }
 
+        // Rechecking the security stamp invalidates an outstanding challenge after password,
+        // recovery, or administrator-driven security changes.
         if (!await IsChallengeValidForUserAsync(principal!, user)
             || !await _userManager.GetTwoFactorEnabledAsync(user))
         {
@@ -264,6 +275,8 @@ public class MobileAuthController : ControllerBase
             }
             catch
             {
+                // Registration is incomplete without a deliverable confirmation path. Remove
+                // the new Identity row instead of leaving an account the user cannot activate.
                 await _userManager.DeleteAsync(user);
                 return StatusCode(
                     StatusCodes.Status503ServiceUnavailable,
@@ -489,6 +502,8 @@ public class MobileAuthController : ControllerBase
             return BadRequest(new ErrorResponse("Das eingegebene Passwort ist falsch."));
 
         var profilePicturePath = user.ProfilePicturePath;
+        // Identity deletion is authoritative. External artifacts are removed only afterwards,
+        // so a failed account deletion cannot leave a live account without its associated data.
         var result = await _userManager.DeleteAsync(user);
         if (!result.Succeeded)
             return BadRequest(new ErrorResponse(string.Join(" ", result.Errors.Select(error => error.Description))));
@@ -550,6 +565,8 @@ public class MobileAuthController : ControllerBase
         var issuer = _jwtOptions.Issuer;
         var audience = _jwtOptions.Audience;
 
+        // The API authentication handler revalidates the embedded security stamp, allowing
+        // password and account-security changes to revoke otherwise unexpired JWTs.
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
@@ -593,6 +610,7 @@ public class MobileAuthController : ControllerBase
                 ClockSkew = TimeSpan.FromSeconds(30)
             }, out _);
 
+            // A normally signed access token must not be reusable as a 2FA challenge.
             return principal.FindFirstValue("purpose") == "mobile-2fa" ? principal : null;
         }
         catch

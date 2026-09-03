@@ -2,6 +2,10 @@ using Microsoft.Extensions.Options;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Compares a reported native-app version with the server's supported version policy.
+/// Invalid or missing versions are handled conservatively and never bypass mandatory updates.
+/// </summary>
 public sealed class ClientCompatibilityService(IOptions<ClientCompatibilityOptions> options)
 {
     private readonly ClientCompatibilityOptions _options = options.Value;

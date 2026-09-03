@@ -7,8 +7,13 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Stellt gemeinsame Abhängigkeiten und Hilfsfunktionen für die Workspace-Services bereit.
+/// Base class for workspace services that centralizes current-user resolution, list-role checks,
+/// optimistic concurrency handling, and real-time change publication.
 /// </summary>
+/// <remarks>
+/// Derived services should use these helpers before loading or mutating child entities. This keeps
+/// tenant boundaries and role semantics consistent across tasks, columns, labels, comments, and files.
+/// </remarks>
 public abstract class TodoWorkspaceServiceBase
 {
     /// <summary>
@@ -60,6 +65,8 @@ public abstract class TodoWorkspaceServiceBase
     /// </summary>
     protected Task NotifyParticipantsListsUpdatedAsync(TodoListEntity list, CancellationToken ct = default)
     {
+        // Navigation changes target user groups rather than the list group because clients not
+        // currently viewing this list must also refresh their navigation projection.
         var userIds = (list.Participants ?? new List<ListParticipantEntity>())
             .Select(p => p.UserId)
             .Append(list.OwnerId)
@@ -102,6 +109,7 @@ public abstract class TodoWorkspaceServiceBase
     /// </summary>
     protected static bool CanWrite(string userId, TodoListEntity list)
     {
+        // Ownership is the strongest direct grant; participant roles are considered only after it.
         if (EqualsUserKey(list.OwnerId, userId)) return true;
 
         var p = list.Participants.FirstOrDefault(x => !x.InvitationPending && (EqualsUserKey(x.Email, userId) || EqualsUserKey(x.UserId, userId)));
@@ -175,6 +183,8 @@ public abstract class TodoWorkspaceServiceBase
 
         var (email, displayName) = await GetUserProfileAsync(db, ownerUserId, ct);
 
+        // Resolve both stable user ID and legacy email membership so upgrades converge on one
+        // owner row instead of creating duplicate effective principals.
         var ownerParticipant = list.Participants.FirstOrDefault(p =>
             string.Equals(p.UserId, ownerUserId, StringComparison.OrdinalIgnoreCase)
             || (email is not null && EqualsEmail(p.Email, email)));

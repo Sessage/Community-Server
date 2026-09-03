@@ -17,6 +17,10 @@ namespace TodoSuite.Server.Controllers;
 /// enforces sync-token conflicts, so delayed offline writes cannot silently replace newer
 /// changes from another device or the Web UI.
 /// </summary>
+/// <remarks>
+/// Endpoint methods deliberately resolve the caller for each request and delegate authorization
+/// to workspace services. IDs supplied by the client are never treated as proof of list access.
+/// </remarks>
 [ApiController]
 [Route("api/mobile")]
 [Authorize(Policy = "MobileApi")]
@@ -35,6 +39,7 @@ public class MobileSyncController : ControllerBase
     };
     private static readonly SemaphoreSlim ChunkSessionGate = new(1, 1);
 
+    // Core workspace snapshot and list lifecycle endpoints.
     [HttpGet("lists")]
     public async Task<ActionResult<IReadOnlyList<TodoListEntity>>> GetLists([FromServices] ITodoListService listService, CancellationToken token)
     {
@@ -488,6 +493,8 @@ public class MobileSyncController : ControllerBase
     //     return Ok($"pong:{body.Length}");
     // }
 
+    // Attachment transport supports direct multipart/base64 requests and resumable chunks.
+    // All paths converge on the attachment service after task/list authorization.
     [HttpPost("lists/{listId:guid}/tasks/{taskId:guid}/attachments/raw")]
     [IgnoreAntiforgeryToken]
     [RequestSizeLimit(MaxAttachmentSizeBytes + 1024 * 1024)]
@@ -668,6 +675,8 @@ public class MobileSyncController : ControllerBase
         if (!await CanUploadAttachmentAsync(dbFactory, userId, userEmail, listId, taskId, token))
             return Forbid();
 
+        // Session creation and cleanup share one gate so the per-user limit cannot be exceeded
+        // by two simultaneous start requests and cleanup cannot delete a session being created.
         await ChunkSessionGate.WaitAsync(token);
         try
         {
@@ -706,7 +715,9 @@ public class MobileSyncController : ControllerBase
         long TotalBytes,
         DateTime CreatedAtUtc,
         int NextJsonChunkNumber = 1,
-        int? JsonTotalChunks = null);
+        int? JsonTotalChunks = null,
+        int NextBinaryChunkNumber = 1,
+        int? BinaryTotalChunks = null);
     public sealed record JsonChunkUploadRequest(int ChunkNumber, int TotalChunks, string? FileName, string ContentBase64);
     public sealed record JsonChunkUploadResult(bool Completed, TodoAttachmentEntity? Attachment, string? Error);
 
@@ -758,12 +769,16 @@ public class MobileSyncController : ControllerBase
                 var session = await TryReadChunkSessionAsync(uploadId, token);
                 if (session is null)
                     return BadRequest("Upload-Session wurde nicht gefunden oder ist abgelaufen.");
+                // Bind every chunk to the identity and resource recorded at session creation;
+                // possession of an upload GUID alone is never sufficient authorization.
                 if (!IsSessionForRequest(session, ResolveUserId(), ResolveUserEmail(), listId, taskId))
                     return Forbid();
                 sessionFileName = session.FileName;
                 sessionTotalBytes = session.TotalBytes;
                 if (session.JsonTotalChunks is not null && session.JsonTotalChunks != request.TotalChunks)
                     return Conflict("Die Gesamtzahl der Upload-Chunks wurde während des Uploads geändert.");
+                // Repeated chunks are acknowledged idempotently (mobile retries are expected),
+                // while gaps are rejected because appending them would corrupt the file order.
                 if (request.ChunkNumber < session.NextJsonChunkNumber)
                     return Ok(new JsonChunkUploadResult(false, null, null));
                 if (request.ChunkNumber > session.NextJsonChunkNumber)
@@ -791,6 +806,8 @@ public class MobileSyncController : ControllerBase
                 ChunkSessionGate.Release();
             }
 
+            // Recheck the accumulated decoded size; request/base64 limits alone do not constrain
+            // the total across multiple independently valid chunks.
             if (uploadLength > MaxAttachmentSizeBytes)
             {
                 try { System.IO.File.Delete(path); } catch { }
@@ -856,12 +873,6 @@ public class MobileSyncController : ControllerBase
 
         try
         {
-            var session = await TryReadChunkSessionAsync(uploadId, token);
-            if (session is null)
-                return BadRequest("Upload-Session wurde nicht gefunden oder ist abgelaufen.");
-            if (!IsSessionForRequest(session, ResolveUserId(), ResolveUserEmail(), listId, taskId))
-                return Forbid();
-
             byte[] requestBytes;
             await using (var requestBuffer = new MemoryStream())
             {
@@ -880,39 +891,95 @@ public class MobileSyncController : ControllerBase
                 return BadRequest($"Upload-Chunk ist zu gross. Maximal erlaubt sind {MaxAttachmentChunkSizeBytes / 1024} KB.");
 
             var path = GetChunkUploadPath(uploadId);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-
-            long uploadLength;
-            await using (var target = System.IO.File.Open(path, FileMode.Append, FileAccess.Write, FileShare.None))
+            await ChunkSessionGate.WaitAsync(token);
+            try
             {
-                await target.WriteAsync(requestBytes.AsMemory(payloadOffset, payloadLength), token);
-                uploadLength = target.Length;
-            }
+                // Session, ordering metadata and file are one state transition. Without this
+                // gate, concurrent requests could both validate stale state and swap chunk order.
+                var session = await TryReadChunkSessionAsync(uploadId, token);
+                if (session is null)
+                    return BadRequest("Upload-Session wurde nicht gefunden oder ist abgelaufen.");
+                if (!IsSessionForRequest(session, ResolveUserId(), ResolveUserEmail(), listId, taskId))
+                    return Forbid();
 
-            if (uploadLength > MaxAttachmentSizeBytes)
+                if (envelope is not null)
+                {
+                    if (session.BinaryTotalChunks is not null && session.BinaryTotalChunks != envelope.TotalChunks)
+                        return Conflict("Die Gesamtzahl der Upload-Chunks wurde während des Uploads geändert.");
+                    // A lost response is safe to retry; only a genuinely new next chunk is appended.
+                    if (envelope.ChunkNumber < session.NextBinaryChunkNumber)
+                        return Ok();
+                    if (envelope.ChunkNumber > session.NextBinaryChunkNumber)
+                        return Conflict($"Upload-Chunk {session.NextBinaryChunkNumber} wird als Nächstes erwartet.");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                long uploadLength;
+                await using (var target = System.IO.File.Open(path, FileMode.Append, FileAccess.Write, FileShare.None))
+                {
+                    await target.WriteAsync(requestBytes.AsMemory(payloadOffset, payloadLength), token);
+                    uploadLength = target.Length;
+                }
+
+                if (envelope is not null)
+                {
+                    session = session with
+                    {
+                        NextBinaryChunkNumber = session.NextBinaryChunkNumber + 1,
+                        BinaryTotalChunks = envelope.TotalChunks
+                    };
+                    await System.IO.File.WriteAllTextAsync(
+                        GetChunkSessionPath(uploadId),
+                        JsonSerializer.Serialize(session, ChunkEnvelopeJson),
+                        token);
+                }
+
+                if (uploadLength > MaxAttachmentSizeBytes)
+                {
+                    try { System.IO.File.Delete(path); } catch { }
+                    try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
+                    return BadRequest($"Datei ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.");
+                }
+
+                if (uploadLength < session.TotalBytes)
+                {
+                    if (envelope is not null && envelope.ChunkNumber == envelope.TotalChunks)
+                    {
+                        try { System.IO.File.Delete(path); } catch { }
+                        try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
+                        return BadRequest("Upload ist unvollständig.");
+                    }
+                    return Ok();
+                }
+
+                if (uploadLength > session.TotalBytes)
+                {
+                    try { System.IO.File.Delete(path); } catch { }
+                    try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
+                    return BadRequest("Upload ist größer als erwartet.");
+                }
+
+                if (envelope is not null && envelope.ChunkNumber != envelope.TotalChunks)
+                {
+                    try { System.IO.File.Delete(path); } catch { }
+                    try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
+                    return BadRequest("Upload-Chunk enthält widersprüchliche Abschlussmetadaten.");
+                }
+
+                // Keep the gate through completion so another final request cannot create the
+                // same attachment from the same temporary file before the session is consumed.
+                return await CompleteChunkUploadLockedAsync(
+                    listId,
+                    taskId,
+                    uploadId,
+                    session.FileName,
+                    attachmentService,
+                    token);
+            }
+            finally
             {
-                try { System.IO.File.Delete(path); } catch { }
-                try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
-                return BadRequest($"Datei ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.");
+                ChunkSessionGate.Release();
             }
-
-            if (uploadLength < session.TotalBytes)
-                return Ok();
-
-            if (uploadLength > session.TotalBytes)
-            {
-                try { System.IO.File.Delete(path); } catch { }
-                try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
-                return BadRequest("Upload ist größer als erwartet.");
-            }
-
-            return await CompleteChunkUploadAsync(
-                listId,
-                taskId,
-                uploadId,
-                session.FileName,
-                attachmentService,
-                token);
         }
         catch (IOException ex)
         {
@@ -943,6 +1010,25 @@ public class MobileSyncController : ControllerBase
         ITodoAttachmentService attachmentService,
         CancellationToken token)
     {
+        await ChunkSessionGate.WaitAsync(token);
+        try
+        {
+            return await CompleteChunkUploadLockedAsync(listId, taskId, uploadId, fileName, attachmentService, token);
+        }
+        finally
+        {
+            ChunkSessionGate.Release();
+        }
+    }
+
+    private async Task<ActionResult> CompleteChunkUploadLockedAsync(
+        Guid listId,
+        Guid taskId,
+        Guid uploadId,
+        string? fileName,
+        ITodoAttachmentService attachmentService,
+        CancellationToken token)
+    {
         var userId = ResolveUserId();
         var session = await TryReadChunkSessionAsync(uploadId, token);
         if (session is null)
@@ -965,6 +1051,9 @@ public class MobileSyncController : ControllerBase
 
             if (info.Length > MaxAttachmentSizeBytes)
                 return BadRequest($"Datei ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.");
+
+            if (info.Length != session.TotalBytes)
+                return BadRequest("Upload ist unvollständig.");
 
             await using var stream = System.IO.File.OpenRead(path);
             var attachment = await attachmentService.AddAttachmentAsync(
@@ -992,12 +1081,33 @@ public class MobileSyncController : ControllerBase
         }
         finally
         {
+            // Completion consumes the temporary session regardless of success. Clients must
+            // start a new session rather than accidentally appending to a partially failed file.
             try { System.IO.File.Delete(path); } catch { }
             try { System.IO.File.Delete(GetChunkSessionPath(uploadId)); } catch { }
         }
     }
 
     private async Task<JsonChunkUploadResult> TryCompleteChunkUploadAsync(
+        Guid listId,
+        Guid taskId,
+        Guid uploadId,
+        string? fileName,
+        ITodoAttachmentService attachmentService,
+        CancellationToken token)
+    {
+        await ChunkSessionGate.WaitAsync(token);
+        try
+        {
+            return await TryCompleteChunkUploadLockedAsync(listId, taskId, uploadId, fileName, attachmentService, token);
+        }
+        finally
+        {
+            ChunkSessionGate.Release();
+        }
+    }
+
+    private async Task<JsonChunkUploadResult> TryCompleteChunkUploadLockedAsync(
         Guid listId,
         Guid taskId,
         Guid uploadId,
@@ -1027,6 +1137,9 @@ public class MobileSyncController : ControllerBase
 
             if (info.Length > MaxAttachmentSizeBytes)
                 return new JsonChunkUploadResult(true, null, $"Datei ist zu gross. Maximal erlaubt sind {MaxAttachmentSizeBytes / 1024 / 1024} MB.");
+
+            if (info.Length != session.TotalBytes)
+                return new JsonChunkUploadResult(true, null, "Upload ist unvollständig.");
 
             await using var stream = System.IO.File.OpenRead(path);
             var attachment = await attachmentService.AddAttachmentAsync(
@@ -1257,6 +1370,7 @@ public class MobileSyncController : ControllerBase
 
     /* -------- Navigation Groups -------- */
 
+    // Personal navigation and grouping endpoints. These preferences never grant list access.
     [HttpGet("groups")]
     public async Task<ActionResult<IReadOnlyList<TodoListGroupEntity>>> GetGroups(
         [FromServices] ITodoNavigationService navService, CancellationToken token)
@@ -1375,6 +1489,7 @@ public class MobileSyncController : ControllerBase
 
     /* -------- Sharing -------- */
 
+    // Sharing endpoints expose opaque invitation tokens; participant IDs remain server-owned.
     [HttpGet("lists/{listId:guid}/share-links")]
     public async Task<ActionResult<IReadOnlyList<ShareLinkInfo>>> GetShareLinks(
         Guid listId,
@@ -1470,6 +1585,7 @@ public class MobileSyncController : ControllerBase
 
     /* -------- Dashboards -------- */
 
+    // Enterprise-capable dashboards and portfolio sharing. Community fallbacks keep the contract stable.
     [HttpGet("dashboards")]
     public async Task<ActionResult<IReadOnlyList<DashboardEntity>>> GetDashboards(
         [FromServices] IDashboardService dashboardService,
@@ -1597,6 +1713,7 @@ public class MobileSyncController : ControllerBase
 
     /* -------- Trash -------- */
 
+    // Trash operations retain the same authorization boundary as their live parent workspace.
     [HttpGet("trash/lists")]
     public async Task<ActionResult<IReadOnlyList<TodoListEntity>>> GetDeletedLists(
         [FromServices] ITodoTrashService trashService,
@@ -1651,6 +1768,7 @@ public class MobileSyncController : ControllerBase
 
     /* -------- Notifications -------- */
 
+    // Notification records and preferences for the authenticated user only.
     [HttpGet("notifications")]
     public async Task<ActionResult<IReadOnlyList<UserNotificationEntity>>> GetNotifications(
         [FromServices] INotificationService notificationService,
@@ -1755,6 +1873,7 @@ public class MobileSyncController : ControllerBase
         return Ok();
     }
 
+    // Optional Enterprise integrations are routed through edition-specific service implementations.
     [HttpGet("lists/{listId:guid}/email-import")]
     public async Task<ActionResult<ListEmailImportConfigurationDto?>> GetEmailImportConfiguration(
         Guid listId,

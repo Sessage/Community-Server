@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Klassenbibliothek.Services;
 
+/// <summary>Minimal user-directory entry suitable for assignee and participant selectors.</summary>
 public class ManagedUser
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -16,6 +17,9 @@ public class ManagedUser
     public bool IsAdmin { get; set; }
 }
 
+/// <summary>
+/// Maintains the in-memory directory used by UI controls and returns defensive snapshots to callers.
+/// </summary>
 public class UserDirectoryService
 {
     private readonly ConcurrentDictionary<Guid, ManagedUser> _users = new();

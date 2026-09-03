@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>Direct user membership and role assignment for a list.</summary>
 public class ListParticipantEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -40,7 +41,11 @@ public class ListParticipantEntity
     {
         var roles = new[] { DirectRole, PortfolioRole, DirectoryRole }
             .Where(x => x.HasValue).Select(x => x!.Value).ToArray();
+        // In ListRole steht der kleinere Zahlenwert für die stärkere Rolle. Keine Quelle
+        // bedeutet Observer, während mehrere Quellen immer die stärkste Berechtigung ergeben.
         Role = roles.Length == 0 ? ListRole.Observer : (ListRole)roles.Min(x => (int)x);
+        // Eine noch offene Direkteinladung sperrt den Zugriff nur dann, wenn keine bereits
+        // angenommene Portfolio- oder Verzeichnisfreigabe denselben Teilnehmer berechtigt.
         InvitationPending = DirectRole.HasValue && DirectInvitationPending && PortfolioRole is null && DirectoryRole is null;
     }
 

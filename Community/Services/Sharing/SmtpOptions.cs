@@ -1,5 +1,6 @@
 namespace TodoSuite.Server.Services.Sharing;
 
+/// <summary>SMTP transport, authentication, sender, and TLS configuration.</summary>
 public class SmtpOptions
 {
     public string Host { get; set; } = "";

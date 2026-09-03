@@ -2,7 +2,7 @@ using Klassenbibliothek.Data;
 
 namespace Klassenbibliothek.Services;
 
-/// <summary>Central server-side validation for task fields that reference list-owned data.</summary>
+/// <summary>Centralizes task input limits shared by browser, API, and native clients.</summary>
 public static class TodoTaskInputValidation
 {
     public static string ResolveColumn(TodoListEntity list, string? requestedColumn)

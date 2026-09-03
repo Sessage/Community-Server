@@ -51,6 +51,7 @@ public enum TodoAutomationActionType
     MoveToList = 16
 }
 
+/// <summary>List-scoped automation rule composed of a trigger, conditions, and ordered actions.</summary>
 public class TodoAutomationRuleEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -101,6 +102,8 @@ public class TodoAutomationActionEntity
     {
         try
         {
+            // Persistierte Konfiguration kann aus einer älteren Version stammen. Fehlende
+            // Collections werden auf einen sicheren, leeren Zustand normalisiert.
             var configuration = JsonSerializer.Deserialize<TodoAutomationWebhookConfiguration>(
                                     string.IsNullOrWhiteSpace(ConfigurationJson) ? "{}" : ConfigurationJson)
                                 ?? new TodoAutomationWebhookConfiguration();
@@ -109,6 +112,8 @@ public class TodoAutomationActionEntity
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
+            // Beschädigtes JSON darf den Regel-Editor nicht unbenutzbar machen. Die Ausführung
+            // validiert die zurückgegebene leere Konfiguration und sendet damit keinen Webhook.
             return new TodoAutomationWebhookConfiguration();
         }
     }
@@ -138,6 +143,8 @@ public sealed class TodoAutomationWebhookConfiguration
     public string Url { get; set; } = string.Empty;
     public string Fields { get; set; } = "id,title,column,done,assignee,customFields";
     public List<string> SelectedFields { get; set; } = [];
+    // BearerToken ist ausschließlich ein kurzlebiges Editor-/Eingabefeld. Persistiert wird das
+    // serverseitig geschützte Secret in ProtectedBearerToken.
     public string BearerToken { get; set; } = string.Empty;
     public string ProtectedBearerToken { get; set; } = string.Empty;
     public bool BearerTokenConfigured { get; set; }
@@ -148,6 +155,8 @@ public sealed class TodoAutomationWebhookConfiguration
         if (SelectedFields.Count > 0)
             return SelectedFields;
 
+        // Fields unterstützt das frühere kommaseparierte Format. Neue Konfigurationen verwenden
+        // SelectedFields, ohne bestehende Automationen beim Upgrade zu verlieren.
         return (Fields ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Distinct(StringComparer.OrdinalIgnoreCase)

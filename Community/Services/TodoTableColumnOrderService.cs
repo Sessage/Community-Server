@@ -6,6 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Stores each user's table-column order after normalizing unknown, duplicate, and missing column keys.
+/// </summary>
 public sealed class TodoTableColumnOrderService : TodoWorkspaceServiceBase, ITodoTableColumnOrderService
 {
     public TodoTableColumnOrderService(

@@ -14,6 +14,7 @@ public enum TodoCustomFieldType
     MultiSelect = 6
 }
 
+/// <summary>List-scoped custom-field schema, including type, order, and selectable options.</summary>
 public class TodoCustomFieldDefinitionEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

@@ -1,5 +1,6 @@
 @if (!string.IsNullOrWhiteSpace(Value))
 {
+    @* _markup is produced by RichTextContent; never construct MarkupString directly from an untrusted Value. *@
     <div class="rich-text-display break-words">@_markup</div>
 }
 

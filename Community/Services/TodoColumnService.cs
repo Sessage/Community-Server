@@ -7,7 +7,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Spaltenverwaltung für Listen.
+/// Maintains board columns, their order, and task moves while enforcing the parent list's edit role.
 /// </summary>
 public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 {
@@ -89,6 +89,8 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         list.Columns[idx] = newTrim;
 
+        // Spaltennamen sind zugleich der gespeicherte Fremdschlüssel der Aufgaben. Deshalb
+        // werden Definition, Aufgaben und Erledigt-Markierung in einem SaveChanges aktualisiert.
         foreach (var t in list.Tasks.Where(t => t.Column == oldTrim))
             t.Column = newTrim;
 
@@ -154,6 +156,8 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         if (deleteTasksInColumn)
         {
+            // Die ausdrückliche Löschoption entfernt die Aufgaben zusammen mit der Spalte;
+            // andernfalls werden sie auf eine noch existierende Spalte migriert.
             db.TodoTasks.RemoveRange(affected);
         }
         else
@@ -207,6 +211,8 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         var incomingSet = new HashSet<string>(incoming, StringComparer.OrdinalIgnoreCase);
 
+        // Eine Reorder-Anfrage darf weder Spalten hinzufügen noch unterschlagen. Änderungen
+        // an der Spaltenmenge laufen ausschließlich über die dafür autorisierten Operationen.
         if (!incomingSet.SetEquals(currentSet))
             throw new InvalidOperationException(
                 $"Spaltenreihenfolge konnte nicht gespeichert werden: Spaltenmenge stimmt nicht überein. " +

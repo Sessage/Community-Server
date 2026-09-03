@@ -7,7 +7,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Verwaltung der Listen-Ansichtspräferenzen.
+/// Persists per-user list presentation preferences separately from shared list content.
 /// </summary>
 public class TodoListPreferencesService : TodoWorkspaceServiceBase, ITodoListPreferencesService
 {

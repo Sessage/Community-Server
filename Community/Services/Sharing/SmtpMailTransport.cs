@@ -6,6 +6,7 @@ using System.Security.Authentication;
 
 namespace TodoSuite.Server.Services.Sharing;
 
+/// <summary>Builds and sends SMTP messages while enforcing the configured TLS and authentication policy.</summary>
 internal static class SmtpMailTransport
 {
     public static async Task SendAsync(SmtpOptions options, MailMessage message)

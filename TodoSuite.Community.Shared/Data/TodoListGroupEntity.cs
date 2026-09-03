@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>User-owned navigation group that arranges lists without changing their authorization.</summary>
 public class TodoListGroupEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

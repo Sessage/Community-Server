@@ -8,7 +8,8 @@ using Klassenbibliothek.Features;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Implementiert die Listenverwaltung des Workspaces.
+/// Implements list creation, retrieval, updates, templates, and ownership-sensitive deletion.
+/// All returned lists are filtered through the caller's effective workspace permissions.
 /// </summary>
 public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 {
@@ -47,6 +48,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
             .Include(l => l.CustomFields).ThenInclude(f => f.Options)
             .Include(l => l.Participants)
             .Include(l => l.Watchers)
+            // Die Sichtbarkeitsprüfung ist Bestandteil der Datenbankabfrage. Dadurch werden
+            // fremde Listen samt Unterobjekten gar nicht erst in den Prozess geladen.
             .Where(l => l.DeletedAt == null && !l.IsTemplate && (l.OwnerId == userId || l.Participants.Any(p => !p.InvitationPending && (p.Email == userId || p.UserId == userId))))
             .OrderBy(l => l.Name)
             .AsSplitQuery()
@@ -296,6 +299,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
             .Include(l => l.Labels)
             .Include(l => l.CustomFields).ThenInclude(f => f.Options)
             .Include(l => l.CustomFields).ThenInclude(f => f.SourceTaskList)!.ThenInclude(l => l!.Participants)
+            // Vorlagen sind privat: Die Kenntnis einer Template-ID genügt nicht als Zugriffsnachweis.
             .FirstOrDefaultAsync(l => l.Id == templateId && l.IsTemplate && l.OwnerId == userId && l.DeletedAt == null, cancellationToken);
 
         if (template is null)
@@ -331,6 +335,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
                     Name = f.Name,
                     Type = f.Type,
                     IsRequired = f.IsRequired,
+                    // Fremde Quelllisten werden nur übernommen, wenn der Ersteller sie administrieren
+                    // darf; ein Template darf keine versteckte Referenz als Berechtigungsumgehung kopieren.
                     SourceTaskListId = f.Type == TodoCustomFieldType.TaskTitleSelect
                         && f.SourceTaskListId == template.Id
                             ? newListId
@@ -402,6 +408,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 
         if (existing is not null)
         {
+            // Mobile Wiederholungen dürfen dieselbe clientseitig erzeugte ID idempotent verwenden,
+            // aber nur wenn die bereits vorhandene Liste für diesen Benutzer lesbar ist.
             if (!CanRead(userId, existing))
                 throw new UnauthorizedAccessException($"Liste '{existing.Name}' kann nicht erneut angelegt werden (User='{userId}').");
 
@@ -529,6 +537,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         var fullyRemoved = new List<ListParticipantEntity>();
         foreach (var participant in toRemove)
         {
+            // Entfernt wird nur die direkte Freigabe. Ein weiterhin gültiger Portfolio-Anteil
+            // bleibt erhalten und bestimmt anschließend erneut den effektiven Zugriff.
             PortfolioAccessCoordinator.NormalizeLegacyAccess(participant);
             participant.DirectRole = null;
             participant.DirectInvitationPending = false;
@@ -607,6 +617,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
             throw new WorkspaceConcurrencyException("Die Liste wurde gleichzeitig auf einem anderen Gerät geändert.");
         }
 
+        // Aufgabenmitgliedschaften dürfen keinen indirekten Zugriff übrig lassen, nachdem die
+        // entsprechende Listenmitgliedschaft vollständig entfernt wurde.
         await TaskMemberService.CleanupRemovedListMembersAsync(entity.Id, removedUserIds, cancellationToken);
 
         await NotifyListUpdatedAsync(list.Id, cancellationToken);

@@ -57,6 +57,8 @@ public sealed class FloatingLayerService
         {
             _hostCount = Math.Max(0, _hostCount - 1);
             if (_hostCount == 0)
+                // Overlays gehören zum interaktiven Render-Scope. Ohne Host dürfen keine
+                // veralteten Fragmente in einer späteren Seite erneut erscheinen.
                 _items.Clear();
         }
     }
@@ -70,6 +72,8 @@ public sealed class FloatingLayerService
         var item = new FloatingItem { Id = Guid.NewGuid(), Content = content };
         lock (_sync)
             _items.Add(item);
+        // Ereignisse immer außerhalb des Locks auslösen: StateHasChanged kann synchron weitere
+        // Layer-Operationen anstoßen und darf dabei keinen Reentrancy-Deadlock erzeugen.
         OnChanged?.Invoke();
         return item.Id;
     }

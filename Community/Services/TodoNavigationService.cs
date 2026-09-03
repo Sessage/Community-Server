@@ -7,6 +7,10 @@ using Klassenbibliothek.Features;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>
+/// Builds and updates the user's navigation projection across personal lists, groups, and portfolios.
+/// Stored ordering preferences are reconciled with current access so stale IDs cannot reappear.
+/// </summary>
 public sealed class TodoNavigationService : ITodoNavigationService
 {
     private const int MaxGroupNameLength = 200;
@@ -29,6 +33,8 @@ public sealed class TodoNavigationService : ITodoNavigationService
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
 
         var groups = await db.TodoListGroups
+            // Persönliche Sortierdaten sind keine Berechtigung: Zuerst werden ausschließlich
+            // eigene beziehungsweise angenommene Portfolio-Gruppen ausgewählt.
             .Where(g => g.OwnerId == userId || db.PortfolioParticipants.Any(p => p.PortfolioGroupId == g.Id && p.UserId == userId && !p.InvitationPending))
             .OrderBy(g => g.SortOrder)
             .AsNoTracking()
@@ -129,6 +135,8 @@ public sealed class TodoNavigationService : ITodoNavigationService
             var listIds = preferences.Select(p => p.ListId).ToArray();
             var lists = await db.TodoLists.Include(l => l.Participants)
                 .Where(l => listIds.Contains(l.Id) && l.DeletedAt == null).ToListAsync(ct);
+            // Eine normale Navigationsgruppe darf nur dann zum Portfolio werden, wenn der Owner
+            // jede enthaltene Liste administrieren und damit Zugriffe an Mitglieder vererben darf.
             var unauthorized = lists.Where(l => !PortfolioAccessCoordinator.CanAdminList(userId, l)).Select(l => l.Name).ToList();
             if (unauthorized.Count > 0)
                 throw new UnauthorizedAccessException($"Portfolio kann nicht erstellt werden. Bei folgenden Listen fehlt die Admin-Rolle: {string.Join(", ", unauthorized)}.");
@@ -242,6 +250,8 @@ public sealed class TodoNavigationService : ITodoNavigationService
 
         if (ungroupLists)
         {
+            // Beim Auflösen bleiben die Listen erhalten. Ihre persönlichen Präferenzen werden
+            // auf die Root-Ebene verschoben, bevor die Gruppe gelöscht wird.
             var lists = (await LoadEffectiveNavigationListsAsync(db, userId, ct))
                 .Where(l => l.NavigationGroupId == groupId)
                 .OrderBy(l => l.NavigationSortOrder)
@@ -634,6 +644,8 @@ public sealed class TodoNavigationService : ITodoNavigationService
         string userId,
         CancellationToken ct)
     {
+        // Diese Projektion ist die Vertrauensgrenze aller Sortieroperationen: vom Client
+        // übermittelte Listen-IDs, auf die kein Zugriff besteht, gelangen nicht in das Ergebnis.
         var lists = await db.TodoLists
             .Include(l => l.Participants)
             .Where(l => l.DeletedAt == null
@@ -660,6 +672,8 @@ public sealed class TodoNavigationService : ITodoNavigationService
     {
         if (groupId is not null)
         {
+            // Eine manipulierte Gruppen-ID wird nicht gespeichert. Ohne sichtbare Zielgruppe
+            // fällt die Liste sicher auf die persönliche Root-Navigation zurück.
             var ownsGroup = await db.TodoListGroups
                 .AnyAsync(g => g.Id == groupId && (g.OwnerId == userId || db.PortfolioParticipants.Any(p => p.PortfolioGroupId == g.Id && p.UserId == userId && !p.InvitationPending)), ct);
             if (!ownsGroup)
@@ -793,6 +807,8 @@ public sealed class TodoNavigationService : ITodoNavigationService
         }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex))
         {
+            // Zwei Geräte können dieselbe Präferenz gleichzeitig erstmals anlegen. Nach dem
+            // Unique-Konflikt wird der Insert in ein Update des inzwischen vorhandenen Satzes überführt.
             var pending = db.ChangeTracker.Entries<TodoListNavigationPreferenceEntity>()
                 .Where(e => e.State == EntityState.Added)
                 .Select(e => e.Entity)

@@ -26,6 +26,8 @@ public static class RichTextContent
         if (string.IsNullOrWhiteSpace(value))
             return null;
 
+        // Unmarkierte Bestandswerte bleiben reiner Text. Sie werden niemals nachträglich als
+        // HTML interpretiert, auch wenn sie zufällig Tags enthalten.
         if (!IsRichText(value))
             return value;
 
@@ -47,6 +49,8 @@ public static class RichTextContent
         if (string.IsNullOrWhiteSpace(value))
             return string.Empty;
 
+        // Auch bereits gespeicherter Rich Text wird an jeder Ausgabegrenze erneut bereinigt.
+        // Damit bleiben Altbestände nach später verschärften Sanitizer-Regeln sicher.
         if (IsRichText(value))
             return SanitizeHtml(value[StoragePrefix.Length..]);
 
@@ -105,6 +109,8 @@ public static class RichTextContent
         {
             foreach (var link in document.Body.QuerySelectorAll("a"))
             {
+                // Externe Links öffnen getrennt; noopener verhindert den Zugriff der Zielseite
+                // auf das ursprüngliche Fenster, noreferrer reduziert Referrer-Leaks.
                 link.SetAttribute("target", "_blank");
                 link.SetAttribute("rel", "noopener noreferrer");
             }
@@ -116,6 +122,8 @@ public static class RichTextContent
     private static HtmlSanitizer CreateSanitizer()
     {
         var sanitizer = new HtmlSanitizer();
+        // Positivliste statt Blockliste: unbekannte Tags, Attribute und URL-Schemata sind
+        // standardmäßig verboten und müssen bewusst ergänzt werden.
         sanitizer.AllowedTags.Clear();
         sanitizer.AllowedTags.UnionWith([
             "p", "br", "strong", "em", "s", "code", "pre", "blockquote",

@@ -3,6 +3,7 @@ using Klassenbibliothek.Services;
 
 namespace TodoSuite.Server.Services;
 
+/// <summary>Fallback dispatcher used when no external push relay is configured.</summary>
 public sealed class NoOpPushNotificationDispatcher : IPushNotificationDispatcher
 {
     public bool IsConfigured => false;

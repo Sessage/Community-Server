@@ -4,6 +4,9 @@ using System.Text.Json.Serialization;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>
+/// Aggregate root for a workspace list. Child tasks, columns, labels, and sharing records are scoped by <see cref="Id"/>.
+/// </summary>
 public class TodoListEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

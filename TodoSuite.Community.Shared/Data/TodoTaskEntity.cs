@@ -12,6 +12,10 @@ public enum TodoApprovalStatus
     Rejected = 3
 }
 
+/// <summary>
+/// Persisted task aggregate belonging to exactly one list, including scheduling, recurrence,
+/// approval, assignment, ordering, and optimistic-concurrency metadata.
+/// </summary>
 public class TodoTaskEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -23,6 +27,8 @@ public class TodoTaskEntity
     [NotMapped]
     public long? SyncVersion { get; set; }
 
+    // Persistierte Versionsquelle für optimistische Nebenläufigkeit. Der Client erhält daraus
+    // SyncVersion/SyncToken, darf ContentVersion selbst aber nicht über JSON überschreiben.
     [JsonIgnore]
     public long ContentVersion { get; set; } = 1;
 
@@ -36,10 +42,10 @@ public class TodoTaskEntity
     public DateTime? StartDate { get; set; }
     public DateTime? DueDate { get; set; }
 
-    //  Erinnerung (UTC!)
+    // Ausschließlich UTC persistieren; die Komponenten rechnen erst an der UI-Grenze in lokale Zeit um.
     public DateTime? ReminderAtUtc { get; set; }
 
-    // wurde bereits verarbeitet (E-Mail/Push raus)?
+    // Idempotenzmarker: verhindert erneuten E-Mail-/Push-Versand durch den nächsten Hintergrundlauf.
     public DateTime? ReminderSentAtUtc { get; set; }
 
     public bool Done { get; set; }

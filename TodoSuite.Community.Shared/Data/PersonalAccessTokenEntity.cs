@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Klassenbibliothek.Data;
 
+/// <summary>Persisted metadata and one-way hash for a personal access token; never contains the raw token.</summary>
 public class PersonalAccessTokenEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();

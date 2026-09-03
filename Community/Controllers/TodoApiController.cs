@@ -8,6 +8,10 @@ using Klassenbibliothek.Services;
 
 namespace TodoSuite.Server.Controllers;
 
+/// <summary>
+/// Hosts focused HTTP operations used by browser integrations that do not belong to the
+/// larger mobile synchronization contract.
+/// </summary>
 [ApiController]
 [Route("api")]
 [Authorize(Policy = "MobileApi")]
@@ -35,6 +39,8 @@ public class TodoApiController : ControllerBase
         var userId = ResolveUserId();
         model.Id = listId;
         TodoListEntity? updated;
+        // Translate the domain concurrency signal into HTTP 409 so clients can reload instead
+        // of retrying an overwrite blindly.
         try { updated = await listService.UpdateListAsync(userId, model, ct); }
         catch (WorkspaceConcurrencyException ex) { return Conflict(new { error = ex.Message, entity = "list", listId }); }
         return updated is null ? NotFound() : Ok(updated);
@@ -82,6 +88,8 @@ public class TodoApiController : ControllerBase
         if (!Request.HasFormContentType)
             return BadRequest(localizer["Err_Upload_FormDataExpected"].Value);
 
+        // Accept exactly the first uploaded file; the attachment service applies workspace
+        // authorization, canonical naming, and a second streaming size limit.
         var file = (await Request.ReadFormAsync(ct)).Files.FirstOrDefault();
         if (file is null)
             return BadRequest(localizer["Err_Upload_NoFileReceived"].Value);
@@ -98,6 +106,7 @@ public class TodoApiController : ControllerBase
     public async Task<IActionResult> GetAttachment(Guid attachmentId, [FromQuery] Guid listId, [FromServices] ITodoAttachmentService attachmentService, CancellationToken ct)
     {
         var userId = ResolveUserId();
+        // listId participates in the authorization lookup; attachmentId is not a bearer capability.
         var res = await attachmentService.GetAttachmentStreamAsync(userId, listId, attachmentId, ct);
         if (res is null) return NotFound();
         return File(res.Value.Stream, "application/octet-stream", res.Value.FileName);

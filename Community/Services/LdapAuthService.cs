@@ -13,7 +13,14 @@ public record LdapUserInfo(
     string DisplayName,
     DirectoryIdentitySnapshot DirectoryIdentity);
 
-/// <summary>Authentifiziert Benutzer gegen Active Directory oder einen generischen LDAP-Server.</summary>
+/// <summary>
+/// Authenticates a user against the configured LDAP/Active Directory server and maps the result
+/// to the minimal identity data needed by the local account bridge.
+/// </summary>
+/// <remarks>
+/// Search filters are escaped and certificate validation follows the configured trust policy.
+/// Callers should surface only generic login failures because directory errors may contain infrastructure details.
+/// </remarks>
 public class LdapAuthService
 {
     private readonly ActiveDirectoryOptions _options;
@@ -41,6 +48,8 @@ public class LdapAuthService
 
         try
         {
+            // Search with the configured service/anonymous identity first. The submitted
+            // password is verified only by a separate bind as the exact discovered user DN.
             using var connection = CreateAndBindSearchConnection();
             var searchRequest = new SearchRequest(
                 _options.BaseDn,
@@ -68,6 +77,8 @@ public class LdapAuthService
 
             try
             {
+                // Do not try domain/name variants for the user bind: the directory-provided DN
+                // is the unambiguous identity whose credentials must be proven.
                 using var verifyConnection = CreateAndBindConnection(userDn, password, allowAdCredentialVariants: false);
             }
             catch (LdapException ex)
