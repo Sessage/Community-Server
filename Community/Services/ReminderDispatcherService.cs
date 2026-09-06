@@ -104,6 +104,20 @@ public sealed class ReminderDispatcherService : BackgroundService
 
         var pendingLiveNotifications = new List<(string UserId, string Title, string Message, Guid TaskId)>();
         var pendingPushNotifications = new List<(string UserId, string Title, string Message, Guid ListId, Guid TaskId, PushNotificationContentMode Mode)>();
+        var recipientUserIds = due
+            .Select(task => ResolveRecipient(task).UserId)
+            .Where(userId => !string.IsNullOrWhiteSpace(userId))
+            .Select(userId => userId!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var preferences = recipientUserIds.Length == 0
+            ? new Dictionary<string, UserNotificationPreferenceEntity>(StringComparer.OrdinalIgnoreCase)
+            : (await db.UserNotificationPreferences
+                .AsNoTracking()
+                .Where(preference => recipientUserIds.Contains(preference.UserId))
+                .ToListAsync(ct))
+                .GroupBy(preference => preference.UserId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
         foreach (var task in due)
         {
@@ -117,7 +131,7 @@ public sealed class ReminderDispatcherService : BackgroundService
             var delivered = false;
             var preference = string.IsNullOrWhiteSpace(recipientUserId)
                 ? null
-                : await db.UserNotificationPreferences.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == recipientUserId, ct);
+                : preferences.GetValueOrDefault(recipientUserId);
             var channel = preference?.Channel ?? NotificationDeliveryChannel.Browser;
 
             // A deliberately disabled delivery preference is a completed reminder decision,

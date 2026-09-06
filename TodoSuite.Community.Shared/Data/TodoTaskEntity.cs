@@ -33,6 +33,7 @@ public class TodoTaskEntity
     public long ContentVersion { get; set; } = 1;
 
     [Required]
+    [MaxLength(500)]
     public string Title { get; set; } = string.Empty;
 
     public string? Description { get; set; }

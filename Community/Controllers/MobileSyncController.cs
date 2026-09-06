@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Services;
@@ -38,6 +39,7 @@ public class MobileSyncController : ControllerBase
         ReferenceHandler = ReferenceHandler.IgnoreCycles
     };
     private static readonly SemaphoreSlim ChunkSessionGate = new(1, 1);
+    private static readonly FileExtensionContentTypeProvider ContentTypes = new();
 
     // Core workspace snapshot and list lifecycle endpoints.
     [HttpGet("lists")]
@@ -1365,7 +1367,10 @@ public class MobileSyncController : ControllerBase
         var userId = ResolveUserId();
         var result = await attachmentService.GetAttachmentStreamAsync(userId, listId, attachmentId, token);
         if (result is null) return NotFound();
-        return File(result.Value.Stream, "application/octet-stream", result.Value.FileName);
+        var contentType = ContentTypes.TryGetContentType(result.Value.FileName, out var detected)
+            ? detected
+            : "application/octet-stream";
+        return File(result.Value.Stream, contentType, result.Value.FileName, enableRangeProcessing: true);
     }
 
     /* -------- Navigation Groups -------- */
@@ -1616,6 +1621,13 @@ public class MobileSyncController : ControllerBase
     [HttpGet("portfolios/{portfolioGroupId:guid}/share-links")]
     public async Task<ActionResult<IReadOnlyList<ShareLinkInfo>>> GetPortfolioShareLinks(Guid portfolioGroupId, [FromServices] IPortfolioSharingService service, CancellationToken token)
         => Ok(await service.GetShareLinksAsync(ResolveUserId(), portfolioGroupId, token));
+
+    [HttpGet("portfolios/{portfolioGroupId:guid}/share-links/{inviteId:guid}/qr-code")]
+    public async Task<ActionResult<string>> GetPortfolioShareLinkQrCode(Guid portfolioGroupId, Guid inviteId, [FromServices] IPortfolioSharingService service, CancellationToken token)
+    {
+        var qrCode = await service.GetShareLinkQrCodeAsync(ResolveUserId(), portfolioGroupId, inviteId, token);
+        return qrCode is null ? NotFound() : Ok(qrCode);
+    }
 
     [HttpPost("portfolios/{portfolioGroupId:guid}/share-links")]
     public async Task<ActionResult<ShareLinkResult>> CreatePortfolioShareLink(Guid portfolioGroupId, [FromBody] CreateShareLinkRequest request, [FromServices] IPortfolioSharingService service, CancellationToken token)
@@ -2058,10 +2070,11 @@ public class MobileSyncController : ControllerBase
 
     private string ResolveUserId()
     {
-        return User.FindFirstValue(ClaimTypes.NameIdentifier)
-               ?? User.FindFirstValue("sub")
-               ?? User.FindFirstValue(ClaimTypes.Email)
-               ?? "gast";
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                     ?? User.FindFirstValue("sub");
+        return string.IsNullOrWhiteSpace(userId)
+            ? throw new UnauthorizedAccessException("Der authentifizierte Benutzer besitzt keine gültige Benutzer-ID.")
+            : userId;
     }
 
     private string? ResolveUserEmail()

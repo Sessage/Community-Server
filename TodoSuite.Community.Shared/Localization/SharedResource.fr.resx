@@ -2399,4 +2399,41 @@
   <data name="Directory_UserGranted" xml:space="preserve"><value>L’accès a été accordé à l’utilisateur de l’annuaire.</value></data>
   <data name="Directory_RoleSaved" xml:space="preserve"><value>Le rôle a été enregistré.</value></data>
   <data name="Directory_Removed" xml:space="preserve"><value>Le partage d’annuaire a été supprimé.</value></data>
+  <data name="Timeline_Title" xml:space="preserve"><value>Chronologie</value></data>
+  <data name="Timeline_Grouping" xml:space="preserve"><value>Regroupement</value></data>
+  <data name="Timeline_ByTask" xml:space="preserve"><value>Tâches</value></data>
+  <data name="Timeline_ByAssignee" xml:space="preserve"><value>Responsables</value></data>
+  <data name="Timeline_ScheduledCount" xml:space="preserve"><value>{0} tâches planifiées sur {1}</value></data>
+  <data name="Timeline_Saving" xml:space="preserve"><value>Enregistrement…</value></data>
+  <data name="Timeline_Zoom" xml:space="preserve"><value>Échelle de temps</value></data>
+  <data name="Timeline_Today" xml:space="preserve"><value>Aujourd’hui</value></data>
+  <data name="Timeline_Days" xml:space="preserve"><value>Jours</value></data>
+  <data name="Timeline_Weeks" xml:space="preserve"><value>Semaines</value></data>
+  <data name="Timeline_Months" xml:space="preserve"><value>Mois</value></data>
+  <data name="Timeline_TaskCount" xml:space="preserve"><value>{0} tâches</value></data>
+  <data name="Timeline_Empty" xml:space="preserve"><value>Aucune tâche ne correspond au filtre actuel.</value></data>
+  <data name="Timeline_Unscheduled" xml:space="preserve"><value>Non planifiée</value></data>
+  <data name="Timeline_Plan" xml:space="preserve"><value>Planifier</value></data>
+  <data name="Timeline_Milestone" xml:space="preserve"><value>Jalon</value></data>
+  <data name="Timeline_OpenMilestone" xml:space="preserve"><value>Ouvrir le jalon « {0} » du {1}</value></data>
+  <data name="Timeline_ResizeStart" xml:space="preserve"><value>Déplacer le début de « {0} »</value></data>
+  <data name="Timeline_ResizeEnd" xml:space="preserve"><value>Déplacer la fin de « {0} »</value></data>
+  <data name="Timeline_InteractionLoadError" xml:space="preserve"><value>L’interaction de la chronologie n’a pas pu être chargée : {0}</value></data>
+  <data name="Timeline_CalendarWeek" xml:space="preserve"><value>S</value></data>
+  <data name="Timeline_Unassigned" xml:space="preserve"><value>Non attribuée</value></data>
+  <data name="Timeline_ListOwner" xml:space="preserve"><value>Propriétaire de la liste</value></data>
+  <data name="Timeline_SaveError" xml:space="preserve"><value>La planification n’a pas pu être enregistrée : {0}</value></data>
+  <data name="Timeline_JumpToToday" xml:space="preserve"><value>Aller à aujourd’hui</value></data>
+  <data name="Timeline_TodayUnavailable" xml:space="preserve"><value>La date du jour ne peut pas encore être affichée.</value></data>
+  <data name="Timeline_NewTask" xml:space="preserve"><value>Nouvelle tâche dans la chronologie</value></data>
+  <data name="Timeline_ScheduleType" xml:space="preserve"><value>Type de planification</value></data>
+  <data name="Timeline_Planned" xml:space="preserve"><value>Planifiée</value></data>
+  <data name="Timeline_AddTask" xml:space="preserve"><value>Ajouter</value></data>
+  <data name="Timeline_AddingTask" xml:space="preserve"><value>Ajout…</value></data>
+  <data name="Timeline_AddTaskError" xml:space="preserve"><value>La tâche n’a pas pu être créée.</value></data>
+  <data name="Timeline_AddTaskErrorWithDetails" xml:space="preserve"><value>La tâche n’a pas pu être créée : {0}</value></data>
+  <data name="Timeline_EditSchedule" xml:space="preserve"><value>Modifier la planification</value></data>
+  <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>Convertir en tâche planifiée</value></data>
+  <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>Convertir en jalon</value></data>
+  <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>Supprimer la planification</value></data>
 </root>

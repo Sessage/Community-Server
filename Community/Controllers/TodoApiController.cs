@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Localization;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Localization;
@@ -18,6 +19,7 @@ namespace TodoSuite.Server.Controllers;
 public class TodoApiController : ControllerBase
 {
     private const long MaxAttachmentSizeBytes = 25L * 1024 * 1024;
+    private static readonly FileExtensionContentTypeProvider ContentTypes = new();
 
     [HttpGet("lists")]
     public async Task<IActionResult> GetLists([FromServices] ITodoListService listService, CancellationToken ct)
@@ -109,13 +111,18 @@ public class TodoApiController : ControllerBase
         // listId participates in the authorization lookup; attachmentId is not a bearer capability.
         var res = await attachmentService.GetAttachmentStreamAsync(userId, listId, attachmentId, ct);
         if (res is null) return NotFound();
-        return File(res.Value.Stream, "application/octet-stream", res.Value.FileName);
+        var contentType = ContentTypes.TryGetContentType(res.Value.FileName, out var detected)
+            ? detected
+            : "application/octet-stream";
+        return File(res.Value.Stream, contentType, res.Value.FileName, enableRangeProcessing: true);
     }
 
     private string ResolveUserId()
     {
         var id = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        return string.IsNullOrWhiteSpace(id) ? "gast" : id;
+        return string.IsNullOrWhiteSpace(id)
+            ? throw new UnauthorizedAccessException("Der authentifizierte Benutzer besitzt keine gültige Benutzer-ID.")
+            : id;
     }
 
     public sealed record TodoApprovalDecisionRequest(bool Approved);

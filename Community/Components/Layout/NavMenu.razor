@@ -40,14 +40,17 @@
         <div class="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm focus-within:ring-2 focus-within:ring-blue-400 focus-within:border-blue-400 transition-all">
             <FluentIcon Value="@(new Icons.Regular.Size16.Search())" Color="Color.Neutral" />
             <input class="p-2 flex-1 outline-none text-sm bg-transparent min-w-0"
+                   @ref="_searchInputRef"
                    type="text"
                    maxlength="@SearchUtilities.MaxQueryLength"
+                   aria-keyshortcuts="Control+K Meta+K"
                    aria-label="@L["Search_Placeholder"]"
                    placeholder="@L["Search_Placeholder"]"
                    value="@_searchQuery"
                    @oninput="OnSearchInput"
                    @onfocus="OnSearchFocus"
                    @onkeydown="OnSearchKeyDown" />
+            <kbd class="hidden xl:inline-flex shrink-0 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-500">Ctrl K</kbd>
             @if (!string.IsNullOrEmpty(_searchQuery))
             {
                 <button type="button" class="text-slate-400 hover:text-slate-600 shrink-0" title="@L["Search_Clear"]" aria-label="@L["Search_Clear"]" @onclick="ClearSearchAsync">
@@ -79,8 +82,9 @@
                         @foreach (var item in _searchListResults.Take(5))
                         {
                             <button type="button"
-                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 min-w-0"
+                                    class="w-full text-left px-3 py-2 flex items-center gap-2 min-w-0 @(IsSelectedSearchResult(item) ? "bg-blue-50" : "hover:bg-slate-50")"
                                     @onmousedown:preventDefault
+                                    @onmouseenter="() => _selectedSearchResult = item"
                                     @onclick="() => NavigateToSearchResult(item)">
                                 <FluentIcon Value="@(new Icons.Regular.Size16.DocumentBulletList())" Color="Color.Accent" />
                                 <span class="truncate text-sm">@item.Title</span>
@@ -94,8 +98,9 @@
                         @foreach (var item in _searchTaskResults.Take(5))
                         {
                             <button type="button"
-                                    class="w-full text-left px-3 py-2 hover:bg-slate-50 flex flex-col min-w-0"
+                                    class="w-full text-left px-3 py-2 flex flex-col min-w-0 @(IsSelectedSearchResult(item) ? "bg-blue-50" : "hover:bg-slate-50")"
                                     @onmousedown:preventDefault
+                                    @onmouseenter="() => _selectedSearchResult = item"
                                     @onclick="() => NavigateToSearchResult(item)">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <FluentIcon Value="@(new Icons.Regular.Size16.CheckmarkCircle())" Color="Color.Neutral" />
@@ -713,6 +718,7 @@
     private List<SearchResultItem> _searchResults = new();
     private List<SearchResultItem> _searchListResults = new();
     private List<SearchResultItem> _searchTaskResults = new();
+    private SearchResultItem? _selectedSearchResult;
     private CancellationTokenSource? _searchDebounce;
     private long _searchRequestVersion;
 
@@ -739,6 +745,7 @@
     // Autofocus refs
     private ElementReference _groupInputRef;
     private ElementReference _listInputRef;
+    private ElementReference _searchInputRef;
     private bool _focusGroupInput;
     private bool _focusListInput;
 
@@ -802,6 +809,7 @@
     private async Task OnSearchInput(ChangeEventArgs e)
     {
         _searchQuery = e.Value?.ToString() ?? "";
+        _selectedSearchResult = null;
         var requestVersion = ++_searchRequestVersion;
         _searchFailed = false;
 
@@ -839,7 +847,15 @@
 
     private async Task OnSearchKeyDown(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchQuery))
+        if (e.Key is "ArrowDown" or "ArrowUp")
+        {
+            MoveSearchSelection(e.Key == "ArrowDown" ? 1 : -1);
+        }
+        else if (e.Key == "Enter" && _selectedSearchResult is not null)
+        {
+            NavigateToSearchResult(_selectedSearchResult);
+        }
+        else if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchQuery))
         {
             _searchQuery = SearchUtilities.NormalizeQuery(_searchQuery);
             _searchOpen = false;
@@ -848,7 +864,27 @@
         else if (e.Key == "Escape")
         {
             _searchOpen = false;
+            _selectedSearchResult = null;
         }
+    }
+
+    private IReadOnlyList<SearchResultItem> VisibleSearchResults
+        => _searchListResults.Take(5).Concat(_searchTaskResults.Take(5)).ToList();
+
+    private bool IsSelectedSearchResult(SearchResultItem item)
+        => Equals(_selectedSearchResult, item);
+
+    private void MoveSearchSelection(int offset)
+    {
+        var visible = VisibleSearchResults;
+        if (visible.Count == 0)
+            return;
+
+        var current = _selectedSearchResult is null ? -1 : visible.ToList().IndexOf(_selectedSearchResult);
+        var next = current < 0
+            ? (offset > 0 ? 0 : visible.Count - 1)
+            : (current + offset + visible.Count) % visible.Count;
+        _selectedSearchResult = visible[next];
     }
 
     private async Task ClearSearchAsync()
@@ -864,6 +900,7 @@
         _searchResults.Clear();
         _searchListResults.Clear();
         _searchTaskResults.Clear();
+        _selectedSearchResult = null;
         await Task.CompletedTask;
     }
 
@@ -907,6 +944,7 @@
     private void NavigateToSearchResult(SearchResultItem item)
     {
         _searchOpen = false;
+        _selectedSearchResult = null;
         if (item.TaskId.HasValue)
             Navigation.NavigateTo($"/list/{item.ListId}?taskId={item.TaskId}");
         else
@@ -1009,6 +1047,7 @@
     {
         if (firstRender)
         {
+            try { await JS.InvokeVoidAsync("todoUi.enableGlobalSearchShortcut", _searchInputRef); } catch { }
             if (_userId != "gast")
                 await StartHubAsync();
         }
@@ -2191,6 +2230,7 @@
         NavigationRefresh.RefreshRequested -= OnNavigationRefreshRequestedAsync;
 
         try { await JS.InvokeVoidAsync("todoUi.disposeNavSortable"); } catch { }
+        try { await JS.InvokeVoidAsync("todoUi.disableGlobalSearchShortcut"); } catch { }
         if (_manageGroupListsHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "nav-manage-group-lists-dlg"); } catch { }
         if (_renameGroupHookActive)

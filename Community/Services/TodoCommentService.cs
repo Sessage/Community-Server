@@ -39,6 +39,8 @@ public class TodoCommentService : TodoWorkspaceServiceBase, ITodoCommentService
         var msg = (message ?? "").Trim();
         if (string.IsNullOrWhiteSpace(msg))
             throw new ArgumentException("Kommentar ist leer.", nameof(message));
+        if (msg.Length > 4000)
+            throw new ArgumentException("Ein Kommentar darf höchstens 4000 Zeichen enthalten.", nameof(message));
 
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 

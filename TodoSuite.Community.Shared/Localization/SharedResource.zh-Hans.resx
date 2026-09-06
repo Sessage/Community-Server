@@ -2404,4 +2404,41 @@
   <data name="Directory_UserGranted" xml:space="preserve"><value>已向目录用户授予访问权限。</value></data>
   <data name="Directory_RoleSaved" xml:space="preserve"><value>角色已保存。</value></data>
   <data name="Directory_Removed" xml:space="preserve"><value>目录共享已移除。</value></data>
+  <data name="Timeline_Title" xml:space="preserve"><value>时间线</value></data>
+  <data name="Timeline_Grouping" xml:space="preserve"><value>分组</value></data>
+  <data name="Timeline_ByTask" xml:space="preserve"><value>任务</value></data>
+  <data name="Timeline_ByAssignee" xml:space="preserve"><value>负责人</value></data>
+  <data name="Timeline_ScheduledCount" xml:space="preserve"><value>已计划 {0}/{1} 个任务</value></data>
+  <data name="Timeline_Saving" xml:space="preserve"><value>正在保存…</value></data>
+  <data name="Timeline_Zoom" xml:space="preserve"><value>时间刻度</value></data>
+  <data name="Timeline_Today" xml:space="preserve"><value>今天</value></data>
+  <data name="Timeline_Days" xml:space="preserve"><value>天</value></data>
+  <data name="Timeline_Weeks" xml:space="preserve"><value>周</value></data>
+  <data name="Timeline_Months" xml:space="preserve"><value>月</value></data>
+  <data name="Timeline_TaskCount" xml:space="preserve"><value>{0} 个任务</value></data>
+  <data name="Timeline_Empty" xml:space="preserve"><value>没有符合当前筛选条件的任务。</value></data>
+  <data name="Timeline_Unscheduled" xml:space="preserve"><value>未计划</value></data>
+  <data name="Timeline_Plan" xml:space="preserve"><value>计划</value></data>
+  <data name="Timeline_Milestone" xml:space="preserve"><value>里程碑</value></data>
+  <data name="Timeline_OpenMilestone" xml:space="preserve"><value>打开 {1} 的里程碑“{0}”</value></data>
+  <data name="Timeline_ResizeStart" xml:space="preserve"><value>移动“{0}”的开始时间</value></data>
+  <data name="Timeline_ResizeEnd" xml:space="preserve"><value>移动“{0}”的结束时间</value></data>
+  <data name="Timeline_InteractionLoadError" xml:space="preserve"><value>无法加载时间线交互：{0}</value></data>
+  <data name="Timeline_CalendarWeek" xml:space="preserve"><value>第</value></data>
+  <data name="Timeline_Unassigned" xml:space="preserve"><value>未分配</value></data>
+  <data name="Timeline_ListOwner" xml:space="preserve"><value>列表所有者</value></data>
+  <data name="Timeline_SaveError" xml:space="preserve"><value>无法保存计划：{0}</value></data>
+  <data name="Timeline_JumpToToday" xml:space="preserve"><value>跳转到今天</value></data>
+  <data name="Timeline_TodayUnavailable" xml:space="preserve"><value>暂时无法显示今天。</value></data>
+  <data name="Timeline_NewTask" xml:space="preserve"><value>新建时间线任务</value></data>
+  <data name="Timeline_ScheduleType" xml:space="preserve"><value>计划类型</value></data>
+  <data name="Timeline_Planned" xml:space="preserve"><value>已计划</value></data>
+  <data name="Timeline_AddTask" xml:space="preserve"><value>添加</value></data>
+  <data name="Timeline_AddingTask" xml:space="preserve"><value>正在添加…</value></data>
+  <data name="Timeline_AddTaskError" xml:space="preserve"><value>无法创建任务。</value></data>
+  <data name="Timeline_AddTaskErrorWithDetails" xml:space="preserve"><value>无法创建任务：{0}</value></data>
+  <data name="Timeline_EditSchedule" xml:space="preserve"><value>编辑计划</value></data>
+  <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>转换为计划任务</value></data>
+  <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>转换为里程碑</value></data>
+  <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>移除计划</value></data>
 </root>

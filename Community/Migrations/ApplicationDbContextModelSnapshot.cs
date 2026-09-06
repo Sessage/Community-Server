@@ -509,6 +509,55 @@ namespace TodoSuite.Server.Migrations
                     b.ToTable("ListViewPreferences");
                 });
 
+            modelBuilder.Entity("Klassenbibliothek.Data.MobileRefreshTokenEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("FamilyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReplacementTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("SecurityStamp")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("FamilyId", "RevokedAtUtc");
+
+                    b.HasIndex("UserId", "ExpiresAtUtc");
+
+                    b.ToTable("MobileRefreshTokens");
+                });
+
             modelBuilder.Entity("Klassenbibliothek.Data.PersonalAccessTokenEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -833,7 +882,8 @@ namespace TodoSuite.Server.Migrations
 
                     b.Property<string>("Message")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<Guid>("TaskId")
                         .HasColumnType("uuid");
@@ -1283,7 +1333,8 @@ namespace TodoSuite.Server.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
 
@@ -1408,11 +1459,18 @@ namespace TodoSuite.Server.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ListId");
+                    b.HasIndex("DueDate", "DeletedAt", "Done");
+
+                    b.HasIndex("ListId", "DeletedAt", "Column", "KanbanSortOrder");
+
+                    b.HasIndex("ListId", "DeletedAt", "Done", "ListSortOrder");
+
+                    b.HasIndex("ReminderAtUtc", "ReminderSentAtUtc", "Done", "DeletedAt");
 
                     b.ToTable("TodoTasks");
                 });
@@ -1778,6 +1836,15 @@ namespace TodoSuite.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("List");
+                });
+
+            modelBuilder.Entity("Klassenbibliothek.Data.MobileRefreshTokenEntity", b =>
+                {
+                    b.HasOne("Klassenbibliothek.Data.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Klassenbibliothek.Data.PortfolioInviteEntity", b =>

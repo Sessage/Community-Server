@@ -46,6 +46,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<UserNotificationEntity> UserNotifications => Set<UserNotificationEntity>();
 
     public DbSet<PersonalAccessTokenEntity> PersonalAccessTokens => Set<PersonalAccessTokenEntity>();
+    public DbSet<MobileRefreshTokenEntity> MobileRefreshTokens => Set<MobileRefreshTokenEntity>();
 
     public DbSet<DashboardEntity> Dashboards => Set<DashboardEntity>();
     public DbSet<TodoFormEntity> TodoForms => Set<TodoFormEntity>();
@@ -234,6 +235,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.Property(t => t.ContentVersion).HasDefaultValue(1L).ValueGeneratedNever().IsConcurrencyToken();
             entity.Property(t => t.Column).HasDefaultValue("Backlog");
+            entity.HasIndex(t => new { t.ReminderAtUtc, t.ReminderSentAtUtc, t.Done, t.DeletedAt });
+            entity.HasIndex(t => new { t.ListId, t.DeletedAt, t.Done, t.ListSortOrder });
+            entity.HasIndex(t => new { t.ListId, t.DeletedAt, t.Column, t.KanbanSortOrder });
+            entity.HasIndex(t => new { t.DueDate, t.DeletedAt, t.Done });
 
             entity.HasMany(t => t.Attachments)
                 .WithOne(a => a.Task)
@@ -348,6 +353,22 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasIndex(t => t.TokenHash).IsUnique();
             entity.HasIndex(t => t.UserId);
             entity.Property(t => t.Name).HasMaxLength(200);
+        });
+
+        builder.Entity<MobileRefreshTokenEntity>(entity =>
+        {
+            entity.HasKey(token => token.Id);
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasIndex(token => new { token.UserId, token.ExpiresAtUtc });
+            entity.HasIndex(token => new { token.FamilyId, token.RevokedAtUtc });
+            entity.Property(token => token.TokenHash).HasMaxLength(64);
+            entity.Property(token => token.SecurityStamp).HasMaxLength(256);
+            entity.Property(token => token.ReplacementTokenHash).HasMaxLength(64);
+            entity.Property(token => token.RevokedAtUtc).IsConcurrencyToken();
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<UserNotificationPreferenceEntity>(entity =>

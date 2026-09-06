@@ -146,6 +146,7 @@ public static class CommunityApplication
         builder.Services.AddScoped<IDirectoryIdentitySynchronizer, NoOpDirectoryIdentitySynchronizer>();
         builder.Services.AddScoped<ITodoListPreferencesService, TodoListPreferencesService>();
         builder.Services.AddScoped<PersonalAccessTokenService>();
+        builder.Services.AddScoped<MobileRefreshTokenService>();
         builder.Services.AddScoped<UserAccountArtifactCleanupService>();
         builder.Services.AddScoped<ITodoColumnService, TodoColumnService>();
         builder.Services.AddScoped<ITodoAttachmentService, TodoAttachmentService>();
@@ -686,14 +687,11 @@ public static class CommunityApplication
         {
             var patIdentity = context.User.Identities.FirstOrDefault(identity =>
                 identity.IsAuthenticated && identity.AuthenticationType == PersonalAccessTokenAuthHandler.SchemeName);
-            var hasOtherIdentity = context.User.Identities.Any(identity =>
-                identity.IsAuthenticated && identity.AuthenticationType != PersonalAccessTokenAuthHandler.SchemeName);
             var isWriteRequest = !HttpMethods.IsGet(context.Request.Method)
                                  && !HttpMethods.IsHead(context.Request.Method)
                                  && !HttpMethods.IsOptions(context.Request.Method);
 
             if (patIdentity is not null
-                && !hasOtherIdentity
                 && isWriteRequest
                 && context.Request.Path.StartsWithSegments("/api")
                 && !patIdentity.HasClaim("pat:write", "true"))

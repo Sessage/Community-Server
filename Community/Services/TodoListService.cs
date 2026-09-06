@@ -34,7 +34,6 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     public async Task<IReadOnlyList<TodoListEntity>> GetListsAsync(string userId, CancellationToken cancellationToken = default)
     {
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        await PortfolioAccessCoordinator.EnsureUserPortfolioAccessAsync(db, userId, cancellationToken);
 
         var lists = await db.TodoLists
             .Include(l => l.Tasks.Where(t => t.DeletedAt == null)).ThenInclude(t => t.Attachments)
@@ -114,7 +113,6 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     public async Task<IReadOnlyList<TodoListEntity>> GetNavigationListsAsync(string userId, CancellationToken cancellationToken = default)
     {
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
-        await PortfolioAccessCoordinator.EnsureUserPortfolioAccessAsync(db, userId, cancellationToken);
 
         var lists = await db.TodoLists
             .Where(l => l.DeletedAt == null

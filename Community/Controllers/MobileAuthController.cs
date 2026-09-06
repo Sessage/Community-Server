@@ -43,6 +43,7 @@ public class MobileAuthController : ControllerBase
     private readonly ILogger<MobileAuthController> _logger;
     private readonly UserAccountArtifactCleanupService _accountArtifactCleanup;
     private readonly PersonalAccessTokenService _personalAccessTokens;
+    private readonly MobileRefreshTokenService _refreshTokens;
 
     public MobileAuthController(
         UserManager<ApplicationUser> userManager,
@@ -59,7 +60,8 @@ public class MobileAuthController : ControllerBase
         IAuditEventSink audit,
         ILogger<MobileAuthController> logger,
         UserAccountArtifactCleanupService accountArtifactCleanup,
-        PersonalAccessTokenService personalAccessTokens)
+        PersonalAccessTokenService personalAccessTokens,
+        MobileRefreshTokenService refreshTokens)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -76,12 +78,54 @@ public class MobileAuthController : ControllerBase
         _logger = logger;
         _accountArtifactCleanup = accountArtifactCleanup;
         _personalAccessTokens = personalAccessTokens;
+        _refreshTokens = refreshTokens;
     }
 
     [HttpGet("config")]
     public ActionResult<ConfigResponse> Config()
     {
         return Ok(new ConfigResponse(_adOptions.Enabled, _centralPolicy.Current.AllowSelfRegistration));
+    }
+
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<LoginResponse>> Refresh(
+        [FromBody] RefreshTokenRequest request,
+        CancellationToken cancellationToken)
+    {
+        var candidate = await _refreshTokens.FindAsync(request.RefreshToken, cancellationToken);
+        if (candidate is null)
+            return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(candidate.UserId);
+        if (user is null || await _userManager.IsLockedOutAsync(user))
+            return Unauthorized();
+
+        var securityStamp = await _userManager.GetSecurityStampAsync(user);
+        var replacement = await _refreshTokens.RotateAsync(
+            request.RefreshToken,
+            user.Id,
+            securityStamp,
+            cancellationToken);
+        if (replacement is null)
+            return Unauthorized();
+
+        var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
+        return Ok(await GenerateJwtTokenAsync(
+            user,
+            user.Email ?? user.UserName ?? user.Id,
+            isAdmin,
+            replacement));
+    }
+
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
+    {
+        await _refreshTokens.RevokeAsync(request.RefreshToken, cancellationToken);
+        return NoContent();
     }
 
     [HttpPost("login")]
@@ -344,6 +388,7 @@ public class MobileAuthController : ControllerBase
         var result = await _userManager.ChangePasswordAsync(user, request.OldPassword, request.NewPassword);
         if (result.Succeeded)
         {
+            await _refreshTokens.RevokeUserAsync(user.Id, HttpContext.RequestAborted);
             var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
             return Ok(await GenerateJwtTokenAsync(user, user.Email ?? user.Id, isAdmin));
         }
@@ -525,20 +570,25 @@ public class MobileAuthController : ControllerBase
         return (userId, user);
     }
 
-    private async Task<LoginResponse> GenerateJwtTokenAsync(ApplicationUser user, string fallbackName, bool isAdmin)
+    private async Task<LoginResponse> GenerateJwtTokenAsync(
+        ApplicationUser user,
+        string fallbackName,
+        bool isAdmin,
+        IssuedMobileRefreshToken? refreshToken = null)
     {
         var key = _jwtOptions.Key;
         var issuer = _jwtOptions.Issuer;
         var audience = _jwtOptions.Audience;
         var expiresMinutes = _jwtOptions.ExpiresMinutes;
 
+        var securityStamp = await _userManager.GetSecurityStampAsync(user);
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(ClaimTypes.NameIdentifier, user.Id),
             new(ClaimTypes.Name, user.UserName ?? fallbackName),
             new(ClaimTypes.Email, user.Email ?? fallbackName),
-            new(JwtTokenOptions.SecurityStampClaimType, await _userManager.GetSecurityStampAsync(user))
+            new(JwtTokenOptions.SecurityStampClaimType, securityStamp)
         };
 
         if (isAdmin)
@@ -556,7 +606,17 @@ public class MobileAuthController : ControllerBase
             signingCredentials: creds);
 
         var rawToken = new JwtSecurityTokenHandler().WriteToken(token);
-        return LoginResponse.Success(rawToken, expiresAt, user.Id, isAdmin);
+        refreshToken ??= await _refreshTokens.IssueAsync(
+            user.Id,
+            securityStamp,
+            HttpContext.RequestAborted);
+        return LoginResponse.Success(
+            rawToken,
+            expiresAt,
+            user.Id,
+            isAdmin,
+            refreshToken.Token,
+            refreshToken.ExpiresAtUtc);
     }
 
     private async Task<string> CreateTwoFactorChallengeTokenAsync(ApplicationUser user)
@@ -646,14 +706,29 @@ public class MobileAuthController : ControllerBase
     /// <summary>E-Mail-Adresse bei lokalem Login, konfigurierter LDAP-/AD-Anmeldename wenn UseAd=true.</summary>
     public record LoginRequest(string Email, string Password, bool UseAd = false);
     public record ConfigResponse(bool AdEnabled, bool AllowRegistration);
-    public record LoginResponse(string? Token, DateTime? ExpiresAtUtc, string? UserId, bool IsAdmin, bool RequiresTwoFactor, string? TwoFactorChallenge)
+    public record LoginResponse(
+        string? Token,
+        DateTime? ExpiresAtUtc,
+        string? UserId,
+        bool IsAdmin,
+        bool RequiresTwoFactor,
+        string? TwoFactorChallenge,
+        string? RefreshToken,
+        DateTime? RefreshTokenExpiresAtUtc)
     {
-        public static LoginResponse Success(string token, DateTime expiresAtUtc, string userId, bool isAdmin)
-            => new(token, expiresAtUtc, userId, isAdmin, false, null);
+        public static LoginResponse Success(
+            string token,
+            DateTime expiresAtUtc,
+            string userId,
+            bool isAdmin,
+            string refreshToken,
+            DateTime refreshTokenExpiresAtUtc)
+            => new(token, expiresAtUtc, userId, isAdmin, false, null, refreshToken, refreshTokenExpiresAtUtc);
 
         public static LoginResponse TwoFactorRequired(string challenge)
-            => new(null, null, null, false, true, challenge);
+            => new(null, null, null, false, true, challenge, null, null);
     }
+    public record RefreshTokenRequest(string RefreshToken);
     public record LoginWith2faRequest(string ChallengeToken, string Code);
     public record RegisterRequest(string Email, string Password);
     public record RegisterResponse(bool Succeeded, IReadOnlyList<string> Errors);
@@ -678,10 +753,13 @@ public class MobileAuthController : ControllerBase
     {
         var configuredBaseUrl = _configuration["Smtp:AppBaseUrl"]?.Trim().TrimEnd('/');
         var relativePath = path.TrimStart('/');
-        var requestPath = Request.PathBase.Add(new PathString($"/{relativePath}"));
-        return Uri.TryCreate(configuredBaseUrl, UriKind.Absolute, out var baseUri)
-            ? new Uri(new Uri($"{baseUri.AbsoluteUri.TrimEnd('/')}/"), relativePath).AbsoluteUri
-            : $"{Request.Scheme}://{Request.Host}{requestPath}";
+        if (!Uri.TryCreate(configuredBaseUrl, UriKind.Absolute, out var baseUri)
+            || (baseUri.Scheme != Uri.UriSchemeHttps && baseUri.Scheme != Uri.UriSchemeHttp)
+            || !string.IsNullOrEmpty(baseUri.UserInfo))
+            throw new InvalidOperationException(
+                "Smtp:AppBaseUrl muss als absolute HTTP(S)-URL konfiguriert sein, bevor sicherheitskritische E-Mail-Links versendet werden können.");
+
+        return new Uri(new Uri($"{baseUri.AbsoluteUri.TrimEnd('/')}/"), relativePath).AbsoluteUri;
     }
 
     private async Task<bool> IsChallengeValidForUserAsync(ClaimsPrincipal principal, ApplicationUser user)

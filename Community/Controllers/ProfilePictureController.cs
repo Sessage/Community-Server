@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
@@ -58,9 +59,14 @@ public class ProfilePictureController : ControllerBase
         if (!System.IO.File.Exists(fullPath))
             return NotFound();
 
-        Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
-        Response.Headers.Pragma = "no-cache";
+        var fileInfo = new FileInfo(fullPath);
+        var etag = $"\"{fileInfo.LastWriteTimeUtc.Ticks:x}-{fileInfo.Length:x}\"";
+        Response.Headers.ETag = etag;
+        Response.Headers.CacheControl = "public, max-age=3600";
         Response.Headers.XContentTypeOptions = "nosniff";
+        if (Request.GetTypedHeaders().IfNoneMatch?.Any(candidate =>
+                string.Equals(candidate.Tag.Value, etag, StringComparison.Ordinal)) == true)
+            return StatusCode(StatusCodes.Status304NotModified);
         return PhysicalFile(fullPath, GetContentType(fullPath));
     }
 

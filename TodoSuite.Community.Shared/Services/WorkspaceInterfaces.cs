@@ -316,6 +316,7 @@ public interface IPortfolioSharingService
     Task<PortfolioInviteResult> InviteAsync(string requestingUserId, Guid portfolioGroupId, string email, ListRole role, CancellationToken ct = default);
     Task<(bool Success, string Message, string? Link)> CreateShareLinkAsync(string requestingUserId, Guid portfolioGroupId, ListRole role, string? comment, CancellationToken ct = default);
     Task<IReadOnlyList<ShareLinkInfo>> GetShareLinksAsync(string requestingUserId, Guid portfolioGroupId, CancellationToken ct = default);
+    Task<string?> GetShareLinkQrCodeAsync(string requestingUserId, Guid portfolioGroupId, Guid inviteId, CancellationToken ct = default);
     Task<(bool Success, string Message)> UpdateShareLinkCommentAsync(string requestingUserId, Guid portfolioGroupId, Guid inviteId, string? comment, CancellationToken ct = default);
     Task<(bool Success, string Message)> RevokeShareLinkAsync(string requestingUserId, Guid portfolioGroupId, Guid inviteId, CancellationToken ct = default);
     Task<IReadOnlyList<PortfolioParticipantEntity>> GetParticipantsAsync(string requestingUserId, Guid portfolioGroupId, CancellationToken ct = default);

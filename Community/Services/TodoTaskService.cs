@@ -65,6 +65,23 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         var targetCol = TodoTaskInputValidation.ResolveColumn(list, task.Column);
         var assignee = TodoTaskInputValidation.ResolveAssignee(list, task.Assignee, nameof(task));
 
+        var incomingLabelIds = (task.LabelLinks ?? [])
+            .Select(link => link.LabelId)
+            .Distinct()
+            .ToList();
+        if (incomingLabelIds.Count > 0)
+        {
+            var validLabelIds = await db.TodoLabels
+                .Where(label => label.ListId == listId && incomingLabelIds.Contains(label.Id))
+                .Select(label => label.Id)
+                .ToListAsync(cancellationToken);
+            var invalidLabelIds = incomingLabelIds.Except(validLabelIds).ToList();
+            if (invalidLabelIds.Count > 0)
+                throw new ArgumentException(
+                    $"Aufgabe konnte nicht angelegt werden: Unbekannte Label-Ids: {string.Join(", ", invalidLabelIds)}.",
+                    nameof(task));
+        }
+
         var nextListOrder = (await db.TodoTasks
             .Where(t => t.ListId == listId && t.DeletedAt == null && !t.Done)
             .Select(t => (int?)t.ListSortOrder)
@@ -79,7 +96,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         {
             Id = task.Id == Guid.Empty ? Guid.NewGuid() : task.Id,
             ListId = listId,
-            Title = (task.Title ?? "").Trim(),
+            Title = TodoTaskInputValidation.NormalizeTitle(task.Title, nameof(task)),
             Description = RichTextContent.NormalizeForStorage(task.Description),
             StartDate = task.StartDate,
             DueDate = task.DueDate,
@@ -96,13 +113,20 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        if (CustomFieldsEnabled)
-            ApplyCustomFieldValues(entity, NormalizeCustomFieldValues(task.CustomFieldValues, await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken)));
+        entity.LabelLinks = incomingLabelIds
+            .Select(labelId => new TodoTaskLabelEntity
+            {
+                TaskId = entity.Id,
+                LabelId = labelId
+            })
+            .ToList();
 
-        if (string.IsNullOrWhiteSpace(entity.Title))
-            throw new ArgumentException(
-                $"Aufgabe konnte nicht angelegt werden: Titel ist leer. ListId='{listId}'.",
-                nameof(task));
+        if (CustomFieldsEnabled)
+            ApplyCustomFieldValues(entity, await NormalizeCustomFieldValuesAsync(
+                db,
+                task.CustomFieldValues,
+                await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken),
+                cancellationToken));
 
         db.TodoTasks.Add(entity);
 
@@ -151,6 +175,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             .Include(t => t.Watchers)
             .Include(t => t.LabelLinks)
             .Include(t => t.CustomFieldValues)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(t => t.Id == task.Id && t.ListId == listId && t.DeletedAt == null, cancellationToken);
 
         if (entity is null)
@@ -164,9 +189,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
         var previousTask = SnapshotForAutomation(entity);
 
-        entity.Title = (task.Title ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(entity.Title))
-            throw new ArgumentException($"Aufgabe konnte nicht geändert werden: Titel ist leer. TaskId='{entity.Id}'.", nameof(task));
+        entity.Title = TodoTaskInputValidation.NormalizeTitle(task.Title, nameof(task));
 
         var wasAlreadyDone = entity.Done;
         var oldAssignee = entity.Assignee;
@@ -183,7 +206,11 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         entity.CardColor = string.IsNullOrWhiteSpace(task.CardColor) ? null : task.CardColor.Trim();
         entity.CardColorMode = task.CardColorMode;
         var customFieldValues = CustomFieldsEnabled
-            ? NormalizeCustomFieldValues(task.CustomFieldValues, await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken))
+            ? await NormalizeCustomFieldValuesAsync(
+                db,
+                task.CustomFieldValues,
+                await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken),
+                cancellationToken)
             : [];
 
         var incomingMemberIds = (task.MemberUserIds ?? new List<string>())
@@ -251,26 +278,43 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             });
         }
 
-        var stepCreatedAtById = entity.Steps
-            .ToDictionary(step => step.Id, step => step.CreatedAtUtc);
-        entity.Steps.Clear();
-        foreach (var step in task.Steps ?? new List<TodoStepEntity>())
+        entity.Steps ??= [];
+        var existingSteps = entity.Steps.ToDictionary(step => step.Id);
+        var retainedStepIds = new HashSet<Guid>();
+        foreach (var step in task.Steps ?? [])
         {
             var title = (step.Title ?? "").Trim();
             if (string.IsNullOrWhiteSpace(title))
                 continue;
 
+            if (step.Id != Guid.Empty && !retainedStepIds.Add(step.Id))
+                throw new ArgumentException("Eine Teilschritt-ID darf innerhalb einer Aufgabe nur einmal vorkommen.", nameof(task));
+
+            if (step.Id != Guid.Empty && existingSteps.TryGetValue(step.Id, out var existingStep))
+            {
+                existingStep.Title = title;
+                existingStep.IsCompleted = step.IsCompleted;
+                continue;
+            }
+
+            var newStepId = step.Id == Guid.Empty ? Guid.NewGuid() : step.Id;
+            retainedStepIds.Add(newStepId);
             entity.Steps.Add(new TodoStepEntity
             {
-                Id = step.Id == Guid.Empty ? Guid.NewGuid() : step.Id,
+                Id = newStepId,
                 Title = title,
                 IsCompleted = step.IsCompleted,
-                CreatedAtUtc = stepCreatedAtById.TryGetValue(step.Id, out var existingCreatedAt)
-                    ? existingCreatedAt
-                    : step.CreatedAtUtc,
+                CreatedAtUtc = step.CreatedAtUtc,
                 TaskId = entity.Id
             });
         }
+
+        var removedSteps = entity.Steps
+            .Where(step => existingSteps.ContainsKey(step.Id) && !retainedStepIds.Contains(step.Id))
+            .ToList();
+        db.TodoSteps.RemoveRange(removedSteps);
+        foreach (var removedStep in removedSteps)
+            entity.Steps.Remove(removedStep);
         var oldReminderAtUtc = entity.ReminderAtUtc;
         entity.ReminderAtUtc = task.ReminderAtUtc;
 
@@ -804,21 +848,66 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 
     private static async Task<Dictionary<Guid, TodoCustomFieldDefinitionEntity>> GetCustomFieldDefinitionsAsync(ApplicationDbContext db, Guid listId, CancellationToken ct)
         => (await db.TodoCustomFields
-            .Include(x => x.SourceTaskList)!.ThenInclude(l => l!.Tasks)
+            .Include(x => x.Options)
             .Where(x => x.ListId == listId)
+            .AsSplitQuery()
             .ToListAsync(ct))
             .ToDictionary(x => x.Id);
 
-    private static IReadOnlyList<NormalizedCustomFieldValue> NormalizeCustomFieldValues(
+    private static async Task<IReadOnlyList<NormalizedCustomFieldValue>> NormalizeCustomFieldValuesAsync(
+        ApplicationDbContext db,
         IEnumerable<TodoTaskCustomFieldValueEntity>? incoming,
-        IReadOnlyDictionary<Guid, TodoCustomFieldDefinitionEntity> customFields)
-        => (incoming ?? [])
+        IReadOnlyDictionary<Guid, TodoCustomFieldDefinitionEntity> customFields,
+        CancellationToken ct)
+    {
+        var candidates = (incoming ?? [])
             .Where(v => customFields.ContainsKey(v.FieldId))
             .GroupBy(v => v.FieldId)
             .Select(g => g.Last())
-            .Select(v => new NormalizedCustomFieldValue(v.FieldId, NormalizeCustomFieldValue(customFields[v.FieldId], v.Value)))
-            .Where(v => !string.IsNullOrWhiteSpace(v.Value))
             .ToList();
+
+        var taskReferences = candidates
+            .Where(value => customFields[value.FieldId].Type == TodoCustomFieldType.TaskTitleSelect)
+            .Select(value =>
+            {
+                var field = customFields[value.FieldId];
+                return new
+                {
+                    Value = value,
+                    SourceListId = field.SourceTaskListId,
+                    TaskId = Guid.TryParse((value.Value ?? "").Trim(), out var taskId) ? taskId : (Guid?)null
+                };
+            })
+            .ToList();
+
+        if (taskReferences.Any(reference => reference.SourceListId is null || reference.TaskId is null))
+            throw new ArgumentException("Ein Aufgaben-Auswahlfeld verweist auf keine gültige Aufgabe.");
+
+        var requestedTaskIds = taskReferences.Select(reference => reference.TaskId!.Value).Distinct().ToArray();
+        var requestedListIds = taskReferences.Select(reference => reference.SourceListId!.Value).Distinct().ToArray();
+        var validTaskReferences = requestedTaskIds.Length == 0
+            ? new HashSet<(Guid TaskId, Guid ListId)>()
+            : (await db.TodoTasks
+                .Where(task => requestedTaskIds.Contains(task.Id)
+                    && requestedListIds.Contains(task.ListId)
+                    && task.DeletedAt == null)
+                .Select(task => new { task.Id, task.ListId })
+                .AsNoTracking()
+                .ToListAsync(ct))
+                .Select(task => (task.Id, task.ListId))
+                .ToHashSet();
+
+        foreach (var reference in taskReferences)
+            if (!validTaskReferences.Contains((reference.TaskId!.Value, reference.SourceListId!.Value)))
+                throw new ArgumentException($"Das benutzerdefinierte Feld „{customFields[reference.Value.FieldId].Name}“ verweist auf keine vorhandene Aufgabe.");
+
+        return candidates
+            .Select(value => new NormalizedCustomFieldValue(
+                value.FieldId,
+                NormalizeCustomFieldValue(customFields[value.FieldId], value.Value)))
+            .Where(value => !string.IsNullOrWhiteSpace(value.Value))
+            .ToList();
+    }
 
     private static string NormalizeCustomFieldValue(TodoCustomFieldDefinitionEntity field, string? value)
     {
@@ -846,19 +935,8 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         if (field.Type != TodoCustomFieldType.TaskTitleSelect)
             return normalized;
 
-        var sourceTasks = (field.SourceTaskList?.Tasks ?? [])
-            .Where(task => task.DeletedAt is null)
-            .ToList();
-
-        if (Guid.TryParse(normalized, out var taskId)
-            && sourceTasks.Any(task => task.Id == taskId))
+        if (Guid.TryParse(normalized, out var taskId))
             return CustomFieldSelectOptions.TaskValue(taskId);
-
-        var legacyMatch = sourceTasks.FirstOrDefault(task =>
-            string.Equals((task.Title ?? "").Trim(), normalized, StringComparison.OrdinalIgnoreCase));
-
-        if (legacyMatch is not null)
-            return CustomFieldSelectOptions.TaskValue(legacyMatch.Id);
 
         throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ verweist auf keine vorhandene Aufgabe.");
     }

@@ -26,18 +26,21 @@ public class AdminController : ControllerBase
     private readonly IAuditEventSink _audit;
     private readonly UserAccountArtifactCleanupService _accountArtifactCleanup;
     private readonly ILogger<AdminController> _logger;
+    private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
 
     public AdminController(
         UserManager<ApplicationUser> userManager,
         IStringLocalizer<SharedResource> localizer,
         IAuditEventSink audit,
         UserAccountArtifactCleanupService accountArtifactCleanup,
+        IDbContextFactory<ApplicationDbContext> dbFactory,
         ILogger<AdminController> logger)
     {
         _userManager = userManager;
         _localizer = localizer;
         _audit = audit;
         _accountArtifactCleanup = accountArtifactCleanup;
+        _dbFactory = dbFactory;
         _logger = logger;
     }
 
@@ -68,13 +71,24 @@ public class AdminController : ControllerBase
             .Take(take)
             .ToListAsync();
 
-        var result = new List<AdminUserDto>();
+        await using var db = await _dbFactory.CreateDbContextAsync(HttpContext.RequestAborted);
+        var adminRoleId = await db.Roles.AsNoTracking()
+            .Where(role => role.NormalizedName == "ADMIN")
+            .Select(role => role.Id)
+            .FirstOrDefaultAsync(HttpContext.RequestAborted);
+        var adminUserIds = string.IsNullOrWhiteSpace(adminRoleId)
+            ? []
+            : (await db.UserRoles.AsNoTracking()
+                .Where(userRole => userRole.RoleId == adminRoleId)
+                .Select(userRole => userRole.UserId)
+                .ToListAsync(HttpContext.RequestAborted))
+                .ToHashSet(StringComparer.Ordinal);
 
-        foreach (var u in users)
-        {
-            var isAdmin = await _userManager.IsInRoleAsync(u, "Admin");
-            result.Add(new AdminUserDto(u.Id, u.Email ?? string.Empty, u.UserName ?? string.Empty, isAdmin));
-        }
+        var result = users.Select(user => new AdminUserDto(
+            user.Id,
+            user.Email ?? string.Empty,
+            user.UserName ?? string.Empty,
+            adminUserIds.Contains(user.Id))).ToList();
 
         return Ok(result);
     }

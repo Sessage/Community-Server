@@ -2404,4 +2404,41 @@
   <data name="Directory_UserGranted" xml:space="preserve"><value>The directory user has been granted access.</value></data>
   <data name="Directory_RoleSaved" xml:space="preserve"><value>The role has been saved.</value></data>
   <data name="Directory_Removed" xml:space="preserve"><value>The directory share has been removed.</value></data>
+  <data name="Timeline_Title" xml:space="preserve"><value>Timeline</value></data>
+  <data name="Timeline_Grouping" xml:space="preserve"><value>Grouping</value></data>
+  <data name="Timeline_ByTask" xml:space="preserve"><value>Tasks</value></data>
+  <data name="Timeline_ByAssignee" xml:space="preserve"><value>Assignees</value></data>
+  <data name="Timeline_ScheduledCount" xml:space="preserve"><value>{0} of {1} tasks scheduled</value></data>
+  <data name="Timeline_Saving" xml:space="preserve"><value>Saving…</value></data>
+  <data name="Timeline_Zoom" xml:space="preserve"><value>Time scale</value></data>
+  <data name="Timeline_Today" xml:space="preserve"><value>Today</value></data>
+  <data name="Timeline_Days" xml:space="preserve"><value>Days</value></data>
+  <data name="Timeline_Weeks" xml:space="preserve"><value>Weeks</value></data>
+  <data name="Timeline_Months" xml:space="preserve"><value>Months</value></data>
+  <data name="Timeline_TaskCount" xml:space="preserve"><value>{0} tasks</value></data>
+  <data name="Timeline_Empty" xml:space="preserve"><value>No tasks match the current filter.</value></data>
+  <data name="Timeline_Unscheduled" xml:space="preserve"><value>Unscheduled</value></data>
+  <data name="Timeline_Plan" xml:space="preserve"><value>Schedule</value></data>
+  <data name="Timeline_Milestone" xml:space="preserve"><value>Milestone</value></data>
+  <data name="Timeline_OpenMilestone" xml:space="preserve"><value>Open milestone “{0}” on {1}</value></data>
+  <data name="Timeline_ResizeStart" xml:space="preserve"><value>Move the start of “{0}”</value></data>
+  <data name="Timeline_ResizeEnd" xml:space="preserve"><value>Move the end of “{0}”</value></data>
+  <data name="Timeline_InteractionLoadError" xml:space="preserve"><value>Timeline interaction could not be loaded: {0}</value></data>
+  <data name="Timeline_CalendarWeek" xml:space="preserve"><value>W</value></data>
+  <data name="Timeline_Unassigned" xml:space="preserve"><value>Unassigned</value></data>
+  <data name="Timeline_ListOwner" xml:space="preserve"><value>List owner</value></data>
+  <data name="Timeline_SaveError" xml:space="preserve"><value>The schedule could not be saved: {0}</value></data>
+  <data name="Timeline_JumpToToday" xml:space="preserve"><value>Jump to today</value></data>
+  <data name="Timeline_TodayUnavailable" xml:space="preserve"><value>Today could not be displayed yet.</value></data>
+  <data name="Timeline_NewTask" xml:space="preserve"><value>New timeline task</value></data>
+  <data name="Timeline_ScheduleType" xml:space="preserve"><value>Schedule type</value></data>
+  <data name="Timeline_Planned" xml:space="preserve"><value>Scheduled</value></data>
+  <data name="Timeline_AddTask" xml:space="preserve"><value>Add</value></data>
+  <data name="Timeline_AddingTask" xml:space="preserve"><value>Adding…</value></data>
+  <data name="Timeline_AddTaskError" xml:space="preserve"><value>The task could not be created.</value></data>
+  <data name="Timeline_AddTaskErrorWithDetails" xml:space="preserve"><value>The task could not be created: {0}</value></data>
+  <data name="Timeline_EditSchedule" xml:space="preserve"><value>Edit schedule</value></data>
+  <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>Convert to scheduled task</value></data>
+  <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>Convert to milestone</value></data>
+  <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>Remove schedule</value></data>
 </root>

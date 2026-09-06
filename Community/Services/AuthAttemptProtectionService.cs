@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
@@ -20,9 +21,13 @@ public sealed class AuthAttemptProtectionService
         CleanupExpired();
 
         var now = DateTimeOffset.UtcNow;
-        var ipStatus = CheckKey(CreateIpKey(httpContext), now);
-        if (ipStatus.IsBlocked)
-            return ipStatus;
+        var ipKey = CreateIpKey(httpContext);
+        if (ipKey is not null)
+        {
+            var ipStatus = CheckKey(ipKey, now);
+            if (ipStatus.IsBlocked)
+                return ipStatus;
+        }
 
         var subjectKey = CreateSubjectKey(subject);
         return string.IsNullOrWhiteSpace(subjectKey)
@@ -33,7 +38,9 @@ public sealed class AuthAttemptProtectionService
     public void RecordFailure(HttpContext httpContext, string? subject)
     {
         var now = DateTimeOffset.UtcNow;
-        RecordFailure(CreateIpKey(httpContext), now, isIpKey: true);
+        var ipKey = CreateIpKey(httpContext);
+        if (ipKey is not null)
+            RecordFailure(ipKey, now, isIpKey: true);
 
         var subjectKey = CreateSubjectKey(subject);
         if (!string.IsNullOrWhiteSpace(subjectKey))
@@ -103,10 +110,35 @@ public sealed class AuthAttemptProtectionService
         };
     }
 
-    private static string CreateIpKey(HttpContext httpContext)
+    private static string? CreateIpKey(HttpContext httpContext)
     {
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString();
-        return $"ip:{(string.IsNullOrWhiteSpace(ip) ? "unknown" : ip)}";
+        var address = httpContext.Connection.RemoteIpAddress;
+        if (address is null)
+            return null;
+
+        if (address.IsIPv4MappedToIPv6)
+            address = address.MapToIPv4();
+
+        // An unresolved private/loopback address is commonly the last reverse proxy hop.
+        // Bucketing it would let a few failed attempts lock out every client behind that proxy.
+        if (IPAddress.IsLoopback(address) || IsPrivateAddress(address))
+            return null;
+
+        return $"ip:{address}";
+    }
+
+    private static bool IsPrivateAddress(IPAddress address)
+    {
+        var bytes = address.GetAddressBytes();
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            return bytes[0] == 10
+                   || bytes[0] == 127
+                   || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+                   || (bytes[0] == 192 && bytes[1] == 168)
+                   || (bytes[0] == 169 && bytes[1] == 254);
+
+        return address.IsIPv6LinkLocal || address.IsIPv6SiteLocal
+               || (bytes.Length == 16 && (bytes[0] & 0xfe) == 0xfc);
     }
 
     private static string? CreateSubjectKey(string? subject)

@@ -30,7 +30,7 @@
      style="@(!string.IsNullOrWhiteSpace(_list?.BackgroundColor) ? $"background-color:{_list!.BackgroundColor}" : "")">
 
     <!-- Sticky Header -->
-    <div class="sticky rounded-xl top-0 z-30 shrink-0">
+    <div class="sticky rounded-xl top-0 z-50 shrink-0">
         <div class="py-2 px-4 flex items-center justify-between gap-3">
 
             <div class="min-w-0 flex items-center gap-3">
@@ -146,10 +146,9 @@
                             <button class="@ViewMenuItemCss(BoardView.Table)" @onclick="() => SwitchView(BoardView.Table)">
                                 @L["Workspace_TableView"]
                             </button>
-                            @if (ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
-                            {
-                                <button class="@ViewMenuItemCss(BoardView.Forms)" @onclick="() => SwitchView(BoardView.Forms)">@L["FormDesigner_Forms"]</button>
-                            }
+                            <button class="@ViewMenuItemCss(BoardView.Timeline)" @onclick="() => SwitchView(BoardView.Timeline)">
+                                @L["Timeline_Title"]
+                            </button>
                         </div>
                     </DropdownContent>
                 </FloatingDropdown>
@@ -224,7 +223,7 @@
                 @if (!_listLoading && CanAdminCurrentList())
                 {
                 <!-- Actions Dropdown (ohne FluentMenu) -->
-                <div class="relative">
+                <div class="relative" style="z-index:@(_actionsOpen ? 200 : 0)">
                     <FluentButton Appearance="Appearance.Stealth"
                                   Disabled="@WorkspaceInteractionBlocked"
                                   Title="@L["Nav_Options"]"
@@ -255,6 +254,10 @@
                                 </button>
                                 @if (ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
                                 {
+                                    <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
+                                            @onclick="OpenFormDesignerDialog">
+                                        @L["FormDesigner_Title"]
+                                    </button>
                                     <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
                                             @onclick="OpenCustomFieldsDialog">
                                         @L["CustomField_SectionTitle"]
@@ -408,11 +411,18 @@
                                                OnTaskAttachmentsRequested="OpenTaskAttachmentsFromTable"
                                                OnTaskCommentsRequested="OpenTaskCommentsFromTable" />
                             }
-                            else if (_view == BoardView.Forms)
+                            else if (_view == BoardView.Timeline)
                             {
-                                <TodoFormDesignerView List="_list"
-                                                      UserId="@_userId"
-                                                      OnChanged="ReloadAsync" />
+                                <TodoTimelineView @ref="_timelineViewRef"
+                                                  List="_list"
+                                                  Filter="_filter"
+                                                  OnChanged="ReloadAsync"
+                                                  OnDraggingChanged="OnDraggingChangedAsync"
+                                                  OnTaskUpdated="HandleTaskUpdated"
+                                                  OnTaskSelected="OpenTaskDetails"
+                                                  OnTaskDetailsRequested="OpenTaskDetailsFromTable"
+                                                  OnTaskAttachmentsRequested="OpenTaskAttachmentsFromTable"
+                                                  OnTaskCommentsRequested="OpenTaskCommentsFromTable" />
                             }
                             else
                             {
@@ -506,6 +516,35 @@
                 <CustomFieldManagerPanel List="_list" AvailableLists="_lists" UserId="@_userId" OnChanged="ReloadAsync" />
             </div>
         </div>
+    </div>
+}
+
+@if (_formDesignerOpen && _list is not null && ProductFeatures.IsEnabled(ProductFeatureIds.Forms) && CanAdminCurrentList())
+{
+    <div class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
+         role="presentation"
+         @onclick="CloseFormDesignerDialog">
+        <section class="flex h-[calc(100dvh-32px)] w-full max-w-[1440px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="workspace-form-designer-title"
+                 @onclick:stopPropagation="true">
+            <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+                <div class="min-w-0">
+                    <div id="workspace-form-designer-title" class="text-lg font-semibold text-slate-900">@L["FormDesigner_Title"]</div>
+                    <div class="truncate text-sm text-slate-500">@_list.Name</div>
+                </div>
+                <FluentButton Appearance="Appearance.Stealth" Title="@L["Btn_Close"]" OnClick="CloseFormDesignerDialog">
+                    <FluentIcon Value="@(new Icons.Regular.Size20.Dismiss())" />
+                </FluentButton>
+            </div>
+            <div class="min-h-0 flex-1 overflow-auto">
+                <TodoFormDesignerView @key="_list.Id"
+                                      List="_list"
+                                      UserId="@_userId"
+                                      OnChanged="ReloadAsync" />
+            </div>
+        </section>
     </div>
 }
 
@@ -1269,9 +1308,9 @@
     [CascadingParameter(Name = "IsNavCollapsed")] private bool IsNavCollapsed { get; set; }
     [CascadingParameter(Name = "ToggleNavCallback")] private Action? ToggleNavCallback { get; set; }
 
-    private enum BoardView { List, Kanban, Calendar, Table, Forms }
+    private enum BoardView { List, Kanban, Calendar, Table, Timeline }
 
-    private string _userId = "gast";
+    private string _userId = string.Empty;
     private string _error = "";
 
     private List<TodoListEntity> _lists = new();
@@ -1377,6 +1416,7 @@
     private global::Klassenbibliothek.Components.Views.ToDoListView? _listViewRef;
     private global::Klassenbibliothek.Components.Views.ToDoKanbanView? _kanbanViewRef;
     private global::Klassenbibliothek.Components.Views.ToDoTableView? _tableViewRef;
+    private global::Klassenbibliothek.Components.Views.TodoTimelineView? _timelineViewRef;
 
     // Preferences are list-scoped. Reloading task data must not reset a view/sort
     // choice that the user has just made for the same list.
@@ -1412,7 +1452,8 @@
         => _isDragging
            || (_listViewRef?.IsDraggingFromSortable ?? false)
            || (_kanbanViewRef?.IsDraggingFromSortable ?? false)
-           || (_tableViewRef?.IsDraggingFromSortable ?? false);
+           || (_tableViewRef?.IsDraggingFromSortable ?? false)
+           || (_timelineViewRef?.IsDragging ?? false);
 
     private bool WorkspaceInteractionBlocked => _listLoading || IsAnyDragActive();
 
@@ -1486,19 +1527,15 @@
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
-        if (user?.Identity?.IsAuthenticated == true)
+        var id = user?.Identity?.IsAuthenticated == true
+            ? user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub")
+            : null;
+        if (string.IsNullOrWhiteSpace(id))
         {
-            // ✅ Primär: ASP.NET Identity / allgemein: NameIdentifier
-            var id =
-                user.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? user.FindFirstValue("sub"); // ✅ fallback für OIDC
-
-            _userId = string.IsNullOrWhiteSpace(id) ? "gast" : id;
+            Nav.NavigateTo("/Account/Login", forceLoad: true);
+            return;
         }
-        else
-        {
-            _userId = "gast";
-        }
+        _userId = id;
         _selectedTaskId = TaskId;
         await ReloadAsync();
 
@@ -2062,7 +2099,7 @@
             DefaultListView.Kanban => BoardView.Kanban,
             DefaultListView.Calendar => BoardView.Calendar,
             DefaultListView.Tabelle => BoardView.Table,
-            DefaultListView.Forms when ProductFeatures.IsEnabled(ProductFeatureIds.Forms) => BoardView.Forms,
+            DefaultListView.Timeline => BoardView.Timeline,
             _ => BoardView.List
         };
 
@@ -2103,6 +2140,7 @@
         _shareOpen = false;
         _labelsOpen = false;
         _customFieldsOpen = false;
+        _formDesignerOpen = false;
         _automationOpen = false;
         _backgroundOpen = false;
         InvalidateRestoreTasksLoad();
@@ -2137,6 +2175,7 @@
         _shareOpen = false;
         _labelsOpen = false;
         _customFieldsOpen = false;
+        _formDesignerOpen = false;
         _automationOpen = false;
         _backgroundOpen = false;
         _copyOpen = false;
@@ -2151,9 +2190,6 @@
     private async Task SwitchView(BoardView v)
     {
         if (WorkspaceInteractionBlocked || _list is null) return;
-
-        if (v == BoardView.Forms && !ProductFeatures.IsEnabled(ProductFeatureIds.Forms))
-            return;
 
         var listId = _list.Id;
 
@@ -2278,7 +2314,7 @@
         BoardView.Kanban => L["Page_Workspace_KanbanView"],
         BoardView.Calendar => L["QuickLink_Calendar"],
         BoardView.Table => L["Workspace_TableView"],
-        BoardView.Forms => L["FormDesigner_Forms"],
+        BoardView.Timeline => L["Timeline_Title"],
         _ => L["Page_Workspace_ListView"]
     };
 
@@ -2323,7 +2359,7 @@
             BoardView.Kanban => DefaultListView.Kanban,
             BoardView.Calendar => DefaultListView.Calendar,
             BoardView.Table => DefaultListView.Tabelle,
-            BoardView.Forms => DefaultListView.Forms,
+            BoardView.Timeline => DefaultListView.Timeline,
             _ => DefaultListView.Liste
         };
 
@@ -3300,6 +3336,19 @@
 
     private void CloseCustomFieldsDialog()
         => _customFieldsOpen = false;
+
+    private bool _formDesignerOpen;
+    private void OpenFormDesignerDialog()
+    {
+        if (WorkspaceInteractionBlocked || _list is null || !CanAdminCurrentList()
+            || !ProductFeatures.IsEnabled(ProductFeatureIds.Forms)) return;
+
+        CloseOverlays();
+        _formDesignerOpen = true;
+    }
+
+    private void CloseFormDesignerDialog()
+        => _formDesignerOpen = false;
 
     private bool _automationOpen;
     private void OpenAutomationDialog()

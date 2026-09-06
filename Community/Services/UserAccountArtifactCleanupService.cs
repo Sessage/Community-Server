@@ -21,18 +21,20 @@ public sealed class UserAccountArtifactCleanupService(
         try
         {
             await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-            var tokens = await db.PersonalAccessTokens
-                .Where(token => token.UserId == userId)
-                .ToListAsync(cancellationToken);
-            if (tokens.Count > 0)
-            {
-                db.PersonalAccessTokens.RemoveRange(tokens);
-                await db.SaveChangesAsync(cancellationToken);
-            }
+            db.PersonalAccessTokens.RemoveRange(await db.PersonalAccessTokens.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.MobileRefreshTokens.RemoveRange(await db.MobileRefreshTokens.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.UserNotifications.RemoveRange(await db.UserNotifications.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.UserNotificationPreferences.RemoveRange(await db.UserNotificationPreferences.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.ListViewPreferences.RemoveRange(await db.ListViewPreferences.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.TodoListNavigationPreferences.RemoveRange(await db.TodoListNavigationPreferences.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.TodoListGroupPreferences.RemoveRange(await db.TodoListGroupPreferences.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.TodoListWatchers.RemoveRange(await db.TodoListWatchers.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            db.TodoTaskWatchers.RemoveRange(await db.TodoTaskWatchers.Where(x => x.UserId == userId).ToListAsync(cancellationToken));
+            await db.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            logger.LogError(ex, "Could not remove personal access tokens for deleted user {UserId}.", userId);
+            logger.LogError(ex, "Could not remove database artifacts for deleted user {UserId}.", userId);
         }
 
         var fullPath = ResolveProfilePicturePath(profilePicturePath);

@@ -2469,4 +2469,41 @@
   <data name="Directory_UserGranted" xml:space="preserve"><value>Der Verzeichnisbenutzer wurde berechtigt.</value></data>
   <data name="Directory_RoleSaved" xml:space="preserve"><value>Die Rolle wurde gespeichert.</value></data>
   <data name="Directory_Removed" xml:space="preserve"><value>Die Verzeichnisfreigabe wurde entfernt.</value></data>
+  <data name="Timeline_Title" xml:space="preserve"><value>Zeitleiste</value></data>
+  <data name="Timeline_Grouping" xml:space="preserve"><value>Gruppierung</value></data>
+  <data name="Timeline_ByTask" xml:space="preserve"><value>Aufgaben</value></data>
+  <data name="Timeline_ByAssignee" xml:space="preserve"><value>Bearbeiter</value></data>
+  <data name="Timeline_ScheduledCount" xml:space="preserve"><value>{0} von {1} Aufgaben geplant</value></data>
+  <data name="Timeline_Saving" xml:space="preserve"><value>Wird gespeichert …</value></data>
+  <data name="Timeline_Zoom" xml:space="preserve"><value>Zeitskala</value></data>
+  <data name="Timeline_Today" xml:space="preserve"><value>Heute</value></data>
+  <data name="Timeline_Days" xml:space="preserve"><value>Tage</value></data>
+  <data name="Timeline_Weeks" xml:space="preserve"><value>Wochen</value></data>
+  <data name="Timeline_Months" xml:space="preserve"><value>Monate</value></data>
+  <data name="Timeline_TaskCount" xml:space="preserve"><value>{0} Aufgaben</value></data>
+  <data name="Timeline_Empty" xml:space="preserve"><value>Für den aktuellen Filter wurden keine Aufgaben gefunden.</value></data>
+  <data name="Timeline_Unscheduled" xml:space="preserve"><value>Nicht geplant</value></data>
+  <data name="Timeline_Plan" xml:space="preserve"><value>Planen</value></data>
+  <data name="Timeline_Milestone" xml:space="preserve"><value>Meilenstein</value></data>
+  <data name="Timeline_OpenMilestone" xml:space="preserve"><value>Meilenstein „{0}“ am {1} öffnen</value></data>
+  <data name="Timeline_ResizeStart" xml:space="preserve"><value>Start von „{0}“ verschieben</value></data>
+  <data name="Timeline_ResizeEnd" xml:space="preserve"><value>Ende von „{0}“ verschieben</value></data>
+  <data name="Timeline_InteractionLoadError" xml:space="preserve"><value>Die Timeline-Interaktion konnte nicht geladen werden: {0}</value></data>
+  <data name="Timeline_CalendarWeek" xml:space="preserve"><value>KW</value></data>
+  <data name="Timeline_Unassigned" xml:space="preserve"><value>Nicht zugewiesen</value></data>
+  <data name="Timeline_ListOwner" xml:space="preserve"><value>Listeneigentümer</value></data>
+  <data name="Timeline_SaveError" xml:space="preserve"><value>Der Termin konnte nicht gespeichert werden: {0}</value></data>
+  <data name="Timeline_JumpToToday" xml:space="preserve"><value>Zum heutigen Datum springen</value></data>
+  <data name="Timeline_TodayUnavailable" xml:space="preserve"><value>Das heutige Datum konnte noch nicht angezeigt werden.</value></data>
+  <data name="Timeline_NewTask" xml:space="preserve"><value>Neue Aufgabe in der Zeitleiste</value></data>
+  <data name="Timeline_ScheduleType" xml:space="preserve"><value>Terminart</value></data>
+  <data name="Timeline_Planned" xml:space="preserve"><value>Geplant</value></data>
+  <data name="Timeline_AddTask" xml:space="preserve"><value>Hinzufügen</value></data>
+  <data name="Timeline_AddingTask" xml:space="preserve"><value>Wird hinzugefügt …</value></data>
+  <data name="Timeline_AddTaskError" xml:space="preserve"><value>Die Aufgabe konnte nicht angelegt werden.</value></data>
+  <data name="Timeline_AddTaskErrorWithDetails" xml:space="preserve"><value>Die Aufgabe konnte nicht angelegt werden: {0}</value></data>
+  <data name="Timeline_EditSchedule" xml:space="preserve"><value>Termin bearbeiten</value></data>
+  <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>In geplante Aufgabe umwandeln</value></data>
+  <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>In Meilenstein umwandeln</value></data>
+  <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>Termin entfernen</value></data>
 </root>

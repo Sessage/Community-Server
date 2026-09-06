@@ -175,7 +175,13 @@ public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
         }
 
         var cutoff = DateTime.UtcNow.AddDays(-RetentionDays);
+        var notificationCutoff = DateTime.UtcNow.AddDays(-30);
         var purged = 0;
+
+        var oldReadNotifications = await db.UserNotifications
+            .Where(notification => notification.ReadAtUtc != null && notification.ReadAtUtc < notificationCutoff)
+            .ToListAsync(cancellationToken);
+        db.UserNotifications.RemoveRange(oldReadNotifications);
 
         // Aufgaben und Listen einschließlich zugehöriger Metadaten in einem Commit löschen.
         // Physische Dateien werden erst danach entfernt, damit ein DB-Fehler keine gültigen

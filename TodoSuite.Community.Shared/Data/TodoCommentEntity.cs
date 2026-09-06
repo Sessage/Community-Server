@@ -9,6 +9,7 @@ public class TodoCommentEntity
     public Guid Id { get; set; } = Guid.NewGuid();
 
     [Required]
+    [MaxLength(4000)]
     public string Message { get; set; } = string.Empty;
 
     public string? Author { get; set; }

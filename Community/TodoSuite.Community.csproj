@@ -48,9 +48,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TodoSuite.Community.Shared\TodoSuite.Community.Shared.csproj" />
-    <!-- The implementation is compiled only into the Enterprise module. Community
-         keeps the contracts/data shape for upgrade and mobile compatibility. -->
-    <Compile Remove="Services\TodoCustomFieldService.cs" />
   </ItemGroup>
 
   <!-- Local and example settings may contain workstation credentials and must never

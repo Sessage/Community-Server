@@ -6,7 +6,7 @@ public enum DefaultListView
     Kanban = 1,
     Calendar = 2,
     Tabelle = 3,
-    Forms = 4
+    Timeline = 4
 }
 
 public enum ListRole

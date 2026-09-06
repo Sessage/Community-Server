@@ -60,11 +60,9 @@ internal static class EffectiveNavigationProjection
             .ToListAsync(ct);
         var membershipMap = memberships.ToDictionary(p => p.ListId);
 
-        // Rückwärtskompatibilität für Portfolios, die bereits vor der kanonischen
-        // PortfolioLists-Zuordnung existierten. Deren Listen liegen gegebenenfalls
-        // nur in der Navigationspräferenz des Portfolio-Owners. Diese Information
-        // gilt fachlich für alle akzeptierten Mitglieder und darf nicht anhand der
-        // persönlichen Präferenz des gerade angemeldeten Benutzers verloren gehen.
+        // Existing portfolio ownership can still be represented by the owner's navigation
+        // preference. Keep projecting it for accepted members until a guaranteed data migration
+        // has materialized every such relation in PortfolioLists.
         var legacyMemberships = await (
             from preference in db.TodoListNavigationPreferences.AsNoTracking()
             join portfolio in db.TodoListGroups.AsNoTracking()
@@ -90,7 +88,7 @@ internal static class EffectiveNavigationProjection
                 continue;
             }
 
-            var legacyMembership = legacyMemberships.FirstOrDefault(p => p.ListId == list.Id);
+            var legacyMembership = legacyMemberships.FirstOrDefault(candidate => candidate.ListId == list.Id);
             if (legacyMembership is not null)
             {
                 list.NavigationGroupId = legacyMembership.PortfolioGroupId;

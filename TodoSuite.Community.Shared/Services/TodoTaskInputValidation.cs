@@ -5,6 +5,18 @@ namespace Klassenbibliothek.Services;
 /// <summary>Centralizes task input limits shared by browser, API, and native clients.</summary>
 public static class TodoTaskInputValidation
 {
+    public const int MaxTitleLength = 500;
+
+    public static string NormalizeTitle(string? title, string parameterName)
+    {
+        var normalized = (title ?? string.Empty).Trim();
+        if (normalized.Length == 0)
+            throw new ArgumentException("Der Aufgabentitel darf nicht leer sein.", parameterName);
+        if (normalized.Length > MaxTitleLength)
+            throw new ArgumentException($"Der Aufgabentitel darf höchstens {MaxTitleLength} Zeichen enthalten.", parameterName);
+        return normalized;
+    }
+
     public static string ResolveColumn(TodoListEntity list, string? requestedColumn)
     {
         ArgumentNullException.ThrowIfNull(list);

@@ -2404,4 +2404,41 @@
   <data name="Directory_UserGranted" xml:space="preserve"><value>डायरेक्टरी उपयोगकर्ता को पहुँच दे दी गई है।</value></data>
   <data name="Directory_RoleSaved" xml:space="preserve"><value>भूमिका सहेज दी गई है।</value></data>
   <data name="Directory_Removed" xml:space="preserve"><value>डायरेक्टरी साझाकरण हटा दिया गया है।</value></data>
+  <data name="Timeline_Title" xml:space="preserve"><value>समयरेखा</value></data>
+  <data name="Timeline_Grouping" xml:space="preserve"><value>समूहीकरण</value></data>
+  <data name="Timeline_ByTask" xml:space="preserve"><value>कार्य</value></data>
+  <data name="Timeline_ByAssignee" xml:space="preserve"><value>कार्यकर्ता</value></data>
+  <data name="Timeline_ScheduledCount" xml:space="preserve"><value>{1} में से {0} कार्य नियोजित</value></data>
+  <data name="Timeline_Saving" xml:space="preserve"><value>सहेजा जा रहा है…</value></data>
+  <data name="Timeline_Zoom" xml:space="preserve"><value>समय पैमाना</value></data>
+  <data name="Timeline_Today" xml:space="preserve"><value>आज</value></data>
+  <data name="Timeline_Days" xml:space="preserve"><value>दिन</value></data>
+  <data name="Timeline_Weeks" xml:space="preserve"><value>सप्ताह</value></data>
+  <data name="Timeline_Months" xml:space="preserve"><value>महीने</value></data>
+  <data name="Timeline_TaskCount" xml:space="preserve"><value>{0} कार्य</value></data>
+  <data name="Timeline_Empty" xml:space="preserve"><value>वर्तमान फ़िल्टर से कोई कार्य मेल नहीं खाता।</value></data>
+  <data name="Timeline_Unscheduled" xml:space="preserve"><value>अनियोजित</value></data>
+  <data name="Timeline_Plan" xml:space="preserve"><value>योजना बनाएँ</value></data>
+  <data name="Timeline_Milestone" xml:space="preserve"><value>मील का पत्थर</value></data>
+  <data name="Timeline_OpenMilestone" xml:space="preserve"><value>{1} का मील का पत्थर “{0}” खोलें</value></data>
+  <data name="Timeline_ResizeStart" xml:space="preserve"><value>“{0}” का आरंभ बदलें</value></data>
+  <data name="Timeline_ResizeEnd" xml:space="preserve"><value>“{0}” का अंत बदलें</value></data>
+  <data name="Timeline_InteractionLoadError" xml:space="preserve"><value>समयरेखा इंटरैक्शन लोड नहीं हुआ: {0}</value></data>
+  <data name="Timeline_CalendarWeek" xml:space="preserve"><value>सप्ताह</value></data>
+  <data name="Timeline_Unassigned" xml:space="preserve"><value>असाइन नहीं किया गया</value></data>
+  <data name="Timeline_ListOwner" xml:space="preserve"><value>सूची स्वामी</value></data>
+  <data name="Timeline_SaveError" xml:space="preserve"><value>योजना सहेजी नहीं जा सकी: {0}</value></data>
+  <data name="Timeline_JumpToToday" xml:space="preserve"><value>आज पर जाएँ</value></data>
+  <data name="Timeline_TodayUnavailable" xml:space="preserve"><value>आज की तारीख अभी दिखाई नहीं जा सकी।</value></data>
+  <data name="Timeline_NewTask" xml:space="preserve"><value>समयरेखा में नया कार्य</value></data>
+  <data name="Timeline_ScheduleType" xml:space="preserve"><value>योजना प्रकार</value></data>
+  <data name="Timeline_Planned" xml:space="preserve"><value>नियोजित</value></data>
+  <data name="Timeline_AddTask" xml:space="preserve"><value>जोड़ें</value></data>
+  <data name="Timeline_AddingTask" xml:space="preserve"><value>जोड़ा जा रहा है…</value></data>
+  <data name="Timeline_AddTaskError" xml:space="preserve"><value>कार्य बनाया नहीं जा सका।</value></data>
+  <data name="Timeline_AddTaskErrorWithDetails" xml:space="preserve"><value>कार्य बनाया नहीं जा सका: {0}</value></data>
+  <data name="Timeline_EditSchedule" xml:space="preserve"><value>योजना संपादित करें</value></data>
+  <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>नियोजित कार्य में बदलें</value></data>
+  <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>मील के पत्थर में बदलें</value></data>
+  <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>योजना हटाएँ</value></data>
 </root>

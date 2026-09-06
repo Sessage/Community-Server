@@ -29,6 +29,8 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
         var t = (title ?? "").Trim();
         if (string.IsNullOrWhiteSpace(t))
             throw new ArgumentException("Schritt ist leer.", nameof(title));
+        if (t.Length > 500)
+            throw new ArgumentException("Ein Schritt darf höchstens 500 Zeichen enthalten.", nameof(title));
 
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 

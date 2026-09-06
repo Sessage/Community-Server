@@ -263,6 +263,27 @@
                                value="@_newTitle"
                                @oninput="OnNewTitleInput"
                                @onkeydown="OnNewTitleKeyDown" />
+                        @if (ParsedNewTask is { HasMetadata: true } preview)
+                        {
+                            <div class="flex flex-wrap gap-1.5 px-1 pt-1.5 text-xs" aria-live="polite">
+                                @if (preview.DueDate is { } dueDate)
+                                {
+                                    <span class="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700">📅 @dueDate.ToString("d")</span>
+                                }
+                                @if (preview.IsImportant)
+                                {
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">★ Wichtig</span>
+                                }
+                                @foreach (var labelId in preview.LabelIds)
+                                {
+                                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">#@GetLabelTitle(labelId)</span>
+                                }
+                                @if (preview.AssigneeUserId is { } assignee)
+                                {
+                                    <span class="rounded-full bg-violet-100 px-2 py-0.5 text-violet-700">@@@GetParticipantName(assignee)</span>
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
 
@@ -803,12 +824,24 @@
     private void OnNewTitleInput(ChangeEventArgs e)
         => _newTitle = e.Value?.ToString() ?? "";
 
+    private SmartTaskInputResult ParsedNewTask
+        => SmartTaskInputParser.Parse(_newTitle, DateTime.Today, List.Labels, List.Participants);
+
+    private string GetLabelTitle(Guid labelId)
+        => List.Labels.FirstOrDefault(label => label.Id == labelId)?.Title ?? labelId.ToString("N");
+
+    private string GetParticipantName(string userId)
+        => List.Participants.FirstOrDefault(participant =>
+               string.Equals(participant.UserId, userId, StringComparison.OrdinalIgnoreCase))?.DisplayName
+           ?? userId;
+
     private async Task OnNewTitleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key != "Enter") return;
 
-        var title = _newTitle.Trim();
-        if (string.IsNullOrWhiteSpace(title)) return;
+        var originalInput = _newTitle;
+        var parsed = SmartTaskInputParser.Parse(originalInput, DateTime.Today, List.Labels, List.Participants);
+        if (string.IsNullOrWhiteSpace(parsed.Title)) return;
         if (_isAdding) return;
 
         _isAdding = true;
@@ -820,9 +853,14 @@
         var t = new TodoTaskEntity
         {
             Id = Guid.NewGuid(),
-            Title = title,
+            Title = parsed.Title,
             Column = List.Columns.FirstOrDefault() ?? "Backlog",
-            // DueDate = DateTime.Today.AddDays(1),
+            DueDate = parsed.DueDate,
+            IsImportant = parsed.IsImportant,
+            Assignee = parsed.AssigneeUserId,
+            LabelLinks = parsed.LabelIds
+                .Select(labelId => new TodoTaskLabelEntity { LabelId = labelId })
+                .ToList(),
             Done = false,
             ListSortOrder = max + 1
         };
@@ -832,7 +870,7 @@
         _isAdding = false;
 
         await InvokeAsync(StateHasChanged);
-        _ = PersistNewTaskAsync(t, title);
+        _ = PersistNewTaskAsync(t, originalInput);
     }
 
     private async Task PersistNewTaskAsync(TodoTaskEntity localTask, string originalTitle)

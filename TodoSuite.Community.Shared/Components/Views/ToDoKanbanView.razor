@@ -331,6 +331,27 @@
                                                      Immediate="true"
                                                      Placeholder="@L["Kanban_AddCard"]"
                                                      @onkeydown="(e) => OnNewCardKeyDown(col, e)" />
+                                    @if (ParseNewCard(col) is { HasMetadata: true } preview)
+                                    {
+                                        <div class="flex flex-wrap gap-1 pt-1.5 text-[11px]" aria-live="polite">
+                                            @if (preview.DueDate is { } dueDate)
+                                            {
+                                                <span class="rounded-full bg-blue-100 px-1.5 py-0.5 text-blue-700">📅 @dueDate.ToString("d")</span>
+                                            }
+                                            @if (preview.IsImportant)
+                                            {
+                                                <span class="rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-800">★ Wichtig</span>
+                                            }
+                                            @foreach (var labelId in preview.LabelIds)
+                                            {
+                                                <span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-700">#@GetQuickAddLabelTitle(labelId)</span>
+                                            }
+                                            @if (preview.AssigneeUserId is { } assignee)
+                                            {
+                                                <span class="rounded-full bg-violet-100 px-1.5 py-0.5 text-violet-700">@@@GetQuickAddParticipantName(assignee)</span>
+                                            }
+                                        </div>
+                                    }
                                 }
                                 else
                                 {
@@ -1840,6 +1861,17 @@
     private void SetNewTitleFor(string col, string v)
         => _newTitles[col] = v ?? "";
 
+    private SmartTaskInputResult ParseNewCard(string col)
+        => SmartTaskInputParser.Parse(NewTitleFor(col), DateTime.Today, List.Labels, List.Participants);
+
+    private string GetQuickAddLabelTitle(Guid labelId)
+        => List.Labels.FirstOrDefault(label => label.Id == labelId)?.Title ?? labelId.ToString("N");
+
+    private string GetQuickAddParticipantName(string userId)
+        => List.Participants.FirstOrDefault(participant =>
+               string.Equals(participant.UserId, userId, StringComparison.OrdinalIgnoreCase))?.DisplayName
+           ?? userId;
+
     private string NewTitleInputKey(string col)
         => $"{col}:{(_newTitleInputVersions.TryGetValue(col, out var version) ? version : 0)}";
 
@@ -1875,7 +1907,8 @@
             return;
 
         var raw = NewTitleFor(col);
-        var title = (raw ?? "").Trim();
+        var parsed = SmartTaskInputParser.Parse(raw, DateTime.Today, List.Labels, List.Participants);
+        var title = parsed.Title;
 
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -1896,8 +1929,12 @@
             Column = col,
             KanbanSortOrder = max + 1,
             Done = createInDoneColumn,
-            // StartDate = DateTime.Today,
-            // DueDate = DateTime.Today.AddDays(1)
+            DueDate = parsed.DueDate,
+            IsImportant = parsed.IsImportant,
+            Assignee = parsed.AssigneeUserId,
+            LabelLinks = parsed.LabelIds
+                .Select(labelId => new TodoTaskLabelEntity { LabelId = labelId })
+                .ToList()
         };
 
         try

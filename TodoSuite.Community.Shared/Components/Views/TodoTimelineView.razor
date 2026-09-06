@@ -1,0 +1,847 @@
+@using System.Globalization
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@inject ITodoTaskService TaskService
+@inject ITodoCurrentUserService CurrentUserService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (List is null)
+{
+    <div class="p-4 text-slate-500">@L["Common_NoListLoaded"]</div>
+}
+else
+{
+    <div class="timeline-view">
+        <div class="timeline-toolbar">
+            <div class="timeline-toolbar__group" role="group" aria-label="@L["Timeline_Grouping"]">
+                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Tasks)" @onclick="() => SetGrouping(TimelineGrouping.Tasks)">@L["Timeline_ByTask"]</button>
+                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Assignees)" @onclick="() => SetGrouping(TimelineGrouping.Assignees)">@L["Timeline_ByAssignee"]</button>
+            </div>
+            <div class="timeline-toolbar__summary">
+                <span>@L["Timeline_ScheduledCount", ScheduledTaskCount, VisibleTasks.Count]</span>
+                @if (_savingTaskIds.Count > 0)
+                {
+                    <span class="timeline-saving" aria-live="polite">@L["Timeline_Saving"]</span>
+                }
+            </div>
+            <div class="timeline-toolbar__group" role="group" aria-label="@L["Timeline_Zoom"]">
+                <button type="button"
+                        class="timeline-toolbar__button timeline-toolbar__button--today"
+                        title="@L["Timeline_JumpToToday"]"
+                        @onclick:stopPropagation="true"
+                        @onclick="CenterTodayAsync">@L["Timeline_Today"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Day)" @onclick="() => SetScale(TimelineScale.Day)">@L["Timeline_Days"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Week)" @onclick="() => SetScale(TimelineScale.Week)">@L["Timeline_Weeks"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Month)" @onclick="() => SetScale(TimelineScale.Month)">@L["Timeline_Months"]</button>
+            </div>
+        </div>
+
+        @if (CanWriteToList())
+        {
+            <form class="timeline-create" @onsubmit="AddTaskAsync" @onsubmit:preventDefault="true">
+                <input type="text"
+                       maxlength="500"
+                       placeholder="@L["Timeline_NewTask"]"
+                       aria-label="@L["Timeline_NewTask"]"
+                       @bind="_newTaskTitle"
+                       @bind:event="oninput" />
+                <label>
+                    <span class="sr-only">@L["Timeline_ScheduleType"]</span>
+                    <select @bind="_newTaskSchedule" aria-label="@L["Timeline_ScheduleType"]">
+                        <option value="@NewTaskSchedule.Planned">@L["Timeline_Planned"]</option>
+                        <option value="@NewTaskSchedule.Milestone">@L["Timeline_Milestone"]</option>
+                        <option value="@NewTaskSchedule.Unscheduled">@L["Timeline_Unscheduled"]</option>
+                    </select>
+                </label>
+                <button type="submit" disabled="@(_addingTask || string.IsNullOrWhiteSpace(_newTaskTitle))">
+                    @(_addingTask ? L["Timeline_AddingTask"] : L["Timeline_AddTask"])
+                </button>
+            </form>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="timeline-error" role="alert">@_error</div>
+        }
+
+        <div class="timeline-scroll" @ref="_scrollHost" data-timeline-scroll>
+            <div class="timeline-canvas" style="@CanvasStyle">
+                <div class="timeline-header timeline-row-grid">
+                    <div class="timeline-meta timeline-meta--header">
+                        <div class="timeline-cell timeline-cell--number">#</div>
+                        <div class="timeline-cell timeline-cell--icon" title="@L["Table_Open"]"><FluentIcon Value="@(new Icons.Regular.Size16.Eye())" /></div>
+                        <div class="timeline-cell timeline-cell--icon" title="@L["Task_Tab_Attachments_Header"]"><FluentIcon Value="@(new Icons.Regular.Size16.Attach())" /></div>
+                        <div class="timeline-cell timeline-cell--icon" title="@L["Task_Tab_Comments_Header"]"><FluentIcon Value="@(new Icons.Regular.Size16.Chat())" /></div>
+                        <div class="timeline-cell timeline-cell--title">@L["FormDesigner_Field_Title"] / @L["Task_Assignee"]</div>
+                    </div>
+                    <div class="timeline-axis" style="@TimelineWidthStyle">
+                        @foreach (var segment in HeaderSegments)
+                        {
+                            <div class="timeline-axis__segment" style="@SegmentStyle(segment)">
+                                @if (_scale == TimelineScale.Day)
+                                {
+                                    <span class="timeline-axis__weekday">@segment.Start.ToString("ddd", CultureInfo.CurrentCulture)</span>
+                                    <span class="timeline-axis__date">@segment.Start.ToString("dd.MM", CultureInfo.CurrentCulture)</span>
+                                }
+                                else
+                                {
+                                    <span>@segment.Label</span>
+                                }
+                            </div>
+                        }
+                        <div class="timeline-today-line" style="@TodayLineStyle" title="@L["Timeline_Today"]"></div>
+                    </div>
+                </div>
+
+                <div class="timeline-task-rows" @ref="_taskRowsHost" @key="_taskRowsRenderVersion">
+                    @if (Rows.Count == 0)
+                    {
+                        <div class="timeline-empty">@L["Timeline_Empty"]</div>
+                    }
+                    else
+                    {
+                        @foreach (var row in Rows)
+                        {
+                        if (row.GroupName is not null)
+                        {
+                            <div class="timeline-group-row timeline-row-grid" @key="row.Key">
+                                <div class="timeline-meta timeline-meta--group">
+                                    <span class="timeline-avatar" style="background:@GetAvatarColor(row.GroupUserId)">@GetInitials(row.GroupName)</span>
+                                    <span class="timeline-group-name">@row.GroupName</span>
+                                    <span class="timeline-group-count">@L["Timeline_TaskCount", row.GroupTaskCount]</span>
+                                </div>
+                                <div class="timeline-track timeline-track--group" style="@TimelineWidthStyle"></div>
+                            </div>
+                        }
+                        else if (row.Task is { } task)
+                        {
+                            var range = TimelineDateRange.GetDisplayRange(task);
+                            var milestone = TimelineDateRange.IsMilestone(task);
+                            <div class="timeline-task-row timeline-row-grid @(_savingTaskIds.Contains(task.Id) ? "timeline-task-row--saving" : "")"
+                                 @key="row.Key"
+                                 data-taskid="@task.Id"
+                                 data-task-reorderable="@CanReorderTask(task).ToString().ToLowerInvariant()">
+                                <div class="timeline-meta timeline-meta--task @(_scheduleMenuTaskId == task.Id ? "timeline-meta--menu-open" : "")">
+                                    <div class="timeline-cell timeline-cell--number" title="@L["Table_MoveTask"]">
+                                        <span>@row.Number</span>
+                                        @if (CanReorderTask(task))
+                                        {
+                                            <span class="timeline-grip table-task-drag-handle" aria-hidden="true">⋮⋮</span>
+                                        }
+                                    </div>
+                                    <div class="timeline-cell timeline-cell--icon">
+                                        <button type="button" class="timeline-action" title="@L["Table_OpenTask"]" @onclick="() => OpenTaskDetailsAsync(task)"><FluentIcon Value="@(new Icons.Regular.Size16.Eye())" /></button>
+                                    </div>
+                                    <div class="timeline-cell timeline-cell--icon">
+                                        <button type="button" class="timeline-action @((task.Attachments?.Count ?? 0) > 0 ? "timeline-action--active" : "")" title="@L["Table_OpenAttachments"]" @onclick="() => OpenTaskAttachmentsAsync(task)"><FluentIcon Value="@(new Icons.Regular.Size16.Attach())" /></button>
+                                    </div>
+                                    <div class="timeline-cell timeline-cell--icon">
+                                        <button type="button" class="timeline-action @((task.Comments?.Count ?? 0) > 0 ? "timeline-action--active" : "")" title="@L["Table_OpenComments"]" @onclick="() => OpenTaskCommentsAsync(task)"><FluentIcon Value="@(new Icons.Regular.Size16.Chat())" /></button>
+                                    </div>
+                                    <div class="timeline-cell timeline-cell--title">
+                                        <button type="button" class="timeline-title" title="@task.Title" @onclick="() => OpenTaskDetailsAsync(task)">@task.Title</button>
+                                        <div class="timeline-assignee">
+                                            <span class="timeline-avatar timeline-avatar--small" style="background:@GetAvatarColor(task.Assignee)">@GetInitials(GetAssigneeDisplayName(task.Assignee))</span>
+                                            <span class="timeline-assignee__name">@GetAssigneeDisplayName(task.Assignee)</span>
+                                            @if (range is not null)
+                                            {
+                                                <span class="timeline-dates">@FormatRange(task)</span>
+                                                @if (CanWriteToList())
+                                                {
+                                                    <button type="button"
+                                                            class="timeline-schedule-menu-button"
+                                                            title="@L["Timeline_EditSchedule"]"
+                                                            aria-label="@L["Timeline_EditSchedule"]"
+                                                            aria-expanded="@(_scheduleMenuTaskId == task.Id)"
+                                                            @onclick:stopPropagation="true"
+                                                            @onclick="() => ToggleScheduleMenu(task.Id)">•••</button>
+                                                }
+                                            }
+                                        </div>
+                                        @if (_scheduleMenuTaskId == task.Id)
+                                        {
+                                            <div class="timeline-schedule-popover" @onclick:stopPropagation="true">
+                                                @if (milestone)
+                                                {
+                                                    <button type="button" @onclick="() => ConvertToScheduleAsync(task)">@L["Timeline_ConvertToSchedule"]</button>
+                                                }
+                                                else
+                                                {
+                                                    <button type="button" @onclick="() => ConvertToMilestoneAsync(task)">@L["Timeline_ConvertToMilestone"]</button>
+                                                }
+                                                <button type="button" class="timeline-schedule-popover__danger" @onclick="() => RemoveScheduleAsync(task)">@L["Timeline_RemoveSchedule"]</button>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="timeline-track" style="@TrackStyle">
+                                    <div class="timeline-today-line" style="@TodayLineStyle"></div>
+                                    @if (range is null)
+                                    {
+                                        <div class="timeline-unscheduled">
+                                            <span>@L["Timeline_Unscheduled"]</span>
+                                            @if (CanWriteToList())
+                                            {
+                                                <button type="button" @onclick="() => CreateScheduleAsync(task, false)">@L["Timeline_Plan"]</button>
+                                                <button type="button" @onclick="() => CreateScheduleAsync(task, true)">@L["Timeline_Milestone"]</button>
+                                            }
+                                        </div>
+                                    }
+                                    else if (IsInsideVisibleRange(range.Value))
+                                    {
+                                        <div class="timeline-bar-shell @(milestone ? "timeline-bar-shell--milestone" : "")"
+                                             style="@BarStyle(task, range.Value, milestone)"
+                                             data-timeline-bar
+                                             data-task-id="@task.Id"
+                                             data-duration-days="@Math.Max(0, (range.Value.End - range.Value.Start).Days)">
+                                            @if (milestone)
+                                            {
+                                                <button type="button"
+                                                        class="timeline-milestone"
+                                                        style="--timeline-color:@GetTaskColor(task)"
+                                                        data-timeline-interaction="@(CanWriteToList() ? "move" : null)"
+                                                        aria-label="@L["Timeline_OpenMilestone", task.Title, range.Value.End.ToString("d")]"
+                                                        title="@($"{task.Title} · {range.Value.End:d}")"
+                                                        @onclick="() => OpenTaskDetailsAsync(task)"></button>
+                                            }
+                                            else
+                                            {
+                                                <div class="timeline-bar" style="--timeline-color:@GetTaskColor(task)" data-timeline-interaction="@(CanWriteToList() ? "move" : null)">
+                                                    @if (CanWriteToList())
+                                                    {
+                                                        <button type="button" class="timeline-resize timeline-resize--start" data-timeline-interaction="resize-start" aria-label="@L["Timeline_ResizeStart", task.Title]"></button>
+                                                    }
+                                                    <button type="button" class="timeline-bar__label" title="@task.Title" @onclick="() => OpenTaskDetailsAsync(task)">
+                                                        <span>@task.Title</span>
+                                                        <small>@GetAssigneeDisplayName(task.Assignee)</small>
+                                                    </button>
+                                                    @if (CanWriteToList())
+                                                    {
+                                                        <button type="button" class="timeline-resize timeline-resize--end" data-timeline-interaction="resize-end" aria-label="@L["Timeline_ResizeEnd", task.Title]"></button>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public TodoListEntity? List { get; set; }
+    [Parameter] public TodoTaskFilter? Filter { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskUpdated { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<bool> OnDraggingChanged { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskSelected { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskDetailsRequested { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskAttachmentsRequested { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskCommentsRequested { get; set; }
+
+    private enum TimelineScale { Day, Week, Month }
+    private enum TimelineGrouping { Tasks, Assignees }
+    private enum NewTaskSchedule { Planned, Milestone, Unscheduled }
+
+    private TimelineScale _scale = TimelineScale.Week;
+    private TimelineGrouping _grouping = TimelineGrouping.Tasks;
+    private ElementReference _scrollHost;
+    private ElementReference _taskRowsHost;
+    private DotNetObjectReference<TodoTimelineView>? _dotNetRef;
+    private readonly HashSet<Guid> _savingTaskIds = [];
+    private string _userId = "gast";
+    private string _currentUserDisplayName = "";
+    private string _error = "";
+    private bool _isDragging;
+    private bool _isTaskReordering;
+    private bool _taskReorderSaving;
+    private bool _taskSortableInitialized;
+    private int _taskRowsRenderVersion;
+    private long _latestTaskDragToken;
+    private bool _disposed;
+    private int _interopVersion = 1;
+    private int _initializedInteropVersion;
+    private Guid? _lastListId;
+    private bool _centerAfterInitialize = true;
+    private string _newTaskTitle = "";
+    private NewTaskSchedule _newTaskSchedule = NewTaskSchedule.Planned;
+    private bool _addingTask;
+    private Guid? _scheduleMenuTaskId;
+    private List<TodoTaskEntity> _visibleTasks = [];
+    private (DateTime Start, DateTime End) _visibleRange = (DateTime.Today.AddDays(-28), DateTime.Today.AddDays(84));
+    private IReadOnlyList<TimelineHeaderSegment> _headerSegments = [];
+    private IReadOnlyList<TimelineRow> _rows = [];
+
+    public bool IsDragging => _isDragging || _isTaskReordering || _taskReorderSaving || _savingTaskIds.Count > 0;
+
+    private double PixelsPerDay => _scale switch { TimelineScale.Day => 64, TimelineScale.Week => 18, _ => 5 };
+    private int PaddingDays => _scale switch { TimelineScale.Day => 14, TimelineScale.Week => 28, _ => 62 };
+
+    private IReadOnlyList<TodoTaskEntity> VisibleTasks => _visibleTasks;
+
+    private int ScheduledTaskCount => VisibleTasks.Count(task => TimelineDateRange.GetDisplayRange(task) is not null);
+
+    private (DateTime Start, DateTime End) VisibleRange => _visibleRange;
+
+    private int TimelineDays => Math.Max(1, (VisibleRange.End - VisibleRange.Start).Days + 1);
+    private double TimelineWidth => TimelineDays * PixelsPerDay;
+    private string TimelineWidthStyle => $"width:{TimelineWidth.ToString("0.###", CultureInfo.InvariantCulture)}px";
+    private string CanvasStyle => $"--timeline-width:{TimelineWidth.ToString("0.###", CultureInfo.InvariantCulture)}px;--timeline-day-width:{PixelsPerDay.ToString("0.###", CultureInfo.InvariantCulture)}px";
+    private string TrackStyle => $"{TimelineWidthStyle};--timeline-day-width:{PixelsPerDay.ToString("0.###", CultureInfo.InvariantCulture)}px";
+    private string TodayLineStyle => $"left:{DateLeft(DateTime.Today).ToString("0.###", CultureInfo.InvariantCulture)}px";
+
+    private IReadOnlyList<TimelineHeaderSegment> HeaderSegments => _headerSegments;
+    private IReadOnlyList<TimelineRow> Rows => _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var currentUser = await CurrentUserService.GetCurrentUserAsync();
+            _userId = currentUser.UserId;
+            _currentUserDisplayName = currentUser.DisplayName;
+        }
+        catch { }
+        RebuildProjection();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_lastListId != List?.Id)
+        {
+            _lastListId = List?.Id;
+            _error = "";
+            _savingTaskIds.Clear();
+            _isTaskReordering = false;
+            _taskReorderSaving = false;
+            _taskSortableInitialized = false;
+            _taskRowsRenderVersion++;
+            _interopVersion++;
+            _centerAfterInitialize = true;
+        }
+        RebuildProjection();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (List is null) return;
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+
+        if (_initializedInteropVersion != _interopVersion)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("todoUi.initTimeline", _scrollHost, _dotNetRef, PixelsPerDay);
+                _initializedInteropVersion = _interopVersion;
+                if (_centerAfterInitialize)
+                {
+                    await CenterTodayAsync();
+                    _centerAfterInitialize = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _error = L["Timeline_InteractionLoadError", ex.Message];
+            }
+        }
+
+        var canReorderTasks = CanReorderTasks;
+        if (_taskSortableInitialized && !canReorderTasks)
+        {
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableTasks", _taskRowsHost); } catch { }
+            _taskSortableInitialized = false;
+        }
+        else if (!_taskSortableInitialized && canReorderTasks)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("todoUi.initSortableTableTasks", _taskRowsHost, _dotNetRef);
+                _taskSortableInitialized = true;
+            }
+            catch (Exception ex)
+            {
+                _error = L["Timeline_InteractionLoadError", ex.Message];
+            }
+        }
+    }
+
+    // SortableJS temporarily owns the row DOM during a reorder gesture.
+    // Rendering at that point would reconcile against an intermediate DOM order
+    // and can cancel the drag or duplicate nodes.
+    protected override bool ShouldRender() => !_isTaskReordering;
+
+    private void SetScale(TimelineScale scale)
+    {
+        if (_scale == scale) return;
+        _scale = scale;
+        RebuildProjection();
+        _interopVersion++;
+        _centerAfterInitialize = true;
+    }
+
+    private void SetGrouping(TimelineGrouping grouping)
+    {
+        if (_grouping == grouping) return;
+        _grouping = grouping;
+        RebuildProjection();
+    }
+
+    private void RebuildProjection()
+    {
+        _visibleTasks = (List?.Tasks ?? [])
+            .Where(task => TodoTaskFilterMatcher.Matches(Filter, task, _userId))
+            .OrderBy(task => task.Done)
+            .ThenBy(task => task.ListSortOrder)
+            .ThenBy(task => task.CreatedAtUtc)
+            .ThenBy(task => task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+        var dates = _visibleTasks
+            .SelectMany(task => new[] { task.StartDate, task.DueDate })
+            .Where(date => date.HasValue)
+            .Select(date => date!.Value.Date)
+            .Append(DateTime.Today)
+            .ToList();
+        var start = dates.Min().AddDays(-PaddingDays);
+        var end = dates.Max().AddDays(PaddingDays);
+        var minimumDays = _scale switch { TimelineScale.Day => 42, TimelineScale.Week => 112, _ => 370 };
+        if ((end - start).TotalDays < minimumDays)
+            end = start.AddDays(minimumDays);
+
+        // Defensive rendering bound for accidentally corrupt or imported dates.
+        var absoluteMin = DateTime.Today.AddYears(-5);
+        var absoluteMax = DateTime.Today.AddYears(10);
+        _visibleRange = (start < absoluteMin ? absoluteMin : start, end > absoluteMax ? absoluteMax : end);
+        _rows = BuildRows();
+        _headerSegments = BuildHeaderSegments();
+    }
+
+    private string ToolbarButtonClass(bool active)
+        => $"timeline-toolbar__button {(active ? "timeline-toolbar__button--active" : "")}";
+
+    private async Task CenterTodayAsync()
+    {
+        try
+        {
+            var centered = await JS.InvokeAsync<bool>("todoUi.centerTimelineToday", _scrollHost, DateLeft(DateTime.Today));
+            if (!centered)
+                _error = L["Timeline_TodayUnavailable"];
+            else if (_error == L["Timeline_TodayUnavailable"])
+                _error = "";
+        }
+        catch (Exception ex)
+        {
+            _error = L["Timeline_InteractionLoadError", ex.Message];
+        }
+    }
+
+    private IReadOnlyList<TimelineRow> BuildRows()
+    {
+        var tasks = VisibleTasks;
+        var rows = new List<TimelineRow>();
+        var number = 0;
+        if (_grouping == TimelineGrouping.Tasks)
+        {
+            rows.AddRange(tasks.Select(task => TimelineRow.ForTask(task, ++number)));
+            return rows;
+        }
+
+        foreach (var group in tasks
+                     .GroupBy(task => NormalizeAssigneeKey(task.Assignee), StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(group => group.Key.Length == 0)
+                     .ThenBy(group => GetAssigneeDisplayName(group.Key), StringComparer.CurrentCultureIgnoreCase))
+        {
+            var groupTasks = group.ToList();
+            var displayName = GetAssigneeDisplayName(group.Key);
+            rows.Add(TimelineRow.ForGroup(group.Key, displayName, groupTasks.Count));
+            rows.AddRange(groupTasks.Select(task => TimelineRow.ForTask(task, ++number)));
+        }
+        return rows;
+    }
+
+    private IReadOnlyList<TimelineHeaderSegment> BuildHeaderSegments()
+    {
+        var range = VisibleRange;
+        var result = new List<TimelineHeaderSegment>();
+        var cursor = range.Start;
+        while (cursor <= range.End)
+        {
+            DateTime segmentEnd;
+            string label;
+            if (_scale == TimelineScale.Day)
+            {
+                segmentEnd = cursor;
+                label = cursor.ToString("ddd dd.MM", CultureInfo.CurrentCulture);
+            }
+            else if (_scale == TimelineScale.Week)
+            {
+                var daysToSunday = ((int)DayOfWeek.Sunday - (int)cursor.DayOfWeek + 7) % 7;
+                segmentEnd = Min(cursor.AddDays(daysToSunday), range.End);
+                label = $"{L["Timeline_CalendarWeek"]} {ISOWeek.GetWeekOfYear(cursor)} · {cursor:dd.MM.}";
+            }
+            else
+            {
+                segmentEnd = Min(new DateTime(cursor.Year, cursor.Month, 1).AddMonths(1).AddDays(-1), range.End);
+                label = cursor.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
+            }
+
+            result.Add(new TimelineHeaderSegment(cursor, segmentEnd, label));
+            cursor = segmentEnd.AddDays(1);
+        }
+        return result;
+    }
+
+    private string SegmentStyle(TimelineHeaderSegment segment)
+    {
+        var left = DateLeft(segment.Start);
+        var width = ((segment.End - segment.Start).Days + 1) * PixelsPerDay;
+        return $"left:{Invariant(left)}px;width:{Invariant(width)}px";
+    }
+
+    private string BarStyle(TodoTaskEntity _, (DateTime Start, DateTime End) range, bool milestone)
+    {
+        var left = DateLeft(range.Start);
+        var duration = Math.Max(1, (range.End - range.Start).Days);
+        var width = milestone ? 18 : Math.Max(PixelsPerDay, duration * PixelsPerDay);
+        return $"left:{Invariant(left)}px;width:{Invariant(width)}px";
+    }
+
+    private double DateLeft(DateTime date) => (date.Date - VisibleRange.Start).TotalDays * PixelsPerDay;
+    private bool IsInsideVisibleRange((DateTime Start, DateTime End) range) => range.End >= VisibleRange.Start && range.Start <= VisibleRange.End;
+    private static string Invariant(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+    private static DateTime Min(DateTime left, DateTime right) => left <= right ? left : right;
+
+    private string FormatRange(TodoTaskEntity task)
+    {
+        var range = TimelineDateRange.GetDisplayRange(task);
+        if (range is null) return L["Timeline_Unscheduled"];
+        if (TimelineDateRange.IsMilestone(task)) return $"{L["Timeline_Milestone"]} · {range.Value.End:d}";
+        return $"{range.Value.Start:d} – {range.Value.End:d}";
+    }
+
+    private string GetTaskColor(TodoTaskEntity task)
+        => IsSafeCssColor(task.CardColor) ? task.CardColor! : task.Done ? "#16a34a" : "#2563eb";
+
+    private static bool IsSafeCssColor(string? value)
+        => value is { Length: 7 } && value[0] == '#' && value.Skip(1).All(Uri.IsHexDigit);
+
+    private string GetAssigneeDisplayName(string? userId)
+    {
+        var key = NormalizeAssigneeKey(userId);
+        if (key.Length == 0) return L["Timeline_Unassigned"];
+        var participant = (List?.Participants ?? []).FirstOrDefault(candidate =>
+            string.Equals(candidate.UserId?.Trim(), key, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(candidate.Email?.Trim(), key, StringComparison.OrdinalIgnoreCase));
+        if (participant is not null)
+            return string.IsNullOrWhiteSpace(participant.DisplayName) ? participant.Email : participant.DisplayName;
+        if (string.Equals(key, _userId, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(_currentUserDisplayName))
+            return _currentUserDisplayName;
+        return key;
+    }
+
+    private static string NormalizeAssigneeKey(string? userId) => (userId ?? string.Empty).Trim();
+
+    private static string GetInitials(string? displayName)
+    {
+        var parts = (displayName ?? "?").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return string.Concat(parts.Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    }
+
+    private static string GetAvatarColor(string? key)
+    {
+        string[] colors = ["#2563eb", "#7c3aed", "#0891b2", "#059669", "#d97706", "#db2777", "#4f46e5"];
+        var hash = 17;
+        foreach (var character in (key ?? string.Empty).ToUpperInvariant())
+            hash = unchecked(hash * 31 + character);
+        hash &= int.MaxValue;
+        return colors[hash % colors.Length];
+    }
+
+    private bool CanWriteToList()
+    {
+        var userId = _userId.Trim();
+        return List is not null && userId.Length > 0 && AssigneeIdentityKeys.CanWrite(List, [userId]);
+    }
+
+    // A filtered or assignee-grouped DOM is only a partial/projection-specific
+    // ordering. Persisting that snapshot would move hidden tasks unexpectedly.
+    private bool CanReorderTasks => List is not null
+                                    && _grouping == TimelineGrouping.Tasks
+                                    && Filter?.IsActive() != true
+                                    && !_taskReorderSaving
+                                    && CanWriteToList();
+
+    private bool CanReorderTask(TodoTaskEntity task)
+        => CanReorderTasks && !task.Done && task.DeletedAt is null;
+
+    private async Task OpenTaskDetailsAsync(TodoTaskEntity task)
+    {
+        if (OnTaskDetailsRequested.HasDelegate) await OnTaskDetailsRequested.InvokeAsync(task);
+        else await OnTaskSelected.InvokeAsync(task);
+    }
+
+    private async Task OpenTaskAttachmentsAsync(TodoTaskEntity task)
+    {
+        if (OnTaskAttachmentsRequested.HasDelegate) await OnTaskAttachmentsRequested.InvokeAsync(task);
+        else await OpenTaskDetailsAsync(task);
+    }
+
+    private async Task OpenTaskCommentsAsync(TodoTaskEntity task)
+    {
+        if (OnTaskCommentsRequested.HasDelegate) await OnTaskCommentsRequested.InvokeAsync(task);
+        else await OpenTaskDetailsAsync(task);
+    }
+
+    [JSInvokable]
+    public Task SetTableTaskDragging(bool dragging)
+        => SetTaskReorderingAsync(dragging);
+
+    [JSInvokable]
+    public async Task SetTableTaskDraggingWithToken(bool dragging, long token)
+    {
+        if (dragging)
+        {
+            if (token <= _latestTaskDragToken) return;
+            _latestTaskDragToken = token;
+        }
+        else
+        {
+            if (token < _latestTaskDragToken) return;
+            _latestTaskDragToken = token;
+        }
+
+        await SetTaskReorderingAsync(dragging);
+    }
+
+    [JSInvokable]
+    public async Task FinishTableTaskDragWithOrder(long token, string[] orderedTaskIds)
+    {
+        if (_disposed || token < _latestTaskDragToken) return;
+        _latestTaskDragToken = token;
+
+        if (List is null || !CanReorderTasks)
+        {
+            await SetTaskReorderingAsync(false);
+            return;
+        }
+
+        var ids = orderedTaskIds
+            .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        var expectedIds = List.Tasks
+            .Where(task => !task.Done && task.DeletedAt is null)
+            .Select(task => task.Id)
+            .ToHashSet();
+
+        // Never persist a partial/corrupt DOM snapshot. This also protects the
+        // order if a real-time update arrives at the exact end of a gesture.
+        if (ids.Count != expectedIds.Count || ids.Any(id => !expectedIds.Contains(id)))
+        {
+            _taskSortableInitialized = false;
+            _taskRowsRenderVersion++;
+            await SetTaskReorderingAsync(false);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        for (var index = 0; index < ids.Count; index++)
+        {
+            var task = List.Tasks.First(candidate => candidate.Id == ids[index]);
+            task.ListSortOrder = index;
+        }
+
+        _isTaskReordering = false;
+        _taskReorderSaving = true;
+        _taskSortableInitialized = false;
+        _taskRowsRenderVersion++;
+        RebuildProjection();
+        if (OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(true);
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await TaskService.ReorderListAsync(_userId, List.Id, ids);
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = L["Timeline_SaveError", ex.Message];
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        finally
+        {
+            _taskReorderSaving = false;
+            if (OnDraggingChanged.HasDelegate)
+                await OnDraggingChanged.InvokeAsync(IsDragging);
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SetTaskReorderingAsync(bool dragging)
+    {
+        if (_disposed) return;
+        _isTaskReordering = dragging;
+        if (OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(IsDragging);
+    }
+
+    [JSInvokable]
+    public async Task SetTimelineDragging(bool dragging)
+    {
+        if (_disposed) return;
+        _isDragging = dragging;
+        if (OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(dragging || _savingTaskIds.Count > 0);
+    }
+
+    [JSInvokable]
+    public async Task OnTimelineDateChanged(string taskId, string mode, int deltaDays)
+    {
+        if (_disposed || !CanWriteToList() || deltaDays == 0 || !Guid.TryParse(taskId, out var id)) return;
+        var task = List?.Tasks.FirstOrDefault(candidate => candidate.Id == id);
+        if (task is null) return;
+
+        var parsedMode = mode switch
+        {
+            "resize-start" => TimelineDateChangeMode.ResizeStart,
+            "resize-end" => TimelineDateChangeMode.ResizeEnd,
+            _ => TimelineDateChangeMode.Move
+        };
+        await PersistDatesAsync(task, TimelineDateRange.Apply(task, parsedMode, deltaDays));
+    }
+
+    private Task CreateScheduleAsync(TodoTaskEntity task, bool milestone)
+        => PersistDatesAsync(task, milestone
+            ? TimelineDateRange.CreateMilestone(DateTime.Today)
+            : TimelineDateRange.CreateSchedule(DateTime.Today));
+
+    private void ToggleScheduleMenu(Guid taskId)
+        => _scheduleMenuTaskId = _scheduleMenuTaskId == taskId ? null : taskId;
+
+    private Task ConvertToMilestoneAsync(TodoTaskEntity task)
+        => PersistDatesAsync(task, TimelineDateRange.ConvertToMilestone(task, DateTime.Today));
+
+    private Task ConvertToScheduleAsync(TodoTaskEntity task)
+        => PersistDatesAsync(task, TimelineDateRange.ConvertToSchedule(task, DateTime.Today));
+
+    private Task RemoveScheduleAsync(TodoTaskEntity task)
+        => PersistDatesAsync(task, TimelineDateRange.RemoveSchedule());
+
+    private async Task AddTaskAsync()
+    {
+        if (_addingTask || List is null || !CanWriteToList()) return;
+        var title = _newTaskTitle.Trim();
+        if (title.Length == 0) return;
+
+        var schedule = _newTaskSchedule switch
+        {
+            NewTaskSchedule.Milestone => TimelineDateRange.CreateMilestone(DateTime.Today),
+            NewTaskSchedule.Unscheduled => TimelineDateRange.RemoveSchedule(),
+            _ => TimelineDateRange.CreateSchedule(DateTime.Today)
+        };
+        var task = new TodoTaskEntity
+        {
+            Id = Guid.NewGuid(),
+            ListId = List.Id,
+            Title = title,
+            Column = List.Columns.FirstOrDefault() ?? "Backlog",
+            StartDate = schedule.StartDate,
+            DueDate = schedule.DueDate,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+
+        _addingTask = true;
+        _error = "";
+        try
+        {
+            var saved = await TaskService.AddTaskAsync(_userId, List.Id, task)
+                ?? throw new InvalidOperationException(L["Timeline_AddTaskError"].Value);
+            List.Tasks.Add(saved);
+            _newTaskTitle = "";
+            RebuildProjection();
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = L["Timeline_AddTaskErrorWithDetails", ex.Message];
+        }
+        finally
+        {
+            _addingTask = false;
+        }
+    }
+
+    private async Task PersistDatesAsync(TodoTaskEntity task, TimelineDateUpdate update)
+    {
+        if (!_savingTaskIds.Add(task.Id)) return;
+        _scheduleMenuTaskId = null;
+        var oldStart = task.StartDate;
+        var oldDue = task.DueDate;
+        task.StartDate = update.StartDate;
+        task.DueDate = update.DueDate;
+        RebuildProjection();
+        _error = "";
+
+        if (OnDraggingChanged.HasDelegate)
+            await OnDraggingChanged.InvokeAsync(true);
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(updated);
+            if (OnChanged.HasDelegate)
+                await OnChanged.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            task.StartDate = oldStart;
+            task.DueDate = oldDue;
+            RebuildProjection();
+            _error = L["Timeline_SaveError", ex.Message];
+        }
+        finally
+        {
+            _savingTaskIds.Remove(task.Id);
+            if (OnDraggingChanged.HasDelegate)
+                await OnDraggingChanged.InvokeAsync(_isDragging || _savingTaskIds.Count > 0);
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        var notifyParent = IsDragging;
+        _disposed = true;
+        try { await JS.InvokeVoidAsync("todoUi.disposeTimeline", _scrollHost); } catch { }
+        if (_taskSortableInitialized)
+            try { await JS.InvokeVoidAsync("todoUi.disposeSortableTableTasks", _taskRowsHost); } catch { }
+        if (notifyParent && OnDraggingChanged.HasDelegate)
+            try { await OnDraggingChanged.InvokeAsync(false); } catch { }
+        _dotNetRef?.Dispose();
+    }
+
+    private sealed record TimelineHeaderSegment(DateTime Start, DateTime End, string Label);
+    private sealed record TimelineRow(string Key, TodoTaskEntity? Task, int Number, string? GroupUserId, string? GroupName, int GroupTaskCount)
+    {
+        public static TimelineRow ForTask(TodoTaskEntity task, int number) => new($"task-{task.Id:N}", task, number, null, null, 0);
+        public static TimelineRow ForGroup(string userId, string name, int count) => new($"group-{userId}", null, 0, userId, name, count);
+    }
+}
