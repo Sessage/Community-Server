@@ -362,7 +362,7 @@
 .timeline-empty { position: sticky; left: 0; width: min(100vw, var(--timeline-sidebar-width)); padding: 2rem; color: #64748b; text-align: center; }
 
 @media (max-width: 700px) {
-    .timeline-view { --timeline-sidebar-width: 350px; padding-inline: .4rem; }
+    .timeline-view { --timeline-sidebar-width: min(350px, calc(100vw - 1.8rem)); padding-inline: .4rem; }
     .timeline-meta { grid-template-columns: 42px 36px 36px 36px minmax(0, 1fr); }
     .timeline-toolbar { align-items: stretch; }
     .timeline-toolbar__summary { order: 3; width: 100%; }

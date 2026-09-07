@@ -196,6 +196,7 @@
     [JSInvokable]
     public async Task OnOutsideClick()
     {
+        if (_disposed) return;
         await HideOverlayAsync();
         await InvokeAsync(StateHasChanged);
     }
@@ -203,6 +204,7 @@
     [JSInvokable]
     public async Task OnEscapeKey()
     {
+        if (_disposed) return;
         await HideOverlayAsync();
         await InvokeAsync(StateHasChanged);
     }

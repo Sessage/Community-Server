@@ -8,5 +8,7 @@ public enum RecurrencePattern
     BestimmteWochentage,
     Monatlich,
     Jaehrlich,
-    Benutzerdefiniert
+    Benutzerdefiniert,
+    // Append-only: enum integers are persisted in existing databases.
+    TageNachAbschluss
 }

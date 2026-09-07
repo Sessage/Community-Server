@@ -1,6 +1,7 @@
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Services
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@inject DailyFocusClient Focus
 @inject ITodoTaskService TaskService
 @inject ITodoListService ListService
 @inject ITodoCurrentUserService CurrentUserService
@@ -10,13 +11,18 @@
     <div class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
         <span class="font-medium text-slate-700">@L["Bulk_SelectedCount", SelectedTaskIds.Count]</span>
         <select class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                @bind="_action">
+                aria-label="@L["Bulk_SelectAction"]" disabled="@_busy" @bind="_action">
             <option value="">@L["Bulk_SelectAction"]</option>
+            <option value="@ActionFocusAdd">@L["Focus_Add"]</option>
+            <option value="@ActionFocusRemove">@L["Focus_Remove"]</option>
+            @if (!FocusOnly)
+            {
             <option value="@ActionComplete">@L["Bulk_MarkDone"]</option>
             <option value="@ActionMove">@L["Bulk_Move"]</option>
             <option value="@ActionColor">@L["Bulk_ChangeColor"]</option>
             <option value="@ActionClearColor">@L["Bulk_ClearColor"]</option>
             <option value="@ActionDelete">@L["Btn_Delete"]</option>
+            }
         </select>
 
         @if (_action == ActionMove)
@@ -68,9 +74,10 @@
             @L["Bulk_ClearSelection"]
         </button>
 
+        @if (SelectedTaskIds.Count > 500 && _action is ActionFocusAdd or ActionFocusRemove) { <span role="status">@L["Focus_BatchLimit"]</span> }
         @if (!string.IsNullOrWhiteSpace(_error))
         {
-            <span class="text-red-600">@_error</span>
+            <span role="alert" class="text-red-600">@_error</span>
         }
     </div>
 }
@@ -81,6 +88,9 @@
     [Parameter] public EventCallback OnChanged { get; set; }
     [Parameter] public EventCallback OnSelectionCleared { get; set; }
 
+    [Parameter] public bool FocusOnly { get; set; }
+    private const string ActionFocusAdd = "focus-add";
+    private const string ActionFocusRemove = "focus-remove";
     private const string ActionComplete = "complete";
     private const string ActionDelete = "delete";
     private const string ActionMove = "move";
@@ -98,11 +108,13 @@
     private bool _busy;
 
     private bool CanApply =>
-        !_busy
+        !_busy && !Focus.IsBusy
         && !string.IsNullOrWhiteSpace(_userId)
         && SelectedTaskIds.Count > 0
         && _action switch
         {
+            ActionFocusAdd or ActionFocusRemove => SelectedTaskIds.Count <= 500,
+            _ when FocusOnly => false,
             ActionMove => TargetList is not null && !string.IsNullOrWhiteSpace(_targetColumn),
             ActionColor => !string.IsNullOrWhiteSpace(_cardColor),
             ActionComplete or ActionDelete or ActionClearColor => true,
@@ -114,6 +126,7 @@
         try
         {
             _userId = (await CurrentUserService.GetCurrentUserAsync()).UserId;
+            if (FocusOnly) return;
             var lists = await ListService.GetListOptionsAsync(_userId);
             _targetLists.Clear();
             _targetLists.AddRange(lists
@@ -180,8 +193,20 @@
             var selected = (List.Tasks ?? [])
                 // Nur Aufgaben aus dem aktuellen, autorisiert geladenen Listenaggregat werden
                 // verarbeitet; unbekannte IDs aus einem manipulierten UI-Zustand werden ignoriert.
-                .Where(t => SelectedTaskIds.Contains(t.Id))
+                .Where(t => t.DeletedAt is null && SelectedTaskIds.Contains(t.Id))
                 .ToList();
+
+            if (_action is ActionFocusAdd or ActionFocusRemove)
+            {
+                if (Focus.State is null) await Focus.RefreshAsync();
+                if (!await Focus.SetAsync(selected.Select(t => t.Id).ToArray(), _action == ActionFocusAdd))
+                {
+                    _error = L[Focus.ErrorKey ?? "Focus_Error"];
+                    return;
+                }
+                await ClearSelectionAsync();
+                return;
+            }
 
             foreach (var task in selected)
             {

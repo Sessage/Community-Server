@@ -213,6 +213,7 @@
   </data>
   <data name="Page_Tasks_Error" xml:space="preserve"><value>आपको सौंपे गए कार्य लोड नहीं हो सके। कृपया फिर से प्रयास करें।</value></data>
   <data name="Page_Tasks_Retry" xml:space="preserve"><value>फिर से प्रयास करें</value></data>
+  <data name="Task_ListOrigin" xml:space="preserve"><value>सूची से: {0}</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>फ़ोकस</value>
@@ -2441,4 +2442,56 @@
   <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>नियोजित कार्य में बदलें</value></data>
   <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>मील के पत्थर में बदलें</value></data>
   <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>योजना हटाएँ</value></data>
+  <data name="Focus_Add" xml:space="preserve"><value>मेरा दिन में जोड़ें</value></data>
+  <data name="Focus_All" xml:space="preserve"><value>कार्य चुनें</value></data>
+  <data name="Focus_Close" xml:space="preserve"><value>बंद करें</value></data>
+  <data name="Focus_Count" xml:space="preserve"><value>{0} चुने गए · {1} पूरे हुए</value></data>
+  <data name="Focus_Description" xml:space="preserve"><value>आज के लिए 3 से 7 कार्य चुनें। कल खाली चयन से शुरू होगा; सभी कार्य अपनी मूल सूचियों में सुरक्षित रहेंगे।</value></data>
+  <data name="Focus_DueToday" xml:space="preserve"><value>आज देय</value></data>
+  <data name="Focus_Empty" xml:space="preserve"><value>आपका दिन अभी खाली है। सुझावों या अपनी सूचियों से कार्य चुनें।</value></data>
+  <data name="Focus_Error" xml:space="preserve"><value>चयन सिंक नहीं हो सका। कृपया सर्वर से कनेक्शन जाँचें।</value></data>
+  <data name="Focus_Important" xml:space="preserve"><value>महत्वपूर्ण</value></data>
+  <data name="Focus_LimitHint" xml:space="preserve"><value>7 से अधिक कार्य चुने गए हैं। सोचें कि आज सबसे ज़रूरी क्या है।</value></data>
+  <data name="Focus_NoSuggestions" xml:space="preserve"><value>कोई मेल खाने वाला अधूरा कार्य नहीं है।</value></data>
+  <data name="Focus_Overdue" xml:space="preserve"><value>समय सीमा बीत चुकी है</value></data>
+  <data name="Focus_Remove" xml:space="preserve"><value>मेरा दिन से हटाएँ</value></data>
+  <data name="Focus_Retry" xml:space="preserve"><value>फिर कोशिश करें</value></data>
+  <data name="Focus_Search" xml:space="preserve"><value>कार्य या सूचियाँ खोजें</value></data>
+  <data name="Focus_Storage" xml:space="preserve"><value>आपका चयन सभी डिवाइस पर सिंक होता है। सर्वर से कनेक्शन आवश्यक है। साझा समय क्षेत्र:</value></data>
+  <data name="Focus_Suggestions" xml:space="preserve"><value>आज के लिए सुझाव</value></data>
+  <data name="Focus_Unscheduled" xml:space="preserve"><value>अन्य कार्य</value></data>
+  <data name="Focus_Load" xml:space="preserve"><value>मेरा दिन लोड करें</value></data>
+  <data name="Focus_SessionChanged" xml:space="preserve"><value>आपका सत्र बदल गया है। कृपया मेरा दिन फिर से लोड करें।</value></data>
+  <data name="Focus_DayChanged" xml:space="preserve"><value>नया दिन शुरू हो गया है। कृपया कार्य फिर से चुनें।</value></data>
+  <data name="Focus_BatchLimit" xml:space="preserve"><value>एक बार में अधिकतम 500 कार्य चुनें।</value></data>
+  <data name="Focus_SelectTask" xml:space="preserve"><value>कार्य चुनें: {0}</value></data>
+  <data name="Focus_AddedCount" xml:space="preserve"><value>मेरा दिन के लिए {0} कार्य चुने गए।</value></data>
+  <data name="Focus_RemovedCount" xml:space="preserve"><value>मेरा दिन से {0} कार्य हटाए गए।</value></data>
+  <data name="Focus_MultiSelect" xml:space="preserve"><value>एक से अधिक चुनें</value></data>
+  <data name="Focus_AddedOne" xml:space="preserve"><value>कार्य मेरा दिन में जोड़ा गया।</value></data>
+  <data name="Focus_RemovedOne" xml:space="preserve"><value>कार्य मेरा दिन से हटाया गया।</value></data>
+  <data name="Matrix_Title" xml:space="preserve"><value>प्राथमिकता मैट्रिक्स</value></data>
+  <data name="Matrix_Important" xml:space="preserve"><value>महत्वपूर्ण</value></data>
+  <data name="Matrix_NotImportant" xml:space="preserve"><value>महत्वपूर्ण नहीं</value></data>
+  <data name="Matrix_Urgent" xml:space="preserve"><value>तत्काल</value></data>
+  <data name="Matrix_NotUrgent" xml:space="preserve"><value>तत्काल नहीं</value></data>
+  <data name="Matrix_Q1_Title" xml:space="preserve"><value>तत्काल और महत्वपूर्ण</value></data>
+  <data name="Matrix_Q1_Action" xml:space="preserve"><value>अभी करें</value></data>
+  <data name="Matrix_Q1_Description" xml:space="preserve"><value>आज देय या विलंबित उच्च-प्राथमिकता वाले कार्य।</value></data>
+  <data name="Matrix_Q2_Title" xml:space="preserve"><value>महत्वपूर्ण, तत्काल नहीं</value></data>
+  <data name="Matrix_Q2_Action" xml:space="preserve"><value>योजना बनाएँ</value></data>
+  <data name="Matrix_Q2_Description" xml:space="preserve"><value>स्थायी प्रगति के लिए रणनीतिक कार्य।</value></data>
+  <data name="Matrix_Q3_Title" xml:space="preserve"><value>तत्काल, महत्वपूर्ण नहीं</value></data>
+  <data name="Matrix_Q3_Action" xml:space="preserve"><value>सौंपें</value></data>
+  <data name="Matrix_Q3_Description" xml:space="preserve"><value>उच्च प्राथमिकता के बिना समय-संवेदनशील कार्य।</value></data>
+  <data name="Matrix_Q4_Title" xml:space="preserve"><value>न तत्काल, न महत्वपूर्ण</value></data>
+  <data name="Matrix_Q4_Action" xml:space="preserve"><value>हटाएँ</value></data>
+  <data name="Matrix_Q4_Description" xml:space="preserve"><value>बिना तात्कालिकता या रणनीतिक महत्व वाले कार्य।</value></data>
+  <data name="Matrix_DropHere" xml:space="preserve"><value>कार्य यहाँ छोड़ें</value></data>
+  <data name="Matrix_MoveTask" xml:space="preserve"><value>{0} को दूसरे चतुर्थांश में ले जाएँ</value></data>
+  <data name="Matrix_NoDueDate" xml:space="preserve"><value>कोई नियत तारीख नहीं</value></data>
+  <data name="Matrix_SaveError" xml:space="preserve"><value>प्राथमिकता सहेजी नहीं जा सकी: {0}</value></data>
+  <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>पूरा होने के X दिन बाद</value></data>
+  <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>पूरा होने के बाद दिन</value></data>
+  <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>अगला कार्य वास्तविक समापन के {0} दिन बाद देय होगा।</value></data>
 </root>

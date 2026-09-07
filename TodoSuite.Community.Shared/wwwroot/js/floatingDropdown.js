@@ -47,7 +47,15 @@ window.floatingDropdown = (function () {
         // Remove any stale handler with the same ID
         unregisterCloseHandlers(dropdownId);
 
-        setTimeout(function () {
+        // Store the pending registration immediately. A component can disappear
+        // during the delay (for example when switching dashboard views); without
+        // this entry unregisterCloseHandlers cannot cancel the timer and the
+        // disposed .NET reference would be invoked by the next document click.
+        var registration = { timer: null, onDocClick: null, onKeyDown: null };
+        activeHandlers.set(dropdownId, registration);
+        registration.timer = setTimeout(function () {
+            if (activeHandlers.get(dropdownId) !== registration) return;
+
             var onDocClick = function (e) {
                 // Ignore clicks inside the floating panel itself
                 if (e.target && e.target.closest && e.target.closest('.floating-dropdown-panel')) {
@@ -57,19 +65,21 @@ window.floatingDropdown = (function () {
                 if (anchorElement && anchorElement.contains(e.target)) {
                     return;
                 }
-                dotnetRef.invokeMethodAsync('OnOutsideClick');
+                dotnetRef.invokeMethodAsync('OnOutsideClick').catch(function () { });
             };
 
             var onKeyDown = function (e) {
                 if (e.key === 'Escape') {
-                    dotnetRef.invokeMethodAsync('OnEscapeKey');
+                    dotnetRef.invokeMethodAsync('OnEscapeKey').catch(function () { });
                 }
             };
 
             document.addEventListener('click', onDocClick, true);
             document.addEventListener('keydown', onKeyDown, true);
 
-            activeHandlers.set(dropdownId, { onDocClick: onDocClick, onKeyDown: onKeyDown });
+            registration.timer = null;
+            registration.onDocClick = onDocClick;
+            registration.onKeyDown = onKeyDown;
         }, 100);
     }
 
@@ -80,8 +90,9 @@ window.floatingDropdown = (function () {
         var handlers = activeHandlers.get(dropdownId);
         if (!handlers) return;
 
-        document.removeEventListener('click', handlers.onDocClick, true);
-        document.removeEventListener('keydown', handlers.onKeyDown, true);
+        if (handlers.timer !== null) clearTimeout(handlers.timer);
+        if (handlers.onDocClick) document.removeEventListener('click', handlers.onDocClick, true);
+        if (handlers.onKeyDown) document.removeEventListener('keydown', handlers.onKeyDown, true);
         activeHandlers.delete(dropdownId);
     }
 

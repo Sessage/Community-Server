@@ -1000,6 +1000,7 @@
         NavigationRefresh.RefreshRequested += OnNavigationRefreshRequestedAsync;
         _quickLinks =
         [
+            (L["QuickLink_MyDay"], "/mein-tag", new Icons.Regular.Size20.WeatherSunny()),
             (L["QuickLink_Tasks"], "/", new Icons.Filled.Size20.TaskListSquareSparkle())
         ];
         if (ProductFeatures.IsEnabled(ProductFeatureIds.Dashboards))

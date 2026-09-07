@@ -1,0 +1,183 @@
+@using System.Globalization
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@inject ITodoTaskService TaskService
+
+<div class="priority-matrix" data-testid="dashboard-priority-matrix">
+    <div class="priority-matrix__axis priority-matrix__axis--importance" aria-hidden="true">
+        @* The vertical axis is rotated by CSS, so DOM order is intentionally reversed. *@
+        <span>@L["Matrix_NotImportant"]</span><span>@L["Matrix_Important"]</span>
+    </div>
+    <div class="priority-matrix__axis priority-matrix__axis--urgency" aria-hidden="true">
+        <span>@L["Matrix_Urgent"]</span><span>@L["Matrix_NotUrgent"]</span>
+    </div>
+
+    <div class="priority-matrix__grid">
+        @foreach (var definition in Quadrants)
+        {
+            var quadrant = definition.Quadrant;
+            var tasks = ItemsFor(quadrant);
+            <section class="priority-quadrant priority-quadrant--@((int)quadrant) @(_dragOver == quadrant ? "priority-quadrant--dragover" : "")"
+                     data-quadrant="@((int)quadrant)"
+                     @ondragenter="() => _dragOver = quadrant"
+                     @ondragenter:preventDefault="true"
+                     @ondragover:preventDefault="true"
+                     @ondrop="() => DropAsync(quadrant)">
+                <header class="priority-quadrant__header">
+                    <div>
+                        <div class="priority-quadrant__eyebrow">@definition.Action</div>
+                        <h2>@definition.Title</h2>
+                        <p>@definition.Description</p>
+                    </div>
+                    <span class="priority-quadrant__count">@tasks.Count</span>
+                </header>
+
+                <div class="priority-quadrant__tasks">
+                    @if (tasks.Count == 0)
+                    {
+                        <div class="priority-quadrant__empty">@L["Matrix_DropHere"]</div>
+                    }
+                    @foreach (var item in tasks)
+                    {
+                        var canWrite = CanWrite(item.List);
+                        <article class="priority-task @(_savingTaskIds.Contains(item.Task.Id) ? "priority-task--saving" : "")"
+                                 draggable="@canWrite.ToString().ToLowerInvariant()"
+                                 aria-grabbed="@((_draggedTaskId == item.Task.Id).ToString().ToLowerInvariant())"
+                                 @ondragstart="() => BeginDrag(item.Task.Id)"
+                                 @ondragend="EndDrag">
+                            <button type="button" class="priority-task__main" @onclick="() => OnTaskSelected.InvokeAsync(item)">
+                                <span class="priority-task__title">@item.Task.Title</span>
+                                <span class="priority-task__meta">
+                                    <span>@L["Task_ListOrigin", item.List.Name]</span>
+                                    <span>·</span>
+                                    <span>@FormatDueDate(item.Task)</span>
+                                </span>
+                            </button>
+                            <div class="priority-task__actions">
+                                @if (item.Task.IsImportant)
+                                {
+                                    <FluentIcon Value="@(new Icons.Filled.Size16.Star())" Title="@L["Matrix_Important"]" />
+                                }
+                                <select value="@((int)quadrant)"
+                                        disabled="@(!canWrite || _savingTaskIds.Contains(item.Task.Id))"
+                                        aria-label="@L["Matrix_MoveTask", item.Task.Title]"
+                                        @onchange="args => MoveFromSelectAsync(item.Task.Id, args.Value?.ToString())">
+                                    @foreach (var target in Quadrants)
+                                    {
+                                        <option value="@((int)target.Quadrant)">@target.Action</option>
+                                    }
+                                </select>
+                            </div>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="priority-matrix__error" role="alert">@_error</div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<(TodoListEntity List, TodoTaskEntity Task)> Items { get; set; } = [];
+    [Parameter, EditorRequired] public string UserId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<(TodoListEntity List, TodoTaskEntity Task)> OnTaskSelected { get; set; }
+    [Parameter] public EventCallback<TodoTaskEntity> OnTaskUpdated { get; set; }
+
+    private readonly HashSet<Guid> _savingTaskIds = [];
+    private Guid? _draggedTaskId;
+    private EisenhowerQuadrant? _dragOver;
+    private string _error = string.Empty;
+
+    private IReadOnlyList<QuadrantDefinition> Quadrants =>
+    [
+        new(EisenhowerQuadrant.UrgentImportant, L["Matrix_Q1_Title"], L["Matrix_Q1_Action"], L["Matrix_Q1_Description"]),
+        new(EisenhowerQuadrant.ImportantNotUrgent, L["Matrix_Q2_Title"], L["Matrix_Q2_Action"], L["Matrix_Q2_Description"]),
+        new(EisenhowerQuadrant.UrgentNotImportant, L["Matrix_Q3_Title"], L["Matrix_Q3_Action"], L["Matrix_Q3_Description"]),
+        new(EisenhowerQuadrant.NotUrgentNotImportant, L["Matrix_Q4_Title"], L["Matrix_Q4_Action"], L["Matrix_Q4_Description"])
+    ];
+
+    private List<(TodoListEntity List, TodoTaskEntity Task)> ItemsFor(EisenhowerQuadrant quadrant)
+        => Items.Where(item => !item.Task.Done
+                               && EisenhowerMatrixRules.Classify(item.Task, DateTime.Today) == quadrant)
+            .OrderBy(item => item.Task.DueDate ?? DateTime.MaxValue)
+            .ThenBy(item => item.Task.Title, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+    private bool CanWrite(TodoListEntity list)
+        => !string.IsNullOrWhiteSpace(UserId) && AssigneeIdentityKeys.CanWrite(list, [UserId]);
+
+    private void BeginDrag(Guid taskId)
+    {
+        if (_savingTaskIds.Contains(taskId)) return;
+        _draggedTaskId = taskId;
+        _error = string.Empty;
+    }
+
+    private void EndDrag()
+    {
+        _draggedTaskId = null;
+        _dragOver = null;
+    }
+
+    private async Task DropAsync(EisenhowerQuadrant quadrant)
+    {
+        var taskId = _draggedTaskId;
+        EndDrag();
+        if (taskId.HasValue)
+            await MoveAsync(taskId.Value, quadrant);
+    }
+
+    private async Task MoveFromSelectAsync(Guid taskId, string? value)
+    {
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            && Enum.IsDefined(typeof(EisenhowerQuadrant), parsed))
+            await MoveAsync(taskId, (EisenhowerQuadrant)parsed);
+    }
+
+    private async Task MoveAsync(Guid taskId, EisenhowerQuadrant quadrant)
+    {
+        var item = Items.FirstOrDefault(candidate => candidate.Task.Id == taskId);
+        if (item.Task is null || !CanWrite(item.List) || !_savingTaskIds.Add(taskId)) return;
+        if (EisenhowerMatrixRules.Classify(item.Task, DateTime.Today) == quadrant)
+        {
+            _savingTaskIds.Remove(taskId);
+            return;
+        }
+
+        var previousImportant = item.Task.IsImportant;
+        var previousStartDate = item.Task.StartDate;
+        var previousDueDate = item.Task.DueDate;
+        var update = EisenhowerMatrixRules.MoveTo(item.Task, quadrant, DateTime.Today);
+        item.Task.IsImportant = update.IsImportant;
+        item.Task.StartDate = update.StartDate;
+        item.Task.DueDate = update.DueDate;
+        _error = string.Empty;
+
+        try
+        {
+            var updated = await TaskService.UpdateTaskAsync(UserId, item.List.Id, item.Task)
+                ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
+            if (OnTaskUpdated.HasDelegate)
+                await OnTaskUpdated.InvokeAsync(updated);
+        }
+        catch (Exception ex)
+        {
+            item.Task.IsImportant = previousImportant;
+            item.Task.StartDate = previousStartDate;
+            item.Task.DueDate = previousDueDate;
+            _error = L["Matrix_SaveError", ex.Message];
+        }
+        finally
+        {
+            _savingTaskIds.Remove(taskId);
+        }
+    }
+
+    private string FormatDueDate(TodoTaskEntity task)
+        => task.DueDate is null ? L["Matrix_NoDueDate"] : task.DueDate.Value.ToString("d", CultureInfo.CurrentCulture);
+
+    private sealed record QuadrantDefinition(EisenhowerQuadrant Quadrant, string Title, string Action, string Description);
+}

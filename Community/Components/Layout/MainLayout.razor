@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.FluentUI.AspNetCore.Components
@@ -7,6 +7,7 @@
 <FluentDialogProvider />
 <FluentMenuProvider />
 <FloatingLayerHost />
+<DailyFocusSync />
 
 <div class="app-shell h-[100dvh] min-h-0 bg-slate-50 flex text-slate-900 overflow-hidden @MobileShellClass @(_navCollapsed ? "nav-collapsed" : "")">
     <aside class="app-shell__nav w-72 border-r border-slate-200 bg-white shadow-sm shrink-0 overflow-hidden">

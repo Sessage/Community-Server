@@ -13,6 +13,8 @@ namespace Klassenbibliothek.Data;
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : IdentityDbContext<ApplicationUser>(options)
 {
+    public DbSet<DailyFocusPreferenceEntity> DailyFocusPreferences => Set<DailyFocusPreferenceEntity>();
+    public DbSet<DailyFocusSelectionEntity> DailyFocusSelections => Set<DailyFocusSelectionEntity>();
     public DbSet<TodoListEntity> TodoLists => Set<TodoListEntity>();
     public DbSet<TodoTaskEntity> TodoTasks => Set<TodoTaskEntity>();
     public DbSet<TodoAttachmentEntity> TodoAttachments => Set<TodoAttachmentEntity>();
@@ -63,6 +65,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<DailyFocusPreferenceEntity>(entity =>
+        {
+            entity.HasKey(x => x.UserId);
+            entity.Property(x => x.TimeZoneId).HasMaxLength(128);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<DailyFocusSelectionEntity>(entity =>
+        {
+            entity.HasKey(x => new { x.UserId, x.Date, x.TaskId });
+            entity.HasOne<DailyFocusPreferenceEntity>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<TodoTaskEntity>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        });
         builder.Entity<ApplicationUser>()
             .Property(user => user.PreferredLanguage)
             .HasMaxLength(16);

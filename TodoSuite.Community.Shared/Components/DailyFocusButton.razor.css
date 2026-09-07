@@ -1,0 +1,8 @@
+.daily-focus-action { position:relative; display:inline-flex; flex:0 0 auto; align-items:center; }
+.daily-focus-button { display:inline-flex; width:32px; height:32px; align-items:center; justify-content:center; padding:0; border:0; border-radius:.5rem; background:transparent; color:#0f6cbd; line-height:1; }
+.daily-focus-button[aria-pressed="true"] { color:#d97706; }
+.daily-focus-button:hover { background:#f1f5f9; }
+.daily-focus-button:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+.daily-focus-button:disabled { opacity:.55; cursor:wait; }
+.daily-focus-label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
+.daily-focus-error { position:absolute; z-index:30; top:calc(100% + .35rem); right:0; width:max-content; max-width:min(18rem, 80vw); padding:.4rem .55rem; border:1px solid #fecaca; border-radius:.5rem; background:#fef2f2; color:#b91c1c; font-size:.75rem; line-height:1.25; box-shadow:0 4px 12px rgb(15 23 42 / .12); }

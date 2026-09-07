@@ -1,0 +1,143 @@
+@using Klassenbibliothek.Components.Views
+@inject ITodoListService ListService
+@inject ITodoCurrentUserService CurrentUserService
+@inject DailyFocusClient Focus
+@implements IDisposable
+
+<PageTitle>@L["Page_MyDay_Title"]</PageTitle>
+<div class="flex h-full min-h-0 flex-col" data-testid="daily-focus-planner">
+    <header class="shrink-0 space-y-3 p-4">
+        <h1 class="text-3xl font-semibold">@L["Page_MyDay_Title"]</h1>
+        <p class="text-sm text-slate-600">@L["Focus_Description"]</p>
+        <DailyFocusStatus />
+        @if (Focus.State is { } state)
+        {
+            <p class="text-sm text-slate-500">@state.Date.ToString("D") · @state.TimeZoneId</p>
+            <p aria-live="polite">@L["Focus_Count", _focusList.Tasks.Count, _focusList.Tasks.Count(t => t.Done)]</p>
+            @if (_focusList.Tasks.Count > 7) { <p class="text-sm text-amber-800">@L["Focus_LimitHint"]</p> }
+            <div class="flex flex-wrap gap-2">
+                <button type="button" class="rounded-lg border px-3 py-2" aria-expanded="@(_picker && !_all)" @onclick="() => OpenPicker(false)">@L["Focus_Suggestions"]</button>
+                <button type="button" class="rounded-lg border px-3 py-2" aria-expanded="@(_picker && _all)" @onclick="() => OpenPicker(true)">@L["Focus_All"]</button>
+                <button type="button" class="rounded-lg border px-3 py-2" aria-pressed="@_selectionMode.ToString().ToLowerInvariant()" disabled="@(_focusList.Tasks.Count == 0)" @onclick="() => _selectionMode = !_selectionMode">@L["Focus_MultiSelect"]</button>
+            </div>
+        }
+    </header>
+    @if (_error)
+    {
+        <div class="mx-4 text-red-700" role="alert">@L["Focus_Error"] <button type="button" class="underline" @onclick="LoadAllAsync">@L["Focus_Retry"]</button></div>
+    }
+    @if (_loading) { <p class="px-4" role="status">@L["Lbl_Loading"]</p> }
+    <div class="min-h-0 flex-1 overflow-y-auto">
+        @if (_picker && Focus.State is not null)
+        {
+            <section class="m-4 space-y-3 rounded-xl border bg-white p-4" aria-label="@L[_all ? "Focus_All" : "Focus_Suggestions"]">
+                <div class="flex items-center justify-between gap-2">
+                    <h2 class="font-semibold">@L[_all ? "Focus_All" : "Focus_Suggestions"]</h2>
+                    <button type="button" class="rounded border px-3 py-2" @onclick="() => _picker = false">@L["Focus_Close"]</button>
+                </div>
+                <input class="w-full rounded border p-2" aria-label="@L["Focus_Search"]" placeholder="@L["Focus_Search"]" @bind="_search" @bind:event="oninput" />
+                @if (!Candidates.Any()) { <p>@L["Focus_NoSuggestions"]</p> }
+                @foreach (var item in Candidates)
+                {
+                    <div @key="item.Task.Id" class="flex flex-wrap items-center justify-between gap-3 border-b py-2">
+                        <div class="min-w-0"><strong class="break-words">@item.Task.Title</strong><div class="text-sm">@item.List.Name · @Reason(item.Task)</div></div>
+                        <DailyFocusButton TaskId="item.Task.Id" TaskTitle="@item.Task.Title" />
+                    </div>
+                }
+            </section>
+        }
+        @if (Focus.State is not null && !_loading && _focusList.Tasks.Count == 0) { <p class="m-4 rounded-xl border bg-white p-4">@L["Focus_Empty"]</p> }
+        @if (_focusList.Tasks.Count > 0 && Focus.State is not null)
+        {
+            <div style="height: max(360px, 65vh)">
+                <ToDoListView List="_focusList" SortMode="ListSortMode.DueDate" ShowAddTaskInput="false"
+                              ListIdSelector="@(t => t.ListId)" TaskListNameSelector="ListName" CanEditTask="CanEdit"
+                              @bind-SelectionMode="_selectionMode" OnChanged="LoadAllAsync" OnTaskSelected="OpenTask" />
+            </div>
+        }
+    </div>
+    @if (_selectedTask is not null && _lists.FirstOrDefault(l => l.Id == _selectedTask.ListId) is { } selectedList)
+    {
+        <TaskEditModal Task="_selectedTask" ListId="selectedList.Id" List="selectedList" Columns="selectedList.Columns" Labels="selectedList.Labels"
+                       AvailableLists="_lists.ToList()" OnClose="CloseTask" OnTaskUpdated="@(_ => LoadAllAsync())" OnListChanged="LoadAllAsync" />
+    }
+</div>
+
+@code {
+    private IReadOnlyList<TodoListEntity> _lists = [];
+    private TodoListEntity _focusList = new() { Id = Guid.Empty, Name = "Mein Tag", Columns = [] };
+    private DailyFocusState? _lastState;
+    private TodoTaskEntity? _selectedTask;
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private string _user = "", _search = "", _scope = "";
+    private bool _picker, _all, _selectionMode, _loading = true, _error, _disposed;
+    private IEnumerable<(TodoListEntity List, TodoTaskEntity Task)> Tasks => _lists.SelectMany(l => l.Tasks.Where(t => t.DeletedAt is null).Select(t => (l, t)));
+    private DateTime Today => Focus.State?.Date.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
+    private int Rank(TodoTaskEntity t) => t.DueDate?.Date < Today ? 0 : t.DueDate?.Date == Today ? 1 : t.IsImportant ? 2 : 3;
+    private IEnumerable<(TodoListEntity List, TodoTaskEntity Task)> Candidates => Tasks
+        .Where(x => !x.Task.Done && Focus.State?.Ids.Contains(x.Task.Id) == false && (_all || Rank(x.Task) < 3)
+            && (x.Task.Title.Contains(_search, StringComparison.CurrentCultureIgnoreCase) || x.List.Name.Contains(_search, StringComparison.CurrentCultureIgnoreCase)))
+        .OrderBy(x => Rank(x.Task)).ThenBy(x => x.Task.DueDate).ThenBy(x => x.Task.Title);
+    private string Reason(TodoTaskEntity t) => Rank(t) switch { 0 => L["Focus_Overdue"], 1 => L["Focus_DueToday"], 2 => L["Focus_Important"], _ => L["Focus_Unscheduled"] };
+    protected override async Task OnInitializedAsync() { Focus.Changed += FocusChanged; await LoadAllAsync(); }
+    private void FocusChanged() { if (!_disposed) _ = InvokeAsync(RefreshFocusAsync); }
+    private async Task RefreshFocusAsync()
+    {
+        if (_disposed || ReferenceEquals(_lastState, Focus.State)) return;
+        var current = await CurrentUserService.GetCurrentUserAsync(_lifetime.Token);
+        if (_scope != (current.ScopeKey ?? current.UserId))
+        {
+            _lists = []; _selectedTask = null; RebuildFocus();
+            await LoadAllAsync();
+        }
+        _lastState = Focus.State;
+        RebuildFocus();
+        StateHasChanged();
+        // Fetch only selected lists on background sync; never reload every project per poll
+        // or replace an open task editor's draft.
+        if (Focus.State is not { } state || _selectedTask is not null || _loading) return;
+        if (state.Ids.Any(id => !Tasks.Any(x => x.Task.Id == id))) { await LoadAllAsync(); return; }
+        await _loadGate.WaitAsync(_lifetime.Token);
+        try
+        {
+            var needed = _lists.Where(l => l.Tasks.Any(t => state.Ids.Contains(t.Id))).Select(l => l.Id).ToArray();
+            var updated = _lists.ToDictionary(l => l.Id);
+            foreach (var id in needed)
+            {
+                var list = await ListService.GetListAsync(_user, id, _lifetime.Token);
+                if (list is null) updated.Remove(id); else updated[id] = list;
+            }
+            _lists = updated.Values.ToList();
+            RebuildFocus();
+        }
+        catch (OperationCanceledException) when (_disposed) { }
+        catch { _error = true; }
+        finally { _loadGate.Release(); }
+        if (!_disposed) StateHasChanged();
+    }
+    private async Task LoadAllAsync()
+    {
+        if (_disposed) return;
+        await _loadGate.WaitAsync(_lifetime.Token);
+        try
+        {
+            _loading = true;
+            var current = await CurrentUserService.GetCurrentUserAsync(_lifetime.Token);
+            _user = current.UserId; _scope = current.ScopeKey ?? current.UserId;
+            _lists = await ListService.GetListsAsync(_user, _lifetime.Token);
+            _error = false;
+            RebuildFocus();
+        }
+        catch (OperationCanceledException) when (_disposed) { }
+        catch { _error = true; }
+        finally { _loading = false; _loadGate.Release(); }
+    }
+    private void RebuildFocus() => _focusList.Tasks = Tasks.Where(x => Focus.State?.Ids.Contains(x.Task.Id) == true).Select(x => x.Task).ToList();
+    private string ListName(TodoTaskEntity task) => _lists.FirstOrDefault(l => l.Id == task.ListId)?.Name ?? "";
+    private bool CanEdit(TodoTaskEntity task) => _lists.FirstOrDefault(l => l.Id == task.ListId) is { } list && AssigneeIdentityKeys.CanWrite(list, [_user]);
+    private async Task OpenPicker(bool all) { _all = all; _picker = true; await LoadAllAsync(); }
+    private void OpenTask(TodoTaskEntity task) => _selectedTask = task;
+    private async Task CloseTask() { _selectedTask = null; await LoadAllAsync(); }
+    public void Dispose() { _disposed = true; Focus.Changed -= FocusChanged; _lifetime.Cancel(); }
+}

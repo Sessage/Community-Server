@@ -145,6 +145,8 @@ public static class CommunityApplication
         builder.Services.AddScoped<IDirectorySharingService, CommunityDirectorySharingService>();
         builder.Services.AddScoped<IDirectoryIdentitySynchronizer, NoOpDirectoryIdentitySynchronizer>();
         builder.Services.AddScoped<ITodoListPreferencesService, TodoListPreferencesService>();
+        builder.Services.AddScoped<DailyFocusClient>();
+        builder.Services.AddScoped<IDailyFocusService, DailyFocusService>();
         builder.Services.AddScoped<PersonalAccessTokenService>();
         builder.Services.AddScoped<MobileRefreshTokenService>();
         builder.Services.AddScoped<UserAccountArtifactCleanupService>();
@@ -615,7 +617,12 @@ public static class CommunityApplication
 
             await next();
         });
-        app.UseHttpsRedirection();
+        // HTTPS remains mandatory by default. Local launch profiles may explicitly
+        // disable the redirect when the Windows development-certificate provider is
+        // unavailable; this keeps the loopback-only development host usable without
+        // weakening deployed environments.
+        if (app.Configuration.GetValue("HttpsRedirection:Enabled", true))
+            app.UseHttpsRedirection();
         app.Use(async (context, next) =>
         {
             context.Response.OnStarting(() =>

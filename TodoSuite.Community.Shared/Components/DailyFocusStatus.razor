@@ -1,0 +1,21 @@
+@inject DailyFocusClient Focus
+@implements IDisposable
+
+@if (Focus.ErrorKey is { } error)
+{
+    <div class="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700" role="alert">
+        @L[error] <button type="button" class="underline" disabled="@Focus.IsBusy" @onclick="RetryAsync">@L["Focus_Retry"]</button>
+    </div>
+}
+else if (Focus.FeedbackKey is { } feedback)
+{
+    <p class="mt-2 text-sm text-slate-600" role="status">@L[feedback, Focus.AffectedCount]</p>
+}
+
+@code {
+    private bool _disposed;
+    protected override void OnInitialized() => Focus.Changed += Refresh;
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    private Task RetryAsync() => Focus.RefreshAsync();
+    public void Dispose() { _disposed = true; Focus.Changed -= Refresh; }
+}

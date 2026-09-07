@@ -23,6 +23,7 @@
         <div class="mx-3 flex flex-wrap items-center justify-center gap-2 pb-2 shrink-0">
             <BulkTaskActionBar List="List"
                                SelectedTaskIds="_selectedTaskIds"
+                               FocusOnly="@(ListIdSelector is not null)"
                                OnChanged="HandleBulkChangedAsync"
                                OnSelectionCleared="ClearSelectionAsync" />
         </div>
@@ -50,17 +51,18 @@
                             <label class="shrink-0 flex items-start pt-1" style="grid-column:1; grid-row:1;" data-nodrag="true" @onclick:stopPropagation="true">
                                 <input type="checkbox"
                                        class="h-5 w-5 rounded border-slate-300"
+                                       aria-label="@L["Focus_SelectTask", t.Title]"
                                        checked="@IsTaskSelected(t.Id)"
                                        @onchange="e => ToggleTaskSelection(t.Id, e)" />
                             </label>
                         }
 
                         <!-- DONE -->
-                        <div class="shrink-0 flex items-start pt-1" style="grid-column:@DoneGridColumn; grid-row:1;">
+                        <div class="shrink-0 flex items-start" style="grid-column:@DoneGridColumn; grid-row:1;">
                             <button type="button"
                                     disabled="@(!CanEditTaskInternal(t))"
                                     title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
-                                    class="disabled:cursor-not-allowed disabled:opacity-50"
+                                    class="todo-list-icon-button disabled:cursor-not-allowed disabled:opacity-50"
                                     @onclick:preventDefault="true"
                                     @onclick:stopPropagation="true"
                                     @onclick="() => ToggleDoneAsync(t)">
@@ -78,9 +80,13 @@
                         <!-- TITLE -->
                         <div class="todo-list-title-wrap min-w-0 text-lg font-semibold" style="grid-column:@TitleGridColumn; grid-row:1; min-width:0; max-width:100%; overflow:visible;">
                             <span class="todo-list-title"
-                                  style="display:block; width:100%; max-width:100%; white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; line-height:1.45;">
+                                  style="display:flex; align-items:center; min-height:32px; width:100%; max-width:100%; white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; line-height:1.45;">
                                 @t.Title
                             </span>
+                            @if (TaskListNameSelector is not null)
+                            {
+                                <div class="mt-1 text-xs font-normal text-slate-500">@L["Task_ListOrigin", TaskListNameSelector(t)]</div>
+                            }
                             <div class="todo-list-meta flex flex-wrap items-center gap-1">
                                 @if (t.Comments.Count() > 0)
                                 {
@@ -107,11 +113,12 @@
                         </div>
 
                         <!-- IMPORTANT -->
-                        <div class="shrink-0 flex items-start justify-end pt-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
+                        <div class="shrink-0 flex items-start justify-end gap-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
+                            <DailyFocusButton TaskId="t.Id" TaskTitle="@t.Title" />
                             <button type="button"
                                     disabled="@(!CanEditTaskInternal(t))"
                                     title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
-                                    class="disabled:cursor-not-allowed disabled:opacity-50"
+                                    class="todo-list-icon-button disabled:cursor-not-allowed disabled:opacity-50"
                                     @onclick:preventDefault="true"
                                     @onclick:stopPropagation="true"
                                     @onclick="() => ToggleImportantAsync(t)">
@@ -176,17 +183,18 @@
                                         <label class="shrink-0 flex items-start pt-1" style="grid-column:1; grid-row:1;" data-nodrag="true" @onclick:stopPropagation="true">
                                             <input type="checkbox"
                                                    class="h-5 w-5 rounded border-slate-300"
-                                                   checked="@IsTaskSelected(t.Id)"
+                                                   aria-label="@L["Focus_SelectTask", t.Title]"
+                                       checked="@IsTaskSelected(t.Id)"
                                                    @onchange="e => ToggleTaskSelection(t.Id, e)" />
                                         </label>
                                     }
 
                                     <!-- DONE (zum Zurücksetzen) -->
-                                    <div class="shrink-0 flex items-start pt-1" style="grid-column:@DoneGridColumn; grid-row:1;">
+                                    <div class="shrink-0 flex items-start" style="grid-column:@DoneGridColumn; grid-row:1;">
                                         <button type="button"
                                                 disabled="@(!CanEditTaskInternal(t))"
                                                 title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
-                                                class="disabled:cursor-not-allowed disabled:opacity-50"
+                                                class="todo-list-icon-button disabled:cursor-not-allowed disabled:opacity-50"
                                                 @onclick:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => ToggleDoneAsync(t)">
@@ -195,11 +203,15 @@
                                     </div>
 
                                     <!-- TITLE -->
-                                    <div class="todo-list-title-wrap min-w-0 text-lg font-semibold line-through text-slate-600" style="grid-column:@TitleGridColumn; grid-row:1; min-width:0; max-width:100%; overflow:visible;">
-                                        <span class="todo-list-title"
-                                              style="display:block; width:100%; max-width:100%; white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; line-height:1.45;">
+                                    <div class="todo-list-title-wrap min-w-0 text-lg font-semibold text-slate-600" style="grid-column:@TitleGridColumn; grid-row:1; min-width:0; max-width:100%; overflow:visible;">
+                                        <span class="todo-list-title line-through"
+                                              style="display:flex; align-items:center; min-height:32px; width:100%; max-width:100%; white-space:normal !important; overflow-wrap:anywhere; word-break:break-word; line-height:1.45;">
                                             @t.Title
                                         </span>
+                                        @if (TaskListNameSelector is not null)
+                                        {
+                                            <div class="mt-1 text-xs font-normal text-slate-500 no-underline">@L["Task_ListOrigin", TaskListNameSelector(t)]</div>
+                                        }
                                         <div class="todo-list-meta flex flex-wrap items-center gap-1">
                                             @if (t.Comments.Count() > 0)
                                             {
@@ -224,11 +236,12 @@
                                     </div>
 
                                     <!-- IMPORTANT (optional, bleibt nutzbar) -->
-                                    <div class="shrink-0 flex items-start justify-end pt-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
+                                    <div class="shrink-0 flex items-start justify-end gap-1" style="grid-column:@ImportantGridColumn; grid-row:1;">
+                                        <DailyFocusButton TaskId="t.Id" TaskTitle="@t.Title" />
                                         <button type="button"
                                                 disabled="@(!CanEditTaskInternal(t))"
                                                 title="@(CanEditTaskInternal(t) ? string.Empty : L["ListView_NoWritePermission"].Value)"
-                                                class="disabled:cursor-not-allowed disabled:opacity-50"
+                                                class="todo-list-icon-button disabled:cursor-not-allowed disabled:opacity-50"
                                                 @onclick:preventDefault="true"
                                                 @onclick:stopPropagation="true"
                                                 @onclick="() => ToggleImportantAsync(t)">
@@ -318,6 +331,7 @@
     [Parameter] public ListSortMode SortMode { get; set; } = ListSortMode.Custom;
     [Parameter] public bool ShowAddTaskInput { get; set; } = true;
     [Parameter] public Func<TodoTaskEntity, Guid>? ListIdSelector { get; set; }
+    [Parameter] public Func<TodoTaskEntity, string>? TaskListNameSelector { get; set; }
     [Parameter] public Func<TodoTaskEntity, bool>? CanEditTask { get; set; }
     [Parameter] public EventCallback<bool> OnDraggingChanged { get; set; }
     [Parameter] public bool SelectionMode { get; set; }

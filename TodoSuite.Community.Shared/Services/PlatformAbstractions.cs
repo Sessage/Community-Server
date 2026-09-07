@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.SignalR.Client;
 
 namespace Klassenbibliothek.Services;
 
-public sealed record TodoCurrentUser(bool IsAuthenticated, string UserId, string DisplayName, string? Email = null);
+public sealed record TodoCurrentUser(bool IsAuthenticated, string UserId, string DisplayName, string? Email = null, string? ScopeKey = null);
 
 /// <summary>Resolves the authenticated user without tying shared components to a hosting platform.</summary>
 public interface ITodoCurrentUserService

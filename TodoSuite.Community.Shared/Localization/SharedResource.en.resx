@@ -213,6 +213,7 @@
   </data>
   <data name="Page_Tasks_Error" xml:space="preserve"><value>Your assigned tasks could not be loaded. Please try again.</value></data>
   <data name="Page_Tasks_Retry" xml:space="preserve"><value>Try again</value></data>
+  <data name="Task_ListOrigin" xml:space="preserve"><value>From list: {0}</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>Focus</value>
@@ -2441,4 +2442,56 @@
   <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>Convert to scheduled task</value></data>
   <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>Convert to milestone</value></data>
   <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>Remove schedule</value></data>
+  <data name="Focus_Add" xml:space="preserve"><value>Add to My Day</value></data>
+  <data name="Focus_All" xml:space="preserve"><value>Choose tasks</value></data>
+  <data name="Focus_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="Focus_Count" xml:space="preserve"><value>{0} selected · {1} completed</value></data>
+  <data name="Focus_Description" xml:space="preserve"><value>Choose 3 to 7 tasks for today. Tomorrow starts with a fresh selection – all tasks stay in their original lists.</value></data>
+  <data name="Focus_DueToday" xml:space="preserve"><value>Due today</value></data>
+  <data name="Focus_Empty" xml:space="preserve"><value>Your day is clear. Choose your first tasks from suggestions or your lists.</value></data>
+  <data name="Focus_Error" xml:space="preserve"><value>Your daily selection could not be synced. Please check your server connection.</value></data>
+  <data name="Focus_Important" xml:space="preserve"><value>Important</value></data>
+  <data name="Focus_LimitHint" xml:space="preserve"><value>More than 7 tasks selected. Consider what matters most today.</value></data>
+  <data name="Focus_NoSuggestions" xml:space="preserve"><value>No matching open tasks.</value></data>
+  <data name="Focus_Overdue" xml:space="preserve"><value>Overdue</value></data>
+  <data name="Focus_Remove" xml:space="preserve"><value>Remove from My Day</value></data>
+  <data name="Focus_Retry" xml:space="preserve"><value>Try again</value></data>
+  <data name="Focus_Search" xml:space="preserve"><value>Search tasks or lists</value></data>
+  <data name="Focus_Storage" xml:space="preserve"><value>Your daily selection syncs across all devices. A server connection is required. Shared timezone:</value></data>
+  <data name="Focus_Suggestions" xml:space="preserve"><value>Suggestions for today</value></data>
+  <data name="Focus_Unscheduled" xml:space="preserve"><value>Other task</value></data>
+  <data name="Focus_Load" xml:space="preserve"><value>Load My Day</value></data>
+  <data name="Focus_SessionChanged" xml:space="preserve"><value>Your session changed. Please reload My Day.</value></data>
+  <data name="Focus_DayChanged" xml:space="preserve"><value>A new day has started. Please select the tasks again.</value></data>
+  <data name="Focus_BatchLimit" xml:space="preserve"><value>Select at most 500 tasks at a time.</value></data>
+  <data name="Focus_SelectTask" xml:space="preserve"><value>Select task: {0}</value></data>
+  <data name="Focus_AddedCount" xml:space="preserve"><value>{0} tasks selected for My Day.</value></data>
+  <data name="Focus_RemovedCount" xml:space="preserve"><value>{0} tasks removed from My Day.</value></data>
+  <data name="Focus_MultiSelect" xml:space="preserve"><value>Select multiple</value></data>
+  <data name="Focus_AddedOne" xml:space="preserve"><value>Task added to My Day.</value></data>
+  <data name="Focus_RemovedOne" xml:space="preserve"><value>Task removed from My Day.</value></data>
+  <data name="Matrix_Title" xml:space="preserve"><value>Priority matrix</value></data>
+  <data name="Matrix_Important" xml:space="preserve"><value>Important</value></data>
+  <data name="Matrix_NotImportant" xml:space="preserve"><value>Not important</value></data>
+  <data name="Matrix_Urgent" xml:space="preserve"><value>Urgent</value></data>
+  <data name="Matrix_NotUrgent" xml:space="preserve"><value>Not urgent</value></data>
+  <data name="Matrix_Q1_Title" xml:space="preserve"><value>Urgent &amp; important</value></data>
+  <data name="Matrix_Q1_Action" xml:space="preserve"><value>Do now</value></data>
+  <data name="Matrix_Q1_Description" xml:space="preserve"><value>High-priority tasks due today or overdue.</value></data>
+  <data name="Matrix_Q2_Title" xml:space="preserve"><value>Important, not urgent</value></data>
+  <data name="Matrix_Q2_Action" xml:space="preserve"><value>Schedule</value></data>
+  <data name="Matrix_Q2_Description" xml:space="preserve"><value>Strategic tasks that create sustainable progress.</value></data>
+  <data name="Matrix_Q3_Title" xml:space="preserve"><value>Urgent, not important</value></data>
+  <data name="Matrix_Q3_Action" xml:space="preserve"><value>Delegate</value></data>
+  <data name="Matrix_Q3_Description" xml:space="preserve"><value>Time-critical tasks without high priority.</value></data>
+  <data name="Matrix_Q4_Title" xml:space="preserve"><value>Not urgent &amp; not important</value></data>
+  <data name="Matrix_Q4_Action" xml:space="preserve"><value>Eliminate</value></data>
+  <data name="Matrix_Q4_Description" xml:space="preserve"><value>Tasks without urgency or strategic importance.</value></data>
+  <data name="Matrix_DropHere" xml:space="preserve"><value>Drop task here</value></data>
+  <data name="Matrix_MoveTask" xml:space="preserve"><value>Move {0} to another quadrant</value></data>
+  <data name="Matrix_NoDueDate" xml:space="preserve"><value>No due date</value></data>
+  <data name="Matrix_SaveError" xml:space="preserve"><value>Priority could not be saved: {0}</value></data>
+  <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>X days after completion</value></data>
+  <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>Days after completion</value></data>
+  <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>The next task will be due {0} days after its actual completion.</value></data>
 </root>

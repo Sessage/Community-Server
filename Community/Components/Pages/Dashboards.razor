@@ -88,6 +88,12 @@
                         <button class="@ViewMenuItemCss(DashboardView.Calendar)" @onclick="() => SwitchView(DashboardView.Calendar)">
                             @L["QuickLink_Calendar"]
                         </button>
+                        <button class="@ViewMenuItemCss(DashboardView.Timeline)" @onclick="() => SwitchView(DashboardView.Timeline)">
+                            @L["Timeline_Title"]
+                        </button>
+                        <button class="@ViewMenuItemCss(DashboardView.PriorityMatrix)" @onclick="() => SwitchView(DashboardView.PriorityMatrix)">
+                            @L["Matrix_Title"]
+                        </button>
                     </div>
                 </DropdownContent>
             </FloatingDropdown>
@@ -103,6 +109,23 @@
                               OnItemClick="OpenCalendarTaskAsync"
                               EmptyText="@L["Page_Calendar_Empty"]"
                               ContainerClass="min-h-[70vh] rounded-xl border border-slate-200 bg-white p-3 shadow-sm" />
+        }
+        else if (_view == DashboardView.Timeline)
+        {
+            <TodoTimelineView List="BuildDashboardTimelineList()"
+                              AllowTaskCreation="false"
+                              AllowTaskReordering="false"
+                              TaskCanWrite="CanWriteDashboardTask"
+                              TaskListIdSelector="@(task => task.ListId)"
+                              OnTaskSelected="OpenTimelineTaskAsync"
+                              OnTaskUpdated="HandleTaskUpdated" />
+        }
+        else if (_view == DashboardView.PriorityMatrix)
+        {
+            <DashboardPriorityMatrix Items="_visibleItems"
+                                     UserId="@_userId"
+                                     OnTaskSelected="OpenDashboardTaskAsync"
+                                     OnTaskUpdated="HandleTaskUpdated" />
         }
         else
         {
@@ -193,7 +216,7 @@
 
 @code {
     [Parameter] public Guid? PortfolioId { get; set; }
-    private enum DashboardView { List, Calendar }
+    private enum DashboardView { List, Calendar, Timeline, PriorityMatrix }
 
     private readonly List<DashboardEntity> _dashboards = [];
     private IReadOnlyList<TodoListEntity> _lists = [];
@@ -723,19 +746,19 @@
         if (_activeDashboard is null) { _visibleItems = []; return; }
 
         var selected = new HashSet<Guid>(_activeDashboard.SelectedListIds);
-        var now = DateTime.UtcNow;
+        var today = DateTime.Today;
 
         var items = _lists
             .Where(l => l.DeletedAt is null && selected.Contains(l.Id))
             .SelectMany(l => (l.Tasks ?? []).Select(t => (List: l, Task: t)))
             .Where(x => x.Task.DeletedAt is null)
-            .Where(x => PassesFilter(x.Task, x.List, now))
+            .Where(x => PassesFilter(x.Task, x.List, today))
             .ToList();
 
         _visibleItems = SortItems(items, _activeDashboard.SortMode);
     }
 
-    private bool PassesFilter(TodoTaskEntity task, TodoListEntity list, DateTime now)
+    private bool PassesFilter(TodoTaskEntity task, TodoListEntity list, DateTime today)
     {
         if (!string.IsNullOrWhiteSpace(_filterDraft.Query))
         {
@@ -747,10 +770,10 @@
         var hasDueFilter = _filterDraft.NoDueDate || _filterDraft.Overdue || _filterDraft.DueNextDay
             || _filterDraft.DueNextWeek || _filterDraft.DueNextMonth;
         if (hasDueFilter && !((_filterDraft.NoDueDate && task.DueDate is null)
-            || (_filterDraft.Overdue && task.DueDate < now)
-            || (_filterDraft.DueNextDay && task.DueDate >= now && task.DueDate <= now.AddDays(1))
-            || (_filterDraft.DueNextWeek && task.DueDate >= now && task.DueDate <= now.AddDays(7))
-            || (_filterDraft.DueNextMonth && task.DueDate >= now && task.DueDate <= now.AddDays(30)))) return false;
+            || (_filterDraft.Overdue && task.DueDate is { } overdueDue && overdueDue.Date < today)
+            || (_filterDraft.DueNextDay && task.DueDate is { } nextDayDue && nextDayDue.Date >= today && nextDayDue.Date <= today.AddDays(1))
+            || (_filterDraft.DueNextWeek && task.DueDate is { } nextWeekDue && nextWeekDue.Date >= today && nextWeekDue.Date <= today.AddDays(7))
+            || (_filterDraft.DueNextMonth && task.DueDate is { } nextMonthDue && nextMonthDue.Date >= today && nextMonthDue.Date <= today.AddDays(30)))) return false;
         if (_filterDraft.AssignedToMe
             && !string.Equals(task.Assignee, _userId, StringComparison.OrdinalIgnoreCase)
             && !(task.MemberUserIds?.Any(id => string.Equals(id, _userId, StringComparison.OrdinalIgnoreCase)) ?? false)) return false;
@@ -832,15 +855,15 @@
 
     private RenderFragment RenderDueChart() => builder =>
     {
-        var now = DateTime.UtcNow;
+        var today = DateTime.Today;
         builder.OpenComponent<DashboardChartWidget>(0);
         builder.AddAttribute(1, "Title", L["Dashboard_Widget_Due"].Value);
         builder.AddAttribute(2, "Total", _visibleItems.Count);
         builder.AddAttribute(3, "Bars", new (string, int)[]
         {
-            (L["Dashboard_Chart_Overdue"].Value, _visibleItems.Count(x => x.Task.DueDate < now && !x.Task.Done && x.Task.DueDate is not null)),
-            (L["Dashboard_Chart_DueSoon"].Value, _visibleItems.Count(x => x.Task.DueDate >= now && x.Task.DueDate <= now.AddDays(7))),
-            (L["Dashboard_Chart_NoDate"].Value,  _visibleItems.Count(x => x.Task.DueDate is null))
+            (L["Dashboard_Chart_Overdue"].Value, _visibleItems.Count(x => !x.Task.Done && x.Task.DueDate is { } due && due.Date < today)),
+            (L["Dashboard_Chart_DueSoon"].Value, _visibleItems.Count(x => !x.Task.Done && x.Task.DueDate is { } due && due.Date >= today && due.Date <= today.AddDays(7))),
+            (L["Dashboard_Chart_NoDate"].Value,  _visibleItems.Count(x => !x.Task.Done && x.Task.DueDate is null))
         });
         builder.CloseComponent();
     };
@@ -942,9 +965,13 @@
             ? null
             : $"/api/profile-picture/{Uri.EscapeDataString(userId.Trim())}";
 
-    private string CurrentViewLabel => _view == DashboardView.Calendar
-        ? L["QuickLink_Calendar"]
-        : L["Page_Workspace_ListView"];
+    private string CurrentViewLabel => _view switch
+    {
+        DashboardView.Calendar => L["QuickLink_Calendar"],
+        DashboardView.Timeline => L["Timeline_Title"],
+        DashboardView.PriorityMatrix => L["Matrix_Title"],
+        _ => L["Page_Workspace_ListView"]
+    };
 
     private string ViewMenuItemCss(DashboardView view)
         => $"block w-full px-3 py-2 text-left hover:bg-slate-50 {(_view == view ? "bg-blue-50 text-blue-700" : "text-slate-700")}";
@@ -979,6 +1006,36 @@
         return Task.CompletedTask;
     }
 
+    private TodoListEntity BuildDashboardTimelineList()
+        => new()
+        {
+            Id = Guid.Empty,
+            OwnerId = _userId,
+            Name = _activeDashboard?.Name ?? L["Dashboard_PageTitle"],
+            Tasks = _visibleItems.Select(item => item.Task).ToList(),
+            Participants = _visibleItems.SelectMany(item => item.List.Participants ?? [])
+                .GroupBy(participant => participant.UserId ?? participant.Email ?? participant.Id.ToString(), StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList()
+        };
+
+    private bool CanWriteDashboardTask(TodoTaskEntity task)
+    {
+        var list = _lists.FirstOrDefault(candidate => candidate.Id == task.ListId);
+        return list is not null && AssigneeIdentityKeys.CanWrite(list, [_userId]);
+    }
+
+    private Task OpenTimelineTaskAsync(TodoTaskEntity task)
+    {
+        var list = _lists.FirstOrDefault(candidate => candidate.Id == task.ListId);
+        if (list is not null)
+        {
+            _selectedTaskList = list;
+            _selectedTask = task;
+        }
+        return Task.CompletedTask;
+    }
+
     private Task CloseTaskDetails()
     {
         _selectedTask = null;
@@ -986,9 +1043,14 @@
         return Task.CompletedTask;
     }
 
-    private Task HandleTaskUpdated(TodoTaskEntity updatedTask)
+    private async Task HandleTaskUpdated(TodoTaskEntity updatedTask)
     {
+        var wasSelected = _selectedTask?.Id == updatedTask.Id;
         var list = _lists.FirstOrDefault(candidate => candidate.Id == updatedTask.ListId);
+        var existing = list?.Tasks.FirstOrDefault(task => task.Id == updatedTask.Id);
+        var recurrenceCreatedSuccessor = existing is { Done: false }
+                                         && updatedTask.Done
+                                         && updatedTask.Recurrence != RecurrencePattern.Keine;
         foreach (var candidate in _lists.Where(candidate => candidate.Id != updatedTask.ListId))
             candidate.Tasks.RemoveAll(task => task.Id == updatedTask.Id);
         var index = list?.Tasks.FindIndex(task => task.Id == updatedTask.Id) ?? -1;
@@ -997,10 +1059,14 @@
             if (index >= 0) list.Tasks[index] = updatedTask;
             else list.Tasks.Add(updatedTask);
         }
-        _selectedTaskList = list ?? _selectedTaskList;
-        _selectedTask = updatedTask;
+        if (wasSelected)
+        {
+            _selectedTaskList = list ?? _selectedTaskList;
+            _selectedTask = updatedTask;
+        }
         RecalculateVisibleItems();
-        return Task.CompletedTask;
+        if (recurrenceCreatedSuccessor)
+            await ReloadDashboardListsAsync();
     }
 
     private async Task ReloadDashboardListsAsync()

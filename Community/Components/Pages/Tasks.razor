@@ -18,6 +18,13 @@
         <div class="text-xs uppercase text-slate-500">@L["Page_Tasks_Section"]</div>
         <h1 class="text-3xl font-semibold">@L["Page_Tasks_Title"]</h1>
         <p class="text-sm text-slate-600">@L["Page_Tasks_Description"]</p>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
+            <a href="/mein-tag" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">@L["QuickLink_MyDay"]</a>
+            <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    aria-pressed="@_selectionMode.ToString().ToLowerInvariant()" disabled="@(_loading || _taskList.Tasks.Count == 0)"
+                    @onclick="() => _selectionMode = !_selectionMode">@L["Focus_MultiSelect"]</button>
+        </div>
+        <DailyFocusStatus />
     </div>
 
     @if (_loading)
@@ -45,6 +52,8 @@
                           SortMode="ListSortMode.DueDate"
                           ShowAddTaskInput="false"
                           ListIdSelector="GetTaskListId"
+                          TaskListNameSelector="GetTaskListName"
+                          @bind-SelectionMode="_selectionMode"
                           CanEditTask="CanEditAssignedTask"
                           OnChanged="ReloadAsync"
                           OnTaskSelected="OpenTaskDetails" />
@@ -78,6 +87,7 @@
     private TodoTaskEntity? _selectedTask;
     private TodoListEntity? _selectedList;
     private Guid _selectedListId;
+    private bool _selectionMode;
     private bool _loading = true;
     private string? _error;
     private CancellationTokenSource? _loadCts;
@@ -171,6 +181,7 @@
     }
 
     private Guid GetTaskListId(TodoTaskEntity task) => task.ListId;
+    private string GetTaskListName(TodoTaskEntity task) => _listLookup.GetValueOrDefault(task.ListId)?.Name ?? "";
 
     private bool CanEditAssignedTask(TodoTaskEntity task)
     {

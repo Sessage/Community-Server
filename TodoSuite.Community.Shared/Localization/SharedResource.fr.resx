@@ -213,6 +213,7 @@
   </data>
   <data name="Page_Tasks_Error" xml:space="preserve"><value>Vos tâches assignées n’ont pas pu être chargées. Veuillez réessayer.</value></data>
   <data name="Page_Tasks_Retry" xml:space="preserve"><value>Réessayer</value></data>
+  <data name="Task_ListOrigin" xml:space="preserve"><value>De la liste : {0}</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>Focus</value>
@@ -2436,4 +2437,56 @@
   <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>Convertir en tâche planifiée</value></data>
   <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>Convertir en jalon</value></data>
   <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>Supprimer la planification</value></data>
+  <data name="Focus_Add" xml:space="preserve"><value>Ajouter à Ma journée</value></data>
+  <data name="Focus_All" xml:space="preserve"><value>Choisir des tâches</value></data>
+  <data name="Focus_Close" xml:space="preserve"><value>Fermer</value></data>
+  <data name="Focus_Count" xml:space="preserve"><value>{0} sélectionnées · {1} terminées</value></data>
+  <data name="Focus_Description" xml:space="preserve"><value>Choisissez 3 à 7 tâches pour la journée. Demain commence avec une sélection vide ; toutes les tâches restent dans leurs listes initiales.</value></data>
+  <data name="Focus_DueToday" xml:space="preserve"><value>À faire ce jour</value></data>
+  <data name="Focus_Empty" xml:space="preserve"><value>Votre journée est libre. Choisissez vos premières tâches parmi les suggestions ou dans vos listes.</value></data>
+  <data name="Focus_Error" xml:space="preserve"><value>La sélection ne peut pas être synchronisée. Vérifiez votre connexion au serveur.</value></data>
+  <data name="Focus_Important" xml:space="preserve"><value>Important</value></data>
+  <data name="Focus_LimitHint" xml:space="preserve"><value>Plus de 7 tâches sélectionnées. Réfléchissez aux priorités de la journée.</value></data>
+  <data name="Focus_NoSuggestions" xml:space="preserve"><value>Aucune tâche ouverte correspondante.</value></data>
+  <data name="Focus_Overdue" xml:space="preserve"><value>En retard</value></data>
+  <data name="Focus_Remove" xml:space="preserve"><value>Retirer de Ma journée</value></data>
+  <data name="Focus_Retry" xml:space="preserve"><value>Réessayer</value></data>
+  <data name="Focus_Search" xml:space="preserve"><value>Rechercher une tâche ou une liste</value></data>
+  <data name="Focus_Storage" xml:space="preserve"><value>Votre sélection est synchronisée entre vos appareils. Une connexion au serveur est nécessaire. Fuseau horaire commun :</value></data>
+  <data name="Focus_Suggestions" xml:space="preserve"><value>Suggestions du jour</value></data>
+  <data name="Focus_Unscheduled" xml:space="preserve"><value>Autre tâche</value></data>
+  <data name="Focus_Load" xml:space="preserve"><value>Charger Ma journée</value></data>
+  <data name="Focus_SessionChanged" xml:space="preserve"><value>Votre session a changé. Rechargez Ma journée.</value></data>
+  <data name="Focus_DayChanged" xml:space="preserve"><value>Une nouvelle journée a commencé. Sélectionnez à nouveau les tâches.</value></data>
+  <data name="Focus_BatchLimit" xml:space="preserve"><value>Sélectionnez au maximum 500 tâches à la fois.</value></data>
+  <data name="Focus_SelectTask" xml:space="preserve"><value>Sélectionner la tâche : {0}</value></data>
+  <data name="Focus_AddedCount" xml:space="preserve"><value>{0} tâches sélectionnées pour Ma journée.</value></data>
+  <data name="Focus_RemovedCount" xml:space="preserve"><value>{0} tâches retirées de Ma journée.</value></data>
+  <data name="Focus_MultiSelect" xml:space="preserve"><value>Sélection multiple</value></data>
+  <data name="Focus_AddedOne" xml:space="preserve"><value>Tâche ajoutée à Ma journée.</value></data>
+  <data name="Focus_RemovedOne" xml:space="preserve"><value>Tâche retirée de Ma journée.</value></data>
+  <data name="Matrix_Title" xml:space="preserve"><value>Matrice des priorités</value></data>
+  <data name="Matrix_Important" xml:space="preserve"><value>Important</value></data>
+  <data name="Matrix_NotImportant" xml:space="preserve"><value>Non important</value></data>
+  <data name="Matrix_Urgent" xml:space="preserve"><value>Urgent</value></data>
+  <data name="Matrix_NotUrgent" xml:space="preserve"><value>Non urgent</value></data>
+  <data name="Matrix_Q1_Title" xml:space="preserve"><value>Urgent et important</value></data>
+  <data name="Matrix_Q1_Action" xml:space="preserve"><value>Faire maintenant</value></data>
+  <data name="Matrix_Q1_Description" xml:space="preserve"><value>Tâches prioritaires dues aujourd’hui ou en retard.</value></data>
+  <data name="Matrix_Q2_Title" xml:space="preserve"><value>Important, non urgent</value></data>
+  <data name="Matrix_Q2_Action" xml:space="preserve"><value>Planifier</value></data>
+  <data name="Matrix_Q2_Description" xml:space="preserve"><value>Tâches stratégiques pour un progrès durable.</value></data>
+  <data name="Matrix_Q3_Title" xml:space="preserve"><value>Urgent, non important</value></data>
+  <data name="Matrix_Q3_Action" xml:space="preserve"><value>Déléguer</value></data>
+  <data name="Matrix_Q3_Description" xml:space="preserve"><value>Tâches critiques dans le temps sans priorité élevée.</value></data>
+  <data name="Matrix_Q4_Title" xml:space="preserve"><value>Ni urgent ni important</value></data>
+  <data name="Matrix_Q4_Action" xml:space="preserve"><value>Éliminer</value></data>
+  <data name="Matrix_Q4_Description" xml:space="preserve"><value>Tâches sans urgence ni importance stratégique.</value></data>
+  <data name="Matrix_DropHere" xml:space="preserve"><value>Déposer la tâche ici</value></data>
+  <data name="Matrix_MoveTask" xml:space="preserve"><value>Déplacer {0} vers un autre quadrant</value></data>
+  <data name="Matrix_NoDueDate" xml:space="preserve"><value>Aucune échéance</value></data>
+  <data name="Matrix_SaveError" xml:space="preserve"><value>Impossible d’enregistrer la priorité : {0}</value></data>
+  <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>X jours après l’achèvement</value></data>
+  <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>Jours après l’achèvement</value></data>
+  <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>La prochaine tâche sera due {0} jours après son achèvement réel.</value></data>
 </root>

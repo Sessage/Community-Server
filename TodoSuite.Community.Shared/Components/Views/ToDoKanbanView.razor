@@ -250,10 +250,13 @@
                                                 </div>
                                             </div>
 
-                                            @if (t.IsImportant)
-                                            {
-                                                <FluentIcon Value="@(new Icons.Filled.Size24.Star())" />
-                                            }
+                                            <div class="flex shrink-0 items-center gap-1">
+                                                <DailyFocusButton TaskId="t.Id" TaskTitle="@t.Title" />
+                                                @if (t.IsImportant)
+                                                {
+                                                    <FluentIcon Value="@(new Icons.Filled.Size24.Star())" />
+                                                }
+                                            </div>
                                         </div>
 
                                         <!-- Trello-style Karten-Footer -->

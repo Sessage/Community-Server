@@ -1,0 +1,61 @@
+@inject DailyFocusClient Focus
+@implements IDisposable
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+
+<span class="daily-focus-action" data-nodrag="true" @onclick:stopPropagation="true" @onpointerdown:stopPropagation="true">
+    @if (UseFluentButton)
+    {
+        <FluentButton Appearance="Appearance.Stealth" Class="task-edit-icon-button"
+                      Data-testid="daily-focus-task-action" data-taskid="@TaskId"
+                      aria-pressed="@Selected.ToString().ToLowerInvariant()"
+                      aria-label="@($"{Label}: {TaskTitle}")" aria-busy="@Focus.IsBusy.ToString().ToLowerInvariant()"
+                      Title="@Label" Disabled="@Focus.IsBusy" OnClick="ApplyAsync">
+            @if (Selected)
+            {
+                <FluentIcon Value="@(new Icons.Filled.Size24.WeatherSunny())" />
+            }
+            else
+            {
+                <FluentIcon Value="@(new Icons.Regular.Size24.WeatherSunny())" />
+            }
+            <span class="daily-focus-label">@Label</span>
+        </FluentButton>
+    }
+    else
+    {
+        <button type="button" class="daily-focus-button" data-testid="daily-focus-task-action"
+                data-taskid="@TaskId" aria-pressed="@Selected.ToString().ToLowerInvariant()"
+                aria-label="@($"{Label}: {TaskTitle}")" aria-busy="@Focus.IsBusy.ToString().ToLowerInvariant()"
+                title="@Label" disabled="@Focus.IsBusy" @onclick="ApplyAsync">
+            @if (Selected)
+            {
+                <FluentIcon Value="@(new Icons.Filled.Size24.WeatherSunny())" />
+            }
+            else
+            {
+                <FluentIcon Value="@(new Icons.Regular.Size24.WeatherSunny())" />
+            }
+            <span class="daily-focus-label">@Label</span>
+        </button>
+    }
+    @if (_error is not null) { <span role="alert" class="daily-focus-error">@L[_error]</span> }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public Guid TaskId { get; set; }
+    [Parameter] public string TaskTitle { get; set; } = "";
+    [Parameter] public bool UseFluentButton { get; set; }
+    private string? _error;
+    private bool _disposed;
+    private bool Selected => Focus.State?.Ids.Contains(TaskId) == true;
+    private string Label => Focus.State is null ? L["Focus_Load"] : Selected ? L["Focus_Remove"] : L["Focus_Add"];
+    protected override void OnInitialized() => Focus.Changed += Refresh;
+    private void Refresh() { if (!_disposed) _ = InvokeAsync(StateHasChanged); }
+    private async Task ApplyAsync()
+    {
+        _error = null;
+        if (Focus.State is null) { await Focus.RefreshAsync(); _error = Focus.ErrorKey; return; }
+        if (!await Focus.SetAsync([TaskId], !Selected)) _error = Focus.ErrorKey;
+    }
+    public void Dispose() { _disposed = true; Focus.Changed -= Refresh; }
+}

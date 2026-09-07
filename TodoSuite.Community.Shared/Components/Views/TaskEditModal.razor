@@ -70,7 +70,7 @@
                                       Title="@L["Task_AddToCard"]"
                                       OnClick="ToggleAddMenu">
                             <span class="inline-flex items-center gap-2">
-                                <FluentIcon Value="@(new Icons.Filled.Size20.Add())" />
+                                <FluentIcon Value="@(new Icons.Filled.Size20.Add())" Class="task-edit-add-icon" />
                                 <span class="task-edit-add-button-text">@L["Task_AddToCard_Btn"]</span>
                             </span>
                         </FluentButton>
@@ -151,6 +151,9 @@
                             <FluentIcon Value="@(new Icons.Regular.Size24.Alert())" />
                         }
                     </FluentButton>
+
+                    <!-- My Day -->
+                    <DailyFocusButton TaskId="_editableTask.Id" TaskTitle="@_editableTask.Title" UseFluentButton="true" />
 
                     <!-- Important -->
                     <FluentButton Appearance="Appearance.Stealth"
@@ -575,6 +578,8 @@
                                             <div class="space-y-2">
                                                 <InputSelect TValue="RecurrencePattern"
                                                              class="w-full rounded-xl border border-slate-200 p-2"
+                                                             disabled="@(!CanWriteToList())"
+                                                             aria-label="@L["Task_Recurrence"]"
                                                              Value="@(_editableTask?.Recurrence ?? RecurrencePattern.Keine)"
                                                              ValueChanged="@( (RecurrencePattern v) => OnRecurrenceChanged(v) )"
                                                              ValueExpression="@(() => _editableTask!.Recurrence)">
@@ -584,15 +589,35 @@
 @*                                                     <option value="@RecurrencePattern.BestimmteWochentage">@L["Task_Recurrence_SpecificDays"]</option>
  *@                                                    <option value="@RecurrencePattern.Monatlich">@L["Task_Recurrence_Monthly"]</option>
                                                     <option value="@RecurrencePattern.Jaehrlich">@L["Task_Recurrence_Yearly"]</option>
+                                                    <option value="@RecurrencePattern.TageNachAbschluss">@L["Task_Recurrence_AfterCompletion"]</option>
 @*                                                     <option value="@RecurrencePattern.Benutzerdefiniert">@L["Task_Recurrence_Custom"]</option>
  *@                                                </InputSelect>
                                             </div>
+
+                                            @if (_editableTask?.Recurrence == RecurrencePattern.TageNachAbschluss)
+                                            {
+                                                <div class="space-y-2">
+                                                    <label for="task-recurrence-completion-days" class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Recurrence_AfterCompletionDays"]</label>
+                                                    <InputNumber TValue="int"
+                                                                 id="task-recurrence-completion-days"
+                                                                 class="w-full rounded-xl border border-slate-200 p-2"
+                                                                 disabled="@(!CanWriteToList())"
+                                                                 min="@TaskRecurrenceRules.MinimumCompletionIntervalDays"
+                                                                 max="@TaskRecurrenceRules.MaximumCompletionIntervalDays"
+                                                                 inputmode="numeric"
+                                                                 Value="@_completionIntervalDays"
+                                                                 ValueChanged="OnCompletionIntervalDaysChanged"
+                                                                 ValueExpression="@(() => _completionIntervalDays)" />
+                                                    <div class="text-xs text-slate-500">@L["Task_Recurrence_AfterCompletionHint", _completionIntervalDays]</div>
+                                                </div>
+                                            }
 
                                             @if (_editableTask?.Recurrence == RecurrencePattern.Benutzerdefiniert)
                                             {
                                                 <div class="space-y-2">
                                                     <label class="text-xs uppercase tracking-wide text-slate-500">@L["Task_Recurrence_CustomLabel"]</label>
                                                     <InputText class="w-full rounded-xl border border-slate-200 p-2"
+                                                               disabled="@(!CanWriteToList())"
                                                                Value="@_editableTask?.CustomRecurrence"
                                                                ValueChanged="@(v => OnCustomRecurrenceChanged(v))"
                                                                ValueExpression="@(() => _editableTask!.CustomRecurrence)" />
@@ -1827,6 +1852,7 @@
     private CancellationTokenSource? _autosaveCts;
     private readonly SemaphoreSlim _saveGate = new(1, 1);
     private bool _suppressAutosave = false;
+    private int _completionIntervalDays = TaskRecurrenceRules.DefaultCompletionIntervalDays;
 
     // Labels UI
     private bool _labelPickerOpen = false;
@@ -2186,6 +2212,10 @@
             BeginNewTaskContext();
             _suppressAutosave = true;
             _editableTask = CloneTask(Task);
+            _completionIntervalDays = TaskRecurrenceRules.TryGetCompletionInterval(
+                _editableTask.CustomRecurrence, out var completionDays)
+                ? completionDays
+                : TaskRecurrenceRules.DefaultCompletionIntervalDays;
 
             _editableTask.MemberUserIds ??= new List<string>();
             _editableTask.MemberUserIds = _editableTask.MemberUserIds
@@ -2558,6 +2588,7 @@
 
         _saveInProgress = true;
         var saved = false;
+        TodoTaskEntity? taskToNotify = null;
 
         try
         {
@@ -2615,7 +2646,7 @@
                 SyncSectionVisibilityFromData();
 
                 if (OnTaskUpdated.HasDelegate)
-                    await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
+                    taskToNotify = CloneTask(_editableTask);
             }
             else if (_editableTask is not null)
             {
@@ -2638,12 +2669,34 @@
         finally
         {
             if (IsCurrentTaskContext(contextVersion, taskId, listId))
+            {
                 _saveInProgress = false;
+                StateHasChanged();
+            }
             if (gateEntered)
                 _saveGate.Release();
         }
 
-        return saved && !_dirty;
+        // Aggregate views (for example "Aufgaben" and "Mein Tag") reload their task
+        // collection in this callback. That work must not keep the modal's save lock or
+        // busy state alive: otherwise title blur leaves Done/Important disabled until the
+        // modal is opened again.
+        var notificationSucceeded = true;
+        if (saved && taskToNotify is not null && !_isDisposed && OnTaskUpdated.HasDelegate)
+        {
+            try
+            {
+                await OnTaskUpdated.InvokeAsync(taskToNotify);
+            }
+            catch (Exception ex)
+            {
+                notificationSucceeded = false;
+                if (IsCurrentTaskContext(contextVersion, taskId, listId))
+                    _error = string.Format(L["Err_TaskSave"].Value, ex.Message);
+            }
+        }
+
+        return saved && notificationSucceeded && !_dirty;
     }
 
     // Field handlers
@@ -2688,7 +2741,33 @@
         ScheduleAutosave(200);
     }
 
-    private void OnRecurrenceChanged(RecurrencePattern v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Recurrence = v; ScheduleAutosave(200); }
+    private void OnRecurrenceChanged(RecurrencePattern v)
+    {
+        if (_editableTask is null || !CanWriteToList()) return;
+        _editableTask.Recurrence = v;
+        if (v == RecurrencePattern.TageNachAbschluss)
+        {
+            if (!TaskRecurrenceRules.TryGetCompletionInterval(_editableTask.CustomRecurrence, out _completionIntervalDays))
+                _completionIntervalDays = TaskRecurrenceRules.DefaultCompletionIntervalDays;
+            _editableTask.CustomRecurrence = TaskRecurrenceRules.EncodeCompletionInterval(_completionIntervalDays);
+        }
+        else if (v != RecurrencePattern.Benutzerdefiniert)
+        {
+            _editableTask.CustomRecurrence = null;
+        }
+        ScheduleAutosave(200);
+    }
+
+    private void OnCompletionIntervalDaysChanged(int value)
+    {
+        if (_editableTask?.Recurrence != RecurrencePattern.TageNachAbschluss || !CanWriteToList()) return;
+        _completionIntervalDays = Math.Clamp(
+            value,
+            TaskRecurrenceRules.MinimumCompletionIntervalDays,
+            TaskRecurrenceRules.MaximumCompletionIntervalDays);
+        _editableTask.CustomRecurrence = TaskRecurrenceRules.EncodeCompletionInterval(_completionIntervalDays);
+        ScheduleAutosave(200);
+    }
     private void OnCustomRecurrenceChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.CustomRecurrence = v; ScheduleAutosave(); }
 
     // Members

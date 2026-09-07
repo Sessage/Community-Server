@@ -16,6 +16,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
     private readonly INotificationService _notificationService;
     private readonly ITodoAutomationService _automationService;
     private readonly IProductFeatureCatalog _features;
+    private readonly TimeProvider _clock;
     private bool CustomFieldsEnabled => _features.IsEnabled(ProductFeatureIds.Forms);
 
     /// <summary>
@@ -28,12 +29,14 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         ITaskMemberService taskMemberService,
         INotificationService notificationService,
         ITodoAutomationService automationService,
-        IProductFeatureCatalog features)
+        IProductFeatureCatalog features,
+        TimeProvider? clock = null)
         : base(dbContextFactory, hubContext, env, taskMemberService)
     {
         _notificationService = notificationService;
         _automationService = automationService;
         _features = features;
+        _clock = clock ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -104,7 +107,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             IsImportant = task.IsImportant,
             Assignee = assignee,
             Recurrence = task.Recurrence,
-            CustomRecurrence = task.CustomRecurrence,
+            CustomRecurrence = TaskRecurrenceRules.NormalizeCustomRule(task.Recurrence, task.CustomRecurrence),
             Column = targetCol,
             ReminderAtUtc = task.ReminderAtUtc,
             ReminderSentAtUtc = null,
@@ -201,7 +204,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         entity.IsImportant = task.IsImportant;
         entity.Assignee = TodoTaskInputValidation.ResolveAssignee(list, task.Assignee, nameof(task));
         entity.Recurrence = task.Recurrence;
-        entity.CustomRecurrence = task.CustomRecurrence;
+        entity.CustomRecurrence = TaskRecurrenceRules.NormalizeCustomRule(task.Recurrence, task.CustomRecurrence);
         entity.Column = TodoTaskInputValidation.ResolveColumn(list, task.Column);
         entity.CardColor = string.IsNullOrWhiteSpace(task.CardColor) ? null : task.CardColor.Trim();
         entity.CardColorMode = task.CardColorMode;
@@ -438,14 +441,26 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         // wird eine neue Aufgabe mit der berechneten Fälligkeit erstellt.
         if (entity.Done && !wasAlreadyDone && entity.Recurrence != RecurrencePattern.Keine)
         {
-            var baseDate = (entity.DueDate ?? DateTime.UtcNow).Date;
-            var nextDueDate = CalculateNextDueDate(entity.Recurrence, baseDate);
+            var completedOn = _clock.GetLocalNow().Date;
+            var nextDueDate = TaskRecurrenceRules.CalculateNextDueDate(
+                entity.Recurrence,
+                entity.DueDate,
+                completedOn,
+                entity.CustomRecurrence);
 
             if (nextDueDate.HasValue)
             {
                 var activeTasks = await db.TodoTasks
                     .Where(t => t.ListId == entity.ListId && t.DeletedAt == null && !t.Done)
                     .ToListAsync(cancellationToken);
+                var successorColumn = entity.Column;
+                if ((list.DoneColumns ?? []).Contains(successorColumn, StringComparer.OrdinalIgnoreCase))
+                {
+                    successorColumn = (list.Columns ?? [])
+                        .FirstOrDefault(column => !(list.DoneColumns ?? [])
+                            .Contains(column, StringComparer.OrdinalIgnoreCase))
+                        ?? successorColumn;
+                }
 
                 var newTask = new TodoTaskEntity
                 {
@@ -459,13 +474,13 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
                     Assignee = entity.Assignee,
                     Recurrence = entity.Recurrence,
                     CustomRecurrence = entity.CustomRecurrence,
-                    Column = entity.Column,
+                    Column = successorColumn,
                     CardColor = entity.CardColor,
                     CardColorMode = entity.CardColorMode,
                     CreatedAtUtc = DateTime.UtcNow,
                     ListSortOrder = activeTasks.Any() ? activeTasks.Max(t => t.ListSortOrder) + 1 : 0,
-                    KanbanSortOrder = activeTasks.Where(t => t.Column == entity.Column).Any()
-                        ? activeTasks.Where(t => t.Column == entity.Column).Max(t => t.KanbanSortOrder) + 1
+                    KanbanSortOrder = activeTasks.Where(t => t.Column == successorColumn).Any()
+                        ? activeTasks.Where(t => t.Column == successorColumn).Max(t => t.KanbanSortOrder) + 1
                         : 0,
                     LabelLinks = (entity.LabelLinks ?? new List<TodoTaskLabelEntity>())
                         .Select(ll => new TodoTaskLabelEntity { TaskId = Guid.Empty, LabelId = ll.LabelId })
@@ -833,18 +848,6 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         await db.SaveChangesAsync(cancellationToken);
         await NotifyListUpdatedAsync(listId, cancellationToken);
     }
-
-    /// Berechnet das nächste Fälligkeitsdatum basierend auf dem Wiederholungsintervall.
-    private static DateTime? CalculateNextDueDate(RecurrencePattern recurrence, DateTime baseDate)
-        => recurrence switch
-        {
-            RecurrencePattern.Taeglich            => baseDate.AddDays(1),
-            RecurrencePattern.Woechentlich        => baseDate.AddDays(7),
-            RecurrencePattern.BestimmteWochentage => baseDate.AddDays(7),
-            RecurrencePattern.Monatlich           => baseDate.AddMonths(1),
-            RecurrencePattern.Jaehrlich           => baseDate.AddYears(1),
-            _                                     => null // Keine, Benutzerdefiniert
-        };
 
     private static async Task<Dictionary<Guid, TodoCustomFieldDefinitionEntity>> GetCustomFieldDefinitionsAsync(ApplicationDbContext db, Guid listId, CancellationToken ct)
         => (await db.TodoCustomFields

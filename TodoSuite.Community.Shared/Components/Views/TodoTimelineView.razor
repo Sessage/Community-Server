@@ -11,11 +11,11 @@
 }
 else
 {
-    <div class="timeline-view">
+    <div class="timeline-view" @onkeydown="HandleTimelineKeyDown">
         <div class="timeline-toolbar">
             <div class="timeline-toolbar__group" role="group" aria-label="@L["Timeline_Grouping"]">
-                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Tasks)" @onclick="() => SetGrouping(TimelineGrouping.Tasks)">@L["Timeline_ByTask"]</button>
-                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Assignees)" @onclick="() => SetGrouping(TimelineGrouping.Assignees)">@L["Timeline_ByAssignee"]</button>
+                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Tasks)" aria-pressed="@((_grouping == TimelineGrouping.Tasks).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Tasks)">@L["Timeline_ByTask"]</button>
+                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Assignees)" aria-pressed="@((_grouping == TimelineGrouping.Assignees).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Assignees)">@L["Timeline_ByAssignee"]</button>
             </div>
             <div class="timeline-toolbar__summary">
                 <span>@L["Timeline_ScheduledCount", ScheduledTaskCount, VisibleTasks.Count]</span>
@@ -30,13 +30,13 @@ else
                         title="@L["Timeline_JumpToToday"]"
                         @onclick:stopPropagation="true"
                         @onclick="CenterTodayAsync">@L["Timeline_Today"]</button>
-                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Day)" @onclick="() => SetScale(TimelineScale.Day)">@L["Timeline_Days"]</button>
-                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Week)" @onclick="() => SetScale(TimelineScale.Week)">@L["Timeline_Weeks"]</button>
-                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Month)" @onclick="() => SetScale(TimelineScale.Month)">@L["Timeline_Months"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Day)" aria-pressed="@((_scale == TimelineScale.Day).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Day)">@L["Timeline_Days"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Week)" aria-pressed="@((_scale == TimelineScale.Week).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Week)">@L["Timeline_Weeks"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Month)" aria-pressed="@((_scale == TimelineScale.Month).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Month)">@L["Timeline_Months"]</button>
             </div>
         </div>
 
-        @if (CanWriteToList())
+        @if (AllowTaskCreation && CanWriteToList())
         {
             <form class="timeline-create" @onsubmit="AddTaskAsync" @onsubmit:preventDefault="true">
                 <input type="text"
@@ -146,13 +146,15 @@ else
                                             @if (range is not null)
                                             {
                                                 <span class="timeline-dates">@FormatRange(task)</span>
-                                                @if (CanWriteToList())
+                                                @if (CanEditSchedule(task))
                                                 {
                                                     <button type="button"
                                                             class="timeline-schedule-menu-button"
                                                             title="@L["Timeline_EditSchedule"]"
                                                             aria-label="@L["Timeline_EditSchedule"]"
-                                                            aria-expanded="@(_scheduleMenuTaskId == task.Id)"
+                                                            aria-haspopup="menu"
+                                                            aria-expanded="@((_scheduleMenuTaskId == task.Id).ToString().ToLowerInvariant())"
+                                                            aria-controls="@($"timeline-schedule-{task.Id:N}")"
                                                             @onclick:stopPropagation="true"
                                                             @onclick="() => ToggleScheduleMenu(task.Id)">•••</button>
                                                 }
@@ -160,16 +162,16 @@ else
                                         </div>
                                         @if (_scheduleMenuTaskId == task.Id)
                                         {
-                                            <div class="timeline-schedule-popover" @onclick:stopPropagation="true">
+                                            <div id="@($"timeline-schedule-{task.Id:N}")" class="timeline-schedule-popover" role="menu" @onclick:stopPropagation="true">
                                                 @if (milestone)
                                                 {
-                                                    <button type="button" @onclick="() => ConvertToScheduleAsync(task)">@L["Timeline_ConvertToSchedule"]</button>
+                                                    <button type="button" role="menuitem" @onclick="() => ConvertToScheduleAsync(task)">@L["Timeline_ConvertToSchedule"]</button>
                                                 }
                                                 else
                                                 {
-                                                    <button type="button" @onclick="() => ConvertToMilestoneAsync(task)">@L["Timeline_ConvertToMilestone"]</button>
+                                                    <button type="button" role="menuitem" @onclick="() => ConvertToMilestoneAsync(task)">@L["Timeline_ConvertToMilestone"]</button>
                                                 }
-                                                <button type="button" class="timeline-schedule-popover__danger" @onclick="() => RemoveScheduleAsync(task)">@L["Timeline_RemoveSchedule"]</button>
+                                                <button type="button" role="menuitem" class="timeline-schedule-popover__danger" @onclick="() => RemoveScheduleAsync(task)">@L["Timeline_RemoveSchedule"]</button>
                                             </div>
                                         }
                                     </div>
@@ -180,7 +182,7 @@ else
                                     {
                                         <div class="timeline-unscheduled">
                                             <span>@L["Timeline_Unscheduled"]</span>
-                                            @if (CanWriteToList())
+                                            @if (CanEditSchedule(task))
                                             {
                                                 <button type="button" @onclick="() => CreateScheduleAsync(task, false)">@L["Timeline_Plan"]</button>
                                                 <button type="button" @onclick="() => CreateScheduleAsync(task, true)">@L["Timeline_Milestone"]</button>
@@ -199,15 +201,15 @@ else
                                                 <button type="button"
                                                         class="timeline-milestone"
                                                         style="--timeline-color:@GetTaskColor(task)"
-                                                        data-timeline-interaction="@(CanWriteToList() ? "move" : null)"
+                                                        data-timeline-interaction="@(CanEditSchedule(task) ? "move" : null)"
                                                         aria-label="@L["Timeline_OpenMilestone", task.Title, range.Value.End.ToString("d")]"
                                                         title="@($"{task.Title} · {range.Value.End:d}")"
                                                         @onclick="() => OpenTaskDetailsAsync(task)"></button>
                                             }
                                             else
                                             {
-                                                <div class="timeline-bar" style="--timeline-color:@GetTaskColor(task)" data-timeline-interaction="@(CanWriteToList() ? "move" : null)">
-                                                    @if (CanWriteToList())
+                                                <div class="timeline-bar" style="--timeline-color:@GetTaskColor(task)" data-timeline-interaction="@(CanEditSchedule(task) ? "move" : null)">
+                                                    @if (CanEditSchedule(task))
                                                     {
                                                         <button type="button" class="timeline-resize timeline-resize--start" data-timeline-interaction="resize-start" aria-label="@L["Timeline_ResizeStart", task.Title]"></button>
                                                     }
@@ -215,7 +217,7 @@ else
                                                         <span>@task.Title</span>
                                                         <small>@GetAssigneeDisplayName(task.Assignee)</small>
                                                     </button>
-                                                    @if (CanWriteToList())
+                                                    @if (CanEditSchedule(task))
                                                     {
                                                         <button type="button" class="timeline-resize timeline-resize--end" data-timeline-interaction="resize-end" aria-label="@L["Timeline_ResizeEnd", task.Title]"></button>
                                                     }
@@ -244,6 +246,10 @@ else
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskDetailsRequested { get; set; }
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskAttachmentsRequested { get; set; }
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskCommentsRequested { get; set; }
+    [Parameter] public bool AllowTaskCreation { get; set; } = true;
+    [Parameter] public bool AllowTaskReordering { get; set; } = true;
+    [Parameter] public Func<TodoTaskEntity, bool>? TaskCanWrite { get; set; }
+    [Parameter] public Func<TodoTaskEntity, Guid>? TaskListIdSelector { get; set; }
 
     private enum TimelineScale { Day, Week, Month }
     private enum TimelineGrouping { Tasks, Assignees }
@@ -408,15 +414,15 @@ else
             .Select(date => date!.Value.Date)
             .Append(DateTime.Today)
             .ToList();
-        var start = dates.Min().AddDays(-PaddingDays);
-        var end = dates.Max().AddDays(PaddingDays);
-        var minimumDays = _scale switch { TimelineScale.Day => 42, TimelineScale.Week => 112, _ => 370 };
-        if ((end - start).TotalDays < minimumDays)
-            end = start.AddDays(minimumDays);
-
-        // Defensive rendering bound for accidentally corrupt or imported dates.
         var absoluteMin = DateTime.Today.AddYears(-5);
         var absoluteMax = DateTime.Today.AddYears(10);
+        var start = TimelineDateRange.AddDaysClamped(dates.Min(), -PaddingDays);
+        var end = TimelineDateRange.AddDaysClamped(dates.Max(), PaddingDays);
+        var minimumDays = _scale switch { TimelineScale.Day => 42, TimelineScale.Week => 112, _ => 370 };
+        if ((end - start).TotalDays < minimumDays)
+            end = TimelineDateRange.AddDaysClamped(start, minimumDays);
+
+        // Defensive rendering bound for accidentally corrupt or imported dates.
         _visibleRange = (start < absoluteMin ? absoluteMin : start, end > absoluteMax ? absoluteMax : end);
         _rows = BuildRows();
         _headerSegments = BuildHeaderSegments();
@@ -507,8 +513,7 @@ else
     private string BarStyle(TodoTaskEntity _, (DateTime Start, DateTime End) range, bool milestone)
     {
         var left = DateLeft(range.Start);
-        var duration = Math.Max(1, (range.End - range.Start).Days);
-        var width = milestone ? 18 : Math.Max(PixelsPerDay, duration * PixelsPerDay);
+        var width = milestone ? 18 : TimelineDateRange.GetInclusiveDayCount(range) * PixelsPerDay;
         return $"left:{Invariant(left)}px;width:{Invariant(width)}px";
     }
 
@@ -570,9 +575,19 @@ else
         return List is not null && userId.Length > 0 && AssigneeIdentityKeys.CanWrite(List, [userId]);
     }
 
+    private bool CanWriteTask(TodoTaskEntity task)
+        => TaskCanWrite?.Invoke(task) ?? CanWriteToList();
+
+    private bool CanEditSchedule(TodoTaskEntity task)
+        => CanWriteTask(task) && !_savingTaskIds.Contains(task.Id);
+
+    private Guid ResolveTaskListId(TodoTaskEntity task)
+        => TaskListIdSelector?.Invoke(task) ?? List?.Id ?? task.ListId;
+
     // A filtered or assignee-grouped DOM is only a partial/projection-specific
     // ordering. Persisting that snapshot would move hidden tasks unexpectedly.
     private bool CanReorderTasks => List is not null
+                                    && AllowTaskReordering
                                     && _grouping == TimelineGrouping.Tasks
                                     && Filter?.IsActive() != true
                                     && !_taskReorderSaving
@@ -710,17 +725,19 @@ else
     [JSInvokable]
     public async Task OnTimelineDateChanged(string taskId, string mode, int deltaDays)
     {
-        if (_disposed || !CanWriteToList() || deltaDays == 0 || !Guid.TryParse(taskId, out var id)) return;
+        if (_disposed || deltaDays == 0 || !Guid.TryParse(taskId, out var id)) return;
         var task = List?.Tasks.FirstOrDefault(candidate => candidate.Id == id);
-        if (task is null) return;
+        if (task is null || !CanWriteTask(task)) return;
 
         var parsedMode = mode switch
         {
             "resize-start" => TimelineDateChangeMode.ResizeStart,
             "resize-end" => TimelineDateChangeMode.ResizeEnd,
-            _ => TimelineDateChangeMode.Move
+            "move" => TimelineDateChangeMode.Move,
+            _ => (TimelineDateChangeMode?)null
         };
-        await PersistDatesAsync(task, TimelineDateRange.Apply(task, parsedMode, deltaDays));
+        if (!parsedMode.HasValue) return;
+        await PersistDatesAsync(task, TimelineDateRange.Apply(task, parsedMode.Value, deltaDays));
     }
 
     private Task CreateScheduleAsync(TodoTaskEntity task, bool milestone)
@@ -730,6 +747,12 @@ else
 
     private void ToggleScheduleMenu(Guid taskId)
         => _scheduleMenuTaskId = _scheduleMenuTaskId == taskId ? null : taskId;
+
+    private void HandleTimelineKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            _scheduleMenuTaskId = null;
+    }
 
     private Task ConvertToMilestoneAsync(TodoTaskEntity task)
         => PersistDatesAsync(task, TimelineDateRange.ConvertToMilestone(task, DateTime.Today));
@@ -757,7 +780,7 @@ else
             Id = Guid.NewGuid(),
             ListId = List.Id,
             Title = title,
-            Column = List.Columns.FirstOrDefault() ?? "Backlog",
+            Column = (List.Columns ?? []).FirstOrDefault() ?? "Backlog",
             StartDate = schedule.StartDate,
             DueDate = schedule.DueDate,
             CreatedAtUtc = DateTime.UtcNow
@@ -787,7 +810,9 @@ else
 
     private async Task PersistDatesAsync(TodoTaskEntity task, TimelineDateUpdate update)
     {
-        if (!_savingTaskIds.Add(task.Id)) return;
+        // Enforce permissions at the mutation boundary as well as in the UI. This
+        // covers every scheduling entry point, including menu actions and JS drag.
+        if (!CanWriteTask(task) || !_savingTaskIds.Add(task.Id)) return;
         _scheduleMenuTaskId = null;
         var oldStart = task.StartDate;
         var oldDue = task.DueDate;
@@ -802,7 +827,7 @@ else
 
         try
         {
-            var updated = await TaskService.UpdateTaskAsync(_userId, List!.Id, task)
+            var updated = await TaskService.UpdateTaskAsync(_userId, ResolveTaskListId(task), task)
                 ?? throw new InvalidOperationException(L["Err_TaskDeleteNotFound"].Value);
             if (OnTaskUpdated.HasDelegate)
                 await OnTaskUpdated.InvokeAsync(updated);

@@ -213,6 +213,7 @@
   </data>
   <data name="Page_Tasks_Error" xml:space="preserve"><value>无法加载分配给您的任务，请重试。</value></data>
   <data name="Page_Tasks_Retry" xml:space="preserve"><value>重试</value></data>
+  <data name="Task_ListOrigin" xml:space="preserve"><value>来自列表：{0}</value></data>
   <!-- Page: MyDay -->
   <data name="Page_MyDay_Section" xml:space="preserve">
     <value>专注</value>
@@ -2441,4 +2442,56 @@
   <data name="Timeline_ConvertToSchedule" xml:space="preserve"><value>转换为计划任务</value></data>
   <data name="Timeline_ConvertToMilestone" xml:space="preserve"><value>转换为里程碑</value></data>
   <data name="Timeline_RemoveSchedule" xml:space="preserve"><value>移除计划</value></data>
+  <data name="Focus_Add" xml:space="preserve"><value>添加到我的一天</value></data>
+  <data name="Focus_All" xml:space="preserve"><value>选择任务</value></data>
+  <data name="Focus_Close" xml:space="preserve"><value>关闭</value></data>
+  <data name="Focus_Count" xml:space="preserve"><value>已选择 {0} 个 · 已完成 {1} 个</value></data>
+  <data name="Focus_Description" xml:space="preserve"><value>为今天选择 3 到 7 个任务。明天将清空当天选择，所有任务仍保留在原来的列表中。</value></data>
+  <data name="Focus_DueToday" xml:space="preserve"><value>今天到期</value></data>
+  <data name="Focus_Empty" xml:space="preserve"><value>今天还没有安排任务。请从建议或列表中选择任务。</value></data>
+  <data name="Focus_Error" xml:space="preserve"><value>无法同步当天的选择，请检查与服务器的连接。</value></data>
+  <data name="Focus_Important" xml:space="preserve"><value>重要</value></data>
+  <data name="Focus_LimitHint" xml:space="preserve"><value>已选择超过 7 个任务，请考虑今天最重要的事情。</value></data>
+  <data name="Focus_NoSuggestions" xml:space="preserve"><value>没有符合条件的未完成任务。</value></data>
+  <data name="Focus_Overdue" xml:space="preserve"><value>已逾期</value></data>
+  <data name="Focus_Remove" xml:space="preserve"><value>从我的一天移除</value></data>
+  <data name="Focus_Retry" xml:space="preserve"><value>重试</value></data>
+  <data name="Focus_Search" xml:space="preserve"><value>搜索任务或列表</value></data>
+  <data name="Focus_Storage" xml:space="preserve"><value>当天的选择会在所有设备间同步，需要连接服务器。共用时区：</value></data>
+  <data name="Focus_Suggestions" xml:space="preserve"><value>今日建议</value></data>
+  <data name="Focus_Unscheduled" xml:space="preserve"><value>其他任务</value></data>
+  <data name="Focus_Load" xml:space="preserve"><value>加载我的一天</value></data>
+  <data name="Focus_SessionChanged" xml:space="preserve"><value>登录会话已更改，请重新加载我的一天。</value></data>
+  <data name="Focus_DayChanged" xml:space="preserve"><value>新的一天开始了，请重新选择任务。</value></data>
+  <data name="Focus_BatchLimit" xml:space="preserve"><value>一次最多选择 500 个任务。</value></data>
+  <data name="Focus_SelectTask" xml:space="preserve"><value>选择任务：{0}</value></data>
+  <data name="Focus_AddedCount" xml:space="preserve"><value>已为我的一天选择 {0} 个任务。</value></data>
+  <data name="Focus_RemovedCount" xml:space="preserve"><value>已从我的一天移除 {0} 个任务。</value></data>
+  <data name="Focus_MultiSelect" xml:space="preserve"><value>多选</value></data>
+  <data name="Focus_AddedOne" xml:space="preserve"><value>任务已添加到我的一天。</value></data>
+  <data name="Focus_RemovedOne" xml:space="preserve"><value>任务已从我的一天移除。</value></data>
+  <data name="Matrix_Title" xml:space="preserve"><value>优先级矩阵</value></data>
+  <data name="Matrix_Important" xml:space="preserve"><value>重要</value></data>
+  <data name="Matrix_NotImportant" xml:space="preserve"><value>不重要</value></data>
+  <data name="Matrix_Urgent" xml:space="preserve"><value>紧急</value></data>
+  <data name="Matrix_NotUrgent" xml:space="preserve"><value>不紧急</value></data>
+  <data name="Matrix_Q1_Title" xml:space="preserve"><value>紧急且重要</value></data>
+  <data name="Matrix_Q1_Action" xml:space="preserve"><value>立即处理</value></data>
+  <data name="Matrix_Q1_Description" xml:space="preserve"><value>今天到期或已逾期的高优先级任务。</value></data>
+  <data name="Matrix_Q2_Title" xml:space="preserve"><value>重要但不紧急</value></data>
+  <data name="Matrix_Q2_Action" xml:space="preserve"><value>安排计划</value></data>
+  <data name="Matrix_Q2_Description" xml:space="preserve"><value>推动长期进展的战略任务。</value></data>
+  <data name="Matrix_Q3_Title" xml:space="preserve"><value>紧急但不重要</value></data>
+  <data name="Matrix_Q3_Action" xml:space="preserve"><value>委派处理</value></data>
+  <data name="Matrix_Q3_Description" xml:space="preserve"><value>时间紧迫但优先级不高的任务。</value></data>
+  <data name="Matrix_Q4_Title" xml:space="preserve"><value>不紧急且不重要</value></data>
+  <data name="Matrix_Q4_Action" xml:space="preserve"><value>消除</value></data>
+  <data name="Matrix_Q4_Description" xml:space="preserve"><value>既不紧急也无战略重要性的任务。</value></data>
+  <data name="Matrix_DropHere" xml:space="preserve"><value>将任务拖放到此处</value></data>
+  <data name="Matrix_MoveTask" xml:space="preserve"><value>将 {0} 移至其他象限</value></data>
+  <data name="Matrix_NoDueDate" xml:space="preserve"><value>无截止日期</value></data>
+  <data name="Matrix_SaveError" xml:space="preserve"><value>无法保存优先级：{0}</value></data>
+  <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>完成后 X 天重复</value></data>
+  <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>完成后的天数</value></data>
+  <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>下一项任务将在实际完成后的 {0} 天到期。</value></data>
 </root>
