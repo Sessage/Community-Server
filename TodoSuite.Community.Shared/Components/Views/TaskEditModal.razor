@@ -1822,6 +1822,8 @@
 
     private HubConnection? _hubConnection;
     private Guid _hubSubscribedListId;
+    private bool _hubStarting;
+    private bool _hubStartRetryScheduled;
 
     /* Schritte */
     private bool _showAddStep = false;
@@ -3353,10 +3355,33 @@
     // Hub
     private async Task StartHubAsync()
     {
+        if (_isDisposed || _hubStarting) return;
+        if (_hubConnection?.State is HubConnectionState.Connected
+            or HubConnectionState.Connecting
+            or HubConnectionState.Reconnecting) return;
+
+        _hubStarting = true;
         try
         {
+            if (_hubConnection is not null)
+            {
+                try { await _hubConnection.DisposeAsync(); } catch { }
+                _hubConnection = null;
+                _hubSubscribedListId = Guid.Empty;
+            }
+
             _hubConnection = await HubConnectionFactory.CreateAsync();
-            if (_hubConnection is null) return;
+            if (_hubConnection is null)
+            {
+                ScheduleHubStartRetry();
+                return;
+            }
+
+            _hubConnection.On<Guid>(TodoHub.ListsUpdated, async listId =>
+            {
+                if (_isDisposed || listId != ListId || _saveInProgress || _dirty) return;
+                try { await InvokeAsync(() => RefreshTaskAsync()); } catch { }
+            });
 
             _hubConnection.On<Guid, Guid>(TodoHub.TaskCommentsUpdated, async (listId, taskId) =>
             {
@@ -3385,6 +3410,13 @@
                 catch { }
             };
 
+            _hubConnection.Closed += _ =>
+            {
+                _hubSubscribedListId = Guid.Empty;
+                ScheduleHubStartRetry();
+                return global::System.Threading.Tasks.Task.CompletedTask;
+            };
+
             await _hubConnection.StartAsync(_lifetimeCts.Token);
             await _hubConnection.SendAsync(TodoHub.SubscribeToUser, _userId, _lifetimeCts.Token);
             await EnsureHubSubscriptionAsync();
@@ -3392,6 +3424,31 @@
         catch
         {
             // Hub-Verbindung ist optional – App funktioniert auch ohne Echtzeit-Updates
+            ScheduleHubStartRetry();
+        }
+        finally { _hubStarting = false; }
+    }
+
+    private void ScheduleHubStartRetry()
+    {
+        if (_isDisposed || _hubStartRetryScheduled) return;
+        _hubStartRetryScheduled = true;
+        _ = RetryHubStartAsync();
+    }
+
+    private async Task RetryHubStartAsync()
+    {
+        try
+        {
+            await global::System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(5), _lifetimeCts.Token);
+            if (_isDisposed) return;
+            _hubStartRetryScheduled = false;
+            await InvokeAsync(StartHubAsync);
+        }
+        catch (OperationCanceledException) when (_lifetimeCts.IsCancellationRequested) { }
+        finally
+        {
+            if (_isDisposed) _hubStartRetryScheduled = false;
         }
     }
 
@@ -3407,6 +3464,13 @@
         var list = await ListService.GetListAsync(_userId, listId, token);
         if (!IsCurrentTaskContext(contextVersion, taskId, listId) || _saveInProgress || _dirty) return;
         var updated = list?.Tasks.FirstOrDefault(t => t.Id == taskId);
+
+        if (updated is null)
+        {
+            if (IsCurrentTaskContext(contextVersion, taskId, listId) && OnClose.HasDelegate)
+                await OnClose.InvokeAsync();
+            return;
+        }
 
         if (updated is not null)
         {
@@ -3450,6 +3514,12 @@
             return;
 
         var listId = ListId;
+        if (_hubSubscribedListId != Guid.Empty)
+        {
+            try { await _hubConnection.SendAsync(TodoHub.UnsubscribeFromList, _hubSubscribedListId, _lifetimeCts.Token); }
+            catch { }
+            _hubSubscribedListId = Guid.Empty;
+        }
         await _hubConnection.SendAsync(TodoHub.SubscribeToList, listId, _lifetimeCts.Token);
         _hubSubscribedListId = listId;
     }

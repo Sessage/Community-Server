@@ -766,6 +766,7 @@
     private HubConnection? _hubConnection;
     private CancellationTokenSource? _hubCts;
     private bool _hubStarted;
+    private bool _hubStartRetryScheduled;
     private bool _disposed;
 
     private string NavHostClass =>
@@ -2015,6 +2016,12 @@
         _hubCts?.Dispose();
         _hubCts = new CancellationTokenSource();
 
+        if (_hubConnection is not null)
+        {
+            try { await _hubConnection.DisposeAsync(); } catch { }
+            _hubConnection = null;
+        }
+
         _hubConnection = await HubConnectionFactory.CreateAsync(_hubCts.Token);
         if (_hubConnection is null)
             return;
@@ -2057,6 +2064,13 @@
             catch { }
         };
 
+        _hubConnection.Closed += _ =>
+        {
+            _hubStarted = false;
+            ScheduleHubStartRetry();
+            return Task.CompletedTask;
+        };
+
         try
         {
             await _hubConnection.StartAsync(_hubCts.Token);
@@ -2070,6 +2084,30 @@
         catch (Exception ex)
         {
             _error = string.Format(L["Err_HubStart"], ex.Message);
+            ScheduleHubStartRetry();
+        }
+    }
+
+    private void ScheduleHubStartRetry()
+    {
+        if (_disposed || _hubStartRetryScheduled) return;
+        _hubStartRetryScheduled = true;
+        _ = RetryHubStartAsync();
+    }
+
+    private async Task RetryHubStartAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            if (_disposed) return;
+            _hubStartRetryScheduled = false;
+            await InvokeAsync(StartHubAsync);
+        }
+        catch when (_disposed) { }
+        finally
+        {
+            if (_disposed) _hubStartRetryScheduled = false;
         }
     }
 

@@ -64,12 +64,22 @@ public abstract class TodoWorkspaceServiceBase
     /// damit deren NavMenu die Ansicht aktualisiert.
     /// </summary>
     protected Task NotifyParticipantsListsUpdatedAsync(TodoListEntity list, CancellationToken ct = default)
+        => NotifyUsersListsUpdatedAsync(
+            (list.Participants ?? new List<ListParticipantEntity>())
+            .Select(p => p.UserId)
+            .Append(list.OwnerId),
+            ct);
+
+    /// <summary>
+    /// Benachrichtigt eine explizite Menge betroffener Benutzer. Das ist insbesondere beim
+    /// Entzug von Zugriff erforderlich, weil entfernte Teilnehmer nicht mehr in der aktuellen
+    /// Listenprojektion enthalten sind.
+    /// </summary>
+    protected Task NotifyUsersListsUpdatedAsync(IEnumerable<string?> affectedUserIds, CancellationToken ct = default)
     {
         // Navigation changes target user groups rather than the list group because clients not
         // currently viewing this list must also refresh their navigation projection.
-        var userIds = (list.Participants ?? new List<ListParticipantEntity>())
-            .Select(p => p.UserId)
-            .Append(list.OwnerId)
+        var userIds = affectedUserIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();

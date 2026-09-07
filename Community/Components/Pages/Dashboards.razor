@@ -19,6 +19,7 @@
 @inject IProductFeatureCatalog ProductFeatures
 
 <PageTitle>@L["Dashboard_PageTitle"]</PageTitle>
+<TodoRealtimeSync ListIds="RealtimeListIds" OnChanged="HandleRealtimeChangedAsync" />
 
 <div class="mx-auto h-full min-h-0 flex flex-col overflow-hidden overflow-x-hidden" @onclick="CloseOverlays">
 
@@ -254,11 +255,14 @@
     private bool _portfolioShareOpen;
     private bool _initialized;
     private bool _disposed;
+    private bool _realtimeReloadPending;
+    private bool _realtimeRouteReloadPending;
     private bool _loading = true;
     private string? _loadError;
     private Guid? _loadedPortfolioId;
     private bool _canManagePortfolio;
     private bool CanEditDashboard => !PortfolioId.HasValue || _canManagePortfolio;
+    private IEnumerable<Guid> RealtimeListIds => _activeDashboard?.SelectedListIds ?? [];
 
     // ── Init ──────────────────────────────────────────────────────────────
 
@@ -713,6 +717,8 @@
                 }
                 _hasPendingSave = false;
                 _saveState = $"{L["Dashboard_Autosave_Saved"]}: {DateTime.Now:HH:mm:ss}";
+                if (_realtimeRouteReloadPending && _selectedTask is null)
+                    _ = InvokeAsync(FlushRealtimeReloadAsync);
             }
             else if (updated is null) _saveState = L["Dashboard_SaveFailed"];
         }
@@ -1036,11 +1042,32 @@
         return Task.CompletedTask;
     }
 
-    private Task CloseTaskDetails()
+    private async Task CloseTaskDetails()
     {
         _selectedTask = null;
         _selectedTaskList = null;
-        return Task.CompletedTask;
+        await FlushRealtimeReloadAsync();
+    }
+
+    private async Task HandleRealtimeChangedAsync(Guid? listId)
+    {
+        _realtimeReloadPending = true;
+        _realtimeRouteReloadPending |= !listId.HasValue && PortfolioId.HasValue;
+        if (_selectedTask is not null || (_realtimeRouteReloadPending && _hasPendingSave)) return;
+        await FlushRealtimeReloadAsync();
+    }
+
+    private async Task FlushRealtimeReloadAsync()
+    {
+        if (!_realtimeReloadPending || _disposed || _selectedTask is not null) return;
+        if (_realtimeRouteReloadPending && _hasPendingSave) return;
+        var reloadRoute = _realtimeRouteReloadPending;
+        _realtimeReloadPending = false;
+        _realtimeRouteReloadPending = false;
+        if (reloadRoute)
+            await LoadCurrentRouteAsync();
+        else
+            await ReloadDashboardListsAsync();
     }
 
     private async Task HandleTaskUpdated(TodoTaskEntity updatedTask)

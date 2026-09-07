@@ -12,6 +12,7 @@
 @using Microsoft.AspNetCore.Authorization
 
 <PageTitle>@L["Page_Tasks_Title"]</PageTitle>
+<TodoRealtimeSync ListIds="_listLookup.Keys" OnChanged="HandleRealtimeChangedAsync" />
 
 <div class="flex flex-col h-full min-h-0 space-y-4">
     <div class="p-4">
@@ -92,6 +93,7 @@
     private string? _error;
     private CancellationTokenSource? _loadCts;
     private long _loadVersion;
+    private bool _realtimeReloadPending;
 
     protected override async Task OnInitializedAsync()
     {
@@ -206,12 +208,26 @@
         return Task.CompletedTask;
     }
 
-    private Task CloseTaskDetails()
+    private async Task CloseTaskDetails()
     {
         _selectedTask = null;
         _selectedList = null;
         _selectedListId = Guid.Empty;
-        return Task.CompletedTask;
+        if (_realtimeReloadPending)
+        {
+            _realtimeReloadPending = false;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task HandleRealtimeChangedAsync(Guid? _)
+    {
+        if (_selectedTask is not null)
+        {
+            _realtimeReloadPending = true;
+            return;
+        }
+        await ReloadAsync();
     }
 
     private async Task HandleTaskUpdated(TodoTaskEntity updated)

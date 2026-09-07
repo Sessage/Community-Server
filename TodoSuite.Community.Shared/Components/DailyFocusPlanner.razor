@@ -5,6 +5,7 @@
 @implements IDisposable
 
 <PageTitle>@L["Page_MyDay_Title"]</PageTitle>
+<TodoRealtimeSync ListIds="_lists.Select(list => list.Id)" OnChanged="HandleRealtimeChangedAsync" />
 <div class="flex h-full min-h-0 flex-col" data-testid="daily-focus-planner">
     <header class="shrink-0 space-y-3 p-4">
         <h1 class="text-3xl font-semibold">@L["Page_MyDay_Title"]</h1>
@@ -139,5 +140,13 @@
     private async Task OpenPicker(bool all) { _all = all; _picker = true; await LoadAllAsync(); }
     private void OpenTask(TodoTaskEntity task) => _selectedTask = task;
     private async Task CloseTask() { _selectedTask = null; await LoadAllAsync(); }
+    private async Task HandleRealtimeChangedAsync(Guid? _)
+    {
+        if (_selectedTask is not null)
+        {
+            return;
+        }
+        await LoadAllAsync();
+    }
     public void Dispose() { _disposed = true; Focus.Changed -= FocusChanged; _lifetime.Cancel(); }
 }

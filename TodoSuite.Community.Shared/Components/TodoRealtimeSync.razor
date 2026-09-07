@@ -1,0 +1,234 @@
+@inject ITodoHubConnectionFactory HubConnectionFactory
+@inject ITodoCurrentUserService CurrentUserService
+@inject Microsoft.Extensions.Logging.ILogger<TodoRealtimeSync> Logger
+@using Microsoft.Extensions.Logging
+@implements IAsyncDisposable
+
+@code {
+    [Parameter] public IEnumerable<Guid>? ListIds { get; set; }
+    [Parameter] public EventCallback<Guid?> OnChanged { get; set; }
+
+    private readonly CancellationTokenSource _lifetime = new();
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
+    private HashSet<Guid> _desiredListIds = [];
+    private readonly HashSet<Guid> _subscribedListIds = [];
+    private HubConnection? _connection;
+    private string _userId = "";
+    private long _changeVersion;
+    private bool _handlersRegistered;
+    private bool _retryScheduled;
+    private bool _disposed;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _desiredListIds = (ListIds ?? [])
+            .Where(id => id != Guid.Empty)
+            .ToHashSet();
+
+        await EnsureConnectedAsync();
+        await SynchronizeSubscriptionsAsync();
+    }
+
+    private async Task EnsureConnectedAsync()
+    {
+        if (_disposed) return;
+
+        var lockTaken = false;
+        try
+        {
+            await _connectionGate.WaitAsync(_lifetime.Token);
+            lockTaken = true;
+            if (_disposed) return;
+
+            if (string.IsNullOrWhiteSpace(_userId))
+            {
+                var current = await CurrentUserService.GetCurrentUserAsync(_lifetime.Token);
+                if (!current.IsAuthenticated) return;
+                _userId = current.UserId;
+            }
+
+            _connection ??= await HubConnectionFactory.CreateAsync(_lifetime.Token);
+            if (_connection is null)
+            {
+                ScheduleRetry();
+                return;
+            }
+
+            if (!_handlersRegistered)
+            {
+                RegisterHandlers(_connection);
+                _handlersRegistered = true;
+            }
+
+            if (_connection.State is HubConnectionState.Connected
+                or HubConnectionState.Connecting
+                or HubConnectionState.Reconnecting)
+                return;
+
+            await _connection.StartAsync(_lifetime.Token);
+            await _connection.SendAsync(TodoHub.SubscribeToUser, _userId, _lifetime.Token);
+            _subscribedListIds.Clear();
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Realtime connection for aggregate task views is temporarily unavailable.");
+            ScheduleRetry();
+        }
+        finally
+        {
+            if (lockTaken) _connectionGate.Release();
+        }
+    }
+
+    private void RegisterHandlers(HubConnection connection)
+    {
+        connection.On<Guid>(TodoHub.ListsUpdated, listId =>
+            _desiredListIds.Contains(listId) ? QueueChangedAsync(listId) : Task.CompletedTask);
+        connection.On(TodoHub.ListsUpdated, () => QueueChangedAsync(null));
+        connection.On<Guid, Guid>(TodoHub.TaskCommentsUpdated, (listId, _) =>
+            _desiredListIds.Contains(listId) ? QueueChangedAsync(listId) : Task.CompletedTask);
+        connection.On<Guid, Guid>(TodoHub.TaskAttachmentsUpdated, (listId, _) =>
+            _desiredListIds.Contains(listId) ? QueueChangedAsync(listId) : Task.CompletedTask);
+
+        connection.Reconnected += async _ =>
+        {
+            if (_disposed) return;
+            await RestoreAfterReconnectAsync(connection);
+        };
+
+        connection.Closed += _ =>
+        {
+            ScheduleRetry();
+            return Task.CompletedTask;
+        };
+    }
+
+    private async Task RestoreAfterReconnectAsync(HubConnection connection)
+    {
+        var lockTaken = false;
+        try
+        {
+            await _connectionGate.WaitAsync(_lifetime.Token);
+            lockTaken = true;
+            if (_disposed || connection.State != HubConnectionState.Connected) return;
+
+            await connection.SendAsync(TodoHub.SubscribeToUser, _userId, _lifetime.Token);
+            _subscribedListIds.Clear();
+            foreach (var listId in _desiredListIds)
+            {
+                await connection.SendAsync(TodoHub.SubscribeToList, listId, _lifetime.Token);
+                _subscribedListIds.Add(listId);
+            }
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Realtime subscriptions could not be restored after reconnect.");
+        }
+        finally
+        {
+            if (lockTaken) _connectionGate.Release();
+        }
+
+        await QueueChangedAsync(null, immediate: true);
+    }
+
+    private async Task SynchronizeSubscriptionsAsync()
+    {
+        if (_disposed || _connection?.State != HubConnectionState.Connected) return;
+
+        var lockTaken = false;
+        try
+        {
+            await _connectionGate.WaitAsync(_lifetime.Token);
+            lockTaken = true;
+            if (_disposed || _connection?.State != HubConnectionState.Connected) return;
+
+            var desired = _desiredListIds;
+            foreach (var listId in _subscribedListIds.Where(id => !desired.Contains(id)).ToArray())
+            {
+                await _connection.SendAsync(TodoHub.UnsubscribeFromList, listId, _lifetime.Token);
+                _subscribedListIds.Remove(listId);
+            }
+
+            foreach (var listId in desired.Where(id => !_subscribedListIds.Contains(id)))
+            {
+                await _connection.SendAsync(TodoHub.SubscribeToList, listId, _lifetime.Token);
+                _subscribedListIds.Add(listId);
+            }
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Realtime list subscriptions could not be synchronized.");
+        }
+        finally
+        {
+            if (lockTaken) _connectionGate.Release();
+        }
+    }
+
+    private Task QueueChangedAsync(Guid? listId, bool immediate = false)
+    {
+        if (_disposed || !OnChanged.HasDelegate) return Task.CompletedTask;
+        var version = Interlocked.Increment(ref _changeVersion);
+        _ = DispatchChangedAsync(version, listId, immediate);
+        return Task.CompletedTask;
+    }
+
+    private async Task DispatchChangedAsync(long version, Guid? listId, bool immediate)
+    {
+        try
+        {
+            if (!immediate)
+                await Task.Delay(150, _lifetime.Token);
+            if (_disposed || version != Volatile.Read(ref _changeVersion)) return;
+            await InvokeAsync(() => OnChanged.InvokeAsync(listId));
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Realtime refresh callback failed.");
+        }
+    }
+
+    private void ScheduleRetry()
+    {
+        if (_disposed || _retryScheduled) return;
+        _retryScheduled = true;
+        _ = RetryAsync();
+    }
+
+    private async Task RetryAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), _lifetime.Token);
+            if (_disposed) return;
+            _retryScheduled = false;
+            await EnsureConnectedAsync();
+            await SynchronizeSubscriptionsAsync();
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        finally
+        {
+            if (_disposed) _retryScheduled = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        Interlocked.Increment(ref _changeVersion);
+        await _lifetime.CancelAsync();
+
+        if (_connection is not null)
+        {
+            try { await _connection.DisposeAsync(); } catch { }
+        }
+
+        _lifetime.Dispose();
+    }
+}

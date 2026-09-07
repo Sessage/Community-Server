@@ -504,6 +504,14 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 
         if (list.SyncVersion.HasValue && list.SyncVersion.Value != entity.ContentVersion)
             throw new WorkspaceConcurrencyException("Die Liste wurde zwischenzeitlich auf einem anderen Gerät geändert.");
+
+        // Vor der Mutation sichern: vollständig entfernte Teilnehmer fehlen anschließend in der
+        // Entität, müssen aber ihre Navigation und aggregierten Ansichten sofort aktualisieren.
+        var previouslyAffectedUserIds = entity.Participants
+            .Select(participant => participant.UserId)
+            .Append(entity.OwnerId)
+            .ToList();
+
         entity.ContentVersion++;
 
         entity.Name = NormalizeListName(list.Name, nameof(list));
@@ -620,6 +628,11 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         await TaskMemberService.CleanupRemovedListMembersAsync(entity.Id, removedUserIds, cancellationToken);
 
         await NotifyListUpdatedAsync(list.Id, cancellationToken);
+        await NotifyUsersListsUpdatedAsync(
+            previouslyAffectedUserIds
+                .Concat(entity.Participants.Select(participant => participant.UserId))
+                .Append(entity.OwnerId),
+            cancellationToken);
 
         entity.SyncVersion = entity.ContentVersion;
         return entity;
@@ -703,12 +716,18 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
                 $"Owner-Transfer fehlgeschlagen: Zielbenutzer hat keine UserId (Einladung ggf. nicht angenommen). Liste='{list.Name}', Ziel='{targetParticipant.Email}'.");
         }
 
+        var previousOwnerUserId = list.OwnerId;
         list.OwnerId = targetParticipant.UserId;
 
         await EnsureOwnerParticipantAdminAsync(db, list, list.OwnerId, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         await NotifyListUpdatedAsync(listId, cancellationToken);
+        await NotifyUsersListsUpdatedAsync(
+            list.Participants.Select(participant => participant.UserId)
+                .Append(previousOwnerUserId)
+                .Append(list.OwnerId),
+            cancellationToken);
     }
 
     /// <inheritdoc />

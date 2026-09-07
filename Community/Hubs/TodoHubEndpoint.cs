@@ -14,13 +14,13 @@ namespace TodoSuite.Server.Hubs;
 [Authorize(Policy = "MobileApi")]
 public class TodoHubEndpoint(IDbContextFactory<ApplicationDbContext> dbFactory) : Hub
 {
-    public Task SubscribeToUser(string userId)
+    public Task SubscribeToUser(string _)
     {
         var authenticatedUserId = ResolveUserId();
         if (string.IsNullOrWhiteSpace(authenticatedUserId))
             return Task.CompletedTask;
 
-        return Groups.AddToGroupAsync(Context.ConnectionId, TodoHub.UserGroup(authenticatedUserId));
+        return Groups.AddToGroupAsync(Context.ConnectionId, TodoHub.UserGroup(authenticatedUserId), Context.ConnectionAborted);
     }
 
     public async Task SubscribeToList(Guid listId)
@@ -29,24 +29,30 @@ public class TodoHubEndpoint(IDbContextFactory<ApplicationDbContext> dbFactory) 
         if (string.IsNullOrWhiteSpace(userId))
             return;
 
-        await using var db = await dbFactory.CreateDbContextAsync();
+        var normalizedUserId = userId.Trim().ToLower();
+        await using var db = await dbFactory.CreateDbContextAsync(Context.ConnectionAborted);
         var canRead = await db.TodoLists
             .AsNoTracking()
-            .Include(l => l.Participants)
             .AnyAsync(l =>
                 l.Id == listId
                 && l.DeletedAt == null
-                && (l.OwnerId == userId
-                    || l.Participants.Any(p => !p.InvitationPending && (p.UserId == userId || p.Email == userId))));
+                && (l.OwnerId.ToLower() == normalizedUserId
+                    || l.Participants.Any(p => !p.InvitationPending
+                        && ((p.UserId ?? "").ToLower() == normalizedUserId
+                            || p.Email.ToLower() == normalizedUserId))),
+                Context.ConnectionAborted);
 
         if (!canRead)
             return;
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, TodoHub.ListGroup(listId));
+        await Groups.AddToGroupAsync(Context.ConnectionId, TodoHub.ListGroup(listId), Context.ConnectionAborted);
     }
 
     public Task UnsubscribeFromList(Guid listId)
-        => Groups.RemoveFromGroupAsync(Context.ConnectionId, TodoHub.ListGroup(listId));
+        => Groups.RemoveFromGroupAsync(
+            Context.ConnectionId,
+            TodoHub.ListGroup(listId),
+            Context.ConnectionAborted);
 
     private string? ResolveUserId()
         => Context.User?.FindFirstValue(ClaimTypes.NameIdentifier)
