@@ -647,6 +647,10 @@ public static class CommunityApplication
 
             await next();
         });
+        // MapStaticAssets uses the generated endpoint manifest for optimized assets.
+        // Also serve physical files from wwwroot so IIS/reverse-proxy deployments keep
+        // working when that manifest is unavailable or was not refreshed during rollout.
+        app.UseStaticFiles();
         app.UseRateLimiter();
         app.UseAuthentication();
         app.Use(async (context, next) =>
