@@ -449,24 +449,7 @@
     }
 
     private bool IsAdminForList(TodoListEntity list, string requestingUserId)
-    {
-        var key = (requestingUserId ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(key))
-            return false;
-
-        // Owner ist immer Admin
-        if (string.Equals((list.OwnerId ?? "").Trim(), key, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Participant Admin (match über UserId ODER Email)
-        return list.Participants?.Any(p =>
-            !p.InvitationPending
-            && p.Role == ListRole.Admin
-            && (
-                (!string.IsNullOrWhiteSpace(p.UserId) && string.Equals(p.UserId.Trim(), key, StringComparison.OrdinalIgnoreCase))
-                || string.Equals((p.Email ?? "").Trim(), key, StringComparison.OrdinalIgnoreCase)
-            )) == true;
-    }
+        => WorkspaceAuthorization.CanAdminList(list, [requestingUserId]);
 
     private bool IsOwner(ListParticipantEntity p)
     {

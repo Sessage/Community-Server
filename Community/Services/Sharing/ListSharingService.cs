@@ -559,27 +559,7 @@ public class ListSharingService : IListSharingService
     };
 
     private static bool CanAdmin(string requestKey, string? identityEmail, TodoListEntity list)
-    {
-        var req = NormalizeKey(requestKey);
-        var idEmail = (identityEmail ?? "").Trim();
-
-        if (string.Equals((list.OwnerId ?? "").Trim(), req, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        if (list.Participants is null || list.Participants.Count == 0)
-            return false;
-
-        return list.Participants.Any(p =>
-            !p.InvitationPending
-            && p.Role == ListRole.Admin
-            && (
-                (!string.IsNullOrWhiteSpace(p.UserId) &&
-                 string.Equals(p.UserId.Trim(), req, StringComparison.OrdinalIgnoreCase))
-                || EqualsEmail(p.Email, req)
-                || (!string.IsNullOrWhiteSpace(idEmail) && EqualsEmail(p.Email, idEmail))
-            )
-        );
-    }
+        => WorkspaceAuthorization.CanAdminList(list, [requestKey, identityEmail]);
 
     private static string NormalizeKey(string? v) => (v ?? "").Trim();
 

@@ -132,15 +132,7 @@ public abstract class TodoWorkspaceServiceBase
     /// Prüft, ob der Benutzer Admin-Rechte in der Liste besitzt.
     /// </summary>
     protected static bool CanAdmin(string userId, TodoListEntity list)
-    {
-        if (EqualsUserKey(list.OwnerId, userId))
-            return true;
-
-        if (list.Participants?.Any(p => !p.InvitationPending && (EqualsUserKey(p.UserId, userId) || EqualsUserKey(p.Email, userId)) && p.Role == ListRole.Admin) == true)
-            return true;
-
-        return false;
-    }
+        => WorkspaceAuthorization.CanAdminList(list, [userId]);
 
     /// <summary>
     /// Lädt das Nutzerprofil für die Owner-Participant-Synchronisierung.
