@@ -51,7 +51,7 @@
     }
     else if (_activeTab == PortfolioShareTab.Directory)
     {
-        <DirectorySharingPanel ResourceType="DirectoryShareResourceType.Portfolio" ResourceId="PortfolioId" RequestingUserId="RequestingUserId" OnChanged="LoadAsync" />
+        <DirectorySharingPanel ResourceType="DirectoryShareResourceType.Portfolio" ResourceId="PortfolioId" RequestingUserId="@RequestingUserId" OnChanged="LoadAsync" />
     }
     else
     {
