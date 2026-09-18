@@ -50,6 +50,11 @@ public static partial class LdapDirectoryConfiguration
     public static string GroupMembershipAttribute(ActiveDirectoryOptions options) =>
         AttributeOrDefault(options.GroupMembershipAttribute, "memberOf");
 
+    public static string GroupSearchBase(ActiveDirectoryOptions options) =>
+        string.IsNullOrWhiteSpace(options.GroupSearchBaseDn)
+            ? options.BaseDn
+            : options.GroupSearchBaseDn.Trim();
+
     public static string BuildUserSearchFilter(ActiveDirectoryOptions options, string username)
     {
         var escapedUsername = EscapeFilterValue(username.Trim());
@@ -67,16 +72,28 @@ public static partial class LdapDirectoryConfiguration
     }
 
     public static string BuildPrincipalSearchFilter(ActiveDirectoryOptions options, string query)
+        => $"(|{BuildUserPrincipalSearchFilter(options, query)}{BuildGroupPrincipalSearchFilter(options, query)})";
+
+    public static string BuildUserPrincipalSearchFilter(ActiveDirectoryOptions options, string query)
     {
         var text = EscapeFilterValue(query.Trim());
         var userAttributes = UserNameAttributes(options)
-            .Append(EmailAttribute(options)).Append(DisplayNameAttribute(options))
+            .Append(EmailAttribute(options))
+            .Append(DisplayNameAttribute(options))
+            .Append(GroupNameAttribute(options))
+            .Append("name")
             .Distinct(StringComparer.OrdinalIgnoreCase);
         var userTerms = string.Concat(userAttributes.Select(x => $"({x}=*{text}*)"));
+        return $"(&(objectClass={EscapeFilterValue(UserObjectClass(options))})(|{userTerms}))";
+    }
+
+    public static string BuildGroupPrincipalSearchFilter(ActiveDirectoryOptions options, string query)
+    {
+        var text = EscapeFilterValue(query.Trim());
         var groupTerms = string.Concat(new[] { GroupNameAttribute(options), DisplayNameAttribute(options) }
+            .Append("name")
             .Distinct(StringComparer.OrdinalIgnoreCase).Select(x => $"({x}=*{text}*)"));
-        return $"(|(&(objectClass={EscapeFilterValue(UserObjectClass(options))})(|{userTerms}))" +
-               $"(&(objectClass={EscapeFilterValue(GroupObjectClass(options))})(|{groupTerms})))";
+        return $"(&(objectClass={EscapeFilterValue(GroupObjectClass(options))})(|{groupTerms}))";
     }
 
     public static string? BuildGroupMembershipSearchFilter(

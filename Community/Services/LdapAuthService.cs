@@ -1,7 +1,5 @@
 using System.DirectoryServices.Protocols;
-using System.Net;
 using System.Text;
-using System.Security.Cryptography;
 using Klassenbibliothek.Services;
 
 namespace TodoSuite.Server.Services;
@@ -50,7 +48,7 @@ public class LdapAuthService
         {
             // Search with the configured service/anonymous identity first. The submitted
             // password is verified only by a separate bind as the exact discovered user DN.
-            using var connection = CreateAndBindSearchConnection();
+            using var connection = LdapDirectoryConnection.CreateAndBindSearchConnection(_options, _logger);
             var searchRequest = new SearchRequest(
                 _options.BaseDn,
                 LdapDirectoryConfiguration.BuildUserSearchFilter(_options, username),
@@ -79,7 +77,8 @@ public class LdapAuthService
             {
                 // Do not try domain/name variants for the user bind: the directory-provided DN
                 // is the unambiguous identity whose credentials must be proven.
-                using var verifyConnection = CreateAndBindConnection(userDn, password, allowAdCredentialVariants: false);
+                using var verifyConnection = LdapDirectoryConnection.CreateAndBindConnection(
+                    _options, _logger, userDn, password, allowAdCredentialVariants: false);
             }
             catch (LdapException ex)
             {
@@ -130,9 +129,7 @@ public class LdapAuthService
         {
             try
             {
-                var searchBase = string.IsNullOrWhiteSpace(_options.GroupSearchBaseDn)
-                    ? _options.BaseDn
-                    : _options.GroupSearchBaseDn;
+                var searchBase = LdapDirectoryConfiguration.GroupSearchBase(_options);
                 var request = new SearchRequest(searchBase, membershipFilter, SearchScope.Subtree, "distinguishedName");
                 var response = (SearchResponse)connection.SendRequest(request);
                 return response.Entries.Cast<SearchResultEntry>()
@@ -184,140 +181,6 @@ public class LdapAuthService
             fallbackDomain = LdapDirectoryConfiguration.GetDomainFromBaseDn(_options.BaseDn);
 
         return string.IsNullOrWhiteSpace(fallbackDomain) ? null : $"{directoryUserName}@{fallbackDomain}";
-    }
-
-    private LdapConnection CreateAndBindSearchConnection()
-    {
-        if (string.IsNullOrWhiteSpace(_options.BindUser))
-            return CreateAndBindConnection(null, null, allowAdCredentialVariants: false);
-        return CreateAndBindConnection(_options.BindUser, _options.BindPassword, allowAdCredentialVariants: true);
-    }
-
-    private LdapConnection CreateAndBindConnection(string? username, string? password, bool allowAdCredentialVariants)
-    {
-        var errors = new List<string>();
-        var credentialVariants = BuildCredentialVariants(username, allowAdCredentialVariants).ToArray();
-
-        foreach (var credentialVariant in credentialVariants)
-        {
-            foreach (var strategy in BuildConnectionStrategies())
-            {
-                LdapConnection? connection = null;
-                try
-                {
-                    connection = CreateConnection(strategy.Port, strategy.UseSsl, strategy.UseStartTls);
-                    if (credentialVariant is null)
-                        connection.Bind();
-                    else
-                        connection.Bind(new NetworkCredential(credentialVariant, password));
-
-                    _logger.LogInformation(
-                        "LDAP: Bind erfolgreich via {Mode} gegen {Server}:{Port}.",
-                        strategy.Name, _options.Server, strategy.Port);
-                    return connection;
-                }
-                catch (Exception ex)
-                {
-                    connection?.Dispose();
-                    var serverDetails = ex is LdapException ldap && !string.IsNullOrWhiteSpace(ldap.ServerErrorMessage)
-                        ? $" ({ldap.ServerErrorMessage})"
-                        : string.Empty;
-                    errors.Add($"{strategy.Name}: {ex.Message}{serverDetails}");
-                }
-            }
-        }
-
-        throw new LdapException($"LDAP: Alle Bind-Versuche fehlgeschlagen. Details: {string.Join(" | ", errors)}");
-    }
-
-    private IEnumerable<string?> BuildCredentialVariants(string? username, bool allowAdCredentialVariants)
-    {
-        if (string.IsNullOrWhiteSpace(username))
-        {
-            yield return null;
-            yield break;
-        }
-
-        yield return username;
-        if (!allowAdCredentialVariants || !LdapDirectoryConfiguration.IsActiveDirectory(_options) ||
-            username.Contains('=') || username.Contains(','))
-            yield break;
-
-        var domain = LdapDirectoryConfiguration.GetDomainFromBaseDn(_options.BaseDn);
-        if (!username.Contains('@') && !string.IsNullOrWhiteSpace(domain))
-            yield return $"{username}@{domain}";
-        if (!username.Contains('\\') && !string.IsNullOrWhiteSpace(domain))
-            yield return $"{domain.Split('.')[0].ToUpperInvariant()}\\{username}";
-    }
-
-    private IEnumerable<(string Name, int Port, bool UseSsl, bool UseStartTls)> BuildConnectionStrategies()
-    {
-        yield return ("konfiguriert", _options.Port, _options.UseSSL, _options.UseStartTls);
-        if (!_options.EnableAutoFallback)
-            yield break;
-
-        var configured = (_options.Port, _options.UseSSL, _options.UseStartTls);
-        foreach (var fallback in new[]
-                 {
-                     (Port: 389, UseSsl: false, UseStartTls: false),
-                     (Port: 389, UseSsl: false, UseStartTls: true),
-                     (Port: 636, UseSsl: true, UseStartTls: false)
-                 }.Where(x => x != configured))
-            yield return ("Fallback", fallback.Port, fallback.UseSsl, fallback.UseStartTls);
-    }
-
-    private LdapConnection CreateConnection(int port, bool useSsl, bool useStartTls)
-    {
-        if (useSsl && useStartTls)
-            throw new InvalidOperationException("UseSSL und UseStartTls dürfen nicht gleichzeitig aktiviert sein.");
-        if (string.IsNullOrWhiteSpace(_options.Server) || string.IsNullOrWhiteSpace(_options.BaseDn))
-            throw new InvalidOperationException("Für LDAP müssen Server und BaseDn konfiguriert sein.");
-
-        var connection = new LdapConnection(new LdapDirectoryIdentifier(_options.Server, port))
-        {
-            AuthType = AuthType.Basic,
-            Timeout = TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 300))
-        };
-        connection.SessionOptions.ProtocolVersion = 3;
-        ConfigureCertificatePin(connection, useSsl || useStartTls);
-        if (useSsl)
-            connection.SessionOptions.SecureSocketLayer = true;
-        if (useStartTls)
-            connection.SessionOptions.StartTransportLayerSecurity(null);
-        return connection;
-    }
-
-    private void ConfigureCertificatePin(LdapConnection connection, bool encryptedTransport)
-    {
-        var configured = _options.PinnedServerCertificateSha256;
-        if (string.IsNullOrWhiteSpace(configured)) return;
-        if (!encryptedTransport)
-            throw new InvalidOperationException("Ein LDAP-Zertifikat-Pin erfordert UseSSL oder UseStartTls.");
-
-        var normalized = configured
-            .Replace(":", string.Empty, StringComparison.Ordinal)
-            .Replace(" ", string.Empty, StringComparison.Ordinal)
-            .Trim();
-        byte[] expected;
-        try
-        {
-            expected = Convert.FromHexString(normalized);
-        }
-        catch (FormatException ex)
-        {
-            throw new InvalidOperationException("PinnedServerCertificateSha256 ist kein gültiger hexadezimaler SHA-256-Fingerabdruck.", ex);
-        }
-        if (expected.Length != SHA256.HashSizeInBytes)
-            throw new InvalidOperationException("PinnedServerCertificateSha256 muss genau 32 Bytes enthalten.");
-
-        connection.SessionOptions.VerifyServerCertificate = (_, certificate) =>
-        {
-            var actual = SHA256.HashData(certificate.GetRawCertData());
-            var matches = CryptographicOperations.FixedTimeEquals(actual, expected);
-            if (!matches)
-                _logger.LogWarning("LDAP: Serverzertifikat stimmt nicht mit dem konfigurierten SHA-256-Pin überein (tatsächlich: {ActualPin}).", Convert.ToHexString(actual));
-            return matches;
-        };
     }
 
     private static string? GetAttributeValue(SearchResultEntry entry, string attributeName)
