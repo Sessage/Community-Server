@@ -82,8 +82,12 @@ public static partial class LdapDirectoryConfiguration
             .Append(DisplayNameAttribute(options))
             .Append(GroupNameAttribute(options))
             .Append("name")
+            .Append("givenName")
+            .Append("sn")
             .Distinct(StringComparer.OrdinalIgnoreCase);
         var userTerms = string.Concat(userAttributes.Select(x => $"({x}=*{text}*)"));
+        if (IsActiveDirectory(options))
+            userTerms += $"(anr={text})";
         return $"(&(objectClass={EscapeFilterValue(UserObjectClass(options))})(|{userTerms}))";
     }
 
@@ -93,6 +97,8 @@ public static partial class LdapDirectoryConfiguration
         var groupTerms = string.Concat(new[] { GroupNameAttribute(options), DisplayNameAttribute(options) }
             .Append("name")
             .Distinct(StringComparer.OrdinalIgnoreCase).Select(x => $"({x}=*{text}*)"));
+        if (IsActiveDirectory(options))
+            groupTerms += $"(anr={text})";
         return $"(&(objectClass={EscapeFilterValue(GroupObjectClass(options))})(|{groupTerms}))";
     }
 
