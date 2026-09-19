@@ -240,8 +240,15 @@
             return;
         }
 
-        // Lokalen Identity-Benutzer suchen oder anlegen
-        var localUser = await UserManager.FindByEmailAsync(adUser.Email);
+        // Vorprovisionierte Verzeichnisbenutzer werden ausschließlich über den stabilen,
+        // serverseitig ermittelten DN gebunden. Eine E-Mail-Übereinstimmung allein darf
+        // kein bereits vorbereitetes AD-Konto übernehmen.
+        var linkedUserId = await DirectoryIdentitySynchronizer.FindLinkedUserIdAsync(
+            adUser.DirectoryIdentity.PrincipalId, HttpContext.RequestAborted);
+        var localUser = string.IsNullOrWhiteSpace(linkedUserId)
+            ? null
+            : await UserManager.FindByIdAsync(linkedUserId);
+        localUser ??= await UserManager.FindByEmailAsync(adUser.Email);
         if (localUser is null)
         {
             localUser = new ApplicationUser
@@ -261,14 +268,31 @@
 
             Logger.LogInformation("Verzeichnisbenutzer '{Username}' wurde als lokaler Benutzer angelegt.", adUser.UserName);
         }
-        else if (!string.Equals(localUser.DisplayName, adUser.DisplayName, StringComparison.Ordinal))
+        else
         {
+            var changed = !string.Equals(localUser.DisplayName, adUser.DisplayName, StringComparison.Ordinal);
             localUser.DisplayName = adUser.DisplayName;
-            var updateResult = await UserManager.UpdateAsync(localUser);
-            if (!updateResult.Succeeded)
+            var emailOwner = await UserManager.FindByEmailAsync(adUser.Email);
+            if (emailOwner is null || emailOwner.Id == localUser.Id)
             {
-                errorMessage = string.Format(L["Account_Error_UserCreateFailed"], string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-                return;
+                changed |= !string.Equals(localUser.Email, adUser.Email, StringComparison.OrdinalIgnoreCase);
+                localUser.Email = adUser.Email;
+                localUser.NormalizedEmail = UserManager.NormalizeEmail(adUser.Email);
+                localUser.EmailConfirmed = true;
+                if (localUser.UserName?.EndsWith("@local.invalid", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    localUser.UserName = adUser.Email;
+                    localUser.NormalizedUserName = UserManager.NormalizeName(adUser.Email);
+                }
+            }
+            if (changed)
+            {
+                var updateResult = await UserManager.UpdateAsync(localUser);
+                if (!updateResult.Succeeded)
+                {
+                    errorMessage = string.Format(L["Account_Error_UserCreateFailed"], string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+                    return;
+                }
             }
         }
 

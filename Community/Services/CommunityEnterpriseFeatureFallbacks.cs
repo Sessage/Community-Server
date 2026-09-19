@@ -90,5 +90,6 @@ public sealed class CommunityDirectorySharingService : IDirectorySharingService
 /// <summary>Community identity synchronizer that intentionally persists no Enterprise directory state.</summary>
 public sealed class NoOpDirectoryIdentitySynchronizer : IDirectoryIdentitySynchronizer
 {
+    public Task<string?> FindLinkedUserIdAsync(string principalId, CancellationToken ct = default) => Task.FromResult<string?>(null);
     public Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default) => Task.CompletedTask;
 }

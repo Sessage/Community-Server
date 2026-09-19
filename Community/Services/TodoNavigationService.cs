@@ -246,6 +246,11 @@ public sealed class TodoNavigationService : ITodoNavigationService
                                 && grant.ResourceId == groupId)
                 .ToListAsync(ct);
             db.DirectoryShareGrants.RemoveRange(directoryGrants);
+            var directoryDeliveries = await db.DirectoryInvitationDeliveries
+                .Where(delivery => delivery.ResourceType == DirectoryShareResourceType.Portfolio
+                                   && delivery.ResourceId == groupId)
+                .ToListAsync(ct);
+            db.DirectoryInvitationDeliveries.RemoveRange(directoryDeliveries);
         }
 
         if (ungroupLists)

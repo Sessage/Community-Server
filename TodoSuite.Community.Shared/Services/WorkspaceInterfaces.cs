@@ -295,6 +295,8 @@ public sealed record DirectoryIdentitySnapshot(string PrincipalId, string UserPr
 /// <summary>Synchronizes external directory identities used by Enterprise sharing rules.</summary>
 public interface IDirectoryIdentitySynchronizer
 {
+    /// <summary>Finds a locally provisioned account by its stable directory principal id.</summary>
+    Task<string?> FindLinkedUserIdAsync(string principalId, CancellationToken ct = default);
     Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default);
 }
 

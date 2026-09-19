@@ -159,8 +159,14 @@ public class MobileAuthController : ControllerBase
                 return Unauthorized();
             }
 
-            // Lokalen Benutzer suchen oder anlegen
-            user = await _userManager.FindByEmailAsync(adUser.Email);
+            // Eine vorprovisionierte Identität wird über den vom LDAP-Server gelieferten
+            // stabilen DN aufgelöst, nie allein über eine vom Client angegebene E-Mail.
+            var linkedUserId = await _directoryIdentitySynchronizer.FindLinkedUserIdAsync(
+                adUser.DirectoryIdentity.PrincipalId, HttpContext.RequestAborted);
+            user = string.IsNullOrWhiteSpace(linkedUserId)
+                ? null
+                : await _userManager.FindByIdAsync(linkedUserId);
+            user ??= await _userManager.FindByEmailAsync(adUser.Email);
             if (user is null)
             {
                 user = new ApplicationUser
@@ -173,6 +179,30 @@ public class MobileAuthController : ControllerBase
                 var createResult = await _userManager.CreateAsync(user);
                 if (!createResult.Succeeded)
                     return StatusCode(500, new RegisterResponse(false, createResult.Errors.Select(e => e.Description).ToArray()));
+            }
+            else
+            {
+                var changed = !string.Equals(user.DisplayName, adUser.DisplayName, StringComparison.Ordinal);
+                user.DisplayName = adUser.DisplayName;
+                var emailOwner = await _userManager.FindByEmailAsync(adUser.Email);
+                if (emailOwner is null || emailOwner.Id == user.Id)
+                {
+                    changed |= !string.Equals(user.Email, adUser.Email, StringComparison.OrdinalIgnoreCase);
+                    user.Email = adUser.Email;
+                    user.NormalizedEmail = _userManager.NormalizeEmail(adUser.Email);
+                    user.EmailConfirmed = true;
+                    if (user.UserName?.EndsWith("@local.invalid", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        user.UserName = adUser.Email;
+                        user.NormalizedUserName = _userManager.NormalizeName(adUser.Email);
+                    }
+                }
+                if (changed)
+                {
+                    var updateResult = await _userManager.UpdateAsync(user);
+                    if (!updateResult.Succeeded)
+                        return StatusCode(500, new RegisterResponse(false, updateResult.Errors.Select(e => e.Description).ToArray()));
+                }
             }
             await _directoryIdentitySynchronizer.SynchronizeAsync(user.Id, adUser.DirectoryIdentity, HttpContext.RequestAborted);
         }

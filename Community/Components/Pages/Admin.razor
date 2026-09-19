@@ -49,7 +49,7 @@
     <div class="grid grid-cols-1 gap-4">
 
         <!-- Benutzer anlegen / bearbeiten -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div id="admin-user-form" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 scroll-mt-4">
             <div class="flex items-center gap-3 mb-1">
                 <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 text-base">
                     @(_editingUserId == null ? "+" : "✎")
@@ -122,9 +122,14 @@
                 <h2 class="text-base font-semibold text-slate-800">Benutzer-Übersicht</h2>
                 <span class="rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-0.5">@_users.Count</span>
             </div>
-            <div class="flex items-center gap-2 sm:w-auto">
+            <div class="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <FluentTextField @bind-Value="_searchTerm" Placeholder="Name oder E-Mail suchen" Class="admin-text-field w-full" Style="width:100%;min-width:0;"
                                  @oninput="OnSearchInput" />
+                <a href="#admin-user-form"
+                   @onclick="() => ResetForm()"
+                   class="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white no-underline transition-colors hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                    + Benutzer anlegen
+                </a>
             </div>
         </div>
 

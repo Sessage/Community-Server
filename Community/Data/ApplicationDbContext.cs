@@ -39,6 +39,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<PortfolioListEntity> PortfolioLists => Set<PortfolioListEntity>();
     public DbSet<DirectoryIdentityEntity> DirectoryIdentities => Set<DirectoryIdentityEntity>();
     public DbSet<DirectoryShareGrantEntity> DirectoryShareGrants => Set<DirectoryShareGrantEntity>();
+    public DbSet<DirectoryInvitationDeliveryEntity> DirectoryInvitationDeliveries => Set<DirectoryInvitationDeliveryEntity>();
 
     public DbSet<TodoTaskMemberEntity> TodoTaskMembers => Set<TodoTaskMemberEntity>();
     public DbSet<TodoListWatcherEntity> TodoListWatchers => Set<TodoListWatcherEntity>();
@@ -174,6 +175,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         {
             entity.HasKey(x => x.UserId);
             entity.HasIndex(x => x.PrincipalId);
+            entity.Property(x => x.Email).HasMaxLength(512);
             entity.Property(x => x.GroupIds).HasColumnType("text[]");
             entity.HasOne<ApplicationUser>().WithOne().HasForeignKey<DirectoryIdentityEntity>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -183,6 +185,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => new { x.ResourceType, x.ResourceId });
             entity.HasIndex(x => new { x.ResourceType, x.ResourceId, x.PrincipalType, x.PrincipalId }).IsUnique();
+        });
+
+        builder.Entity<DirectoryInvitationDeliveryEntity>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.ResourceType, x.ResourceId, x.UserId }).IsUnique();
+            entity.Property(x => x.Email).HasMaxLength(512);
+            entity.Property(x => x.LastError).HasMaxLength(2000);
+            entity.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<ListViewPreferenceEntity>(entity =>

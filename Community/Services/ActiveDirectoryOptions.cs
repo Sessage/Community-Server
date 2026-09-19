@@ -134,4 +134,13 @@ public class ActiveDirectoryOptions
     /// Transport-Downgrade verursachen und ist daher standardmäßig deaktiviert.
     /// </summary>
     public bool EnableAutoFallback { get; set; } = false;
+
+    /// <summary>Sendet bei neuen Verzeichnisfreigaben Informationsmails, sofern SMTP konfiguriert ist.</summary>
+    public bool SendSharingNotifications { get; set; } = true;
+
+    /// <summary>Intervall für den Abgleich bestehender Gruppenfreigaben. 0 deaktiviert den Hintergrundabgleich.</summary>
+    public int GroupSynchronizationIntervalMinutes { get; set; } = 15;
+
+    /// <summary>Sicherheitsgrenze für die Anzahl aufgelöster Benutzer je Gruppe.</summary>
+    public int MaxProvisionedGroupMembers { get; set; } = 5000;
 }

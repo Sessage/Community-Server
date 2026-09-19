@@ -209,9 +209,14 @@ public class TodoTrashService : TodoWorkspaceServiceBase, ITodoTrashService
             .Where(grant => grant.ResourceType == DirectoryShareResourceType.List
                             && expiredListIds.Contains(grant.ResourceId))
             .ToListAsync(cancellationToken);
+        var expiredDirectoryDeliveries = await db.DirectoryInvitationDeliveries
+            .Where(delivery => delivery.ResourceType == DirectoryShareResourceType.List
+                               && expiredListIds.Contains(delivery.ResourceId))
+            .ToListAsync(cancellationToken);
 
         db.UserNotifications.RemoveRange(expiredNotifications);
         db.DirectoryShareGrants.RemoveRange(expiredDirectoryGrants);
+        db.DirectoryInvitationDeliveries.RemoveRange(expiredDirectoryDeliveries);
         db.TodoTasks.RemoveRange(expiredTasks);
         db.TodoLists.RemoveRange(expiredLists);
         await db.SaveChangesAsync(cancellationToken);
