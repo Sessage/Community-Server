@@ -174,7 +174,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         builder.Entity<DirectoryIdentityEntity>(entity =>
         {
             entity.HasKey(x => x.UserId);
-            entity.HasIndex(x => x.PrincipalId);
+            // Ein Verzeichnisobjekt darf genau einem lokalen Konto zugeordnet sein. Ohne
+            // diese Invariante waere die Anmeldung bei konkurrierenden Erstzugriffen
+            // mehrdeutig und koennte Berechtigungen dem falschen Konto zuordnen.
+            entity.HasIndex(x => x.PrincipalId).IsUnique();
             entity.Property(x => x.Email).HasMaxLength(512);
             entity.Property(x => x.GroupIds).HasColumnType("text[]");
             entity.HasOne<ApplicationUser>().WithOne().HasForeignKey<DirectoryIdentityEntity>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
