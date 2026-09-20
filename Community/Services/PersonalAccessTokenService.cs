@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using Klassenbibliothek.Data;
 using Microsoft.EntityFrameworkCore;
@@ -21,8 +20,11 @@ public sealed class PersonalAccessTokenService(
     public const int MaxTokensPerUser = 100;
     public const int MaxNameLength = 200;
     private const string TokenPrefix = "tsa_";
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> CreationLocks =
-        new(StringComparer.Ordinal);
+    // A bounded striped lock keeps the count-and-insert operation atomic per user without
+    // retaining one semaphore for every account that has ever created a token.
+    private static readonly SemaphoreSlim[] CreationLocks = Enumerable.Range(0, 64)
+        .Select(static _ => new SemaphoreSlim(1, 1))
+        .ToArray();
 
     public async Task<IReadOnlyList<PersonalAccessTokenItem>> ListAsync(
         string userId,
@@ -54,7 +56,7 @@ public sealed class PersonalAccessTokenService(
         var normalizedName = NormalizeName(name);
         // Count and insert form one logical operation per user. Without this gate, concurrent
         // requests could all observe a count below the configured token limit.
-        var creationLock = CreationLocks.GetOrAdd(userId, static _ => new SemaphoreSlim(1, 1));
+        var creationLock = GetCreationLock(userId);
         await creationLock.WaitAsync(cancellationToken);
         try
         {
@@ -132,6 +134,9 @@ public sealed class PersonalAccessTokenService(
             .Replace('/', '_')
             .TrimEnd('=');
     }
+
+    private static SemaphoreSlim GetCreationLock(string userId)
+        => CreationLocks[(int)((uint)StringComparer.Ordinal.GetHashCode(userId) % (uint)CreationLocks.Length)];
 
     internal static int ResolveLifetimeDays(IConfiguration configuration)
     {

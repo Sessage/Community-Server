@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -28,8 +27,11 @@ public class ProfilePictureController : ControllerBase
     private const int MaxBase64ImageChars = ((MaxFileSizeBytes + 2) / 3) * 4;
     private const int MaxProfilePictureRequestBytes = 4 * 1024 * 1024;
     private const int ExpectedImageSize = 128;
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> UserLocks =
-        new(StringComparer.Ordinal);
+    // Profile operations are infrequent, so a bounded striped lock is preferable to retaining
+    // one semaphore for every user ID ever seen by this process.
+    private static readonly SemaphoreSlim[] UserLocks = Enumerable.Range(0, 64)
+        .Select(static _ => new SemaphoreSlim(1, 1))
+        .ToArray();
 
     public ProfilePictureController(UserManager<ApplicationUser> userManager, IWebHostEnvironment env, IStringLocalizer<SharedResource> localizer)
     {
@@ -123,7 +125,7 @@ public class ProfilePictureController : ControllerBase
 
         // Serialize replacement/deletion for one user so a slower upload cannot overwrite a
         // newer database path or delete the newer file during cleanup.
-        var userLock = UserLocks.GetOrAdd(userId, static _ => new SemaphoreSlim(1, 1));
+        var userLock = GetUserLock(userId);
         await userLock.WaitAsync(cancellationToken);
         try
         {
@@ -184,7 +186,7 @@ public class ProfilePictureController : ControllerBase
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
 
-        var userLock = UserLocks.GetOrAdd(userId, static _ => new SemaphoreSlim(1, 1));
+        var userLock = GetUserLock(userId);
         await userLock.WaitAsync(cancellationToken);
         try
         {
@@ -342,15 +344,33 @@ public class ProfilePictureController : ControllerBase
         }
     }
 
+    private static SemaphoreSlim GetUserLock(string userId)
+        => UserLocks[(int)((uint)StringComparer.Ordinal.GetHashCode(userId) % (uint)UserLocks.Length)];
+
     private string? ResolveProfilePicturePath(string relativePath)
     {
-        var webRoot = GetWebRootPath();
-        var root = Path.GetFullPath(Path.Combine(webRoot, "profile-pictures"));
-        var fullPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
-        // The separator prevents sibling prefixes such as "profile-pictures-archive" from matching.
-        return fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            ? fullPath
-            : null;
+        try
+        {
+            var webRoot = GetWebRootPath();
+            var root = Path.GetFullPath(Path.Combine(webRoot, "profile-pictures"));
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
+            return IsPathBelowRoot(root, fullPath) ? fullPath : null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException)
+        {
+            // Treat malformed legacy/database paths as missing instead of failing the request.
+            return null;
+        }
+    }
+
+    private static bool IsPathBelowRoot(string root, string candidate)
+    {
+        var relative = Path.GetRelativePath(root, candidate);
+        return relative != "."
+            && !Path.IsPathRooted(relative)
+            && !relative.Equals("..", StringComparison.Ordinal)
+            && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            && !relative.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal);
     }
 
     private string GetWebRootPath()

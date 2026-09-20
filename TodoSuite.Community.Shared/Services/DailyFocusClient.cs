@@ -57,12 +57,14 @@ public sealed class DailyFocusClient(IDailyFocusService service, ITodoCurrentUse
         var date = State?.Date;
         if (date is null) { ErrorKey = "Focus_Error"; Changed?.Invoke(); return false; }
         await _gate.WaitAsync(ct);
-        IsBusy = true;
-        FeedbackKey = null;
-        ErrorKey = null;
-        Changed?.Invoke();
         try
         {
+            // State notifications can execute consumer code. Keep them inside the protected
+            // region so an exception can never leave the semaphore permanently acquired.
+            IsBusy = true;
+            FeedbackKey = null;
+            ErrorKey = null;
+            Changed?.Invoke();
             var user = await currentUser.GetCurrentUserAsync(ct);
             if (!user.IsAuthenticated || Scope(user) != _scope)
             {

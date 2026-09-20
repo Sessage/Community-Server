@@ -14,11 +14,13 @@ public sealed class AuthAttemptProtectionService
 {
     private static readonly TimeSpan FailureWindow = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan CleanupAfter = TimeSpan.FromHours(24);
+    private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
     private readonly ConcurrentDictionary<string, AttemptState> _attempts = new(StringComparer.OrdinalIgnoreCase);
+    private long _nextCleanupUtcTicks;
 
     public AuthBlockStatus Check(HttpContext httpContext, string? subject)
     {
-        CleanupExpired();
+        CleanupExpiredIfDue();
 
         var now = DateTimeOffset.UtcNow;
         var ipKey = CreateIpKey(httpContext);
@@ -153,9 +155,18 @@ public sealed class AuthAttemptProtectionService
         return $"subject:{Convert.ToHexString(hash)}";
     }
 
-    private void CleanupExpired()
+    private void CleanupExpiredIfDue()
     {
-        var cutoff = DateTimeOffset.UtcNow - CleanupAfter;
+        var now = DateTimeOffset.UtcNow;
+        var nextCleanupTicks = Volatile.Read(ref _nextCleanupUtcTicks);
+        if (now.UtcTicks < nextCleanupTicks
+            || Interlocked.CompareExchange(
+                ref _nextCleanupUtcTicks,
+                now.UtcTicks + CleanupInterval.Ticks,
+                nextCleanupTicks) != nextCleanupTicks)
+            return;
+
+        var cutoff = now - CleanupAfter;
         foreach (var item in _attempts)
         {
             if (item.Value.LastFailureAt < cutoff)

@@ -40,7 +40,7 @@
                     <hr />
                     <ValidationSummary class="text-danger" role="alert" />
                     <div class="form-floating mb-3">
-                        <InputText @bind-Value="AdInput.Username" id="AdInput.Username" class="form-control" autocomplete="username" aria-required="true" placeholder="@L["Account_Username"]" />
+                        <InputText @bind-Value="AdInput.Username" id="AdInput.Username" class="form-control" autocomplete="username" aria-required="true" autofocus placeholder="@L["Account_Username"]" />
                         <label for="AdInput.Username" class="form-label">@L["Account_WindowsUsername"]</label>
                         <ValidationMessage For="() => AdInput.Username" class="text-danger" />
                     </div>
@@ -66,10 +66,9 @@
                 <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
                     <DataAnnotationsValidator />
                     <h2>@L["Account_Login_WithLocal"]</h2>
-                    <hr />
                     <ValidationSummary class="text-danger" role="alert" />
                     <div class="form-floating mb-3">
-                        <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
+                        <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" autofocus placeholder="name@example.com" />
                         <label for="Input.Email" class="form-label">@L["Account_Email"]</label>
                         <ValidationMessage For="() => Input.Email" class="text-danger" />
                     </div>

@@ -56,13 +56,25 @@ public sealed class UserAccountArtifactCleanupService(
         if (string.IsNullOrWhiteSpace(relativePath))
             return null;
 
-        var webRoot = string.IsNullOrWhiteSpace(environment.WebRootPath)
-            ? Path.Combine(environment.ContentRootPath, "wwwroot")
-            : environment.WebRootPath;
-        var root = Path.GetFullPath(Path.Combine(webRoot, "profile-pictures"));
-        var fullPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
-        return fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            ? fullPath
-            : null;
+        try
+        {
+            var webRoot = string.IsNullOrWhiteSpace(environment.WebRootPath)
+                ? Path.Combine(environment.ContentRootPath, "wwwroot")
+                : environment.WebRootPath;
+            var root = Path.GetFullPath(Path.Combine(webRoot, "profile-pictures"));
+            var fullPath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
+            var relative = Path.GetRelativePath(root, fullPath);
+            return relative != "."
+                && !Path.IsPathRooted(relative)
+                && !relative.Equals("..", StringComparison.Ordinal)
+                && !relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !relative.StartsWith($"..{Path.AltDirectorySeparatorChar}", StringComparison.Ordinal)
+                    ? fullPath
+                    : null;
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException)
+        {
+            return null;
+        }
     }
 }
