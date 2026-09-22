@@ -185,7 +185,7 @@
                             <span>@L["Nav_CreateAsPortfolio"]</span>
                         </label>
                     }
-                    <div class="mt-2 flex items-center justify-end gap-2">
+                    <div class="mt-2 flex items-center gap-2">
                         <FluentButton Appearance="Appearance.Stealth" OnClick="CancelCreateGroup" Disabled="@_createGroupBusy">@L["Btn_Cancel"]</FluentButton>
                         <FluentButton Appearance="Appearance.Accent" OnClick="CreateGroupAsync" Disabled="@(_createGroupBusy || string.IsNullOrWhiteSpace(_newGroupName))">@L["Btn_Create"]</FluentButton>
                     </div>
@@ -232,7 +232,7 @@
                         </div>
                     }
 
-                    <div class="mt-2 flex items-center justify-end gap-2">
+                    <div class="mt-2 flex items-center gap-2">
                         <FluentButton Appearance="Appearance.Stealth" OnClick="CancelCreateList" Disabled="@_createListBusy">@L["Btn_Cancel"]</FluentButton>
                         <FluentButton Appearance="Appearance.Accent" OnClick="CreateListAsync" Disabled="@(_createListBusy || string.IsNullOrWhiteSpace(_newList.Name))">@L["Btn_Create"]</FluentButton>
                     </div>
@@ -596,6 +596,7 @@
                 <div class="flex-1">
                     <div class="text-sm font-medium text-slate-700 mb-1">@ManageGroupCreateLabel</div>
                     <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                           autofocus
                            placeholder="@L["Lbl_ListName"]" aria-label="@L["Lbl_ListName"]" maxlength="200" disabled="@_manageCreateBusy" @bind-value="_manageNewListName" @bind-value:event="oninput" @onkeydown="HandleManageNewListKeyDown" />
                 </div>
                 <FluentButton Appearance="Appearance.Accent" Disabled="@(_manageCreateBusy || string.IsNullOrWhiteSpace(_manageNewListName))" OnClick="CreateListInManagedGroupAsync">@L["Btn_Create"]</FluentButton>
@@ -639,6 +640,7 @@
                 <div class="text-sm text-slate-600">@L["Dlg_RenameGroup_NewName"]</div>
                 <input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                        type="text"
+                       autofocus
                        @bind-value="_renameGroupValue"
                        @bind-value:event="oninput" />
             </div>

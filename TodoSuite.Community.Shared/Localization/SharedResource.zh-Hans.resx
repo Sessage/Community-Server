@@ -2494,4 +2494,11 @@
   <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>完成后 X 天重复</value></data>
   <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>完成后的天数</value></data>
   <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>下一项任务将在实际完成后的 {0} 天到期。</value></data>
+  <data name="Theme_Title" xml:space="preserve"><value>外观</value></data>
+  <data name="Theme_Hint" xml:space="preserve"><value>选择浅色或深色模式，或跟随系统设置。</value></data>
+  <data name="Theme_System" xml:space="preserve"><value>系统设置</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>浅色</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>深色</value></data>
+  <data name="Theme_SaveSuccess" xml:space="preserve"><value>外观设置已保存。</value></data>
+  <data name="Theme_SaveError" xml:space="preserve"><value>无法保存外观设置。</value></data>
 </root>

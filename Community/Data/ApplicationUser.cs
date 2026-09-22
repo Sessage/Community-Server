@@ -21,6 +21,12 @@ namespace Klassenbibliothek.Data
         /// </summary>
         [PersonalData]
         public string? PreferredLanguage { get; set; }
+
+        /// <summary>
+        /// Explizit gewähltes Farbschema: "light", "dark" oder null für die Systemeinstellung.
+        /// </summary>
+        [PersonalData]
+        public string? PreferredTheme { get; set; }
     }
 
 }

@@ -14,8 +14,10 @@
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
             <div class="grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-2">
                 <input class="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                       autofocus
                        placeholder="@L["CustomField_NamePlaceholder"]"
-                       @bind="_newName" />
+                       @bind="_newName"
+                       @bind:event="oninput" />
                 <select class="rounded-lg border border-slate-200 px-3 py-2 text-sm" @bind="_newType">
                     @foreach (var type in Enum.GetValues<TodoCustomFieldType>())
                     {

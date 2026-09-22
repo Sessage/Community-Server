@@ -2494,4 +2494,11 @@
   <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>पूरा होने के X दिन बाद</value></data>
   <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>पूरा होने के बाद दिन</value></data>
   <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>अगला कार्य वास्तविक समापन के {0} दिन बाद देय होगा।</value></data>
+  <data name="Theme_Title" xml:space="preserve"><value>दिखावट</value></data>
+  <data name="Theme_Hint" xml:space="preserve"><value>हल्का या गहरा मोड चुनें, या सिस्टम सेटिंग का उपयोग करें।</value></data>
+  <data name="Theme_System" xml:space="preserve"><value>सिस्टम सेटिंग</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>हल्का</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>गहरा</value></data>
+  <data name="Theme_SaveSuccess" xml:space="preserve"><value>दिखावट सहेज दी गई है।</value></data>
+  <data name="Theme_SaveError" xml:space="preserve"><value>दिखावट सहेजी नहीं जा सकी।</value></data>
 </root>

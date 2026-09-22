@@ -157,7 +157,7 @@
 
 @if (_portfolioShareOpen && _canManagePortfolio && PortfolioId.HasValue)
 {
-    <FluentDialog id="portfolio-share-dlg" Open="true" Modal="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true" HiddenChanged="@(_ => _portfolioShareOpen = false)">
+    <FluentDialog id="portfolio-share-dlg" Class="share-dialog" Open="true" Modal="true" PreventScroll="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true" HiddenChanged="@(_ => _portfolioShareOpen = false)">
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Portfolio_Share"]</div>
@@ -165,7 +165,7 @@
             </div>
         </FluentDialogHeader>
         <FluentDialogBody>
-            <div class="share-dialog-scroll-content max-h-[calc(92vh-120px)] overflow-y-auto">
+            <div class="share-dialog-scroll-content">
                 @if (PortfolioId.HasValue) { <PortfolioParticipantsPanel PortfolioId="PortfolioId.Value" RequestingUserId="@_userId" /> }
             </div>
         </FluentDialogBody>

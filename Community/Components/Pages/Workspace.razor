@@ -485,7 +485,10 @@
                 <div class="text-sm text-slate-600">@L["Workspace_NewName"]</div>
                 <input class="w-full rounded-xl border border-slate-200 p-2"
                        maxlength="200"
-                       @bind="_renameValue" />
+                       autofocus
+                       @bind="_renameValue"
+                       @bind:event="oninput"
+                       @onkeydown="OnRenameKeyDown" />
             </div>
         </FluentDialogBody>
 
@@ -608,7 +611,7 @@
 
 @if (_shareOpen)
 {
-    <FluentDialog id="workspace-share-dlg" Open="true" Modal="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true">
+    <FluentDialog id="workspace-share-dlg" Class="share-dialog" Open="true" Modal="true" PreventScroll="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true">
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
                 <div class="font-semibold">@L["Workspace_Share"]</div>
@@ -618,7 +621,7 @@
         </FluentDialogHeader>
 
         <FluentDialogBody>
-            <div class="share-dialog-scroll-content max-h-[calc(92vh-120px)] overflow-y-auto">
+            <div class="share-dialog-scroll-content">
                 <ParticipantsPanel List="_list"
                                    Directory="Directory"
                                    RequestingUserId="@_userId"
@@ -755,6 +758,7 @@
                 <!-- Suche -->
                 <div class="space-y-1">
                     <input class="w-full rounded-xl border border-slate-200 p-2"
+                           autofocus
                            placeholder="@L["Workspace_FilterPlaceholder"]"
                            @bind="_filterDraft.Query" />
                     <div class="text-xs text-slate-500">
@@ -894,8 +898,6 @@
                 @L["Workspace_FilterReset"]
             </FluentButton>
 
-            <div class="flex-1"></div>
-
             <FluentButton Appearance="Appearance.Stealth" OnClick="CloseFilterDialog">@L["Btn_Cancel"]</FluentButton>
             <FluentButton Appearance="Appearance.Accent" OnClick="ApplyFilter">@L["Workspace_FilterApply"]</FluentButton>
         </FluentDialogFooter>
@@ -919,7 +921,9 @@
                     <div class="text-sm text-slate-600">@L["Workspace_CopyName"]</div>
                     <input class="w-full rounded-xl border border-slate-200 p-2"
                            maxlength="200"
-                           @bind="_copyName" />
+                           autofocus
+                           @bind="_copyName"
+                           @bind:event="oninput" />
                 </div>
                 <label class="flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" class="accent-slate-700" @bind="_copyIncludeTasks" />
@@ -964,7 +968,9 @@
                         <div class="text-sm text-slate-600">@L["Workspace_TemplateName"]</div>
                         <input class="w-full rounded-xl border border-slate-200 p-2"
                                maxlength="200"
-                               @bind="_templateName" />
+                               autofocus
+                               @bind="_templateName"
+                               @bind:event="oninput" />
                     </div>
                     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                         @L["Workspace_TemplateHelp"]
@@ -3011,6 +3017,12 @@
     {
         if (!_renameBusy)
             _renameOpen = false;
+    }
+
+    private async Task OnRenameKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !_renameBusy && !string.IsNullOrWhiteSpace(_renameValue))
+            await RenameAsync();
     }
 
     private async Task RenameAsync()

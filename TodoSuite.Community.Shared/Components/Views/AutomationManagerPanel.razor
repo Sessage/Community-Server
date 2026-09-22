@@ -235,7 +235,7 @@
             </section>
         </div>
 
-        <div class="mt-5 flex justify-end gap-2 border-t border-slate-200 bg-white py-4">
+        <div class="mt-5 flex gap-2 border-t border-slate-200 bg-white py-4">
             <FluentButton Appearance="Appearance.Stealth" OnClick="CancelEdit">@L["Btn_Cancel"]</FluentButton>
             <FluentButton Appearance="Appearance.Accent" Disabled="@_saving" OnClick="SaveRuleAsync">
                 @if (_saving) { <FluentProgressRing Style="width:16px;height:16px;" /> }

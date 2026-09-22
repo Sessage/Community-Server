@@ -2494,4 +2494,11 @@
   <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>X days after completion</value></data>
   <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>Days after completion</value></data>
   <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>The next task will be due {0} days after its actual completion.</value></data>
+  <data name="Theme_Title" xml:space="preserve"><value>Appearance</value></data>
+  <data name="Theme_Hint" xml:space="preserve"><value>Choose light or dark mode, or follow the system setting.</value></data>
+  <data name="Theme_System" xml:space="preserve"><value>System setting</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>Light</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>Dark</value></data>
+  <data name="Theme_SaveSuccess" xml:space="preserve"><value>Appearance saved.</value></data>
+  <data name="Theme_SaveError" xml:space="preserve"><value>Appearance could not be saved.</value></data>
 </root>

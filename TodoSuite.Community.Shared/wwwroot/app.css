@@ -294,7 +294,46 @@ h1:focus {
    fuer den Fokus-Ring. Rechts bleibt etwas mehr Abstand fuer die Scrollbar. */
 .share-dialog-scroll-content {
     box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+}
+
+.share-dialog::part(control) {
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow: hidden;
+}
+
+.share-dialog fluent-dialog-body,
+.share-dialog .fluent-dialog-body {
+    min-width: 0;
+    min-height: 0;
+}
+
+.share-dialog fluent-dialog-body::part(control) {
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.directory-search-button {
+    align-self: end;
+}
+
+.directory-search-button::part(control) {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .valid.modified:not([type=checkbox]) {
@@ -1274,8 +1313,87 @@ h1:focus {
     height: 44px;
     min-width: 44px;
     border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.attachment-delete-button fluent-icon,
+.attachment-delete-button::part(content) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }
 /* Ende Attachments */
+
+/* Kontobasiertes Farbschema. Die Overrides bilden die im gemeinsamen UI verwendeten
+   Slate-Flächen ab; semantische Statusfarben (rot, grün, amber) bleiben erhalten. */
+html[data-theme="dark"] body,
+html[data-theme="dark"] .app-shell {
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] :where(.bg-white, .bg-white\/95) {
+    background-color: #111c2f !important;
+}
+
+html[data-theme="dark"] :where(.bg-slate-50, .bg-slate-50\/50) {
+    background-color: #0f172a !important;
+}
+
+html[data-theme="dark"] .bg-slate-100 {
+    background-color: #1e293b !important;
+}
+
+html[data-theme="dark"] :where(.text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700) {
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] :where(.text-slate-600, .text-slate-500, .text-slate-400) {
+    color: #94a3b8 !important;
+}
+
+html[data-theme="dark"] :where(.border-slate-100, .border-slate-200, .border-slate-300) {
+    border-color: #334155 !important;
+}
+
+html[data-theme="dark"] :where(input:not([type="checkbox"], [type="radio"], [type="color"]), textarea, select) {
+    border-color: #475569 !important;
+    background-color: #111c2f !important;
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] :where(input, textarea)::placeholder {
+    color: #64748b;
+}
+
+html[data-theme="dark"] :where(fluent-dialog, fluent-card)::part(control) {
+    border-color: #334155;
+    background: #111c2f;
+    color: #e2e8f0;
+}
+
+html[data-theme="dark"] :where(fluent-button, fluent-text-field, fluent-text-area, fluent-select, fluent-combobox, fluent-number-field, fluent-search, fluent-date-picker)::part(control) {
+    border-color: #475569;
+    color: #e2e8f0;
+}
+
+html[data-theme="dark"] .rich-text-editor,
+html[data-theme="dark"] .rich-text-editor-content,
+html[data-theme="dark"] .attachment-card {
+    border-color: #334155;
+    background: #111c2f;
+    color: #e2e8f0;
+}
+
+html[data-theme="dark"] .shadow-sm,
+html[data-theme="dark"] .shadow-lg,
+html[data-theme="dark"] .shadow-2xl {
+    --tw-shadow-color: rgb(0 0 0 / .45);
+}
 
 /* Nav collapse toggle button – only visible on desktop (≥901px) */
 .nav-collapse-btn {

@@ -15,10 +15,10 @@
             <div class="flex-1">
                 <label for="directory-search" class="mb-1 block text-sm text-slate-700">@L["Directory_PrincipalLabel"]</label>
                 <input id="directory-search" class="min-h-11 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                       maxlength="200" autocomplete="off" disabled="@_busy"
+                       maxlength="200" autocomplete="off" autofocus disabled="@_busy"
                        @bind="_query" @bind:event="oninput" placeholder="@L["Directory_SearchPlaceholder"]" />
             </div>
-            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Neutral" Disabled="_busy">@L["Directory_Search"]</FluentButton>
+            <FluentButton Class="directory-search-button" Type="ButtonType.Submit" Appearance="Appearance.Neutral" Disabled="_busy">@L["Directory_Search"]</FluentButton>
         </form>
 
         @if (!string.IsNullOrWhiteSpace(_message))

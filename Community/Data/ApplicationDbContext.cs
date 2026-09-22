@@ -83,6 +83,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .HasMaxLength(16);
 
         builder.Entity<ApplicationUser>()
+            .Property(user => user.PreferredTheme)
+            .HasMaxLength(16);
+
+        builder.Entity<ApplicationUser>()
             .Property(user => user.DisplayName)
             .HasMaxLength(200);
 

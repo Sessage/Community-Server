@@ -2,6 +2,7 @@ using Klassenbibliothek.Data;
 using Klassenbibliothek.Hubs;
 using Klassenbibliothek.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
@@ -397,10 +398,27 @@ public static class CommunityApplication
             // Lax preserves external-login return flows while keeping the session cookie out of
             // ordinary cross-site subrequests. Production cookies must never traverse HTTP.
             options.Cookie.HttpOnly = true;
+            options.Cookie.IsEssential = true;
             options.Cookie.SameSite = SameSiteMode.Lax;
             options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
                 ? CookieSecurePolicy.SameAsRequest
                 : CookieSecurePolicy.Always;
+            options.ExpireTimeSpan = TimeSpan.FromDays(30);
+            options.SlidingExpiration = true;
+        });
+
+        builder.Services.Configure<CookieAuthenticationOptions>(IdentityConstants.TwoFactorRememberMeScheme, options =>
+        {
+            options.Cookie.HttpOnly = true;
+            // This cookie is issued only after the user explicitly selects "Gerät vertrauen".
+            // Marking it essential prevents consent policies from silently discarding that choice.
+            options.Cookie.IsEssential = true;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+                ? CookieSecurePolicy.SameAsRequest
+                : CookieSecurePolicy.Always;
+            options.ExpireTimeSpan = TimeSpan.FromDays(90);
+            options.SlidingExpiration = true;
         });
         
         builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();

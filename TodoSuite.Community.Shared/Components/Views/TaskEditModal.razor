@@ -1152,7 +1152,9 @@
                                                     @if (CanWriteToList())
                                                     {
                                                         <FluentButton Appearance="Appearance.Stealth"
+                                                                      Class="attachment-delete-button"
                                                                       Disabled="@_attachmentsBeingRemoved.Contains(attachment.Id)"
+                                                                      Title="@L["Btn_Delete"]"
                                                                       OnClick="@(() => RemoveAttachmentAsync(attachment))">
                                                             <FluentIcon Value="@(new Icons.Filled.Size20.Delete())" />
                                                         </FluentButton>
@@ -1273,7 +1275,7 @@
                         </div>
                     }
 
-                    <div class="pt-2 flex justify-end">
+                    <div class="pt-2 flex">
                         <FluentButton Appearance="Appearance.Accent"
                                       Disabled="@(_editableTask is null || !CanWriteToList() || !IsMoveTargetDifferentList || _moveBusy)"
                                       OnClick="MoveTaskAsync">
@@ -1315,7 +1317,7 @@
                         </div>
                     }
 
-                    <div class="flex justify-end gap-2 pt-2">
+                    <div class="flex gap-2 pt-2">
                         <FluentButton Appearance="Appearance.Neutral" OnClick="CancelConfirmDialog">
                             Abbrechen
                         </FluentButton>

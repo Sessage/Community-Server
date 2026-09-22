@@ -2,7 +2,12 @@
 @implements IDisposable
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.FluentUI.AspNetCore.Components
+@using Microsoft.AspNetCore.Identity
 @inject NavigationManager Navigation
+@inject UserManager<Klassenbibliothek.Data.ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+@inject ILogger<MainLayout> Logger
 
 <FluentDialogProvider />
 <FluentMenuProvider />
@@ -54,6 +59,7 @@
     private bool _showMobileNavigation;
     private bool _navCollapsed = false;
     private bool _disposed;
+    private bool _themeSynchronized;
     private Action _toggleNavCallback => ToggleNavCollapse;
 
     private void ToggleNavCollapse()
@@ -88,6 +94,26 @@
     protected override void OnInitialized()
     {
         Navigation.LocationChanged += HandleLocationChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _themeSynchronized || _disposed) return;
+        _themeSynchronized = true;
+
+        try
+        {
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var user = await UserManager.GetUserAsync(authenticationState.User);
+            if (user is not null && !_disposed)
+                await JS.InvokeVoidAsync("todoUi.setThemePreference", user.PreferredTheme ?? string.Empty);
+        }
+        catch (JSDisconnectedException) { }
+        catch (Exception ex)
+        {
+            // Theme synchronization must not prevent the authenticated layout from rendering.
+            Logger.LogWarning(ex, "Could not synchronize the saved theme preference.");
+        }
     }
 
     private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)

@@ -21,12 +21,23 @@
                         <div class="text-xs uppercase tracking-wide text-slate-500">@L["FormDesigner_Forms"]</div>
                         <h2 class="truncate text-xl font-semibold text-slate-900">@List.Name</h2>
                     </div>
-                    <button type="button"
-                            class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-                            disabled="@(_loading || _creating || _saving || _deleting || _selecting)"
-                            @onclick="CreateFormAsync">
-                        @(_creating ? L["FormDesigner_Creating"] : L["FormDesigner_NewForm"])
-                    </button>
+                    <div class="flex flex-wrap items-center justify-end gap-2">
+                        <button type="button"
+                                class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                                disabled="@(_loading || _creating || _saving || _deleting || _selecting)"
+                                @onclick="CreateFormAsync">
+                            @(_creating ? L["FormDesigner_Creating"] : L["FormDesigner_NewForm"])
+                        </button>
+                        @if (_selectedForm is not null)
+                        {
+                            <button type="button"
+                                    class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                                    disabled="@(_creating || _saving || _deleting || _selecting || string.IsNullOrWhiteSpace(_selectedForm.Name))"
+                                    @onclick="SaveSelectedAsync">
+                                @(_saving ? L["Account_Saving"] : L["Btn_Save"])
+                            </button>
+                        }
+                    </div>
                 </div>
             </div>
 

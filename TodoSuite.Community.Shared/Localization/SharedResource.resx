@@ -2559,4 +2559,11 @@
   <data name="Task_Recurrence_AfterCompletion" xml:space="preserve"><value>X Tage nach Abschluss</value></data>
   <data name="Task_Recurrence_AfterCompletionDays" xml:space="preserve"><value>Tage nach Abschluss</value></data>
   <data name="Task_Recurrence_AfterCompletionHint" xml:space="preserve"><value>Die nächste Aufgabe wird {0} Tage nach dem tatsächlichen Abschluss fällig.</value></data>
+  <data name="Theme_Title" xml:space="preserve"><value>Darstellung</value></data>
+  <data name="Theme_Hint" xml:space="preserve"><value>Wählen Sie den hellen oder dunklen Modus oder übernehmen Sie die Systemeinstellung.</value></data>
+  <data name="Theme_System" xml:space="preserve"><value>Systemeinstellung</value></data>
+  <data name="Theme_Light" xml:space="preserve"><value>Hell</value></data>
+  <data name="Theme_Dark" xml:space="preserve"><value>Dunkel</value></data>
+  <data name="Theme_SaveSuccess" xml:space="preserve"><value>Darstellung wurde gespeichert.</value></data>
+  <data name="Theme_SaveError" xml:space="preserve"><value>Darstellung konnte nicht gespeichert werden.</value></data>
 </root>

@@ -16,6 +16,7 @@
                     <p class="text-xs text-slate-500 mb-1">@L["Dashboard_Name_Help"]</p>
                     <input class="rounded-xl border border-slate-200 p-2 w-full"
                            maxlength="160"
+                           autofocus
                            value="@ActiveDashboard.Name"
                            @oninput="e => OnNameInput.InvokeAsync(e)" />
                 </div>

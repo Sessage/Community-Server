@@ -1,4 +1,6 @@
 ::deep p { margin: .35rem 0; }
+::deep p + p { margin-top: 1em; }
+::deep p:empty { min-height: 1em; }
 ::deep h1 { font-size: 1.5rem; font-weight: 700; margin: .65rem 0; }
 ::deep h2 { font-size: 1.25rem; font-weight: 700; margin: .6rem 0; }
 ::deep h3 { font-size: 1.1rem; font-weight: 650; margin: .5rem 0; }
