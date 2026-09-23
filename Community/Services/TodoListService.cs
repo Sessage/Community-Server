@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Klassenbibliothek.Data;
 using Klassenbibliothek.Services;
 using Klassenbibliothek.Hubs;
@@ -15,6 +16,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 {
     private const int MaxListNameLength = 200;
     private readonly IProductFeatureCatalog? _features;
+    private readonly ILogger<TodoListService>? _logger;
     private bool CustomFieldsEnabled => _features?.IsEnabled(ProductFeatureIds.Forms) ?? true;
     /// <summary>
     /// Erstellt eine neue Instanz der Listenverwaltung.
@@ -24,10 +26,12 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         IHubContext<TodoHubEndpoint> hubContext,
         IWebHostEnvironment env,
         ITaskMemberService taskMemberService,
-        IProductFeatureCatalog? features = null)
+        IProductFeatureCatalog? features = null,
+        ILogger<TodoListService>? logger = null)
         : base(dbContextFactory, hubContext, env, taskMemberService)
     {
         _features = features;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -483,6 +487,92 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         await NotifyParticipantsListsUpdatedAsync(list, cancellationToken);
 
         return list;
+    }
+
+    /// <inheritdoc />
+    public async Task<(bool Success, string Message)> LeaveListAsync(string userId, Guid listId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(userId))
+            return (false, "Anmeldung erforderlich.");
+
+        await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
+        var list = await db.TodoLists
+            .Include(l => l.Participants)
+            .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
+        if (list is null)
+            return (false, "Liste nicht gefunden.");
+        if (EqualsUserKey(list.OwnerId, userId))
+            return (false, "Der Eigentümer muss die Liste zuerst an eine andere Person übertragen.");
+
+        var participant = list.Participants.FirstOrDefault(p =>
+            !p.InvitationPending && (EqualsUserKey(p.UserId, userId) || EqualsUserKey(p.Email, userId)));
+        if (participant is null)
+            return (false, "Du bist kein Teilnehmer dieser Liste.");
+        if (!string.IsNullOrWhiteSpace(list.OwnerId)
+            && (EqualsUserKey(list.OwnerId, participant.UserId) || EqualsUserKey(list.OwnerId, participant.Email)))
+            return (false, "Der Eigentümer muss die Liste zuerst an eine andere Person übertragen.");
+
+        PortfolioAccessCoordinator.NormalizeLegacyAccess(participant);
+        if (participant.PortfolioRole is not null || participant.DirectoryRole is not null)
+            return (false, "Dein Zugriff wird über ein Portfolio oder eine Verzeichnisfreigabe erteilt. Bitte verlasse dort die Freigabe oder wende dich an einen Administrator.");
+
+        var identityKeys = new[] { participant.UserId, participant.Email, userId }
+            .Where(key => !string.IsNullOrWhiteSpace(key))
+            .Select(key => key!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var assignedTasks = await db.TodoTasks
+            .Where(task => task.ListId == listId && task.Assignee != null)
+            .ToListAsync(cancellationToken);
+        foreach (var task in assignedTasks)
+        {
+            if (identityKeys.Contains(task.Assignee!.Trim(), StringComparer.OrdinalIgnoreCase))
+                task.Assignee = null;
+        }
+
+        var taskMembers = await db.TodoTaskMembers
+            .Where(member => member.Task!.ListId == listId)
+            .ToListAsync(cancellationToken);
+        db.TodoTaskMembers.RemoveRange(taskMembers.Where(member =>
+            identityKeys.Contains(member.UserId.Trim(), StringComparer.OrdinalIgnoreCase)));
+
+        var listWatchers = await db.TodoListWatchers
+            .Where(watcher => watcher.ListId == listId)
+            .ToListAsync(cancellationToken);
+        db.TodoListWatchers.RemoveRange(listWatchers.Where(watcher =>
+            identityKeys.Contains(watcher.UserId.Trim(), StringComparer.OrdinalIgnoreCase)));
+
+        var taskWatchers = await db.TodoTaskWatchers
+            .Where(watcher => watcher.Task!.ListId == listId)
+            .ToListAsync(cancellationToken);
+        db.TodoTaskWatchers.RemoveRange(taskWatchers.Where(watcher =>
+            identityKeys.Contains(watcher.UserId.Trim(), StringComparer.OrdinalIgnoreCase)));
+
+        db.ListParticipants.Remove(participant);
+        list.ContentVersion++;
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new WorkspaceConcurrencyException("Die Liste wurde gleichzeitig auf einem anderen Gerät geändert.");
+        }
+
+        try
+        {
+            await Task.WhenAll(
+                NotifyListUpdatedAsync(listId),
+                NotifyUsersListsUpdatedAsync([participant.UserId, userId]));
+        }
+        catch (Exception ex)
+        {
+            // Der Austritt ist bereits gespeichert; ein ausgefallener Live-Hinweis darf
+            // ihn nicht nachträglich als fehlgeschlagen erscheinen lassen.
+            _logger?.LogWarning(ex, "Live-Aktualisierung nach Listenaustritt fehlgeschlagen. ListId={ListId}", listId);
+        }
+        return (true, "Du hast die Liste verlassen.");
     }
 
     /// <inheritdoc />

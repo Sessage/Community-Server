@@ -2022,6 +2022,15 @@
   <data name="Workspace_Share" xml:space="preserve">
     <value>Teilen</value>
   </data>
+  <data name="Workspace_Participants" xml:space="preserve">
+    <value>Teilnehmer</value>
+  </data>
+  <data name="Workspace_LeaveList" xml:space="preserve">
+    <value>Liste verlassen</value>
+  </data>
+  <data name="Workspace_LeaveListConfirm" xml:space="preserve">
+    <value>Sind Sie sicher, dass Sie diese Liste verlassen möchten? Sie verlieren den Zugriff auf die Liste.</value>
+  </data>
   <data name="Workspace_Actions" xml:space="preserve">
     <value>Aktionen</value>
   </data>

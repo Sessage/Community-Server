@@ -18,13 +18,6 @@
         {
             <div class="text-sm text-slate-600">@L["Participants_CheckingPermission"]</div>
         }
-        else if (!_isAdmin)
-        {
-            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <div class="font-semibold">@L["Lbl_NoPermission"]</div>
-                <div>@L["Participants_NoPermissionMsg"]</div>
-            </div>
-        }
         else
         {
             @* Messages *@
@@ -44,6 +37,8 @@
                 </div>
             }
 
+            @if (_isAdmin)
+            {
             <div class="space-y-4">
                 <div class="flex flex-row items-center">
                     <div class="flex-1 text-xs uppercase tracking-wide text-slate-500">@L["Participants_Invite"]</div>
@@ -272,7 +267,8 @@
                 }
             </div>
 
-            <!-- Current participants with role management -->
+            }
+            <!-- Current participants and roles -->
             <div class="pt-2 space-y-2">
                 <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_ParticipantsAndRoles"]</div>
 
@@ -315,7 +311,7 @@
                             </div>
 
                             <div class="flex items-center gap-2">
-                                @if (isPending)
+                                @if (isPending && _isAdmin)
                                 {
                                     <FluentButton Appearance="Appearance.Outline"
                                                   OnClick="@(async () => await RemovePendingInvitationAsync(p.Id))"
@@ -327,21 +323,27 @@
                                 {
                                     <div class="text-xs text-slate-600">@L["Lbl_Role"]</div>
 
-                                    <select class="rounded-xl border border-slate-200 p-2 bg-white"
-                                            disabled="@(_busy || isOwner || isInheritedOnly)"
-                                            value="@p.Role"
-                                            @onchange="(e => OnRoleChanged(p, e))">
+                                    @if (_isAdmin)
+                                    {
+                                        <select class="rounded-xl border border-slate-200 p-2 bg-white"
+                                                disabled="@(_busy || isOwner || isInheritedOnly)"
+                                                value="@p.Role"
+                                                @onchange="(e => OnRoleChanged(p, e))">
+                                            <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
+                                            <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
+                                            <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <span class="rounded-xl bg-slate-100 px-3 py-2 text-sm text-slate-700">@RoleLabel(p.Role)</span>
+                                    }
 
-                                        <option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option>
-                                        <option value="@ListRole.Member">@L["Participants_RoleMember"]</option>
-                                        <option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option>
-                                    </select>
-
-                                    @if (isOwner)
+                                    @if (_isAdmin && isOwner)
                                     {
                                         <span class="text-xs text-slate-500">@L["Participants_OwnerFixed"]</span>
                                     }
-                                    else if (isInheritedOnly)
+                                    else if (_isAdmin && isInheritedOnly)
                                     {
                                         <span class="text-xs text-slate-500">An der Freigabequelle verwalten</span>
                                     }
@@ -469,6 +471,14 @@
 
         return false;
     }
+
+    private string RoleLabel(ListRole role) => role switch
+    {
+        ListRole.Admin => L["Participants_RoleAdmin"],
+        ListRole.Member => L["Participants_RoleMember"],
+        ListRole.Observer => L["Participants_RoleObserver"],
+        _ => role.ToString()
+    };
 
     private async Task LoadShareLinksAsync()
     {

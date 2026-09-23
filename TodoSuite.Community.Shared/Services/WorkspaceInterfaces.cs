@@ -26,6 +26,7 @@ public interface ITodoListService
     Task<TodoListEntity> AddListAsync(string userId, TodoListEntity list, CancellationToken cancellationToken = default);
     Task<TodoListEntity> CreateListFromTemplateAsync(string userId, Guid templateId, string newName, CancellationToken cancellationToken = default);
     Task<TodoListEntity?> UpdateListAsync(string userId, TodoListEntity list, CancellationToken cancellationToken = default);
+    Task<(bool Success, string Message)> LeaveListAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task TransferListOwnershipAsync(string userId, Guid listId, string newOwnerUserIdOrEmail, CancellationToken cancellationToken = default);
     Task<bool> DeleteListAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task RenameListAsync(string userId, Guid listId, string newName, CancellationToken cancellationToken = default);

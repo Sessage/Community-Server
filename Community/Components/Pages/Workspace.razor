@@ -308,12 +308,10 @@
                 </div>
                 }
 
-                <!-- Share -->
-                <!-- Share (nur Admin) -->
-                @if (!_listLoading && _list is not null && CanAdminCurrentList())
+                @if (!_listLoading && _list is not null)
                 {
                     <FluentButton Appearance="Appearance.Accent" OnClick="OpenShareDialog" Disabled="@WorkspaceInteractionBlocked">
-                        @L["Workspace_Share"]
+                        @(CanAdminCurrentList() ? L["Workspace_Share"] : L["Workspace_Participants"])
                     </FluentButton>
                 }
 
@@ -611,10 +609,10 @@
 
 @if (_shareOpen)
 {
-    <FluentDialog id="workspace-share-dlg" Class="share-dialog" Open="true" Modal="true" PreventScroll="true" Style="width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh);" TrapFocus="true">
+    <FluentDialog id="workspace-share-dlg" Class="share-dialog" Open="true" Modal="true" PreventScroll="true" Style="@ShareDialogStyle" TrapFocus="true">
         <FluentDialogHeader>
             <div class="flex items-center justify-between gap-3">
-                <div class="font-semibold">@L["Workspace_Share"]</div>
+                <div class="font-semibold">@(CanAdminCurrentList() ? L["Workspace_Share"] : L["Workspace_Participants"])</div>
                 
                 <FluentButton Appearance="Appearance.Stealth" OnClick="CloseShareDialog">✕</FluentButton>
             </div>
@@ -628,8 +626,35 @@
                                    OnChanged="ReloadAsync" />
             </div>
         </FluentDialogBody>
+        @if (!CanAdminCurrentList())
+        {
+            <FluentDialogFooter>
+                <FluentButton Appearance="Appearance.Outline" OnClick="OpenLeaveDialog">@L["Workspace_LeaveList"]</FluentButton>
+            </FluentDialogFooter>
+        }
+    </FluentDialog>
+}
 
-        
+@if (_leaveOpen)
+{
+    <FluentDialog id="workspace-leave-dlg" Open="true" Modal="true" Style="width:min(520px,92vw);" TrapFocus="true" HiddenChanged="@(_ => CloseLeaveDialog())">
+        <FluentDialogHeader>
+            <div class="flex items-center justify-between gap-3">
+                <div class="font-semibold">@L["Workspace_LeaveList"]</div>
+                <FluentButton Appearance="Appearance.Stealth" OnClick="CloseLeaveDialog" Disabled="@_leaveBusy">✕</FluentButton>
+            </div>
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <div>@L["Workspace_LeaveListConfirm"]</div>
+            @if (!string.IsNullOrWhiteSpace(_leaveError))
+            {
+                <div class="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">@_leaveError</div>
+            }
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="CloseLeaveDialog" Disabled="@_leaveBusy">@L["Btn_Cancel"]</FluentButton>
+            <FluentButton Appearance="Appearance.Accent" OnClick="LeaveListAsync" Disabled="@_leaveBusy">@L["Workspace_LeaveList"]</FluentButton>
+        </FluentDialogFooter>
     </FluentDialog>
 }
 
@@ -1359,6 +1384,12 @@
     private bool _deleteBusy;
 
     private bool _shareOpen;
+    private string ShareDialogStyle => CanAdminCurrentList()
+        ? "width:min(1100px,96vw); max-width:96vw; height:min(820px,92vh); max-height:92vh; --dialog-width:min(1100px,96vw); --dialog-height:min(820px,92vh);"
+        : "width:min(640px,96vw); max-width:96vw; height:min(600px,92vh); max-height:92vh; --dialog-width:min(640px,96vw); --dialog-height:min(600px,92vh);";
+    private bool _leaveOpen;
+    private bool _leaveBusy;
+    private string? _leaveError;
     private bool _emailImportOpen;
     private bool _emailImportBusy;
     private long _emailImportOperationVersion;
@@ -1403,6 +1434,7 @@
     // ===== Backdrop-Click-Hooks für Dialoge =====
     private DotNetObjectReference<Workspace>? _selfRef;
     private bool _shareHookActive;
+    private bool _leaveHookActive;
     private bool _renameHookActive;
     private bool _deleteHookActive;
     private bool _labelsHookActive;
@@ -1471,6 +1503,7 @@
         _selfRef ??= DotNetObjectReference.Create(this);
 
         _shareHookActive = await UpdateDialogHookAsync(_shareOpen, "workspace-share-dlg", _shareHookActive);
+        _leaveHookActive = await UpdateDialogHookAsync(_leaveOpen, "workspace-leave-dlg", _leaveHookActive);
         _renameHookActive = await UpdateDialogHookAsync(_renameOpen, "workspace-rename-dlg", _renameHookActive);
         _deleteHookActive = await UpdateDialogHookAsync(_deleteOpen, "workspace-delete-dlg", _deleteHookActive);
         _labelsHookActive = await UpdateDialogHookAsync(_labelsOpen, "workspace-labels-dlg", _labelsHookActive);
@@ -1509,6 +1542,7 @@
         if (_disposed) return;
 
         _shareOpen = false;
+        if (!_leaveBusy) _leaveOpen = false;
         if (!_renameBusy) _renameOpen = false;
         if (!_deleteBusy) _deleteOpen = false;
         _labelsOpen = false;
@@ -1837,6 +1871,8 @@
 
         if (_shareHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-share-dlg"); } catch { }
+        if (_leaveHookActive)
+            try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-leave-dlg"); } catch { }
         if (_renameHookActive)
             try { await JS.InvokeVoidAsync("todoUi.disableDialogOutsideCloseById", "workspace-rename-dlg"); } catch { }
         if (_deleteHookActive)
@@ -2144,6 +2180,7 @@
         _renameOpen = false;
         _deleteOpen = false;
         _shareOpen = false;
+        _leaveOpen = false;
         _labelsOpen = false;
         _customFieldsOpen = false;
         _formDesignerOpen = false;
@@ -2178,7 +2215,6 @@
         _actionsOpen = false;
         _renameOpen = false;
         _deleteOpen = false;
-        _shareOpen = false;
         _labelsOpen = false;
         _customFieldsOpen = false;
         _formDesignerOpen = false;
@@ -3126,7 +3162,7 @@
 
     CloseOverlays();
 
-    if (_list is null || !CanAdminCurrentList())
+    if (_list is null)
         return;
 
     _shareOpen = true;
@@ -3134,6 +3170,45 @@
 
     private void CloseShareDialog()
         => _shareOpen = false;
+
+    private void OpenLeaveDialog()
+    {
+        if (_list is null || CanAdminCurrentList()) return;
+        _shareOpen = false;
+        _leaveError = null;
+        _leaveOpen = true;
+    }
+
+    private void CloseLeaveDialog()
+    {
+        if (!_leaveBusy) _leaveOpen = false;
+    }
+
+    private async Task LeaveListAsync()
+    {
+        if (_leaveBusy || _list is null || CanAdminCurrentList()) return;
+        _leaveBusy = true;
+        _leaveError = null;
+        try
+        {
+            var result = await ListService.LeaveListAsync(_userId, _list.Id, _disposeCts.Token);
+            if (!result.Success)
+            {
+                _leaveError = result.Message;
+                return;
+            }
+            _leaveOpen = false;
+            Nav.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            _leaveError = ex.Message;
+        }
+        finally
+        {
+            _leaveBusy = false;
+        }
+    }
 
     private bool CanAdminCurrentList()
     {

@@ -1967,6 +1967,15 @@
   <data name="Workspace_Share" xml:space="preserve">
     <value>份额</value>
   </data>
+  <data name="Workspace_Participants" xml:space="preserve">
+    <value>参与者</value>
+  </data>
+  <data name="Workspace_LeaveList" xml:space="preserve">
+    <value>退出列表</value>
+  </data>
+  <data name="Workspace_LeaveListConfirm" xml:space="preserve">
+    <value>确定要退出此列表吗？退出后您将无法再访问它。</value>
+  </data>
   <data name="Workspace_Actions" xml:space="preserve">
     <value>行动</value>
   </data>

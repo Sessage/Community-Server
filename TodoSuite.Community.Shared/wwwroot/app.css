@@ -362,6 +362,77 @@ h1:focus {
     border-color: #929292;
 }
 
+/* Anmelden und Registrieren: feste Lesebreite und eindeutige Feldbeschriftungen. */
+.account-auth-page {
+    box-sizing: border-box;
+    width: min(100%, 38rem);
+    margin: clamp(0.75rem, 3vh, 2rem) auto 3rem;
+}
+
+.account-auth-card {
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    border: 1px solid #e2e8f0;
+    border-radius: 1.25rem;
+    background: #fff;
+    box-shadow: 0 12px 36px rgb(15 23 42 / 0.07);
+}
+
+.account-auth-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.account-auth-logo img {
+    max-width: min(100%, 12rem);
+    max-height: 5rem;
+    object-fit: contain;
+}
+
+.account-auth-page h1 {
+    margin: 0 0 0.75rem;
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    line-height: 1.15;
+}
+
+.account-auth-page h2 {
+    margin: 0 0 1.75rem;
+    color: #475569;
+    font-size: 1.05rem;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.account-auth-field {
+    margin-bottom: 1.25rem;
+}
+
+.account-auth-field label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-weight: 600;
+}
+
+.account-auth-field .form-control {
+    min-height: 3rem;
+    padding: 0.7rem 0.875rem;
+    border-radius: 0.75rem;
+}
+
+.account-auth-page .btn {
+    min-height: 3rem;
+    border-radius: 0.75rem;
+}
+
+html[data-theme="dark"] .account-auth-card {
+    border-color: #334155;
+    background: #111c2f;
+}
+
+html[data-theme="dark"] .account-auth-page h2 {
+    color: #94a3b8;
+}
+
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
     color: var(--bs-secondary-color);
     text-align: end;

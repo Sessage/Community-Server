@@ -23,11 +23,11 @@
 <PageTitle>@L["Account_Login_Title"]</PageTitle>
 
 
-<div class="row justify-center">
-    <div class="col-lg-6">
+<div class="account-auth-page">
+    <div class="account-auth-card">
         <section>
             <StatusMessage Message="@errorMessage" />
-            <div class="flex justify-center mb-3">
+            <div class="account-auth-logo">
                 <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
             </div>
             <h1 class="h1">@L["Account_Login_Title"]</h1>
@@ -37,16 +37,15 @@
                 <EditForm EditContext="adEditContext" method="post" OnSubmit="LoginWithAd" FormName="login-ad">
                     <DataAnnotationsValidator />
                     <h2>@L["Account_Login_WithWindows"]</h2>
-                    <hr />
                     <ValidationSummary class="text-danger" role="alert" />
-                    <div class="form-floating mb-3">
+                    <div class="account-auth-field">
+                        <label for="AdInput.Username">@L["Account_WindowsUsername"]</label>
                         <InputText @bind-Value="AdInput.Username" id="AdInput.Username" class="form-control" autocomplete="username" aria-required="true" autofocus placeholder="@L["Account_Username"]" />
-                        <label for="AdInput.Username" class="form-label">@L["Account_WindowsUsername"]</label>
                         <ValidationMessage For="() => AdInput.Username" class="text-danger" />
                     </div>
-                    <div class="form-floating mb-3">
+                    <div class="account-auth-field">
+                        <label for="AdInput.Password">@L["Account_Password"]</label>
                         <InputText type="password" @bind-Value="AdInput.Password" id="AdInput.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
-                        <label for="AdInput.Password" class="form-label">@L["Account_Password"]</label>
                         <ValidationMessage For="() => AdInput.Password" class="text-danger" />
                     </div>
                     <div class="checkbox mb-3">
@@ -67,14 +66,14 @@
                     <DataAnnotationsValidator />
                     <h2>@L["Account_Login_WithLocal"]</h2>
                     <ValidationSummary class="text-danger" role="alert" />
-                    <div class="form-floating mb-3">
+                    <div class="account-auth-field">
+                        <label for="Input.Email">@L["Account_Email"]</label>
                         <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" autofocus placeholder="name@example.com" />
-                        <label for="Input.Email" class="form-label">@L["Account_Email"]</label>
                         <ValidationMessage For="() => Input.Email" class="text-danger" />
                     </div>
-                    <div class="form-floating mb-3">
+                    <div class="account-auth-field">
+                        <label for="Input.Password">@L["Account_Password"]</label>
                         <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
-                        <label for="Input.Password" class="form-label">@L["Account_Password"]</label>
                         <ValidationMessage For="() => Input.Password" class="text-danger" />
                     </div>
                     <div class="checkbox mb-3">
@@ -86,7 +85,7 @@
                     <div>
                         <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Login_Button"]</button>
                     </div>
-                    <hr />
+                    
                     <div class="d-flex flex-column">
                         <span class="text-secondary mx-auto mt-2">@L["Account_Or"]</span>
                         <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="btn btn-link mx-auto">@L["Account_Login_WithPasskey"]</PasskeySubmit>

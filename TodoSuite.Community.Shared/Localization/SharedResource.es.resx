@@ -1967,6 +1967,15 @@
   <data name="Workspace_Share" xml:space="preserve">
     <value>Compartir</value>
   </data>
+  <data name="Workspace_Participants" xml:space="preserve">
+    <value>Participantes</value>
+  </data>
+  <data name="Workspace_LeaveList" xml:space="preserve">
+    <value>Salir de la lista</value>
+  </data>
+  <data name="Workspace_LeaveListConfirm" xml:space="preserve">
+    <value>¿Seguro que quieres salir de esta lista? Perderás el acceso a ella.</value>
+  </data>
   <data name="Workspace_Actions" xml:space="preserve">
     <value>Acciones</value>
   </data>

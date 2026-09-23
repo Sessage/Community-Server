@@ -186,6 +186,14 @@ public class MobileSyncController : ControllerBase
         return deleted ? Ok() : NotFound();
     }
 
+    [HttpPost("lists/{listId:guid}/leave")]
+    public async Task<ActionResult<OperationResult>> LeaveList(
+        Guid listId, [FromServices] ITodoListService listService, CancellationToken token)
+    {
+        var result = await listService.LeaveListAsync(ResolveUserId(), listId, token);
+        return Ok(new OperationResult(result.Success, result.Message));
+    }
+
     [HttpPost("lists/{listId:guid}/labels")]
     public async Task<ActionResult<TodoLabelEntity>> CreateLabel(
         Guid listId,
