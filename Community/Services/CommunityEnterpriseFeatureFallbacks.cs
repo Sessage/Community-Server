@@ -91,6 +91,6 @@ public sealed class CommunityDirectorySharingService : IDirectorySharingService
 public sealed class NoOpDirectoryIdentitySynchronizer : IDirectoryIdentitySynchronizer
 {
     public Task<string?> FindLinkedUserIdAsync(string principalId, CancellationToken ct = default) => Task.FromResult<string?>(null);
-    public Task<string?> MatchLoginUserIdAsync(string principalId, string email, CancellationToken ct = default) => Task.FromResult<string?>(null);
-    public Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<DirectoryLoginMatchResult> MatchLoginUserIdAsync(string principalId, string email, CancellationToken ct = default) => Task.FromResult(new DirectoryLoginMatchResult(null, true));
+    public Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, string authenticatedEmail, CancellationToken ct = default) => Task.CompletedTask;
 }

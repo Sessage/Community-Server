@@ -161,20 +161,21 @@ public class MobileAuthController : ControllerBase
 
             // Erst nach erfolgreicher LDAP-Authentifizierung wird das über den DN
             // vorprovisionierte Konto mit einem lokalen E-Mail-Konto abgeglichen.
-            string? linkedUserId;
+            DirectoryLoginMatchResult match;
             try
             {
-                linkedUserId = await _directoryIdentitySynchronizer.MatchLoginUserIdAsync(
+                match = await _directoryIdentitySynchronizer.MatchLoginUserIdAsync(
                     adUser.DirectoryIdentity.PrincipalId, adUser.Email, HttpContext.RequestAborted);
             }
             catch (InvalidOperationException)
             {
                 return Conflict(new ErrorResponse("Das Verzeichniskonto konnte keinem lokalen Konto sicher zugeordnet werden."));
             }
-            user = string.IsNullOrWhiteSpace(linkedUserId)
+            user = string.IsNullOrWhiteSpace(match.UserId)
                 ? null
-                : await _userManager.FindByIdAsync(linkedUserId);
-            user ??= await _userManager.FindByEmailAsync(adUser.Email);
+                : await _userManager.FindByIdAsync(match.UserId);
+            if (match.EmailAvailable)
+                user ??= await _userManager.FindByEmailAsync(adUser.Email);
             if (user is null)
             {
                 user = new ApplicationUser
@@ -191,20 +192,21 @@ public class MobileAuthController : ControllerBase
             else
             {
                 var emailOwner = await _userManager.FindByEmailAsync(adUser.Email);
-                if (emailOwner is not null && emailOwner.Id != user.Id)
+                if (match.EmailAvailable && emailOwner is not null && emailOwner.Id != user.Id)
                     return Conflict(new ErrorResponse("Die Verzeichnis-E-Mail-Adresse ist bereits einem anderen Konto zugeordnet."));
 
                 var changed = DirectoryLoginAccountUpdates.Apply(
                     user, adUser.Email, adUser.DisplayName,
-                    _userManager.NormalizeEmail(adUser.Email), _userManager.NormalizeName(adUser.Email));
-                if (changed)
+                    _userManager.NormalizeEmail(adUser.Email), _userManager.NormalizeName(adUser.Email),
+                    match.EmailAvailable);
+                if (changed && match.EmailAvailable)
                 {
                     var updateResult = await _userManager.UpdateAsync(user);
                     if (!updateResult.Succeeded)
                         return StatusCode(500, new RegisterResponse(false, updateResult.Errors.Select(e => e.Description).ToArray()));
                 }
             }
-            await _directoryIdentitySynchronizer.SynchronizeAsync(user.Id, adUser.DirectoryIdentity, HttpContext.RequestAborted);
+            await _directoryIdentitySynchronizer.SynchronizeAsync(user.Id, adUser.DirectoryIdentity, adUser.Email, HttpContext.RequestAborted);
         }
         else
         {

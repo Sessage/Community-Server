@@ -292,6 +292,7 @@ public record PortfolioInviteResult(bool Success, string Message, string? Link);
 
 public sealed record DirectoryPrincipal(string Id, DirectoryPrincipalType Type, string DisplayName, string? UserPrincipalName, string? Description = null);
 public sealed record DirectoryIdentitySnapshot(string PrincipalId, string UserPrincipalName, string DisplayName, IReadOnlyCollection<string> GroupIds);
+public sealed record DirectoryLoginMatchResult(string? UserId, bool EmailAvailable);
 
 /// <summary>Synchronizes external directory identities used by Enterprise sharing rules.</summary>
 public interface IDirectoryIdentitySynchronizer
@@ -299,8 +300,8 @@ public interface IDirectoryIdentitySynchronizer
     /// <summary>Finds a locally provisioned account by its stable directory principal id.</summary>
     Task<string?> FindLinkedUserIdAsync(string principalId, CancellationToken ct = default);
     /// <summary>Matches an authenticated directory user to an existing email account and reconciles any provisional directory account.</summary>
-    Task<string?> MatchLoginUserIdAsync(string principalId, string email, CancellationToken ct = default);
-    Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default);
+    Task<DirectoryLoginMatchResult> MatchLoginUserIdAsync(string principalId, string email, CancellationToken ct = default);
+    Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, string authenticatedEmail, CancellationToken ct = default);
 }
 
 /// <summary>Defines list sharing with users and groups from an external directory.</summary>

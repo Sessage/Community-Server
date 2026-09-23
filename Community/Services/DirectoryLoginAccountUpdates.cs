@@ -10,8 +10,17 @@ public static class DirectoryLoginAccountUpdates
         string email,
         string displayName,
         string normalizedEmail,
-        string normalizedUserName)
+        string normalizedUserName,
+        bool emailAvailable = true)
     {
+        if (!emailAvailable)
+        {
+            var profileChanged = !string.Equals(user.DisplayName, displayName, StringComparison.Ordinal)
+                || !user.EmailConfirmed;
+            user.DisplayName = displayName;
+            user.EmailConfirmed = true;
+            return profileChanged;
+        }
         var changed = !string.Equals(user.DisplayName, displayName, StringComparison.Ordinal)
             || !string.Equals(user.Email, email, StringComparison.Ordinal)
             || !string.Equals(user.NormalizedEmail, normalizedEmail, StringComparison.Ordinal)

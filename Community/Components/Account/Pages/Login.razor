@@ -240,10 +240,10 @@
 
         // Erst nach erfolgreicher LDAP-Authentifizierung darf das über den DN
         // vorprovisionierte Konto mit einem lokalen E-Mail-Konto zusammengeführt werden.
-        string? linkedUserId;
+        DirectoryLoginMatchResult match;
         try
         {
-            linkedUserId = await DirectoryIdentitySynchronizer.MatchLoginUserIdAsync(
+            match = await DirectoryIdentitySynchronizer.MatchLoginUserIdAsync(
                 adUser.DirectoryIdentity.PrincipalId, adUser.Email, HttpContext.RequestAborted);
         }
         catch (InvalidOperationException ex)
@@ -252,10 +252,11 @@
             errorMessage = L["Account_Error_EmailExists"];
             return;
         }
-        var localUser = string.IsNullOrWhiteSpace(linkedUserId)
+        var localUser = string.IsNullOrWhiteSpace(match.UserId)
             ? null
-            : await UserManager.FindByIdAsync(linkedUserId);
-        localUser ??= await UserManager.FindByEmailAsync(adUser.Email);
+            : await UserManager.FindByIdAsync(match.UserId);
+        if (match.EmailAvailable)
+            localUser ??= await UserManager.FindByEmailAsync(adUser.Email);
         if (localUser is null)
         {
             localUser = new ApplicationUser
@@ -278,7 +279,7 @@
         else
         {
             var emailOwner = await UserManager.FindByEmailAsync(adUser.Email);
-            if (emailOwner is not null && emailOwner.Id != localUser.Id)
+            if (match.EmailAvailable && emailOwner is not null && emailOwner.Id != localUser.Id)
             {
                 Logger.LogWarning("Verzeichnisbenutzer '{Username}' kann wegen einer bereits belegten E-Mail-Adresse nicht zugeordnet werden.", adUser.UserName);
                 errorMessage = L["Account_Error_EmailExists"];
@@ -286,8 +287,9 @@
             }
             var changed = DirectoryLoginAccountUpdates.Apply(
                 localUser, adUser.Email, adUser.DisplayName,
-                UserManager.NormalizeEmail(adUser.Email), UserManager.NormalizeName(adUser.Email));
-            if (changed)
+                UserManager.NormalizeEmail(adUser.Email), UserManager.NormalizeName(adUser.Email),
+                match.EmailAvailable);
+            if (changed && match.EmailAvailable)
             {
                 var updateResult = await UserManager.UpdateAsync(localUser);
                 if (!updateResult.Succeeded)
@@ -298,7 +300,7 @@
             }
         }
 
-        await DirectoryIdentitySynchronizer.SynchronizeAsync(localUser.Id, adUser.DirectoryIdentity);
+        await DirectoryIdentitySynchronizer.SynchronizeAsync(localUser.Id, adUser.DirectoryIdentity, adUser.Email);
         var result = await SignInAdUserOrRequireTwoFactorAsync(localUser, AdInput.RememberMe);
 
         if (result.Succeeded)
