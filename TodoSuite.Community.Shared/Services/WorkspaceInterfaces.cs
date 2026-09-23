@@ -298,6 +298,8 @@ public interface IDirectoryIdentitySynchronizer
 {
     /// <summary>Finds a locally provisioned account by its stable directory principal id.</summary>
     Task<string?> FindLinkedUserIdAsync(string principalId, CancellationToken ct = default);
+    /// <summary>Matches an authenticated directory user to an existing email account and reconciles any provisional directory account.</summary>
+    Task<string?> MatchLoginUserIdAsync(string principalId, string email, CancellationToken ct = default);
     Task SynchronizeAsync(string userId, DirectoryIdentitySnapshot identity, CancellationToken ct = default);
 }
 

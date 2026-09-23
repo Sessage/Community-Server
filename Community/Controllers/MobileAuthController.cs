@@ -159,10 +159,18 @@ public class MobileAuthController : ControllerBase
                 return Unauthorized();
             }
 
-            // Eine vorprovisionierte Identität wird über den vom LDAP-Server gelieferten
-            // stabilen DN aufgelöst, nie allein über eine vom Client angegebene E-Mail.
-            var linkedUserId = await _directoryIdentitySynchronizer.FindLinkedUserIdAsync(
-                adUser.DirectoryIdentity.PrincipalId, HttpContext.RequestAborted);
+            // Erst nach erfolgreicher LDAP-Authentifizierung wird das über den DN
+            // vorprovisionierte Konto mit einem lokalen E-Mail-Konto abgeglichen.
+            string? linkedUserId;
+            try
+            {
+                linkedUserId = await _directoryIdentitySynchronizer.MatchLoginUserIdAsync(
+                    adUser.DirectoryIdentity.PrincipalId, adUser.Email, HttpContext.RequestAborted);
+            }
+            catch (InvalidOperationException)
+            {
+                return Conflict(new ErrorResponse("Das Verzeichniskonto konnte keinem lokalen Konto sicher zugeordnet werden."));
+            }
             user = string.IsNullOrWhiteSpace(linkedUserId)
                 ? null
                 : await _userManager.FindByIdAsync(linkedUserId);

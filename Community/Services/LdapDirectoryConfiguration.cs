@@ -8,6 +8,14 @@ namespace TodoSuite.Server.Services;
 /// </summary>
 public static partial class LdapDirectoryConfiguration
 {
+    public static IReadOnlyCollection<string> MergeGroupDns(
+        IEnumerable<string> queriedGroups, IEnumerable<string> directGroups) =>
+        queriedGroups.Concat(directGroups)
+            .Where(dn => !string.IsNullOrWhiteSpace(dn))
+            .Select(dn => dn.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     public static bool IsActiveDirectory(ActiveDirectoryOptions options) =>
         !options.Provider.Equals("Ldap", StringComparison.OrdinalIgnoreCase) &&
         !options.Provider.Equals("GenericLdap", StringComparison.OrdinalIgnoreCase);

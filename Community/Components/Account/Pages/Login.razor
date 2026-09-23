@@ -238,11 +238,20 @@
             return;
         }
 
-        // Vorprovisionierte Verzeichnisbenutzer werden ausschließlich über den stabilen,
-        // serverseitig ermittelten DN gebunden. Eine E-Mail-Übereinstimmung allein darf
-        // kein bereits vorbereitetes AD-Konto übernehmen.
-        var linkedUserId = await DirectoryIdentitySynchronizer.FindLinkedUserIdAsync(
-            adUser.DirectoryIdentity.PrincipalId, HttpContext.RequestAborted);
+        // Erst nach erfolgreicher LDAP-Authentifizierung darf das über den DN
+        // vorprovisionierte Konto mit einem lokalen E-Mail-Konto zusammengeführt werden.
+        string? linkedUserId;
+        try
+        {
+            linkedUserId = await DirectoryIdentitySynchronizer.MatchLoginUserIdAsync(
+                adUser.DirectoryIdentity.PrincipalId, adUser.Email, HttpContext.RequestAborted);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Logger.LogWarning(ex, "Verzeichnisbenutzer '{Username}' konnte keinem lokalen Konto sicher zugeordnet werden.", adUser.UserName);
+            errorMessage = L["Account_Error_EmailExists"];
+            return;
+        }
         var localUser = string.IsNullOrWhiteSpace(linkedUserId)
             ? null
             : await UserManager.FindByIdAsync(linkedUserId);

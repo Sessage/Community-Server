@@ -123,6 +123,12 @@ public class LdapAuthService
     private IReadOnlyCollection<string> FindGroupDns(
         LdapConnection connection, SearchResultEntry userEntry, string userDn, string username)
     {
+        var membershipAttribute = LdapDirectoryConfiguration.GroupMembershipAttribute(_options);
+        var memberOf = userEntry.Attributes[membershipAttribute];
+        var directGroups = memberOf is null
+            ? []
+            : memberOf.GetValues(typeof(string)).Cast<string>().ToArray();
+
         var membershipFilter = LdapDirectoryConfiguration.BuildGroupMembershipSearchFilter(
             _options, userDn, username);
         if (membershipFilter is not null)
@@ -132,11 +138,10 @@ public class LdapAuthService
                 var searchBase = LdapDirectoryConfiguration.GroupSearchBase(_options);
                 var request = new SearchRequest(searchBase, membershipFilter, SearchScope.Subtree, "distinguishedName");
                 var response = (SearchResponse)connection.SendRequest(request);
-                return response.Entries.Cast<SearchResultEntry>()
+                return LdapDirectoryConfiguration.MergeGroupDns(
+                    response.Entries.Cast<SearchResultEntry>()
                     .Select(x => x.DistinguishedName)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
+                    .Where(x => !string.IsNullOrWhiteSpace(x)), directGroups);
             }
             catch (Exception ex) when (LdapDirectoryConfiguration.IsActiveDirectory(_options) &&
                                        string.IsNullOrWhiteSpace(_options.GroupMembershipSearchFilter))
@@ -146,14 +151,7 @@ public class LdapAuthService
             }
         }
 
-        var membershipAttribute = LdapDirectoryConfiguration.GroupMembershipAttribute(_options);
-        var memberOf = userEntry.Attributes[membershipAttribute];
-        return memberOf is null
-            ? []
-            : memberOf.GetValues(typeof(string)).Cast<string>()
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
+        return LdapDirectoryConfiguration.MergeGroupDns(directGroups, []);
     }
 
     private bool IsInRequiredGroup(IReadOnlyCollection<string> groupDns)
