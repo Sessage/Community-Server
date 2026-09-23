@@ -182,21 +182,13 @@ public class MobileAuthController : ControllerBase
             }
             else
             {
-                var changed = !string.Equals(user.DisplayName, adUser.DisplayName, StringComparison.Ordinal);
-                user.DisplayName = adUser.DisplayName;
                 var emailOwner = await _userManager.FindByEmailAsync(adUser.Email);
-                if (emailOwner is null || emailOwner.Id == user.Id)
-                {
-                    changed |= !string.Equals(user.Email, adUser.Email, StringComparison.OrdinalIgnoreCase);
-                    user.Email = adUser.Email;
-                    user.NormalizedEmail = _userManager.NormalizeEmail(adUser.Email);
-                    user.EmailConfirmed = true;
-                    if (user.UserName?.EndsWith("@local.invalid", StringComparison.OrdinalIgnoreCase) == true)
-                    {
-                        user.UserName = adUser.Email;
-                        user.NormalizedUserName = _userManager.NormalizeName(adUser.Email);
-                    }
-                }
+                if (emailOwner is not null && emailOwner.Id != user.Id)
+                    return Conflict(new ErrorResponse("Die Verzeichnis-E-Mail-Adresse ist bereits einem anderen Konto zugeordnet."));
+
+                var changed = DirectoryLoginAccountUpdates.Apply(
+                    user, adUser.Email, adUser.DisplayName,
+                    _userManager.NormalizeEmail(adUser.Email), _userManager.NormalizeName(adUser.Email));
                 if (changed)
                 {
                     var updateResult = await _userManager.UpdateAsync(user);

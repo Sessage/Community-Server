@@ -268,21 +268,16 @@
         }
         else
         {
-            var changed = !string.Equals(localUser.DisplayName, adUser.DisplayName, StringComparison.Ordinal);
-            localUser.DisplayName = adUser.DisplayName;
             var emailOwner = await UserManager.FindByEmailAsync(adUser.Email);
-            if (emailOwner is null || emailOwner.Id == localUser.Id)
+            if (emailOwner is not null && emailOwner.Id != localUser.Id)
             {
-                changed |= !string.Equals(localUser.Email, adUser.Email, StringComparison.OrdinalIgnoreCase);
-                localUser.Email = adUser.Email;
-                localUser.NormalizedEmail = UserManager.NormalizeEmail(adUser.Email);
-                localUser.EmailConfirmed = true;
-                if (localUser.UserName?.EndsWith("@local.invalid", StringComparison.OrdinalIgnoreCase) == true)
-                {
-                    localUser.UserName = adUser.Email;
-                    localUser.NormalizedUserName = UserManager.NormalizeName(adUser.Email);
-                }
+                Logger.LogWarning("Verzeichnisbenutzer '{Username}' kann wegen einer bereits belegten E-Mail-Adresse nicht zugeordnet werden.", adUser.UserName);
+                errorMessage = L["Account_Error_EmailExists"];
+                return;
             }
+            var changed = DirectoryLoginAccountUpdates.Apply(
+                localUser, adUser.Email, adUser.DisplayName,
+                UserManager.NormalizeEmail(adUser.Email), UserManager.NormalizeName(adUser.Email));
             if (changed)
             {
                 var updateResult = await UserManager.UpdateAsync(localUser);
@@ -315,6 +310,11 @@
         {
             Logger.LogWarning("Verzeichnisbenutzerkonto '{Username}' ist gesperrt.", adUser.UserName);
             RedirectManager.RedirectTo("Account/Lockout");
+        }
+        else if (result.IsNotAllowed)
+        {
+            Logger.LogWarning("Verzeichnisbenutzer '{Username}' darf sich mit dem lokalen Konto nicht anmelden.", adUser.UserName);
+            errorMessage = L["Account_Error_NotAllowed"];
         }
         else
         {
