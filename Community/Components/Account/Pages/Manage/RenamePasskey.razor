@@ -19,14 +19,14 @@
         <h4>Namen für Ihren Passkey eingeben</h4>
     }
     <hr />
-    <ValidationSummary class="text-danger" role="alert" />
-    <div class="form-floating mb-3">
-        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" aria-required="true" placeholder="Mein Passkey" />
-        <label for="Input.Name" class="form-label">Passkey-Name</label>
-        <ValidationMessage For="() => Input.Name" class="text-danger" />
+    <ValidationSummary class="ui-text-danger" role="alert" />
+    <div class="ui-form-floating mb-3">
+        <InputText @bind-Value="Input.Name" id="Input.Name" class="ui-form-control" aria-required="true" placeholder="Mein Passkey" />
+        <label for="Input.Name" class="ui-form-label">Passkey-Name</label>
+        <ValidationMessage For="() => Input.Name" class="ui-text-danger" />
     </div>
     <div>
-        <button type="submit" class="w-100 btn btn-lg btn-primary">Weiter</button>
+        <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">Weiter</button>
     </div>
 </EditForm>
 

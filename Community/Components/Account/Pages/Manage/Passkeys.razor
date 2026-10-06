@@ -17,7 +17,7 @@
 
 @if (currentPasskeys is { Count: > 0 })
 {
-    <table class="table">
+    <table class="ui-table">
         <tbody>
             @foreach (var passkey in currentPasskeys)
             {
@@ -31,8 +31,8 @@
                             <AntiforgeryToken />
                             <div>
                                 <input type="hidden" name="CredentialId" value="@credentialId" />
-                                <button type="submit" name="Action" value="rename" class="btn btn-primary" title="Diesen Passkey umbenennen">Umbenennen</button>
-                                <button type="submit" name="Action" value="delete" class="btn btn-danger" title="Diesen Passkey von Ihrem Konto entfernen">Löschen</button>
+                                <button type="submit" name="Action" value="rename" class="ui-btn ui-btn-primary" title="Diesen Passkey umbenennen">Umbenennen</button>
+                                <button type="submit" name="Action" value="delete" class="ui-btn ui-btn-danger" title="Diesen Passkey von Ihrem Konto entfernen">Löschen</button>
                             </div>
                         </form>
                     </td>
@@ -50,11 +50,11 @@ else
     <AntiforgeryToken />
     @if (currentPasskeys is { Count: >= MaxPasskeyCount })
     {
-        <p class="text-danger">Sie haben die maximale Anzahl erlaubter Passkeys erreicht. Bitte löschen Sie einen, bevor Sie einen neuen hinzufügen.</p>
+        <p class="ui-text-danger">Sie haben die maximale Anzahl erlaubter Passkeys erreicht. Bitte löschen Sie einen, bevor Sie einen neuen hinzufügen.</p>
     }
     else
     {
-        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="btn btn-primary">Neuen Passkey hinzufügen</PasskeySubmit>
+        <PasskeySubmit Operation="PasskeyOperation.Create" Name="Input" class="ui-btn ui-btn-primary">Neuen Passkey hinzufügen</PasskeySubmit>
     }
 
 </form>

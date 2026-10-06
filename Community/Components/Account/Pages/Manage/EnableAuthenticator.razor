@@ -27,7 +27,7 @@ else
 {
     @if (!string.IsNullOrEmpty(message))
     {
-        <div class="alert alert-info mt-2">@message</div>
+        <div class="ui-alert ui-alert-info mt-2">@message</div>
     }
     <h3>Authenticator-App einrichten</h3>
     <div>
@@ -64,19 +64,19 @@ else
                     Zwei-Faktor-Authentifizierungs-App einen eindeutigen Code.
                     Geben Sie den Code in das Bestätigungsfeld unten ein.
                 </p>
-                <div class="row">
-                    <div class="col-xl-6">
+                <div class="ui-row">
+                    <div class="ui-col-xl-6">
                         <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync">
                             <DataAnnotationsValidator />
-                            <div class="form-floating mb-3">
-                                <InputText @bind-Value="Input.Code" id="Input.Code" class="form-control" autocomplete="off" placeholder="Code eingeben" />
-                                <label for="Input.Code" class="control-label form-label">Verifizierungscode</label>
-                                <ValidationMessage For="() => Input.Code" class="text-danger" />
+                            <div class="ui-form-floating mb-3">
+                                <InputText @bind-Value="Input.Code" id="Input.Code" class="ui-form-control" autocomplete="off" placeholder="Code eingeben" />
+                                <label for="Input.Code" class="control-label ui-form-label">Verifizierungscode</label>
+                                <ValidationMessage For="() => Input.Code" class="ui-text-danger" />
                             </div>
-                            <button type="submit" class="w-100 btn btn-lg btn-primary" disabled="@_submitting">
+                            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary" disabled="@_submitting">
                                 @(_submitting ? "Wird verifiziert…" : "Verifizieren")
                             </button>
-                            <ValidationSummary class="text-danger" role="alert" />
+                            <ValidationSummary class="ui-text-danger" role="alert" />
                         </EditForm>
                     </div>
                 </div>

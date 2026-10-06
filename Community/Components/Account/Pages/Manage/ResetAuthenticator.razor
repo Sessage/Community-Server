@@ -16,10 +16,10 @@
 
 @if (!string.IsNullOrEmpty(_statusMessage))
 {
-    <div class="alert @(_isError ? "alert-danger" : "alert-success") mt-2">@_statusMessage</div>
+    <div class="ui-alert @(_isError ? "ui-alert-danger" : "ui-alert-success") mt-2">@_statusMessage</div>
 }
 
-<div class="alert alert-warning" role="alert">
+<div class="ui-alert ui-alert-warning" role="alert">
     <p>
         <strong>Wenn Sie Ihren Authenticator-Schlüssel zurücksetzen, funktioniert Ihre Authenticator-App erst wieder, wenn Sie sie neu konfigurieren.</strong>
     </p>
@@ -29,7 +29,7 @@
     </p>
 </div>
 
-<button class="btn btn-danger" @onclick="OnResetAsync" disabled="@_loading">
+<button class="ui-btn ui-btn-danger" @onclick="OnResetAsync" disabled="@_loading">
     @(_loading ? "Wird zurückgesetzt…" : "Authenticator-Schlüssel zurücksetzen")
 </button>
 

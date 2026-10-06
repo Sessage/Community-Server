@@ -36,23 +36,23 @@
                 <DataAnnotationsValidator />
                 <ValidationSummary class="mb-4 text-sm text-red-600" role="alert" />
 
-                <div class="form-floating mb-4">
+                <div class="ui-form-floating mb-4">
                     <InputText @bind-Value="Input.TwoFactorCode"
                                id="Input.TwoFactorCode"
-                               class="form-control"
+                               class="ui-form-control"
                                autocomplete="one-time-code"
                                inputmode="numeric"
                                placeholder="123456" />
-                    <label for="Input.TwoFactorCode" class="form-label">Authenticator-Code</label>
+                    <label for="Input.TwoFactorCode" class="ui-form-label">Authenticator-Code</label>
                     <ValidationMessage For="() => Input.TwoFactorCode" class="mt-1 text-sm text-red-600" />
                 </div>
 
                 <label for="remember-machine" class="mb-5 flex items-center gap-2 text-sm text-slate-700">
-                    <InputCheckbox @bind-Value="Input.RememberMachine" id="remember-machine" class="form-check-input m-0" />
+                    <InputCheckbox @bind-Value="Input.RememberMachine" id="remember-machine" class="ui-form-check-input m-0" />
                     Diesem Ger&auml;t vertrauen
                 </label>
 
-                <button type="submit" class="w-100 btn btn-lg btn-primary">Anmelden</button>
+                <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">Anmelden</button>
             </EditForm>
 
             <p class="mt-5 text-center text-sm text-slate-600">

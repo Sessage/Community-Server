@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage"
+@page "/Account/Manage"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
@@ -13,21 +13,21 @@
 <h3>Profil</h3>
 <StatusMessage />
 
-<div class="row">
-    <div class="col-xl-6">
+<div class="ui-row">
+    <div class="ui-col-xl-6">
         <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" id="username" class="form-control" placeholder="Benutzernamen wählen." disabled />
-                <label for="username" class="form-label">Benutzername</label>
+            <ValidationSummary class="ui-text-danger" role="alert" />
+            <div class="ui-form-floating mb-3">
+                <input type="text" value="@username" id="username" class="ui-form-control" placeholder="Benutzernamen wählen." disabled />
+                <label for="username" class="ui-form-label">Benutzername</label>
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Telefonnummer eingeben" />
-                <label for="Input.PhoneNumber" class="form-label">Telefonnummer</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+            <div class="ui-form-floating mb-3">
+                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="ui-form-control" placeholder="Telefonnummer eingeben" />
+                <label for="Input.PhoneNumber" class="ui-form-label">Telefonnummer</label>
+                <ValidationMessage For="() => Input.PhoneNumber" class="ui-text-danger" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Speichern</button>
+            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">Speichern</button>
         </EditForm>
     </div>
 </div>

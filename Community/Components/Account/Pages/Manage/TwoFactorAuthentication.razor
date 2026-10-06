@@ -16,7 +16,7 @@
 
 @if (!string.IsNullOrEmpty(_statusMessage))
 {
-    <div class="alert alert-success mt-2">@_statusMessage</div>
+    <div class="ui-alert ui-alert-success mt-2">@_statusMessage</div>
 }
 
 <h3>Zwei-Faktor-Authentifizierung (2FA)</h3>
@@ -31,50 +31,50 @@ else if (canTrack)
     {
         if (recoveryCodesLeft == 0)
         {
-            <div class="alert alert-danger">
+            <div class="ui-alert ui-alert-danger">
                 <strong>Sie haben keine Wiederherstellungscodes mehr.</strong>
                 <p>Sie müssen <a href="Account/Manage/GenerateRecoveryCodes" data-enhance-nav="false">einen neuen Satz Wiederherstellungscodes generieren</a>, bevor Sie sich mit einem Wiederherstellungscode anmelden können.</p>
             </div>
         }
         else if (recoveryCodesLeft == 1)
         {
-            <div class="alert alert-danger">
+            <div class="ui-alert ui-alert-danger">
                 <strong>Sie haben noch 1 Wiederherstellungscode.</strong>
                 <p>Sie können <a href="Account/Manage/GenerateRecoveryCodes" data-enhance-nav="false">einen neuen Satz Wiederherstellungscodes generieren</a>.</p>
             </div>
         }
         else if (recoveryCodesLeft <= 3)
         {
-            <div class="alert alert-warning">
+            <div class="ui-alert ui-alert-warning">
                 <strong>Sie haben noch @recoveryCodesLeft Wiederherstellungscodes.</strong>
                 <p>Sie sollten <a href="Account/Manage/GenerateRecoveryCodes" data-enhance-nav="false">einen neuen Satz Wiederherstellungscodes generieren</a>.</p>
             </div>
         }
 
-        <div class="d-flex flex-wrap gap-2 mb-3">
+        <div class="ui-flex flex-wrap gap-2 mb-3">
             @if (isMachineRemembered)
             {
-                <a href="/Account/Manage/ForgetBrowserAction" class="btn btn-primary" data-enhance-nav="false">Diesen Browser vergessen</a>
+                <a href="/Account/Manage/ForgetBrowserAction" class="ui-btn ui-btn-primary" data-enhance-nav="false">Diesen Browser vergessen</a>
             }
-            <a href="Account/Manage/Disable2fa" class="btn btn-primary" data-enhance-nav="false">2FA deaktivieren</a>
-            <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary" data-enhance-nav="false">Wiederherstellungscodes zurücksetzen</a>
+            <a href="Account/Manage/Disable2fa" class="ui-btn ui-btn-primary" data-enhance-nav="false">2FA deaktivieren</a>
+            <a href="Account/Manage/GenerateRecoveryCodes" class="ui-btn ui-btn-primary" data-enhance-nav="false">Wiederherstellungscodes zurücksetzen</a>
         </div>
     }
 
     <h4>Authenticator-App</h4>
-    <div class="d-flex flex-wrap gap-2 mt-2">
-        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary" data-enhance-nav="false">
+    <div class="ui-flex flex-wrap gap-2 mt-2">
+        <a href="Account/Manage/EnableAuthenticator" class="ui-btn ui-btn-primary" data-enhance-nav="false">
             @(hasAuthenticator ? "Authenticator-App einrichten" : "Authenticator-App hinzufügen")
         </a>
         @if (hasAuthenticator && is2faEnabled)
         {
-            <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary" data-enhance-nav="false">Authenticator-App zurücksetzen</a>
+            <a href="Account/Manage/ResetAuthenticator" class="ui-btn ui-btn-primary" data-enhance-nav="false">Authenticator-App zurücksetzen</a>
         }
     </div>
 }
 else
 {
-    <div class="alert alert-danger">
+    <div class="ui-alert ui-alert-danger">
         <strong>Die Datenschutz- und Cookie-Richtlinie wurde nicht akzeptiert.</strong>
         <p>Sie müssen die Richtlinie akzeptieren, bevor Sie die Zwei-Faktor-Authentifizierung aktivieren können.</p>
     </div>

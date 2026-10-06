@@ -194,17 +194,17 @@ html, body {
     /*overflow-x: hidden;*/
 }
 
-a, .btn-link {
+a, .ui-btn-link {
     color: #006bb7;
 }
 
-.btn-primary {
+.ui-btn-primary {
     color: #fff;
     background-color: #1b6ec2;
     border-color: #1861ac;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+.ui-btn:focus, .ui-btn:active:focus, .ui-btn-link.nav-link:focus, .ui-form-control:focus, .ui-form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
@@ -358,7 +358,7 @@ h1:focus {
         content: "An error has occurred."
     }
 
-.darker-border-checkbox.form-check-input {
+.darker-border-checkbox.ui-form-check-input {
     border-color: #929292;
 }
 
@@ -413,13 +413,13 @@ h1:focus {
     font-weight: 600;
 }
 
-.account-auth-field .form-control {
+.account-auth-field .ui-form-control {
     min-height: 3rem;
     padding: 0.7rem 0.875rem;
     border-radius: 0.75rem;
 }
 
-.account-auth-page .btn {
+.account-auth-page .ui-btn {
     min-height: 3rem;
     border-radius: 0.75rem;
 }
@@ -433,12 +433,12 @@ html[data-theme="dark"] .account-auth-page h2 {
     color: #94a3b8;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
+.ui-form-floating > .ui-form-control-plaintext::placeholder, .ui-form-floating > .ui-form-control::placeholder {
+    color: var(--ui-muted);
     text-align: end;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+.ui-form-floating > .ui-form-control-plaintext:focus::placeholder, .ui-form-floating > .ui-form-control:focus::placeholder {
     text-align: start;
 }
 
@@ -1416,6 +1416,19 @@ html[data-theme="dark"] :where(.bg-slate-50, .bg-slate-50\/50) {
 }
 
 html[data-theme="dark"] .bg-slate-100 {
+    background-color: #1e293b !important;
+}
+
+html[data-theme="dark"] .bg-slate-200 {
+    background-color: #334155 !important;
+}
+
+html[data-theme="dark"] .nav-pill {
+    color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .nav-pill:hover,
+html[data-theme="dark"] .nav-pill.active {
     background-color: #1e293b !important;
 }
 

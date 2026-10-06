@@ -24,13 +24,13 @@
         <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
             <h2>Bestätigungslink erneut erhalten.</h2>
-            <ValidationSummary class="text-danger" role="alert" />
+            <ValidationSummary class="ui-text-danger" role="alert" />
             <div class="account-auth-field">
                 <label for="Input.Email">E-Mail</label>
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
+                <InputText @bind-Value="Input.Email" id="Input.Email" class="ui-form-control" aria-required="true" placeholder="name@example.com" />
+                <ValidationMessage For="() => Input.Email" class="ui-text-danger" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Bestätigung senden</button>
+            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">Bestätigung senden</button>
         </EditForm>
         <p class="mt-3">
             <a href="Account/Login">Zur Anmeldung</a>

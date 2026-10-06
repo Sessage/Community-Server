@@ -3,55 +3,17 @@
 @using Microsoft.AspNetCore.Http
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <script>
-        (() => {
-            const storageKey = "sessage.theme";
-            const media = window.matchMedia("(prefers-color-scheme: dark)");
-            const normalize = value => value === "light" || value === "dark" ? value : "";
-            const readPreference = () => {
-                try { return localStorage.getItem(storageKey); }
-                catch { return ""; }
-            };
-            const storePreference = preference => {
-                try {
-                    if (preference) localStorage.setItem(storageKey, preference);
-                    else localStorage.removeItem(storageKey);
-                } catch {
-                    // Storage can be unavailable in hardened/private browser contexts.
-                }
-            };
-            const apply = preference => {
-                const normalized = normalize(preference);
-                const resolved = normalized || (media.matches ? "dark" : "light");
-                document.documentElement.dataset.theme = resolved;
-                document.documentElement.style.colorScheme = resolved;
-                document.getElementById("app-design-theme")?.setAttribute("mode", resolved);
-                return normalized;
-            };
-
-            window.todoUi = window.todoUi || {};
-            window.todoUi.setThemePreference = preference => {
-                const normalized = apply(preference);
-                storePreference(normalized);
-            };
-            window.todoUi.refreshTheme = () => apply(readPreference());
-
-            apply(readPreference());
-            media.addEventListener?.("change", () => {
-                if (!normalize(readPreference())) apply("");
-            });
-        })();
-    </script>
+    <script src="@Assets["_content/TodoSuite.Community.Shared/js/theme.js"]"></script>
     <ResourcePreloader />
     <FluentDesignSystemProvider />
-    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["_content/TodoSuite.Community.Shared/lib/tailwind/tailwind.css"]" />
+    <link rel="stylesheet" href="@Assets["_content/TodoSuite.Community.Shared/ui.css"]" />
     <link rel="stylesheet" href="@Assets["_content/TodoSuite.Community.Shared/app.css"]" />
     <link rel="stylesheet" href="@Assets["TodoSuite.Community.styles.css"]" />
     <ImportMap />

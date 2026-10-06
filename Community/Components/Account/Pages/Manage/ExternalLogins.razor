@@ -15,7 +15,7 @@
 @if (currentLogins?.Count > 0)
 {
     <h3>Registrierte Anmeldungen</h3>
-    <table class="table">
+    <table class="ui-table">
         <tbody>
             @foreach (var login in currentLogins)
             {
@@ -29,7 +29,7 @@
                                 <div>
                                     <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
                                     <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
-                                    <button type="submit" class="btn btn-primary" title="Diese @login.ProviderDisplayName-Anmeldung von Ihrem Konto entfernen">Entfernen</button>
+                                    <button type="submit" class="ui-btn ui-btn-primary" title="Diese @login.ProviderDisplayName-Anmeldung von Ihrem Konto entfernen">Entfernen</button>
                                 </div>
                             </form>
                         }
@@ -47,13 +47,13 @@
 {
     <h4>Weiteren Dienst zum Anmelden hinzufügen.</h4>
     <hr />
-    <form class="form-horizontal" action="Account/Manage/LinkExternalLogin" method="post">
+    <form class="ui-form-horizontal" action="Account/Manage/LinkExternalLogin" method="post">
         <AntiforgeryToken />
         <div>
             <p>
                 @foreach (var provider in otherLogins)
                 {
-                    <button type="submit" class="btn btn-primary" name="Provider" value="@provider.Name" title="Mit Ihrem @provider.DisplayName-Konto anmelden">
+                    <button type="submit" class="ui-btn ui-btn-primary" name="Provider" value="@provider.Name" title="Mit Ihrem @provider.DisplayName-Konto anmelden">
                         @provider.DisplayName
                     </button>
                 }

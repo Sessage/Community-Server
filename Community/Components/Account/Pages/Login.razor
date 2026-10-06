@@ -37,25 +37,25 @@
                 <EditForm EditContext="adEditContext" method="post" OnSubmit="LoginWithAd" FormName="login-ad">
                     <DataAnnotationsValidator />
                     <h2>@L["Account_Login_WithWindows"]</h2>
-                    <ValidationSummary class="text-danger" role="alert" />
+                    <ValidationSummary class="ui-text-danger" role="alert" />
                     <div class="account-auth-field">
                         <label for="AdInput.Username">@L["Account_WindowsUsername"]</label>
-                        <InputText @bind-Value="AdInput.Username" id="AdInput.Username" class="form-control" autocomplete="username" aria-required="true" autofocus placeholder="@L["Account_Username"]" />
-                        <ValidationMessage For="() => AdInput.Username" class="text-danger" />
+                        <InputText @bind-Value="AdInput.Username" id="AdInput.Username" class="ui-form-control" autocomplete="username" aria-required="true" autofocus placeholder="@L["Account_Username"]" />
+                        <ValidationMessage For="() => AdInput.Username" class="ui-text-danger" />
                     </div>
                     <div class="account-auth-field">
                         <label for="AdInput.Password">@L["Account_Password"]</label>
-                        <InputText type="password" @bind-Value="AdInput.Password" id="AdInput.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
-                        <ValidationMessage For="() => AdInput.Password" class="text-danger" />
+                        <InputText type="password" @bind-Value="AdInput.Password" id="AdInput.Password" class="ui-form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
+                        <ValidationMessage For="() => AdInput.Password" class="ui-text-danger" />
                     </div>
                     <div class="checkbox mb-3">
-                        <label class="form-label">
-                            <InputCheckbox @bind-Value="AdInput.RememberMe" class="darker-border-checkbox form-check-input" />
+                        <label class="ui-form-label">
+                            <InputCheckbox @bind-Value="AdInput.RememberMe" class="darker-border-checkbox ui-form-check-input" />
                             @L["Account_RememberMe"]
                         </label>
                     </div>
                     <div>
-                        <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Login_WindowsButton"]</button>
+                        <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Account_Login_WindowsButton"]</button>
                     </div>
                 </EditForm>
             }
@@ -65,30 +65,30 @@
                 <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
                     <DataAnnotationsValidator />
                     <h2>@L["Account_Login_WithLocal"]</h2>
-                    <ValidationSummary class="text-danger" role="alert" />
+                    <ValidationSummary class="ui-text-danger" role="alert" />
                     <div class="account-auth-field">
                         <label for="Input.Email">@L["Account_Email"]</label>
-                        <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" autofocus placeholder="name@example.com" />
-                        <ValidationMessage For="() => Input.Email" class="text-danger" />
+                        <InputText @bind-Value="Input.Email" id="Input.Email" class="ui-form-control" autocomplete="username webauthn" aria-required="true" autofocus placeholder="name@example.com" />
+                        <ValidationMessage For="() => Input.Email" class="ui-text-danger" />
                     </div>
                     <div class="account-auth-field">
                         <label for="Input.Password">@L["Account_Password"]</label>
-                        <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
-                        <ValidationMessage For="() => Input.Password" class="text-danger" />
+                        <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="ui-form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Password"]" />
+                        <ValidationMessage For="() => Input.Password" class="ui-text-danger" />
                     </div>
                     <div class="checkbox mb-3">
-                        <label class="form-label">
-                            <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
+                        <label class="ui-form-label">
+                            <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox ui-form-check-input" />
                             @L["Account_RememberMe"]
                         </label>
                     </div>
                     <div>
-                        <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Login_Button"]</button>
+                        <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Account_Login_Button"]</button>
                     </div>
                     
-                    <div class="d-flex flex-column">
+                    <div class="ui-flex flex-column">
                         <span class="text-secondary mx-auto mt-2">@L["Account_Or"]</span>
-                        <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="btn btn-link mx-auto">@L["Account_Login_WithPasskey"]</PasskeySubmit>
+                        <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="ui-btn ui-btn-link mx-auto">@L["Account_Login_WithPasskey"]</PasskeySubmit>
                     </div>
                     <hr />
                     <div>
@@ -111,7 +111,7 @@
     </div>
     @* @if (!AdOptions.Enabled)
     {
-        <div class="col-lg-4 col-lg-offset-2">
+        <div class="ui-col-lg-4 ui-col-lg-offset-2">
             <section>
                 <h3>Mit einem anderen Dienst anmelden.</h3>
                 <hr />

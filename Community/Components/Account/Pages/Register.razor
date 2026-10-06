@@ -38,30 +38,30 @@ else
             <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
                 <DataAnnotationsValidator />
                 <h2>@L["Account_Register_CreateAccount"]</h2>
-                <ValidationSummary class="text-danger" role="alert" />
+                <ValidationSummary class="ui-text-danger" role="alert" />
                 <div class="account-auth-field">
                     <label for="Input.Email">@L["Account_Email"]</label>
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" autofocus placeholder="name@example.com" />
-                    <ValidationMessage For="() => Input.Email" class="text-danger" />
+                    <InputText @bind-Value="Input.Email" id="Input.Email" class="ui-form-control" autocomplete="username" aria-required="true" autofocus placeholder="name@example.com" />
+                    <ValidationMessage For="() => Input.Email" class="ui-text-danger" />
                 </div>
                 <div class="account-auth-field">
                     <label for="Input.Password">@L["Account_Password"]</label>
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="@L["Account_Password"]" />
-                    <ValidationMessage For="() => Input.Password" class="text-danger" />
+                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="ui-form-control" autocomplete="new-password" aria-required="true" placeholder="@L["Account_Password"]" />
+                    <ValidationMessage For="() => Input.Password" class="ui-text-danger" />
                 </div>
                 <div class="account-auth-field">
                     <label for="Input.ConfirmPassword">@L["Account_ConfirmPassword"]</label>
-                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" placeholder="@L["Account_ConfirmPassword"]" />
-                    <ValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                    <InputText type="password" @bind-Value="Input.ConfirmPassword" id="Input.ConfirmPassword" class="ui-form-control" autocomplete="new-password" aria-required="true" placeholder="@L["Account_ConfirmPassword"]" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="ui-text-danger" />
                 </div>
-                <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Account_Register_Button"]</button>
+                <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Account_Register_Button"]</button>
             </EditForm>
 
             <p class="mt-3">
                 <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">@L["Account_LoginExistingUser"]</a>
             </p>
         </div>
-        @* <div class="col-lg-4 col-lg-offset-2">
+        @* <div class="ui-col-lg-4 ui-col-lg-offset-2">
             <section>
                 <h3>Mit einem anderen Dienst registrieren.</h3>
                 <hr />

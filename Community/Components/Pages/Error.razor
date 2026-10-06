@@ -1,11 +1,11 @@
-﻿@page "/Error"
+@page "/Error"
 @using System.Diagnostics
 @inject IWebHostEnvironment Environment
 
 <PageTitle>@L["Page_Error_Title"]</PageTitle>
 
-<h1 class="text-danger">@L["Page_Error_Title"].</h1>
-<h2 class="text-danger">@L["Page_Error_Message"]</h2>
+<h1 class="ui-text-danger">@L["Page_Error_Title"].</h1>
+<h2 class="ui-text-danger">@L["Page_Error_Message"]</h2>
 
 @if (ShowRequestId)
 {

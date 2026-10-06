@@ -1,11 +1,11 @@
-﻿@if (!string.IsNullOrEmpty(DisplayMessage))
+@if (!string.IsNullOrEmpty(DisplayMessage))
 {
     var statusMessageClass =
         DisplayMessage.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
         || DisplayMessage.StartsWith("Fehler", StringComparison.OrdinalIgnoreCase)
             ? "danger"
             : "success";
-    <div class="alert alert-@statusMessageClass" role="alert">
+    <div class="ui-alert ui-alert-@statusMessageClass" role="alert">
         @DisplayMessage
     </div>
 }

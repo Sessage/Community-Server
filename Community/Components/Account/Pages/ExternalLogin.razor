@@ -1,4 +1,4 @@
-﻿@page "/Account/ExternalLogin"
+@page "/Account/ExternalLogin"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
@@ -22,23 +22,23 @@
 <h2>@L["Account_ExternalLogin_Associate", ProviderDisplayName ?? ""]</h2>
 <hr />
 
-<div  class="alert alert-info">
+<div  class="ui-alert ui-alert-info">
     @((MarkupString)string.Format(
         L["Account_ExternalLogin_Info"].Value,
         $"<strong>{System.Text.Encodings.Web.HtmlEncoder.Default.Encode(ProviderDisplayName ?? string.Empty)}</strong>"))
 </div>
 
-<div class="row">
-    <div class="col-md-4">
+<div class="ui-row">
+    <div class="ui-col-md-4">
         <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync" FormName="confirmation" method="post">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="email" placeholder="@L["Account_EmailPlaceholder"]" />
-                <label for="Input.Email" class="form-label">@L["Participants_Email"]</label>
+            <ValidationSummary class="ui-text-danger" role="alert" />
+            <div class="ui-form-floating mb-3">
+                <InputText @bind-Value="Input.Email" id="Input.Email" class="ui-form-control" autocomplete="email" placeholder="@L["Account_EmailPlaceholder"]" />
+                <label for="Input.Email" class="ui-form-label">@L["Participants_Email"]</label>
                 <ValidationMessage For="() => Input.Email" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">@L["Nav_Register"]</button>
+            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Nav_Register"]</button>
         </EditForm>
     </div>
 </div>

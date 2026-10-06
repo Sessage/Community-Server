@@ -15,12 +15,12 @@
 
 @if (!string.IsNullOrEmpty(_statusMessage))
 {
-    <div class="alert @(_isError ? "alert-danger" : "alert-success") mt-2">@_statusMessage</div>
+    <div class="ui-alert @(_isError ? "ui-alert-danger" : "ui-alert-success") mt-2">@_statusMessage</div>
 }
 
 <h3>Zwei-Faktor-Authentifizierung (2FA) deaktivieren</h3>
 
-<div class="alert alert-warning" role="alert">
+<div class="ui-alert ui-alert-warning" role="alert">
     <p>
         <strong>Diese Aktion deaktiviert nur die 2FA.</strong>
     </p>
@@ -31,7 +31,7 @@
     </p>
 </div>
 
-<button class="btn btn-danger" @onclick="OnDisableAsync" disabled="@_loading">
+<button class="ui-btn ui-btn-danger" @onclick="OnDisableAsync" disabled="@_loading">
     @(_loading ? "Wird deaktiviert…" : "2FA deaktivieren")
 </button>
 
