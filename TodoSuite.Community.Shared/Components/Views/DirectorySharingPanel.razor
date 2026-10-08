@@ -10,15 +10,15 @@
     }
     else
     {
-        <form class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+        <form class="share-action-row grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
               @onsubmit="SearchAsync" @onsubmit:preventDefault="true">
             <div class="flex-1">
                 <label for="directory-search" class="mb-1 block text-sm text-slate-700">@L["Directory_PrincipalLabel"]</label>
                 <input id="directory-search" class="min-h-11 w-full rounded-xl border border-slate-200 bg-white p-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                       maxlength="200" autocomplete="off" autofocus disabled="@_busy"
-                       @bind="_query" @bind:event="oninput" placeholder="@L["Directory_SearchPlaceholder"]" />
+                       maxlength="200" autocomplete="off" autofocus disabled="@(_busy && !_searching)"
+                       value="@_query" @oninput="OnQueryInputAsync" placeholder="@L["Directory_SearchPlaceholder"]" />
             </div>
-            <FluentButton Class="directory-search-button" Type="ButtonType.Submit" Appearance="Appearance.Neutral" Disabled="_busy">@L["Directory_Search"]</FluentButton>
+            <FluentButton Class="share-action-button" Type="ButtonType.Submit" Appearance="Appearance.Neutral" Disabled="@(_busy && !_searching)">@L["Directory_Search"]</FluentButton>
         </form>
 
         @if (!string.IsNullOrWhiteSpace(_message))
@@ -76,6 +76,8 @@
     private DirectoryShareResourceType _loadedResourceType;
     private string _loadedRequestingUserId = string.Empty;
     private CancellationTokenSource? _contextCts;
+    private CancellationTokenSource? _searchCts;
+    private bool _searching;
     private bool _disposed;
     private ListRole _newRole = ListRole.Member;
     private IReadOnlyList<DirectoryPrincipal> _results = [];
@@ -123,42 +125,76 @@
         }
     }
 
-    private async Task SearchAsync()
+    private Task OnQueryInputAsync(ChangeEventArgs e)
     {
+        _query = e.Value?.ToString() ?? string.Empty;
+        return RunSearchAsync(debounce: true);
+    }
+
+    private Task SearchAsync() => RunSearchAsync(debounce: false);
+
+    private async Task RunSearchAsync(bool debounce)
+    {
+        if (_disposed || ResourceId == Guid.Empty || !DirectorySharing.IsAvailable || (_busy && !_searching)) return;
+        CancelPendingSearch();
         var query = _query.Trim();
+        _results = [];
         ClearMessage();
-        if (query.Length < 2)
+        if (query.Length < 3)
         {
-            ShowResult(false, L["Directory_MinimumQuery"]);
+            if (!debounce) ShowResult(false, L["Directory_MinimumQuery"]);
             return;
         }
 
         var loadVersion = _loadVersion;
         var contextCts = _contextCts;
         if (contextCts is null) return;
-        _busy = true;
+        using var searchCts = CancellationTokenSource.CreateLinkedTokenSource(contextCts.Token);
+        _searchCts = searchCts;
+        var token = searchCts.Token;
         try
         {
-            var results = await DirectorySharing.SearchAsync(RequestingUserId, ResourceType, ResourceId, query, contextCts.Token);
-            if (!IsCurrentContext(loadVersion, contextCts)) return;
+            if (debounce) await Task.Delay(300, token);
+            if (!IsCurrentContext(loadVersion, contextCts) || !ReferenceEquals(_searchCts, searchCts)) return;
+            _searching = true;
+            _busy = true;
+            StateHasChanged();
+            var results = await DirectorySharing.SearchAsync(RequestingUserId, ResourceType, ResourceId, query, token);
+            if (!IsCurrentContext(loadVersion, contextCts) || !ReferenceEquals(_searchCts, searchCts)) return;
             _results = results;
             if (results.Count == 0)
                 ShowResult(true, L["Directory_NoResults"]);
         }
-        catch (OperationCanceledException) when (contextCts.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception ex)
         {
-            if (IsCurrentContext(loadVersion, contextCts)) ShowResult(false, ex.Message);
+            if (IsCurrentContext(loadVersion, contextCts) && ReferenceEquals(_searchCts, searchCts))
+                ShowResult(false, ex.Message);
         }
         finally
         {
-            if (IsCurrentContext(loadVersion, contextCts)) _busy = false;
+            if (ReferenceEquals(_searchCts, searchCts))
+            {
+                _searchCts = null;
+                _searching = false;
+                if (IsCurrentContext(loadVersion, contextCts)) _busy = false;
+            }
         }
+    }
+
+    private void CancelPendingSearch()
+    {
+        var previous = _searchCts;
+        _searchCts = null;
+        previous?.Cancel();
+        if (_searching) _busy = false;
+        _searching = false;
     }
 
     private async Task GrantAsync(DirectoryPrincipal principal)
     {
         if (_busy) return;
+        CancelPendingSearch();
         var loadVersion = _loadVersion;
         var contextCts = _contextCts;
         if (contextCts is null) return;
@@ -190,6 +226,7 @@
     private async Task ChangeRoleAsync(DirectoryShareGrantEntity grant, ChangeEventArgs e)
     {
         if (_busy || !Enum.TryParse<ListRole>(e.Value?.ToString(), out var role)) return;
+        CancelPendingSearch();
         var loadVersion = _loadVersion;
         var contextCts = _contextCts;
         if (contextCts is null) return;
@@ -216,6 +253,7 @@
     private async Task RemoveAsync(Guid id)
     {
         if (_busy) return;
+        CancelPendingSearch();
         var loadVersion = _loadVersion;
         var contextCts = _contextCts;
         if (contextCts is null) return;
@@ -252,6 +290,7 @@
 
     private CancellationTokenSource ReplaceContextCancellation()
     {
+        CancelPendingSearch();
         var next = new CancellationTokenSource();
         // Interlocked macht den Austausch auch dann eindeutig, wenn Parameter- und UI-Callbacks
         // in eng aufeinanderfolgenden Renderzyklen eintreffen.
@@ -279,6 +318,7 @@
     public ValueTask DisposeAsync()
     {
         _disposed = true;
+        CancelPendingSearch();
         ++_loadVersion;
         var contextCts = Interlocked.Exchange(ref _contextCts, null);
         try { contextCts?.Cancel(); } catch { }

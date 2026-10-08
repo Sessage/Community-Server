@@ -177,10 +177,7 @@
                                          role="button"
                                          data-taskid="@t.Id"
                                          data-col="@col"
-                                         @onpointerdown="(e) => OnCardPointerDown(t.Id, e)"
-                                         @onpointermove="OnCardPointerMove"
-                                         @onpointerup="(e) => OnCardPointerUpAsync(t, e)"
-                                          @onpointercancel="OnCardPointerCancel">
+                                         @onclick="() => HandleTaskCardClickAsync(t)">
 
                                         @if (!string.IsNullOrWhiteSpace(topBand))
                                         {
@@ -560,11 +557,6 @@
     private int _pendingDropPersistenceCount;
     public bool IsDraggingFromSortable => _isDraggingFromSortable || _pendingDropPersistenceCount > 0;
     private DateTime _dragStartedUtc = DateTime.MinValue; // Zeitstempel des letzten SetDragging(true)
-    private Guid? _pointerDownTaskId;
-    private double _pointerDownX;
-    private double _pointerDownY;
-    private DateTime _pointerDownUtc;
-    private bool _pointerMoved;
     private DateTime _lastDragEndUtc = DateTime.MinValue;
     private long _latestDragToken;
 
@@ -580,9 +572,6 @@
 
     // Verhindert Callbacks auf bereits entsorgten Komponenten in Fire-and-forget Tasks.
     private bool _disposed;
-
-    private const double ClickMoveThresholdPx = 6;
-    private const int ClickMinMs = 30;
     private const int ClickBlockAfterDragMs = 250;
     private static readonly TimeSpan IgnoreLateDragStartWindow = TimeSpan.FromMilliseconds(600);
 
@@ -742,8 +731,6 @@
         if (_lastListId != List.Id)
         {
             _isDraggingFromSortable = false;
-            _pointerDownTaskId = null;
-            _pointerMoved = false;
             _lastListId = List.Id;
             _pendingColOrder = null; // gehört zur alten Liste, nicht übertragen
             _persistedTaskSyncStates.Clear();
@@ -1218,8 +1205,6 @@
         _isDraggingFromSortable = dragging;
         if (dragging)
         {
-            _pointerDownTaskId = null;
-            _pointerMoved = true;
             _dragStartedUtc = DateTime.UtcNow;
             StartDragWatchdog();
         }
@@ -1278,8 +1263,6 @@
         {
             _isDraggingFromSortable = false;
             _dragStartedUtc = DateTime.MinValue;
-            _pointerDownTaskId = null;
-            _pointerMoved = false;
             _initialized = false; // Kanban beim nächsten Render neu initialisieren
             StopDragWatchdog();
             if (OnDraggingChanged.HasDelegate)
@@ -1303,8 +1286,6 @@
     {
         _isDraggingFromSortable = false;
         _dragStartedUtc = DateTime.MinValue;
-        _pointerDownTaskId = null;
-        _pointerMoved = false;
         _initialized = false; // Kanban beim nächsten Render neu initialisieren
         StopDragWatchdog();
         await InvokeAsync(StateHasChanged);
@@ -1791,68 +1772,23 @@
 
     /* ---------- Card click handling ---------- */
 
-    private void OnCardPointerDown(Guid taskId, PointerEventArgs e)
+    private async Task HandleTaskCardClickAsync(TodoTaskEntity task)
     {
-        _pointerDownTaskId = taskId;
-        _pointerDownX = e.ClientX;
-        _pointerDownY = e.ClientY;
-        _pointerDownUtc = DateTime.UtcNow;
-        _pointerMoved = false;
-    }
+        // Sortable suppresses clicks from a drag locally. The server-side guard
+        // also covers a queued click arriving after the drag-end callback.
+        if (_isDraggingFromSortable
+            || (DateTime.UtcNow - _lastDragEndUtc).TotalMilliseconds < ClickBlockAfterDragMs)
+            return;
 
-    private void OnCardPointerMove(PointerEventArgs e)
-    {
-        if (_pointerDownTaskId is null) return;
-
-        var dx = Math.Abs(e.ClientX - _pointerDownX);
-        var dy = Math.Abs(e.ClientY - _pointerDownY);
-
-        if (dx > ClickMoveThresholdPx || dy > ClickMoveThresholdPx)
-            _pointerMoved = true;
-    }
-
-    private async Task OnCardPointerUpAsync(TodoTaskEntity t, PointerEventArgs e)
-    {
-        try
+        if (SelectionMode)
         {
-            if ((DateTime.UtcNow - _lastDragEndUtc).TotalMilliseconds < ClickBlockAfterDragMs)
-                return;
-
-            if (_isDraggingFromSortable)
-                return;
-
-            if (_pointerDownTaskId != t.Id)
-                return;
-
-            if ((DateTime.UtcNow - _pointerDownUtc).TotalMilliseconds < ClickMinMs)
-                return;
-
-            if (_pointerMoved)
-                return;
-
-            // ✅ wie ToDoListView: Auswahl an Workspace melden -> TaskEditModal öffnet rechts
-            if (SelectionMode)
-            {
-                if (!_selectedTaskIds.Add(t.Id))
-                    _selectedTaskIds.Remove(t.Id);
-                await InvokeAsync(StateHasChanged);
-                return;
-            }
-
-            if (OnTaskSelected.HasDelegate)
-                await OnTaskSelected.InvokeAsync(t);
+            if (!_selectedTaskIds.Add(task.Id))
+                _selectedTaskIds.Remove(task.Id);
+            return;
         }
-        finally
-        {
-            _pointerDownTaskId = null;
-            _pointerMoved = false;
-        }
-    }
 
-    private void OnCardPointerCancel(PointerEventArgs _)
-    {
-        _pointerDownTaskId = null;
-        _pointerMoved = false;
+        if (OnTaskSelected.HasDelegate)
+            await OnTaskSelected.InvokeAsync(task);
     }
 
 

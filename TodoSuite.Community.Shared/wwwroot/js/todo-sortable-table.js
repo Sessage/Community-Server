@@ -94,7 +94,11 @@ window.todoUi = window.todoUi || {};
         }
 
         const sortable = new Sortable(host, {
-            animation: 150,
+            animation: 0,
+            direction: "vertical",
+            swapThreshold: 0.65,
+            invertSwap: true,
+            invertedSwapThreshold: 0.65,
             draggable: "[data-taskid][data-task-reorderable='true']",
             handle: ".table-task-drag-handle",
             forceFallback: true,

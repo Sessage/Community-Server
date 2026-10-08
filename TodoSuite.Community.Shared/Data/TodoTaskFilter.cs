@@ -7,6 +7,10 @@ public class TodoTaskFilter
     // Done-Filter: null = alles, true = nur done, false = nur offen
     public bool? Done { get; set; }
 
+    // Task types: no selection or both selections includes all types.
+    public bool Tasks { get; set; }
+    public bool Milestones { get; set; }
+
     // Due buckets
     public bool NoDueDate { get; set; }
     public bool Overdue { get; set; }
@@ -29,6 +33,7 @@ public class TodoTaskFilter
     {
         if (!string.IsNullOrWhiteSpace(Query)) return true;
         if (Done is not null) return true;
+        if (Tasks || Milestones) return true;
         if (NoAssignee) return true;
         if (NoDueDate || Overdue || DueNextDay || DueNextWeek || DueNextMonth)
             return true;

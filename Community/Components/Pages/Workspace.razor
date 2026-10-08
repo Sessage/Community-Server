@@ -791,6 +791,19 @@
                     </div>
                 </div>
 
+                <!-- Aufgabentyp -->
+                <div class="space-y-2">
+                    <div class="text-sm font-semibold text-slate-700">@L["Workspace_FilterTaskType"]</div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.Tasks" />
+                        <span>@L["Workspace_FilterTasks"]</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="accent-slate-700" @bind="_filterDraft.Milestones" />
+                        <span>@L["Workspace_FilterMilestones"]</span>
+                    </label>
+                </div>
+
                 <!-- Bearbeiter -->
                 <div class="space-y-2">
                     <div class="text-sm font-semibold text-slate-700">@L["Workspace_FilterAssignee"]</div>
@@ -3288,6 +3301,8 @@
         {
             Query = src.Query ?? "",
             Done = src.Done,
+            Tasks = src.Tasks,
+            Milestones = src.Milestones,
             NoDueDate = src.NoDueDate,
             Overdue = src.Overdue,
             DueNextDay = src.DueNextDay,

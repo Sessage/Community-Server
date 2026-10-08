@@ -7,6 +7,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AddRazorSupportForMvc>false</AddRazorSupportForMvc>
+    <!-- Visual Studio evaluates this shared RCL from several project graphs.
+         Avoid concurrent writes to the SDK's optional *.dswa.cache.json files
+         in Debug; asset discovery and the actual manifests remain enabled. -->
+    <StaticWebAssetsCacheDefineStaticWebAssetsEnabled Condition="'$(Configuration)' == 'Debug'">false</StaticWebAssetsCacheDefineStaticWebAssetsEnabled>
   </PropertyGroup>
 
   <ItemGroup>

@@ -2074,13 +2074,13 @@
     <value>Geben Sie ein Stichwort ein ...</value>
   </data>
   <data name="Workspace_FilterHint" xml:space="preserve">
-    <value>Durchsuchen Sie Karten, Mitglieder, Labels und mehr.</value>
+    <value>Durchsuchen Sie Aufgaben, Mitglieder, Labels und mehr.</value>
   </data>
   <data name="Workspace_FilterAssignee" xml:space="preserve">
     <value>Bearbeiter</value>
   </data>
   <data name="Workspace_FilterAssignedToMe" xml:space="preserve">
-    <value>Karten, die mir zugewiesen wurden</value>
+    <value>Aufgaben, die mir zugewiesen wurden</value>
   </data>
   <data name="Workspace_FilterNoAssignee" xml:space="preserve">
     <value>Keinen Bearbeiter</value>
@@ -2092,7 +2092,7 @@
     <value>Mitglieder auswählen</value>
   </data>
   <data name="Workspace_FilterCardStatus" xml:space="preserve">
-    <value>Karten-Status</value>
+    <value>Aufgaben-Status</value>
   </data>
   <data name="Workspace_FilterDone" xml:space="preserve">
     <value>Als abgeschlossen markiert</value>
@@ -2466,14 +2466,14 @@
   <data name="RichText_Redo" xml:space="preserve"><value>Wiederholen</value></data>
   <data name="Directory_Unavailable" xml:space="preserve"><value>Verzeichnisfreigaben sind nicht verfügbar. Prüfen Sie die Enterprise-Lizenz und die Active-Directory-Konfiguration.</value></data>
   <data name="Directory_PrincipalLabel" xml:space="preserve"><value>AD-Benutzer oder AD-Gruppe</value></data>
-  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>Mindestens 2 Zeichen eingeben …</value></data>
+  <data name="Directory_SearchPlaceholder" xml:space="preserve"><value>Mindestens 3 Zeichen eingeben …</value></data>
   <data name="Directory_Search" xml:space="preserve"><value>Suchen</value></data>
   <data name="Directory_Group" xml:space="preserve"><value>AD-Gruppe</value></data>
   <data name="Directory_User" xml:space="preserve"><value>AD-Benutzer</value></data>
   <data name="Directory_Grant" xml:space="preserve"><value>Berechtigen</value></data>
   <data name="Directory_GrantedEntries" xml:space="preserve"><value>Berechtigte Verzeichniseinträge</value></data>
   <data name="Directory_None" xml:space="preserve"><value>Noch keine Verzeichnisfreigaben.</value></data>
-  <data name="Directory_MinimumQuery" xml:space="preserve"><value>Bitte mindestens zwei Zeichen eingeben.</value></data>
+  <data name="Directory_MinimumQuery" xml:space="preserve"><value>Bitte mindestens drei Zeichen eingeben.</value></data>
   <data name="Directory_NoResults" xml:space="preserve"><value>Keine passenden Einträge gefunden.</value></data>
   <data name="Directory_GroupGranted" xml:space="preserve"><value>Die Verzeichnisgruppe wurde berechtigt.</value></data>
   <data name="Directory_UserGranted" xml:space="preserve"><value>Der Verzeichnisbenutzer wurde berechtigt.</value></data>
@@ -2575,4 +2575,7 @@
   <data name="Theme_Dark" xml:space="preserve"><value>Dunkel</value></data>
   <data name="Theme_SaveSuccess" xml:space="preserve"><value>Darstellung wurde gespeichert.</value></data>
   <data name="Theme_SaveError" xml:space="preserve"><value>Darstellung konnte nicht gespeichert werden.</value></data>
+  <data name="Workspace_FilterTaskType" xml:space="preserve"><value>Aufgabentyp</value></data>
+  <data name="Workspace_FilterTasks" xml:space="preserve"><value>Aufgaben</value></data>
+  <data name="Workspace_FilterMilestones" xml:space="preserve"><value>Meilensteine</value></data>
 </root>

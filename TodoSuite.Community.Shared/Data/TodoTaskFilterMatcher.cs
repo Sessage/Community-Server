@@ -33,6 +33,13 @@ public static class TodoTaskFilterMatcher
         if (f.Done is not null && (effectiveDone ?? task.Done) != f.Done.Value)
             return false;
 
+        if (f.Tasks || f.Milestones)
+        {
+            var isMilestone = TimelineDateRange.IsMilestone(task);
+            if (!(isMilestone ? f.Milestones : f.Tasks))
+                return false;
+        }
+
         if (f.NoDueDate || f.Overdue || f.DueNextDay || f.DueNextWeek || f.DueNextMonth)
         {
             var referenceDate = (today ?? DateTime.Today).Date;

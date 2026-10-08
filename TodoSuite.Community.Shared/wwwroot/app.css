@@ -325,12 +325,24 @@ h1:focus {
     overflow: hidden;
 }
 
-.directory-search-button {
-    align-self: end;
+.share-action-row input,
+.share-action-row select {
+    display: block;
+    min-height: 44px;
+    box-sizing: border-box;
 }
 
-.directory-search-button::part(control) {
+.share-action-button {
+    height: 44px;
     min-height: 44px;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+.share-action-button::part(control) {
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1954,4 +1966,12 @@ html[data-theme="dark"] .shadow-2xl {
     .notifications-table-wrap {
         min-height: 0;
     }
+}
+
+/* Task geometry and ghost opacity change immediately during sorting. Keep only
+   decorative hover transitions; CSS must not animate Sortable's insertion state. */
+.todo-list-card,
+.kanban-task-card,
+.todo-table-row {
+    transition-property: background-color, border-color, box-shadow, color;
 }

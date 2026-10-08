@@ -63,7 +63,7 @@
                 @if (_activeTab == SharePanelTab.Link)
                 {
                     <div class="space-y-3">
-                        <div class="flex flex-col md:flex-row gap-2 items-stretch md:items-end">
+                        <div class="share-action-row flex flex-col md:flex-row gap-2 items-stretch md:items-end">
                             <div class="flex-1">
                                 <div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div>
                                 <select class="w-full rounded-xl border border-slate-200 p-2 bg-white"
@@ -81,7 +81,7 @@
                                        placeholder="@L["Participants_CommentPlaceholder"]" />
                             </div>
 
-                            <FluentButton Appearance="Appearance.Accent" OnClick="CreateShareLinkAsync" Disabled="_busy">
+                            <FluentButton Class="share-action-button" Appearance="Appearance.Accent" OnClick="CreateShareLinkAsync" Disabled="_busy">
                                 @L["Participants_CreateShareLink"]
                             </FluentButton>
                         </div>
@@ -217,7 +217,7 @@
                 else
                 {
                     <div class="space-y-3">
-                        <div class="flex flex-col md:flex-row md:items-end gap-2">
+                        <div class="share-action-row flex flex-col md:flex-row md:items-end gap-2">
                             <div class="flex-1">
                                 <div class="text-sm text-slate-700 mb-1">@L["Participants_Email"]</div>
                                 <input class="w-full rounded-xl border border-slate-200 p-2 bg-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -238,7 +238,7 @@
                                 </select>
                             </div>
 
-                            <FluentButton Appearance="Appearance.Accent" OnClick="InviteAsync" Disabled="_busy">
+                            <FluentButton Class="share-action-button" Appearance="Appearance.Accent" OnClick="InviteAsync" Disabled="_busy">
                                 @L["Participants_Invite"]
                             </FluentButton>
                         </div>

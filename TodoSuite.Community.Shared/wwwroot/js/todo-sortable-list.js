@@ -241,7 +241,11 @@ window.todoUi.scrollToBottom = function (element) {
         }
 
         const sortable = new Sortable(listEl, {
-            animation: 150,
+            // Stable insertion zones: do not animate geometry underneath the pointer.
+            animation: 0,
+            direction: "vertical",
+            invertSwap: true,
+            invertedSwapThreshold: 0.65,
             draggable: "[data-taskid]",
             // WebView2 (MAUI Windows) verhält sich mit nativer HTML5-DnD unzuverlässig.
             // Fallback nutzt Pointer-Events und funktioniert konsistent in App + Browser.

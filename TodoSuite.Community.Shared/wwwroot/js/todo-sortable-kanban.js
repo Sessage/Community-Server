@@ -466,7 +466,12 @@ window.todoUi = window.todoUi || {};
 
         const sortable = new Sortable(hostEl, {
             group: { name: "kanban", pull: true, put: true },
-            animation: 150,
+            // Task placement must stay fixed while the pointer is held over a slot.
+            animation: 0,
+            direction: "vertical",
+            swapThreshold: 0.65,
+            invertSwap: true,
+            invertedSwapThreshold: 0.65,
             forceFallback: true,
             fallbackTolerance: 14,
 

@@ -22,10 +22,10 @@
     @if (_activeTab == PortfolioShareTab.Link)
     {
         <div class="space-y-3">
-            <div class="flex flex-col md:flex-row gap-2 md:items-end">
+            <div class="share-action-row flex flex-col md:flex-row gap-2 md:items-end">
                 <div class="flex-1"><div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div><select class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_linkRole"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select></div>
                 <div class="flex-1"><div class="text-sm text-slate-700 mb-1">@L["Participants_CommentOptional"]</div><input maxlength="200" class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_comment" placeholder="@L["Participants_CommentPlaceholder"]" /></div>
-                <FluentButton Appearance="Appearance.Accent" Disabled="_busy" OnClick="CreateLinkAsync">@L["Participants_CreateShareLink"]</FluentButton>
+                <FluentButton Class="share-action-button" Appearance="Appearance.Accent" Disabled="_busy" OnClick="CreateLinkAsync">@L["Participants_CreateShareLink"]</FluentButton>
             </div>
             @if (!string.IsNullOrWhiteSpace(_newLink))
             {
@@ -55,10 +55,10 @@
     }
     else
     {
-        <div class="flex flex-col md:flex-row md:items-end gap-2">
+        <div class="share-action-row flex flex-col md:flex-row md:items-end gap-2">
             <div class="flex-1"><div class="text-sm text-slate-700 mb-1">@L["Participants_Email"]</div><input type="email" autofocus class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_email" placeholder="@L["Participants_Email"]" /></div>
             <div class="md:w-56"><div class="text-sm text-slate-700 mb-1">@L["Lbl_Role"]</div><select class="w-full rounded-xl border border-slate-200 p-2 bg-white" @bind="_emailRole"><option value="@ListRole.Observer">@L["Participants_RoleObserver"]</option><option value="@ListRole.Member">@L["Participants_RoleMember"]</option><option value="@ListRole.Admin">@L["Participants_RoleAdmin"]</option></select></div>
-            <FluentButton Appearance="Appearance.Accent" Disabled="_busy" OnClick="InviteAsync">@L["Participants_Invite"]</FluentButton>
+            <FluentButton Class="share-action-button" Appearance="Appearance.Accent" Disabled="_busy" OnClick="InviteAsync">@L["Participants_Invite"]</FluentButton>
         </div>
     }
 
