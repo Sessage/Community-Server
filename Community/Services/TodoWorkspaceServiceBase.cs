@@ -118,15 +118,7 @@ public abstract class TodoWorkspaceServiceBase
     /// Beobachter (Observer) dürfen nichts ändern.
     /// </summary>
     protected static bool CanWrite(string userId, TodoListEntity list)
-    {
-        // Ownership is the strongest direct grant; participant roles are considered only after it.
-        if (EqualsUserKey(list.OwnerId, userId)) return true;
-
-        var p = list.Participants.FirstOrDefault(x => !x.InvitationPending && (EqualsUserKey(x.Email, userId) || EqualsUserKey(x.UserId, userId)));
-        if (p is null) return false;
-
-        return p.Role != ListRole.Observer;
-    }
+        => WorkspaceAuthorization.CanWriteList(list, [userId]);
 
     /// <summary>
     /// Prüft, ob der Benutzer Admin-Rechte in der Liste besitzt.

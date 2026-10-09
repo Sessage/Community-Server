@@ -2513,4 +2513,47 @@
   <data name="Workspace_FilterTaskType" xml:space="preserve"><value>कार्य का प्रकार</value></data>
   <data name="Workspace_FilterTasks" xml:space="preserve"><value>कार्य</value></data>
   <data name="Workspace_FilterMilestones" xml:space="preserve"><value>मील के पत्थर</value></data>
+  <data name="Timeline_ExportAssignees" xml:space="preserve"><value>जिम्मेदार व्यक्ति दिखाएँ</value></data>
+  <data name="Timeline_ExportButton" xml:space="preserve"><value>चित्र के रूप में निर्यात करें</value></data>
+  <data name="Timeline_ExportClose" xml:space="preserve"><value>बंद करें</value></data>
+  <data name="Timeline_ExportCoarserScale" xml:space="preserve"><value>इस अवधि के लिए बड़ा समय पैमाना चुनें (सप्ताह, महीने या वर्ष)।</value></data>
+  <data name="Timeline_ExportCurrent" xml:space="preserve"><value>वर्तमान समयरेखा</value></data>
+  <data name="Timeline_ExportDates" xml:space="preserve"><value>कार्य की तिथियाँ दिखाएँ</value></data>
+  <data name="Timeline_ExportDays" xml:space="preserve"><value>दिन · अगले 14 दिन</value></data>
+  <data name="Timeline_ExportDownload" xml:space="preserve"><value>PNG डाउनलोड करें</value></data>
+  <data name="Timeline_ExportEmpty" xml:space="preserve"><value>चुनी गई अवधि और फ़िल्टर से कोई निर्धारित कार्य मेल नहीं खाता।</value></data>
+  <data name="Timeline_ExportFailed" xml:space="preserve"><value>चित्र बनाया या डाउनलोड नहीं किया जा सका। कृपया फिर से प्रयास करें।</value></data>
+  <data name="Timeline_ExportFrom" xml:space="preserve"><value>से</value></data>
+  <data name="Timeline_ExportGrouping" xml:space="preserve"><value>जिम्मेदार व्यक्ति के अनुसार समूह बनाएँ</value></data>
+  <data name="Timeline_ExportHint" xml:space="preserve"><value>वर्तमान फ़िल्टर वाले निर्धारित कार्यों को Word और अन्य दस्तावेज़ों के लिए PNG में निर्यात करता है।</value></data>
+  <data name="Timeline_ExportImageTitle" xml:space="preserve"><value>चित्र का शीर्षक</value></data>
+  <data name="Timeline_ExportInvalidRange" xml:space="preserve"><value>आरंभ तिथि अंतिम तिथि से पहले या उसी दिन होनी चाहिए।</value></data>
+  <data name="Timeline_ExportMilestones" xml:space="preserve"><value>मील के पत्थर दिखाएँ</value></data>
+  <data name="Timeline_ExportMonths" xml:space="preserve"><value>महीने · वर्तमान और अगले 5 महीने</value></data>
+  <data name="Timeline_ExportOnlyOpen" xml:space="preserve"><value>केवल अधूरे कार्य</value></data>
+  <data name="Timeline_ExportPeriod" xml:space="preserve"><value>अवधि</value></data>
+  <data name="Timeline_ExportPreview" xml:space="preserve"><value>चित्र का पूर्वावलोकन</value></data>
+  <data name="Timeline_ExportRangeTooLong" xml:space="preserve"><value>अधिकतम 100 वर्षों की अवधि चुनें।</value></data>
+  <data name="Timeline_ExportResolution" xml:space="preserve"><value>चित्र की चौड़ाई</value></data>
+  <data name="Timeline_ExportScale" xml:space="preserve"><value>समय अक्ष</value></data>
+  <data name="Timeline_ExportTitle" xml:space="preserve"><value>समयरेखा को चित्र के रूप में निर्यात करें</value></data>
+  <data name="Timeline_ExportTo" xml:space="preserve"><value>तक</value></data>
+  <data name="Timeline_ExportTodayLine" xml:space="preserve"><value>आज को चिह्नित करें</value></data>
+  <data name="Timeline_ExportTooLarge" xml:space="preserve"><value>चित्र बहुत बड़ा है। कई चित्रों में विभाजित करें, प्रति चित्र कार्यों की संख्या या चित्र की चौड़ाई कम करें।</value></data>
+  <data name="Timeline_ExportWeekends" xml:space="preserve"><value>सप्ताहांत चिह्नित करें</value></data>
+  <data name="Timeline_ExportWeeks" xml:space="preserve"><value>सप्ताह · वर्तमान और अगले 7 सप्ताह</value></data>
+  <data name="Timeline_ExportYears" xml:space="preserve"><value>वर्ष · वर्तमान और अगले 2 वर्ष</value></data>
+  <data name="Timeline_ExportYearScale" xml:space="preserve"><value>वर्ष</value></data>
+  <data name="Timeline_ExportTransparent" xml:space="preserve"><value>पारदर्शी पृष्ठभूमि</value></data>
+  <data name="Timeline_ExportSplit" xml:space="preserve"><value>कई चित्रों में विभाजित करें</value></data>
+  <data name="Timeline_ExportTasksPerImage" xml:space="preserve"><value>प्रति चित्र कार्य</value></data>
+  <data name="Timeline_ExportImageFrom" xml:space="preserve"><value>आरंभिक चित्र</value></data>
+  <data name="Timeline_ExportImageTo" xml:space="preserve"><value>अंतिम चित्र</value></data>
+  <data name="Timeline_ExportPreviewImage" xml:space="preserve"><value>चित्र का पूर्वावलोकन</value></data>
+  <data name="Timeline_ExportPageCount" xml:space="preserve"><value>{0} चित्र उपलब्ध</value></data>
+  <data name="Timeline_ExportZipHint" xml:space="preserve"><value>एक चित्र PNG में और कई चित्र एक साथ ZIP में डाउनलोड होते हैं।</value></data>
+  <data name="Timeline_ExportDownloadImages" xml:space="preserve"><value>{0} चित्र ZIP में डाउनलोड करें</value></data>
+  <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>प्रति चित्र 1 से 100 कार्य चुनें।</value></data>
+  <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>प्रति निर्यात अधिकतम 100 चित्रों की मान्य सीमा चुनें।</value></data>
+  <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>अपडेट के दौरान अंतिम मान्य पूर्वावलोकन दिखाई देता रहता है।</value></data>
 </root>

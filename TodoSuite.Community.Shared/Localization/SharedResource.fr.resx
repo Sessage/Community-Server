@@ -2508,4 +2508,47 @@
   <data name="Workspace_FilterTaskType" xml:space="preserve"><value>Type de tâche</value></data>
   <data name="Workspace_FilterTasks" xml:space="preserve"><value>Tâches</value></data>
   <data name="Workspace_FilterMilestones" xml:space="preserve"><value>Jalons</value></data>
+  <data name="Timeline_ExportAssignees" xml:space="preserve"><value>Afficher les responsables</value></data>
+  <data name="Timeline_ExportButton" xml:space="preserve"><value>Exporter en image</value></data>
+  <data name="Timeline_ExportClose" xml:space="preserve"><value>Fermer</value></data>
+  <data name="Timeline_ExportCoarserScale" xml:space="preserve"><value>Choisissez une échelle temporelle plus large (semaines, mois ou années).</value></data>
+  <data name="Timeline_ExportCurrent" xml:space="preserve"><value>Chronologie actuelle</value></data>
+  <data name="Timeline_ExportDates" xml:space="preserve"><value>Afficher les dates des tâches</value></data>
+  <data name="Timeline_ExportDays" xml:space="preserve"><value>Jours · les 14 prochains jours</value></data>
+  <data name="Timeline_ExportDownload" xml:space="preserve"><value>Télécharger le PNG</value></data>
+  <data name="Timeline_ExportEmpty" xml:space="preserve"><value>Aucune tâche planifiée ne correspond à la période et aux filtres sélectionnés.</value></data>
+  <data name="Timeline_ExportFailed" xml:space="preserve"><value>Impossible de générer ou de télécharger l’image. Veuillez réessayer.</value></data>
+  <data name="Timeline_ExportFrom" xml:space="preserve"><value>Du</value></data>
+  <data name="Timeline_ExportGrouping" xml:space="preserve"><value>Regrouper par responsable</value></data>
+  <data name="Timeline_ExportHint" xml:space="preserve"><value>Exporte les tâches planifiées actuellement filtrées au format PNG pour Word et d’autres documents.</value></data>
+  <data name="Timeline_ExportImageTitle" xml:space="preserve"><value>Titre de l’image</value></data>
+  <data name="Timeline_ExportInvalidRange" xml:space="preserve"><value>La date de début doit être antérieure ou égale à la date de fin.</value></data>
+  <data name="Timeline_ExportMilestones" xml:space="preserve"><value>Afficher les jalons</value></data>
+  <data name="Timeline_ExportMonths" xml:space="preserve"><value>Mois · ce mois et les 5 prochains mois</value></data>
+  <data name="Timeline_ExportOnlyOpen" xml:space="preserve"><value>Uniquement les tâches ouvertes</value></data>
+  <data name="Timeline_ExportPeriod" xml:space="preserve"><value>Période</value></data>
+  <data name="Timeline_ExportPreview" xml:space="preserve"><value>Aperçu de l’image</value></data>
+  <data name="Timeline_ExportRangeTooLong" xml:space="preserve"><value>Choisissez une période de 100 ans au maximum.</value></data>
+  <data name="Timeline_ExportResolution" xml:space="preserve"><value>Largeur de l’image</value></data>
+  <data name="Timeline_ExportScale" xml:space="preserve"><value>Axe temporel</value></data>
+  <data name="Timeline_ExportTitle" xml:space="preserve"><value>Exporter la chronologie en image</value></data>
+  <data name="Timeline_ExportTo" xml:space="preserve"><value>Au</value></data>
+  <data name="Timeline_ExportTodayLine" xml:space="preserve"><value>Marquer aujourd’hui</value></data>
+  <data name="Timeline_ExportTooLarge" xml:space="preserve"><value>L’image est trop grande. Répartissez-la sur plusieurs images, choisissez moins de tâches par image ou réduisez sa largeur.</value></data>
+  <data name="Timeline_ExportWeekends" xml:space="preserve"><value>Marquer les week-ends</value></data>
+  <data name="Timeline_ExportWeeks" xml:space="preserve"><value>Semaines · cette semaine et les 7 prochaines semaines</value></data>
+  <data name="Timeline_ExportYears" xml:space="preserve"><value>Années · cette année et les 2 prochaines années</value></data>
+  <data name="Timeline_ExportYearScale" xml:space="preserve"><value>Années</value></data>
+  <data name="Timeline_ExportTransparent" xml:space="preserve"><value>Fond transparent</value></data>
+  <data name="Timeline_ExportSplit" xml:space="preserve"><value>Répartir sur plusieurs images</value></data>
+  <data name="Timeline_ExportTasksPerImage" xml:space="preserve"><value>Tâches par image</value></data>
+  <data name="Timeline_ExportImageFrom" xml:space="preserve"><value>À partir de l’image</value></data>
+  <data name="Timeline_ExportImageTo" xml:space="preserve"><value>Jusqu’à l’image</value></data>
+  <data name="Timeline_ExportPreviewImage" xml:space="preserve"><value>Image à prévisualiser</value></data>
+  <data name="Timeline_ExportPageCount" xml:space="preserve"><value>{0} images disponibles</value></data>
+  <data name="Timeline_ExportZipHint" xml:space="preserve"><value>Une image est téléchargée en PNG ; plusieurs images sont regroupées dans un ZIP.</value></data>
+  <data name="Timeline_ExportDownloadImages" xml:space="preserve"><value>Télécharger {0} images en ZIP</value></data>
+  <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>Choisissez entre 1 et 100 tâches par image.</value></data>
+  <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>Choisissez une plage valide de 100 images au maximum par exportation.</value></data>
+  <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>Le dernier aperçu valide reste visible pendant la mise à jour.</value></data>
 </root>

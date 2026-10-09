@@ -1,0 +1,178 @@
+@inject IJSRuntime JS
+
+<dialog @ref="_dialog" class="timeline-export-dialog" aria-labelledby="timeline-export-title" @onkeydown="OnKeyDown" @onkeydown:stopPropagation="true">
+    <header>
+        <div><h2 id="timeline-export-title">@L["Timeline_ExportTitle"]</h2><p>@L["Timeline_ExportHint"]</p></div>
+        <button type="button" aria-label="@L["Timeline_ExportClose"]" @onclick="CloseAsync">✕</button>
+    </header>
+    <div class="timeline-export-fields">
+        <label>@L["Timeline_ExportPeriod"]
+            <select aria-label="@L["Timeline_ExportPeriod"]" @bind="_period" @bind:after="ApplyPreset">
+                <option value="@TimelineExportPeriod.Current">@L["Timeline_ExportCurrent"]</option>
+                <option value="@TimelineExportPeriod.Today">@L["Timeline_Today"]</option>
+                <option value="@TimelineExportPeriod.Days">@L["Timeline_ExportDays"]</option>
+                <option value="@TimelineExportPeriod.Weeks">@L["Timeline_ExportWeeks"]</option>
+                <option value="@TimelineExportPeriod.Months">@L["Timeline_ExportMonths"]</option>
+                <option value="@TimelineExportPeriod.Years">@L["Timeline_ExportYears"]</option>
+            </select>
+        </label>
+        <label>@L["Timeline_ExportFrom"]<input type="date" @bind="_options.From" @bind:after="InvalidatePreview" /></label>
+        <label>@L["Timeline_ExportTo"]<input type="date" @bind="_options.To" @bind:after="InvalidatePreview" /></label>
+        <label>@L["Timeline_ExportScale"]
+            <select aria-label="@L["Timeline_ExportScale"]" @bind="_options.Scale" @bind:after="InvalidatePreview">
+                <option value="@TimelineExportScale.Days">@L["Timeline_Days"]</option>
+                <option value="@TimelineExportScale.Weeks">@L["Timeline_Weeks"]</option>
+                <option value="@TimelineExportScale.Months">@L["Timeline_Months"]</option>
+                <option value="@TimelineExportScale.Years">@L["Timeline_ExportYearScale"]</option>
+            </select>
+        </label>
+        <label>@L["Timeline_ExportImageTitle"]<input maxlength="200" @bind="_title" @bind:after="InvalidatePreview" /></label>
+        <label>@L["Timeline_ExportResolution"]
+            <select aria-label="@L["Timeline_ExportResolution"]" @bind="_options.PixelWidth" @bind:after="InvalidatePreview">
+                <option value="1600">1600 px</option><option value="2400">2400 px</option><option value="3200">3200 px</option>
+            </select>
+        </label>
+    </div>
+    <div class="timeline-export-options">
+        <label><input type="checkbox" @bind="_options.ShowAssignees" @bind:after="ChangeAssignees" />@L["Timeline_ExportAssignees"]</label>
+        <label><input type="checkbox" @bind="_options.OnlyOpen" @bind:after="InvalidatePreview" />@L["Timeline_ExportOnlyOpen"]</label>
+        <label><input type="checkbox" @bind="_options.ShowMilestones" @bind:after="InvalidatePreview" />@L["Timeline_ExportMilestones"]</label>
+        <label><input type="checkbox" @bind="_options.ShowDates" @bind:after="InvalidatePreview" />@L["Timeline_ExportDates"]</label>
+        <label><input type="checkbox" @bind="_options.ShowToday" @bind:after="InvalidatePreview" />@L["Timeline_ExportTodayLine"]</label>
+        <label><input type="checkbox" @bind="_options.ShowWeekends" @bind:after="InvalidatePreview" />@L["Timeline_ExportWeekends"]</label>
+        <label><input type="checkbox" disabled="@(!_options.ShowAssignees)" @bind="_options.GroupByAssignee" @bind:after="InvalidatePreview" />@L["Timeline_ExportGrouping"]</label>
+        <label><input type="checkbox" @bind="_options.TransparentBackground" @bind:after="InvalidatePreview" />@L["Timeline_ExportTransparent"]</label>
+        <label><input type="checkbox" @bind="_split" @bind:after="ChangePagination" />@L["Timeline_ExportSplit"]</label>
+    </div>
+    @if (_split)
+    {
+        <div class="timeline-export-fields timeline-export-pagination">
+            <label>@L["Timeline_ExportTasksPerImage"]<input type="number" min="1" max="100" @bind="_tasksPerImage" @bind:after="ChangePagination" /></label>
+            <label>@L["Timeline_ExportImageFrom"]<input type="number" min="1" max="@_pages.Count" @bind="_imageFrom" @bind:event="oninput" /></label>
+            <label>@L["Timeline_ExportImageTo"]<input type="number" min="1" max="@_pages.Count" @bind="_imageTo" @bind:event="oninput" /></label>
+            <label>@L["Timeline_ExportPreviewImage"]
+                <select aria-label="@L["Timeline_ExportPreviewImage"]" @bind="_previewPage" @bind:after="InvalidatePreview">
+                    @for (var pageIndex = 1; pageIndex <= _pages.Count; pageIndex++)
+                    {
+                        <option value="@pageIndex">@pageIndex / @_pages.Count</option>
+                    }
+                </select>
+            </label>
+            <p><span>@L["Timeline_ExportPageCount", _pages.Count]</span><br />@L["Timeline_ExportZipHint"]</p>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Error)) { <p role="alert" class="timeline-export-error">@Error</p> }
+    <div class="timeline-export-preview @(_options.TransparentBackground ? "timeline-export-preview--transparent" : "")" aria-label="@L["Timeline_ExportPreview"]" aria-busy="@(!_ready)">
+        <canvas @ref="_canvas" role="img" aria-label="@L["Timeline_ExportPreview"]" hidden="@(!_hasPreview)"></canvas>
+    </div>
+    <p class="timeline-export-stale" role="status">@(_hasPreview && !_ready ? L["Timeline_ExportPreviousPreview"] : "")</p>
+    <footer>
+        <span aria-live="polite">@(_ready ? $"{_options.PixelWidth} × {_pixelHeight} px · PNG" : L["Timeline_ExportPreview"])</span>
+        <button type="button" @onclick="CloseAsync">@L["Timeline_ExportClose"]</button>
+        <button type="button" class="timeline-export-primary" disabled="@(!_ready || !ValidSelection || _downloading)" @onclick="DownloadAsync">@(SelectedImageCount > 1 ? L["Timeline_ExportDownloadImages", SelectedImageCount] : L["Timeline_ExportDownload"])</button>
+    </footer>
+</dialog>
+
+@code {
+    [Parameter, EditorRequired] public TodoListEntity List { get; set; } = null!;
+    [Parameter, EditorRequired] public IReadOnlyList<TodoTaskEntity> Tasks { get; set; } = [];
+    [Parameter] public DateTime RangeStart { get; set; }
+    [Parameter] public DateTime RangeEnd { get; set; }
+    [Parameter] public bool GroupByAssignee { get; set; }
+    [Parameter] public TimelineExportScale InitialScale { get; set; } = TimelineExportScale.Weeks;
+    [Parameter, EditorRequired] public Func<string?, string> AssigneeName { get; set; } = null!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    private ElementReference _dialog, _canvas;
+    private readonly TimelineExportOptions _options = new();
+    private TimelineExportPeriod _period = TimelineExportPeriod.Current;
+    private string _title = "", _error = "";
+    private bool _dirty = true, _ready, _hasPreview, _downloading, _split;
+    private int _pixelHeight, _version;
+    private int _tasksPerImage = 20, _imageFrom = 1, _imageTo = 1, _previewPage = 1;
+    private IReadOnlyList<TimelineExportImage> _pages = [];
+    private TaskSnapshot[] _snapshot = [];
+    private sealed record TaskSnapshot(Guid Id, string Title, string? Assignee, string AssigneeName,
+        DateTime? Start, DateTime? Due, DateTime? Deleted, bool Done, string? Color, int Order);
+    private bool ValidSelection => _imageFrom >= 1 && _imageTo >= _imageFrom && _imageTo <= _pages.Count && SelectedImageCount <= 100;
+    private int SelectedImageCount => _imageTo - _imageFrom + 1;
+    private string Error => !string.IsNullOrEmpty(_error) ? _error : _pages.Count > 0 && !ValidSelection ? L["Timeline_ExportInvalidImageRange"] : "";
+
+    protected override void OnInitialized()
+    {
+        _title = List.Name;
+        _options.From = RangeStart;
+        _options.To = RangeEnd;
+        _options.GroupByAssignee = GroupByAssignee;
+        _options.Scale = InitialScale;
+    }
+
+    protected override void OnParametersSet()
+    {
+        var snapshot = Tasks.Select(t => new TaskSnapshot(t.Id, t.Title, t.Assignee, AssigneeName(t.Assignee),
+            t.StartDate, t.DueDate, t.DeletedAt, t.Done, t.CardColor, t.ListSortOrder)).ToArray();
+        // Parent focus/realtime renders can resend identical parameters. Redraw only
+        // when the actual export input changes, keeping the native dialog and canvas stable.
+        if (_snapshot.SequenceEqual(snapshot)) return;
+        _snapshot = snapshot;
+        InvalidatePreview();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await JS.InvokeVoidAsync("todoUi.openTimelineExport", _dialog);
+        if (!_dirty) return;
+        _dirty = false;
+        var version = _version;
+        try
+        {
+            var pages = TimelineImageExport.BuildPages(_title, Tasks, _options, AssigneeName, DateTime.Today,
+                L["Timeline_ByTask"], L["Timeline_ByAssignee"], L["Timeline_Today"]);
+            if (pages[0].Rows.Count == 0) throw new ArgumentException("Timeline_ExportEmpty");
+            // A preview/title refresh must never reset a manually chosen image range.
+            if (pages.Count != _pages.Count)
+            {
+                if (_imageTo == _pages.Count || _pages.Count <= 1) _imageTo = pages.Count;
+                _imageFrom = Math.Clamp(_imageFrom, 1, pages.Count);
+                _imageTo = Math.Clamp(_imageTo, _imageFrom, pages.Count);
+            }
+            _pages = pages;
+            _previewPage = Math.Clamp(_previewPage, 1, pages.Count);
+            var model = pages[_previewPage - 1];
+            _pixelHeight = await JS.InvokeAsync<int>("todoUi.renderTimelineExport", _canvas, model);
+            if (version == _version) { _ready = true; _hasPreview = true; }
+        }
+        catch (ArgumentException ex) { _error = L[ex.Message]; _ready = false; }
+        catch (JSException) { _error = L["Timeline_ExportFailed"]; _ready = false; }
+        StateHasChanged();
+    }
+
+    private void ApplyPreset()
+    {
+        var preset = TimelineImageExport.Preset(_period, DateTime.Today, (RangeStart, RangeEnd));
+        _options.From = preset.From; _options.To = preset.To;
+        _options.Scale = _period == TimelineExportPeriod.Current ? InitialScale : preset.Scale;
+        InvalidatePreview();
+    }
+    private void InvalidatePreview() { _version++; _dirty = true; _ready = false; _error = ""; }
+    private void ChangeAssignees() { if (!_options.ShowAssignees) _options.GroupByAssignee = false; InvalidatePreview(); }
+    private void ChangePagination() { _options.TasksPerImage = _split ? _tasksPerImage : 0; InvalidatePreview(); }
+    private async Task CloseAsync()
+    {
+        await JS.InvokeVoidAsync("todoUi.closeTimelineExport", _dialog);
+        await OnClose.InvokeAsync();
+    }
+    private Task OnKeyDown(KeyboardEventArgs args) => args.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+    private async Task DownloadAsync()
+    {
+        if (!_ready || !ValidSelection || _downloading) return;
+        _downloading = true;
+        try
+        {
+            var selected = _pages.Skip(_imageFrom - 1).Take(SelectedImageCount).ToArray();
+            await JS.InvokeVoidAsync("todoUi.downloadTimelineExportPages", selected,
+                $"{_title}-{_options.From:yyyy-MM-dd}-{_options.To:yyyy-MM-dd}.png");
+        }
+        catch (JSException) { _error = L["Timeline_ExportFailed"]; }
+        finally { _downloading = false; }
+    }
+}

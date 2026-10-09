@@ -39,14 +39,14 @@ public class ListParticipantEntity
 
     public void RecalculateEffectiveAccess()
     {
-        var roles = new[] { DirectRole, PortfolioRole, DirectoryRole }
+        var roles = new[] { DirectInvitationPending ? null : DirectRole, PortfolioRole, DirectoryRole }
             .Where(x => x.HasValue).Select(x => x!.Value).ToArray();
         // In ListRole steht der kleinere Zahlenwert für die stärkere Rolle. Keine Quelle
         // bedeutet Observer, während mehrere Quellen immer die stärkste Berechtigung ergeben.
         Role = roles.Length == 0 ? ListRole.Observer : (ListRole)roles.Min(x => (int)x);
         // Eine noch offene Direkteinladung sperrt den Zugriff nur dann, wenn keine bereits
         // angenommene Portfolio- oder Verzeichnisfreigabe denselben Teilnehmer berechtigt.
-        InvitationPending = DirectRole.HasValue && DirectInvitationPending && PortfolioRole is null && DirectoryRole is null;
+        InvitationPending = roles.Length == 0;
     }
 
     [ForeignKey(nameof(List))]

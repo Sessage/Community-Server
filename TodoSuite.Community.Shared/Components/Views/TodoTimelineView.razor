@@ -34,6 +34,7 @@ else
                 <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Week)" aria-pressed="@((_scale == TimelineScale.Week).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Week)">@L["Timeline_Weeks"]</button>
                 <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Month)" aria-pressed="@((_scale == TimelineScale.Month).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Month)">@L["Timeline_Months"]</button>
             </div>
+            <button type="button" class="timeline-toolbar__button timeline-export-button" disabled="@IsDragging" @onclick="() => _exportOpen = true">@L["Timeline_ExportButton"]</button>
         </div>
 
         @if (AllowTaskCreation && CanWriteToList())
@@ -236,6 +237,13 @@ else
     </div>
 }
 
+@if (_exportOpen && List is not null)
+{
+    <TimelineExportDialog List="List" Tasks="VisibleTasks" RangeStart="VisibleRange.Start" RangeEnd="VisibleRange.End"
+                          InitialScale="@(_scale == TimelineScale.Day ? TimelineExportScale.Days : _scale == TimelineScale.Month ? TimelineExportScale.Months : TimelineExportScale.Weeks)"
+                          GroupByAssignee="@(_grouping == TimelineGrouping.Assignees)" AssigneeName="GetAssigneeDisplayName" OnClose="() => _exportOpen = false" />
+}
+
 @code {
     [Parameter] public TodoListEntity? List { get; set; }
     [Parameter] public TodoTaskFilter? Filter { get; set; }
@@ -256,6 +264,7 @@ else
     private enum NewTaskSchedule { Planned, Milestone, Unscheduled }
 
     private TimelineScale _scale = TimelineScale.Week;
+    private bool _exportOpen;
     private TimelineGrouping _grouping = TimelineGrouping.Tasks;
     private ElementReference _scrollHost;
     private ElementReference _taskRowsHost;

@@ -633,12 +633,12 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         var fullyRemoved = new List<ListParticipantEntity>();
         foreach (var participant in toRemove)
         {
-            // Entfernt wird nur die direkte Freigabe. Ein weiterhin gültiger Portfolio-Anteil
-            // bleibt erhalten und bestimmt anschließend erneut den effektiven Zugriff.
+            // List settings manage only direct grants. Portfolio and directory grants
+            // survive omissions in a settings payload, including stale client snapshots.
             PortfolioAccessCoordinator.NormalizeLegacyAccess(participant);
             participant.DirectRole = null;
             participant.DirectInvitationPending = false;
-            if (participant.PortfolioRole is null)
+            if (participant.PortfolioRole is null && participant.DirectoryRole is null)
             {
                 entity.Participants.Remove(participant);
                 fullyRemoved.Add(participant);
@@ -674,21 +674,22 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
             }
             else
             {
+                PortfolioAccessCoordinator.NormalizeLegacyAccess(existing);
+                // Externally managed participants must not acquire a permanent direct
+                // grant merely because a client round-trips their effective role.
+                if (existing.DirectRole is null && (existing.PortfolioRole is not null || existing.DirectoryRole is not null))
+                    continue;
+
                 existing.DisplayName = (inc.DisplayName ?? existing.DisplayName).Trim();
                 if (!string.IsNullOrWhiteSpace(inc.Email)) existing.Email = inc.Email.Trim();
                 if (!string.IsNullOrWhiteSpace(inc.UserId)) existing.UserId = inc.UserId.Trim();
 
-                if (!existing.InvitationPending)
-                {
-                }
-                else
-                {
-                    existing.InvitationPending = true;
-                }
-
                 if (isOwner)
                 {
-                    PortfolioAccessCoordinator.SetDirectAccess(existing, inc.Role, existing.DirectInvitationPending);
+                    var directRole = existing.PortfolioRole is not null || existing.DirectoryRole is not null
+                        ? inc.DirectRole ?? existing.DirectRole!.Value
+                        : inc.Role;
+                    PortfolioAccessCoordinator.SetDirectAccess(existing, directRole, existing.DirectInvitationPending);
                 }
             }
         }

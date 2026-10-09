@@ -17,9 +17,9 @@ public class PortfolioParticipantEntity
 
     public void RecalculateEffectiveAccess()
     {
-        var roles = new[] { DirectRole, DirectoryRole }.Where(x => x.HasValue).Select(x => x!.Value).ToArray();
+        var roles = new[] { DirectInvitationPending ? null : DirectRole, DirectoryRole }.Where(x => x.HasValue).Select(x => x!.Value).ToArray();
         Role = roles.Length == 0 ? ListRole.Observer : (ListRole)roles.Min(x => (int)x);
-        InvitationPending = DirectRole.HasValue && DirectInvitationPending && DirectoryRole is null;
+        InvitationPending = roles.Length == 0;
     }
 }
 

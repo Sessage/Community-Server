@@ -1,4 +1,4 @@
-﻿@page "/list/{ListId:guid?}"
+@page "/list/{ListId:guid?}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @attribute [Authorize]
 @* Main workspace editor. Service interfaces own authorization and persistence; this component
@@ -3243,24 +3243,7 @@
     }
 
     private bool CanWriteCurrentList()
-    {
-        if (_list is null) return false;
-
-        var uid = (_userId ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(uid)) return false;
-
-        if (string.Equals((_list.OwnerId ?? "").Trim(), uid, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        var participant = _list.Participants?.FirstOrDefault(candidate =>
-            !candidate.InvitationPending
-            && (
-                (!string.IsNullOrWhiteSpace(candidate.UserId) && string.Equals(candidate.UserId.Trim(), uid, StringComparison.OrdinalIgnoreCase))
-                || (!string.IsNullOrWhiteSpace(candidate.Email) && string.Equals(candidate.Email.Trim(), uid, StringComparison.OrdinalIgnoreCase))
-            ));
-
-        return participant is not null && participant.Role != ListRole.Observer;
-    }
+        => WorkspaceAuthorization.CanWriteList(_list, [_userId]);
 
     /* Filter */
     private bool _filterOpen;

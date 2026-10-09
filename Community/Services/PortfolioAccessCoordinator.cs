@@ -72,7 +72,10 @@ internal static class PortfolioAccessCoordinator
             .Where(g => portfolioIds.Contains(g.Id) && g.IsPortfolio)
             .ToDictionaryAsync(g => g.Id, ct);
 
-        foreach (var participant in participants)
+        // Legacy aliases can leave several rows for one portfolio. The strongest
+        // accepted role must win regardless of database row order.
+        foreach (var participant in participants.GroupBy(p => p.PortfolioGroupId)
+                     .Select(group => group.OrderBy(p => p.Role).First()))
         {
             if (!portfolios.TryGetValue(participant.PortfolioGroupId, out var portfolio))
                 continue;

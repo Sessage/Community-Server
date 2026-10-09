@@ -3,11 +3,25 @@ using Klassenbibliothek.Data;
 namespace Klassenbibliothek.Services;
 
 /// <summary>
-/// Canonical effective-admin checks shared by UI and server services. Identity keys may
+/// Canonical effective-role checks shared by UI and server services. Identity keys may
 /// contain the stable local user id and legacy e-mail/user-name aliases.
 /// </summary>
 public static class WorkspaceAuthorization
 {
+    public static bool CanWriteList(TodoListEntity? list, IEnumerable<string?> identityKeys)
+    {
+        if (list is null)
+            return false;
+
+        var keys = NormalizeKeys(identityKeys);
+        return keys.Count > 0
+               && (Matches(keys, list.OwnerId)
+                   || list.Participants?.Any(participant =>
+                       !participant.InvitationPending
+                       && participant.Role is ListRole.Admin or ListRole.Member
+                       && (Matches(keys, participant.UserId) || Matches(keys, participant.Email))) == true);
+    }
+
     public static bool CanAdminList(TodoListEntity? list, IEnumerable<string?> identityKeys)
     {
         if (list is null)

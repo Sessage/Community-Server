@@ -2513,4 +2513,47 @@
   <data name="Workspace_FilterTaskType" xml:space="preserve"><value>任务类型</value></data>
   <data name="Workspace_FilterTasks" xml:space="preserve"><value>任务</value></data>
   <data name="Workspace_FilterMilestones" xml:space="preserve"><value>里程碑</value></data>
+  <data name="Timeline_ExportAssignees" xml:space="preserve"><value>显示负责人</value></data>
+  <data name="Timeline_ExportButton" xml:space="preserve"><value>导出为图片</value></data>
+  <data name="Timeline_ExportClose" xml:space="preserve"><value>关闭</value></data>
+  <data name="Timeline_ExportCoarserScale" xml:space="preserve"><value>请为此时间范围选择更大的时间刻度（周、月或年）。</value></data>
+  <data name="Timeline_ExportCurrent" xml:space="preserve"><value>当前时间线</value></data>
+  <data name="Timeline_ExportDates" xml:space="preserve"><value>显示任务日期</value></data>
+  <data name="Timeline_ExportDays" xml:space="preserve"><value>天 · 未来14天</value></data>
+  <data name="Timeline_ExportDownload" xml:space="preserve"><value>下载PNG</value></data>
+  <data name="Timeline_ExportEmpty" xml:space="preserve"><value>没有已安排的任务符合所选时间范围和筛选条件。</value></data>
+  <data name="Timeline_ExportFailed" xml:space="preserve"><value>无法生成或下载图片，请重试。</value></data>
+  <data name="Timeline_ExportFrom" xml:space="preserve"><value>开始日期</value></data>
+  <data name="Timeline_ExportGrouping" xml:space="preserve"><value>按负责人分组</value></data>
+  <data name="Timeline_ExportHint" xml:space="preserve"><value>将当前筛选的已安排任务导出为PNG图片，以便插入Word及其他文档。</value></data>
+  <data name="Timeline_ExportImageTitle" xml:space="preserve"><value>图片标题</value></data>
+  <data name="Timeline_ExportInvalidRange" xml:space="preserve"><value>开始日期必须早于或等于结束日期。</value></data>
+  <data name="Timeline_ExportMilestones" xml:space="preserve"><value>显示里程碑</value></data>
+  <data name="Timeline_ExportMonths" xml:space="preserve"><value>月 · 本月及未来5个月</value></data>
+  <data name="Timeline_ExportOnlyOpen" xml:space="preserve"><value>仅显示未完成任务</value></data>
+  <data name="Timeline_ExportPeriod" xml:space="preserve"><value>时间范围</value></data>
+  <data name="Timeline_ExportPreview" xml:space="preserve"><value>图片预览</value></data>
+  <data name="Timeline_ExportRangeTooLong" xml:space="preserve"><value>请选择不超过100年的时间范围。</value></data>
+  <data name="Timeline_ExportResolution" xml:space="preserve"><value>图片宽度</value></data>
+  <data name="Timeline_ExportScale" xml:space="preserve"><value>时间轴</value></data>
+  <data name="Timeline_ExportTitle" xml:space="preserve"><value>将时间线导出为图片</value></data>
+  <data name="Timeline_ExportTo" xml:space="preserve"><value>结束日期</value></data>
+  <data name="Timeline_ExportTodayLine" xml:space="preserve"><value>标记今天</value></data>
+  <data name="Timeline_ExportTooLarge" xml:space="preserve"><value>图片过大。请拆分为多张图片、减少每张图片的任务数或减小图片宽度。</value></data>
+  <data name="Timeline_ExportWeekends" xml:space="preserve"><value>标记周末</value></data>
+  <data name="Timeline_ExportWeeks" xml:space="preserve"><value>周 · 本周及未来7周</value></data>
+  <data name="Timeline_ExportYears" xml:space="preserve"><value>年 · 今年及未来2年</value></data>
+  <data name="Timeline_ExportYearScale" xml:space="preserve"><value>年</value></data>
+  <data name="Timeline_ExportTransparent" xml:space="preserve"><value>透明背景</value></data>
+  <data name="Timeline_ExportSplit" xml:space="preserve"><value>拆分为多张图片</value></data>
+  <data name="Timeline_ExportTasksPerImage" xml:space="preserve"><value>每张图片的任务数</value></data>
+  <data name="Timeline_ExportImageFrom" xml:space="preserve"><value>起始图片</value></data>
+  <data name="Timeline_ExportImageTo" xml:space="preserve"><value>结束图片</value></data>
+  <data name="Timeline_ExportPreviewImage" xml:space="preserve"><value>预览图片</value></data>
+  <data name="Timeline_ExportPageCount" xml:space="preserve"><value>共有{0}张图片</value></data>
+  <data name="Timeline_ExportZipHint" xml:space="preserve"><value>单张图片下载为PNG，多张图片打包下载为ZIP。</value></data>
+  <data name="Timeline_ExportDownloadImages" xml:space="preserve"><value>下载{0}张图片的ZIP文件</value></data>
+  <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>请选择每张图片包含1至100个任务。</value></data>
+  <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>请选择有效的图片范围，每次最多导出100张图片。</value></data>
+  <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>更新期间保留显示最后一次有效预览。</value></data>
 </root>

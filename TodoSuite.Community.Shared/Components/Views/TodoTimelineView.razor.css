@@ -40,11 +40,13 @@
     cursor: pointer;
 }
 
-.timeline-toolbar__button:last-child { border-right: 0; }
+.timeline-toolbar__group > .timeline-toolbar__button:last-child { border-right: 0; }
 .timeline-toolbar__button:hover { background: #f8fafc; }
 .timeline-toolbar__button--active { background: #dbeafe; color: #1d4ed8; font-weight: 650; }
 .timeline-toolbar__button--today { color: #1d4ed8; font-weight: 600; }
 .timeline-toolbar__button--today:active { background: #bfdbfe; transform: translateY(1px); }
+.timeline-export-button { border: 1px solid #cbd5e1; border-radius: .65rem; background: #fff; color: #1d4ed8; }
+.timeline-export-button:disabled { opacity: .5; cursor: default; }
 
 .timeline-toolbar__summary {
     display: flex;

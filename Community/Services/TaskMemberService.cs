@@ -132,15 +132,7 @@ public class TaskMemberService : ITaskMemberService
                && (EqualsUserKey(participant.UserId, userId) || EqualsUserKey(participant.Email, userId)));
 
     private static bool CanWrite(string userId, TodoListEntity list)
-    {
-        if (EqualsUserKey(list.OwnerId, userId))
-            return true;
-
-        var participant = list.Participants.FirstOrDefault(candidate =>
-            !candidate.InvitationPending
-            && (EqualsUserKey(candidate.UserId, userId) || EqualsUserKey(candidate.Email, userId)));
-        return participant is not null && participant.Role != ListRole.Observer;
-    }
+        => WorkspaceAuthorization.CanWriteList(list, [userId]);
 
     private static bool EqualsUserKey(string? left, string? right)
         => string.Equals(left?.Trim(), right?.Trim(), StringComparison.OrdinalIgnoreCase);

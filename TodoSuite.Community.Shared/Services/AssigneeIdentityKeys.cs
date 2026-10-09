@@ -55,12 +55,7 @@ public static class AssigneeIdentityKeys
         // Diese gemeinsame UI-/Client-Hilfe spiegelt die Rollenlogik wider, ersetzt aber nie
         // die erneute Autorisierung im Server-Service.
         var keys = ExpandWithAcceptedParticipants(identityKeys, [list]);
-        if (Matches(list.OwnerId, keys)) return true;
-
-        return (list.Participants ?? []).Any(participant =>
-            !participant.InvitationPending
-            && participant.Role != ListRole.Observer
-            && (Matches(participant.UserId, keys) || Matches(participant.Email, keys)));
+        return WorkspaceAuthorization.CanWriteList(list, keys);
     }
 
     private static void Add(ISet<string> keys, string? value)
