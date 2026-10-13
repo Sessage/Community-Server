@@ -11,7 +11,7 @@
 }
 else
 {
-    <div class="timeline-view" @onkeydown="HandleTimelineKeyDown">
+    <div class="timeline-view" style="@ToolbarContrastStyle" @onkeydown="HandleTimelineKeyDown">
         <div class="timeline-toolbar">
             <div class="timeline-toolbar__group" role="group" aria-label="@L["Timeline_Grouping"]">
                 <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Tasks)" aria-pressed="@((_grouping == TimelineGrouping.Tasks).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Tasks)">@L["Timeline_ByTask"]</button>
@@ -258,6 +258,37 @@ else
     [Parameter] public bool AllowTaskReordering { get; set; } = true;
     [Parameter] public Func<TodoTaskEntity, bool>? TaskCanWrite { get; set; }
     [Parameter] public Func<TodoTaskEntity, Guid>? TaskListIdSelector { get; set; }
+
+    private string? ToolbarContrastStyle
+    {
+        get
+        {
+            var background = List?.BackgroundColor?.Trim();
+            if (background is not { Length: 7 } || background[0] != '#'
+                || !uint.TryParse(background.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
+                return null;
+
+            // Compare contrast using linear sRGB, including saturated palette colors.
+            var luminance = .2126 * LinearColorChannel((int)(rgb >> 16))
+                            + .7152 * LinearColorChannel((int)((rgb >> 8) & 255))
+                            + .0722 * LinearColorChannel((int)(rgb & 255));
+            var whiteContrast = 1.05 / (luminance + .05);
+            var slateLuminance = .2126 * LinearColorChannel(15)
+                                 + .7152 * LinearColorChannel(23)
+                                 + .0722 * LinearColorChannel(42);
+            var slateContrast = (luminance + .05) / (slateLuminance + .05);
+            var foreground = whiteContrast >= 4.5 && whiteContrast >= slateContrast ? "#ffffff"
+                : slateContrast >= 4.5 ? "#0f172a" : "#000000";
+            // Inline variables let the actual list background override the account theme.
+            return $"--timeline-summary-color:{foreground};--timeline-saving-color:{foreground};";
+        }
+    }
+
+    private static double LinearColorChannel(int value)
+    {
+        var channel = value / 255d;
+        return channel <= .04045 ? channel / 12.92 : Math.Pow((channel + .055) / 1.055, 2.4);
+    }
 
     private enum TimelineScale { Day, Week, Month }
     private enum TimelineGrouping { Tasks, Assignees }

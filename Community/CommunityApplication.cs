@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -71,17 +70,7 @@ public static class CommunityApplication
         builder.Host.UseWindowsService(options =>
             options.ServiceName = builder.Configuration["Service:Name"] ?? "Sessage");
 
-        var dataProtectionKeyPath = builder.Configuration["DataProtection:KeyPath"];
-        if (!string.IsNullOrWhiteSpace(dataProtectionKeyPath))
-        {
-            var resolvedKeyPath = Path.IsPathRooted(dataProtectionKeyPath)
-                ? dataProtectionKeyPath
-                : Path.GetFullPath(dataProtectionKeyPath, contentRoot);
-            Directory.CreateDirectory(resolvedKeyPath);
-            builder.Services.AddDataProtection()
-                .PersistKeysToFileSystem(new DirectoryInfo(resolvedKeyPath))
-                .SetApplicationName("Sessage");
-        }
+        ServerDataProtection.Configure(builder);
 
         // The default Windows EventLog provider may not be writable for a regular
         // desktop user. A warning would then throw and abort the complete host

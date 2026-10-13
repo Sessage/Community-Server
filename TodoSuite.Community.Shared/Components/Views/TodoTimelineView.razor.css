@@ -52,11 +52,11 @@
     display: flex;
     align-items: center;
     gap: .5rem;
-    color: #64748b;
+    color: var(--timeline-summary-color, #64748b);
     font-size: .78rem;
 }
 
-.timeline-saving { color: #2563eb; font-weight: 600; }
+.timeline-saving { color: var(--timeline-saving-color, #2563eb); font-weight: 600; }
 
 .timeline-create {
     display: grid;

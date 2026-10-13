@@ -30,7 +30,7 @@ public class LdapAuthService
         _logger = logger;
     }
 
-    public Task<LdapUserInfo?> AuthenticateAsync(string username, string password, CancellationToken ct = default)
+    public virtual Task<LdapUserInfo?> AuthenticateAsync(string username, string password, CancellationToken ct = default)
     {
         if (!_options.Enabled)
             return Task.FromResult<LdapUserInfo?>(null);

@@ -39,7 +39,8 @@
                     @foreach (var item in tasks)
                     {
                         var canWrite = CanWrite(item.List);
-                        <article class="priority-task @(_savingTaskIds.Contains(item.Task.Id) ? "priority-task--saving" : "")"
+                        <article @key="item.Task.Id"
+                                 class="priority-task @(_savingTaskIds.Contains(item.Task.Id) ? "priority-task--saving" : "")"
                                  draggable="@canWrite.ToString().ToLowerInvariant()"
                                  aria-grabbed="@((_draggedTaskId == item.Task.Id).ToString().ToLowerInvariant())"
                                  @ondragstart="() => BeginDrag(item.Task.Id)"
@@ -57,10 +58,10 @@
                                 {
                                     <FluentIcon Value="@(new Icons.Filled.Size16.Star())" Title="@L["Matrix_Important"]" />
                                 }
-                                <select value="@((int)quadrant)"
+                                <select @bind:get="((int)quadrant).ToString(CultureInfo.InvariantCulture)"
+                                        @bind:set="value => MoveFromSelectAsync(item.Task.Id, value)"
                                         disabled="@(!canWrite || _savingTaskIds.Contains(item.Task.Id))"
-                                        aria-label="@L["Matrix_MoveTask", item.Task.Title]"
-                                        @onchange="args => MoveFromSelectAsync(item.Task.Id, args.Value?.ToString())">
+                                        aria-label="@L["Matrix_MoveTask", item.Task.Title]">
                                     @foreach (var target in Quadrants)
                                     {
                                         <option value="@((int)target.Quadrant)">@target.Action</option>

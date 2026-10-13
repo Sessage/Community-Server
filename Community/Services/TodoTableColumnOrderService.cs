@@ -29,6 +29,7 @@ public sealed class TodoTableColumnOrderService : TodoWorkspaceServiceBase, ITod
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var list = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Participants)
             .Include(l => l.CustomFields)
             .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);
@@ -72,6 +73,7 @@ public sealed class TodoTableColumnOrderService : TodoWorkspaceServiceBase, ITod
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var list = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Participants)
             .Include(l => l.CustomFields)
             .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, cancellationToken);

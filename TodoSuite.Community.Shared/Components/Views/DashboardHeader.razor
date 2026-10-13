@@ -1,12 +1,43 @@
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
 
-<div class="sticky rounded-xl top-0 z-30 shrink-0">
-    <div class="py-2 px-4 grid grid-cols-[auto_1fr_auto] items-center gap-3 border-b border-slate-200 bg-white/95 backdrop-blur">
+<div class="sticky top-0 z-30 shrink-0 @(IsFixedDashboard ? "portfolio-header" : "rounded-xl")">
+    @if (IsFixedDashboard)
+    {
+        <div class="portfolio-header__heading">
+            <div class="portfolio-header__identity">
+                <span class="portfolio-header__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 19.5h16M6.5 16v-4M12 16V9M17.5 16V5" />
+                        <path d="m5 8 6-4 4 2 4-3" />
+                    </svg>
+                </span>
+                <div class="portfolio-header__title-group">
+                    <div class="portfolio-header__eyebrow">@L["Portfolio_Label"]</div>
+                    <h1 class="portfolio-header__title">@(ActiveDashboard?.Name ?? L["Portfolio_Label"])</h1>
+                </div>
+            </div>
+            @if (CanEdit)
+            {
+                <FluentButton Class="portfolio-header__share" Appearance="Appearance.Accent" OnClick="OnPortfolioShare">
+                    <span class="portfolio-header__share-content">
+                        <svg class="portfolio-header__share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+                            <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
+                        </svg>
+                        <span>@L["Portfolio_Share"]</span>
+                    </span>
+                </FluentButton>
+            }
+        </div>
+    }
+    <div class="items-center gap-3 @(IsFixedDashboard
+        ? "portfolio-header__toolbar"
+        : "py-2 px-4 grid grid-cols-[auto_1fr_auto] border-b border-slate-200 bg-white/95 backdrop-blur")">
 
         <!-- Links: Dashboard-Switcher + Hinzufügen-Button -->
+        @if (!IsFixedDashboard)
+        {
         <div class="flex items-center gap-1" @onclick:stopPropagation="true">
-            @if (!IsFixedDashboard)
-            {
             <FloatingDropdown @ref="_dashboardPicker" MinWidth="200">
                 <ChildContent>
                     <button class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors select-none max-w-[160px] overflow-hidden"
@@ -35,44 +66,43 @@
             <FluentButton Appearance="Appearance.Neutral" OnClick="OnCreateDashboard" Title="@L["Dashboard_Create"]">
                 <FluentIcon Value="@(new Icons.Regular.Size20.Add())" />
             </FluentButton>
-            }
-            else
-            {
-                <span class="text-sm font-medium text-indigo-700">Portfolio-Dashboard</span>
-            }
         </div>
+        }
 
         <!-- Mitte: Editierbarer Dashboard-Titel -->
-        <div class="flex justify-center min-w-0" @onclick:stopPropagation="true">
-            @if (_editingName && ActiveDashboard is not null)
-            {
-                <input class="w-full max-w-sm text-center text-xl font-bold text-slate-800 bg-transparent border-b-2 border-blue-400 focus:outline-none px-1 py-0.5"
-                       maxlength="160"
-                       @ref="_nameInputRef"
-                       value="@_editNameValue"
-                       @oninput="e => _editNameValue = e.Value?.ToString() ?? string.Empty"
-                       @onkeydown="HandleNameKeydown"
-                       @onblur="CommitNameEdit" />
-            }
-            else
-            {
-                <button class="group inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 hover:bg-slate-100 transition-colors max-w-sm overflow-hidden disabled:cursor-default disabled:hover:bg-transparent"
-                        @onclick="StartEditingName"
-                        disabled="@(ActiveDashboard is null || IsFixedDashboard)"
-                        title="@(ActiveDashboard is not null ? L["Dashboard_Rename"] : string.Empty)">
-                    <span class="text-xl font-bold text-slate-800 truncate">
-                        @(ActiveDashboard?.Name ?? L["Dashboard_NoneSelected"])
-                    </span>
-                    @if (ActiveDashboard is not null && !IsFixedDashboard)
-                    {
-                        <FluentIcon Value="@(new Icons.Regular.Size16.Edit())"
-                                    Class="shrink-0 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    }
-                </button>
-            }
-        </div>
+        @if (!IsFixedDashboard)
+        {
+            <div class="flex justify-center min-w-0" @onclick:stopPropagation="true">
+                @if (_editingName && ActiveDashboard is not null)
+                {
+                    <input class="w-full max-w-sm text-center text-xl font-bold text-slate-800 bg-transparent border-b-2 border-blue-400 focus:outline-none px-1 py-0.5"
+                           maxlength="160"
+                           @ref="_nameInputRef"
+                           value="@_editNameValue"
+                           @oninput="e => _editNameValue = e.Value?.ToString() ?? string.Empty"
+                           @onkeydown="HandleNameKeydown"
+                           @onblur="CommitNameEdit" />
+                }
+                else
+                {
+                    <button class="group inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 hover:bg-slate-100 transition-colors max-w-sm overflow-hidden disabled:cursor-default disabled:hover:bg-transparent"
+                            @onclick="StartEditingName"
+                            disabled="@(ActiveDashboard is null || IsFixedDashboard)"
+                            title="@(ActiveDashboard is not null ? L["Dashboard_Rename"] : string.Empty)">
+                        <span class="text-xl font-bold text-slate-800 truncate">
+                            @(ActiveDashboard?.Name ?? L["Dashboard_NoneSelected"])
+                        </span>
+                        @if (ActiveDashboard is not null && !IsFixedDashboard)
+                        {
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Edit())"
+                                        Class="shrink-0 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        }
+                    </button>
+                }
+            </div>
+        }
 
-        <div class="flex items-center flex-wrap gap-2 shrink-0" @onclick:stopPropagation="true">
+        <div class="flex items-center flex-wrap gap-2 @(IsFixedDashboard ? "portfolio-header__actions min-w-0 max-w-full" : "shrink-0")" @onclick:stopPropagation="true">
 
             @if (CanEdit && !string.IsNullOrWhiteSpace(SaveState))
             {
@@ -83,7 +113,7 @@
             {
             <div class="relative">
                 <button type="button"
-                        class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        class="dashboard-toolbar-action rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100"
                         title="@L["Filter_Title"]"
                         @onclick="OnFilterClick">
                     @L["Filter_Title"]
@@ -98,7 +128,7 @@
 
             <div class="relative">
                 <button type="button"
-                        class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                        class="dashboard-toolbar-action rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100"
                         title="@L["Dashboard_Sort"]"
                         @onclick="OnSortToggle">
                     @L["Dashboard_Sort"]
@@ -124,7 +154,7 @@
             </div>
 
             <button type="button"
-                    class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="dashboard-toolbar-action rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                     title="@L["Dashboard_Customize_Widgets"]"
                     disabled="@(ActiveDashboard is null)"
                     @onclick="OnWidgetCustomizeClick">
@@ -135,7 +165,7 @@
             <FloatingDropdown AlignEnd="true">
                 <ChildContent>
                     <button type="button"
-                            class="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            class="dashboard-toolbar-action rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-100">
                         @L["Dashboard_Export"]
                     </button>
                 </ChildContent>
@@ -150,7 +180,7 @@
 
             @if (CanEdit)
             {
-                <FluentButton Appearance="Appearance.Neutral" Title="@L["Dashboard_Settings"]"
+                <FluentButton Class="@(IsFixedDashboard ? "portfolio-header__settings" : null)" Appearance="Appearance.Neutral" Title="@L["Dashboard_Settings"]"
                               OnClick="OnSettingsClick" Disabled="@(ActiveDashboard is null)">···</FluentButton>
             }
         </div>
@@ -182,6 +212,7 @@
     [Parameter] public EventCallback OnExportJson { get; set; }
     [Parameter] public EventCallback OnExportCsv { get; set; }
     [Parameter] public EventCallback OnExportPdf { get; set; }
+    [Parameter] public EventCallback OnPortfolioShare { get; set; }
 
     private async Task SelectDashboard(Guid id)
     {

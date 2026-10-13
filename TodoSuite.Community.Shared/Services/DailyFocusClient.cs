@@ -1,7 +1,10 @@
+using Microsoft.Extensions.Logging;
+
 namespace Klassenbibliothek.Services;
 
 /// <summary>One circuit/session-wide state shared by task buttons, bulk actions and My Day.</summary>
-public sealed class DailyFocusClient(IDailyFocusService service, ITodoCurrentUserService currentUser)
+public sealed class DailyFocusClient(IDailyFocusService service, ITodoCurrentUserService currentUser,
+    ILogger<DailyFocusClient>? logger = null)
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private string? _timeZone;
@@ -47,7 +50,11 @@ public sealed class DailyFocusClient(IDailyFocusService service, ITodoCurrentUse
             ErrorKey = null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { State = null; ErrorKey = "Focus_Error"; }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Daily focus state could not be loaded for timezone {TimeZoneId}.", _timeZone);
+            State = null; ErrorKey = "Focus_Error";
+        }
         finally { _gate.Release(); Changed?.Invoke(); }
     }
 
@@ -84,7 +91,11 @@ public sealed class DailyFocusClient(IDailyFocusService service, ITodoCurrentUse
             return ErrorKey is null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { ErrorKey = "Focus_Error"; return false; }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Daily focus selection could not be saved.");
+            ErrorKey = "Focus_Error"; return false;
+        }
         finally { IsBusy = false; _gate.Release(); Changed?.Invoke(); }
     }
 }

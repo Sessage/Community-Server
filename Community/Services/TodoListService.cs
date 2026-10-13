@@ -275,6 +275,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         return await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Labels)
             .Include(l => l.CustomFields).ThenInclude(f => f.Options)
             .Where(l => l.DeletedAt == null && l.IsTemplate && l.OwnerId == userId)
@@ -298,6 +299,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var template = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Labels)
             .Include(l => l.CustomFields).ThenInclude(f => f.Options)
             .Include(l => l.CustomFields).ThenInclude(f => f.SourceTaskList)!.ThenInclude(l => l!.Participants)
@@ -401,6 +403,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         list.Id = list.Id == Guid.Empty ? Guid.NewGuid() : list.Id;
 
         var existing = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Tasks)
             .Include(l => l.Labels)
             .Include(l => l.CustomFields).ThenInclude(f => f.Options)
@@ -582,6 +585,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
         var entity = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Participants)
             .Include(l => l.Tasks)
             .FirstOrDefaultAsync(l => l.Id == list.Id, cancellationToken);

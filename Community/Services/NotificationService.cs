@@ -69,6 +69,7 @@ public sealed class NotificationService : INotificationService
     {
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var list = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Participants)
             .Include(l => l.NotificationRules)
             .FirstOrDefaultAsync(l => l.Id == listId && l.DeletedAt == null, ct);
@@ -263,6 +264,7 @@ public sealed class NotificationService : INotificationService
 
         await using var db = await _dbContextFactory.CreateDbContextAsync(ct);
         var list = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Participants)
             .Include(l => l.Watchers)
             .Include(l => l.NotificationRules)

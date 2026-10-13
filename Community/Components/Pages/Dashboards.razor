@@ -37,17 +37,6 @@
         </div>
     }
 
-    @if (PortfolioId.HasValue)
-    {
-        <div class="px-4 pt-4 flex items-center justify-between gap-3">
-            <div>
-                <div class="text-xs uppercase tracking-wide text-indigo-600">@L["Portfolio_Label"]</div>
-                <h1 class="text-xl font-semibold text-slate-900">@(_activeDashboard?.Name ?? L["Portfolio_Label"])</h1>
-            </div>
-            @if (_canManagePortfolio) { <FluentButton Appearance="Appearance.Accent" OnClick="OpenPortfolioShareDialog"><span>@L["Portfolio_Share"]</span></FluentButton> }
-        </div>
-    }
-
     <DashboardHeader Dashboards="_dashboards"
                      ActiveDashboard="_activeDashboard"
                      IsFixedDashboard="@PortfolioId.HasValue"
@@ -65,7 +54,8 @@
                      OnSettingsClick="OpenSettingsDialog"
                      OnExportJson="ExportJsonAsync"
                      OnExportCsv="ExportCsvAsync"
-                     OnExportPdf="ExportPdfAsync" />
+                     OnExportPdf="ExportPdfAsync"
+                     OnPortfolioShare="OpenPortfolioShareDialog" />
 
     <section class="p-4 min-h-0 overflow-auto space-y-4">
         @if (!string.IsNullOrWhiteSpace(_exportError))

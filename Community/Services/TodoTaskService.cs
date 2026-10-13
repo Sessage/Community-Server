@@ -584,6 +584,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
         await NotifyTaskUpdatesAsync(listId, task.Id, cancellationToken);
 
         var result = await db.TodoTasks
+            .AsSplitQuery()
             .AsNoTracking()
             .Include(t => t.Attachments)
             .Include(t => t.Steps)
@@ -660,6 +661,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
             return null;
 
         var toList = await db.TodoLists
+            .AsSplitQuery()
             .Include(l => l.Participants)
             .Include(l => l.Labels)
             .FirstOrDefaultAsync(l => l.Id == toListId && l.DeletedAt == null && !l.IsTemplate, cancellationToken);
@@ -676,6 +678,7 @@ public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
                 $"Verschieben nicht erlaubt: Keine Schreibrechte in Ziel-Liste '{toList.Name}'. User='{userId}'.");
 
         var task = await db.TodoTasks
+            .AsSplitQuery()
             .Include(t => t.Attachments)
             .Include(t => t.Steps)
             .Include(t => t.Comments)
