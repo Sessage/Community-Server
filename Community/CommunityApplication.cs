@@ -465,6 +465,7 @@ public static class CommunityApplication
         }
         
         app.UseForwardedHeaders();
+        app.UseMiddleware<AccountRedirectOriginMiddleware>();
         
         await using (var scope = app.Services.CreateAsyncScope())
         {
@@ -660,6 +661,8 @@ public static class CommunityApplication
         app.UseStaticFiles();
         app.UseRateLimiter();
         app.UseAuthentication();
+        if (app.Configuration.GetValue("AuthenticationDiagnostics:Enabled", false))
+            app.UseMiddleware<AuthenticationFlowDiagnosticsMiddleware>();
         app.Use(async (context, next) =>
         {
             if (context.User.Identity?.IsAuthenticated == true
