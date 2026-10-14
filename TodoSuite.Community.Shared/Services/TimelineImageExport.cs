@@ -3,8 +3,8 @@ using Klassenbibliothek.Data;
 
 namespace Klassenbibliothek.Services;
 
-public enum TimelineExportScale { Days, Weeks, Months, Years }
-public enum TimelineExportPeriod { Current, Today, Days, Weeks, Months, Years }
+public enum TimelineExportScale { Days, Weeks, Months, Years, Quarters }
+public enum TimelineExportPeriod { Current, Today, Days, Weeks, Months, Years, Quarters }
 
 public sealed class TimelineExportOptions
 {
@@ -71,6 +71,7 @@ public static class TimelineImageExport
             TimelineExportPeriod.Days => (today, TimelineDateRange.AddDaysClamped(today, 13), TimelineExportScale.Days),
             TimelineExportPeriod.Weeks => WeekPreset(today),
             TimelineExportPeriod.Months => MonthPreset(today),
+            TimelineExportPeriod.Quarters => QuarterPreset(today),
             TimelineExportPeriod.Years => (new DateTime(today.Year, 1, 1), new DateTime(Math.Min(9999, today.Year + 2), 12, 31), TimelineExportScale.Years),
             _ => throw new ArgumentOutOfRangeException(nameof(period))
         };
@@ -87,6 +88,13 @@ public static class TimelineImageExport
         var start = new DateTime(today.Year, today.Month, 1);
         var end = start.Year == 9999 && start.Month > 6 ? DateTime.MaxValue.Date : start.AddMonths(6).AddDays(-1);
         return (start, end, TimelineExportScale.Months);
+    }
+
+    private static (DateTime, DateTime, TimelineExportScale) QuarterPreset(DateTime today)
+    {
+        var start = TimelineDateRange.GetQuarterStart(today);
+        var end = start.Year == 9999 ? DateTime.MaxValue.Date : start.AddMonths(12).AddDays(-1);
+        return (start, end, TimelineExportScale.Quarters);
     }
 
     public static TimelineExportImage Build(string title, IEnumerable<TodoTaskEntity> tasks, TimelineExportOptions options,
@@ -138,6 +146,10 @@ public static class TimelineImageExport
                 case TimelineExportScale.Months:
                     next = cursor.Year == 9999 && cursor.Month == 12 ? DateTime.MaxValue.Date : new DateTime(cursor.Year, cursor.Month, 1).AddMonths(1);
                     label = cursor.ToString("MMM yyyy"); break;
+                case TimelineExportScale.Quarters:
+                    var quarterEnd = TimelineDateRange.GetQuarterEnd(cursor);
+                    next = quarterEnd == DateTime.MaxValue.Date ? cursor : quarterEnd.AddDays(1);
+                    label = $"Q{(cursor.Month - 1) / 3 + 1} {cursor:yyyy}"; break;
                 default:
                     next = cursor.Year == 9999 ? DateTime.MaxValue.Date : new DateTime(cursor.Year + 1, 1, 1);
                     label = cursor.ToString("yyyy"); break;

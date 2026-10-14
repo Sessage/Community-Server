@@ -2621,4 +2621,6 @@
   <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>Bitte zwischen 1 und 100 Aufgaben pro Bild wählen.</value></data>
   <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>Bitte einen gültigen Bildbereich mit höchstens 100 Bildern pro Export wählen.</value></data>
   <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>Die letzte gültige Vorschau bleibt während der Aktualisierung sichtbar.</value></data>
+  <data name="Timeline_Quarters" xml:space="preserve"><value>Quartale</value></data>
+  <data name="Timeline_ExportQuarters" xml:space="preserve"><value>Quartale · aktuelles und nächste 3 Quartale</value></data>
 </root>

@@ -1,4 +1,6 @@
 .timeline-view {
+    /* Keep sticky headers and task menus below the surrounding page toolbar. */
+    isolation: isolate;
     --timeline-sidebar-width: 470px;
     --timeline-row-height: 58px;
     box-sizing: border-box;
@@ -22,6 +24,8 @@
 
 .timeline-toolbar__group {
     display: inline-flex;
+    flex-wrap: wrap;
+    max-width: 100%;
     overflow: hidden;
     border: 1px solid #e2e8f0;
     border-radius: .65rem;

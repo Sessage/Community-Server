@@ -33,6 +33,8 @@ else
                 <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Day)" aria-pressed="@((_scale == TimelineScale.Day).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Day)">@L["Timeline_Days"]</button>
                 <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Week)" aria-pressed="@((_scale == TimelineScale.Week).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Week)">@L["Timeline_Weeks"]</button>
                 <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Month)" aria-pressed="@((_scale == TimelineScale.Month).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Month)">@L["Timeline_Months"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Quarter)" aria-pressed="@((_scale == TimelineScale.Quarter).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Quarter)">@L["Timeline_Quarters"]</button>
+                <button type="button" class="@ToolbarButtonClass(_scale == TimelineScale.Year)" aria-pressed="@((_scale == TimelineScale.Year).ToString().ToLowerInvariant())" @onclick="() => SetScale(TimelineScale.Year)">@L["Timeline_ExportYearScale"]</button>
             </div>
             <button type="button" class="timeline-toolbar__button timeline-export-button" disabled="@IsDragging" @onclick="() => _exportOpen = true">@L["Timeline_ExportButton"]</button>
         </div>
@@ -240,7 +242,7 @@ else
 @if (_exportOpen && List is not null)
 {
     <TimelineExportDialog List="List" Tasks="VisibleTasks" RangeStart="VisibleRange.Start" RangeEnd="VisibleRange.End"
-                          InitialScale="@(_scale == TimelineScale.Day ? TimelineExportScale.Days : _scale == TimelineScale.Month ? TimelineExportScale.Months : TimelineExportScale.Weeks)"
+                          InitialScale="@ExportScale"
                           GroupByAssignee="@(_grouping == TimelineGrouping.Assignees)" AssigneeName="GetAssigneeDisplayName" OnClose="() => _exportOpen = false" />
 }
 
@@ -290,7 +292,7 @@ else
         return channel <= .04045 ? channel / 12.92 : Math.Pow((channel + .055) / 1.055, 2.4);
     }
 
-    private enum TimelineScale { Day, Week, Month }
+    private enum TimelineScale { Day, Week, Month, Quarter, Year }
     private enum TimelineGrouping { Tasks, Assignees }
     private enum NewTaskSchedule { Planned, Milestone, Unscheduled }
 
@@ -326,8 +328,16 @@ else
 
     public bool IsDragging => _isDragging || _isTaskReordering || _taskReorderSaving || _savingTaskIds.Count > 0;
 
-    private double PixelsPerDay => _scale switch { TimelineScale.Day => 64, TimelineScale.Week => 18, _ => 5 };
-    private int PaddingDays => _scale switch { TimelineScale.Day => 14, TimelineScale.Week => 28, _ => 62 };
+    private double PixelsPerDay => _scale switch { TimelineScale.Day => 64, TimelineScale.Week => 18, TimelineScale.Month => 5, TimelineScale.Quarter => 2, _ => .6 };
+    private int PaddingDays => _scale switch { TimelineScale.Day => 14, TimelineScale.Week => 28, TimelineScale.Month => 62, TimelineScale.Quarter => 183, _ => 366 };
+    private TimelineExportScale ExportScale => _scale switch
+    {
+        TimelineScale.Day => TimelineExportScale.Days,
+        TimelineScale.Week => TimelineExportScale.Weeks,
+        TimelineScale.Month => TimelineExportScale.Months,
+        TimelineScale.Quarter => TimelineExportScale.Quarters,
+        _ => TimelineExportScale.Years
+    };
 
     private IReadOnlyList<TodoTaskEntity> VisibleTasks => _visibleTasks;
 
@@ -458,7 +468,7 @@ else
         var absoluteMax = DateTime.Today.AddYears(10);
         var start = TimelineDateRange.AddDaysClamped(dates.Min(), -PaddingDays);
         var end = TimelineDateRange.AddDaysClamped(dates.Max(), PaddingDays);
-        var minimumDays = _scale switch { TimelineScale.Day => 42, TimelineScale.Week => 112, _ => 370 };
+        var minimumDays = _scale switch { TimelineScale.Day => 42, TimelineScale.Week => 112, TimelineScale.Month => 370, TimelineScale.Quarter => 730, _ => 1826 };
         if ((end - start).TotalDays < minimumDays)
             end = TimelineDateRange.AddDaysClamped(start, minimumDays);
 
@@ -531,10 +541,20 @@ else
                 segmentEnd = Min(cursor.AddDays(daysToSunday), range.End);
                 label = $"{L["Timeline_CalendarWeek"]} {ISOWeek.GetWeekOfYear(cursor)} · {cursor:dd.MM.}";
             }
-            else
+            else if (_scale == TimelineScale.Month)
             {
                 segmentEnd = Min(new DateTime(cursor.Year, cursor.Month, 1).AddMonths(1).AddDays(-1), range.End);
                 label = cursor.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
+            }
+            else if (_scale == TimelineScale.Quarter)
+            {
+                segmentEnd = Min(TimelineDateRange.GetQuarterEnd(cursor), range.End);
+                label = $"Q{(cursor.Month - 1) / 3 + 1} {cursor:yyyy}";
+            }
+            else
+            {
+                segmentEnd = Min(new DateTime(cursor.Year, 12, 31), range.End);
+                label = cursor.ToString("yyyy", CultureInfo.CurrentCulture);
             }
 
             result.Add(new TimelineHeaderSegment(cursor, segmentEnd, label));

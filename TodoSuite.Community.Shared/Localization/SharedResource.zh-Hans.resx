@@ -2556,4 +2556,6 @@
   <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>请选择每张图片包含1至100个任务。</value></data>
   <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>请选择有效的图片范围，每次最多导出100张图片。</value></data>
   <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>更新期间保留显示最后一次有效预览。</value></data>
+  <data name="Timeline_Quarters" xml:space="preserve"><value>季度</value></data>
+  <data name="Timeline_ExportQuarters" xml:space="preserve"><value>季度 · 本季度及未来3个季度</value></data>
 </root>

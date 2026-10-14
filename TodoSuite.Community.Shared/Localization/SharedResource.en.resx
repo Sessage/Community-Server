@@ -2556,4 +2556,6 @@
   <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>Choose between 1 and 100 tasks per image.</value></data>
   <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>Choose a valid image range with at most 100 images per export.</value></data>
   <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>The last valid preview remains visible while updating.</value></data>
+  <data name="Timeline_Quarters" xml:space="preserve"><value>Quarters</value></data>
+  <data name="Timeline_ExportQuarters" xml:space="preserve"><value>Quarters · this quarter and next 3 quarters</value></data>
 </root>

@@ -12,6 +12,17 @@ public enum TimelineDateChangeMode
 /// <summary>Pure date-range rules shared by the interactive timeline and its tests.</summary>
 public static class TimelineDateRange
 {
+    public static DateTime GetQuarterStart(DateTime date)
+        => new(date.Year, (date.Month - 1) / 3 * 3 + 1, 1);
+
+    public static DateTime GetQuarterEnd(DateTime date)
+    {
+        var start = GetQuarterStart(date);
+        return start.Year == 9999 && start.Month == 10
+            ? DateTime.MaxValue.Date
+            : start.AddMonths(3).AddDays(-1);
+    }
+
     public static int GetInclusiveDayCount((DateTime Start, DateTime End) range)
         => Math.Max(1, (range.End.Date - range.Start.Date).Days + 1);
 

@@ -8,6 +8,7 @@ module.exports = {
         "../TodoSuite.Community.Shared/**/*.razor",
         "../TodoSuite.Mobile/**/*.razor"
     ],
-    theme: { extend: {} },
+    // Preserve the existing palette and utility scales during the v4 security upgrade.
+    theme: require('./Styles/tailwind.compat-theme.json'),
     plugins: []
 };

@@ -2556,4 +2556,6 @@
   <data name="Timeline_ExportInvalidPageSize" xml:space="preserve"><value>प्रति चित्र 1 से 100 कार्य चुनें।</value></data>
   <data name="Timeline_ExportInvalidImageRange" xml:space="preserve"><value>प्रति निर्यात अधिकतम 100 चित्रों की मान्य सीमा चुनें।</value></data>
   <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>अपडेट के दौरान अंतिम मान्य पूर्वावलोकन दिखाई देता रहता है।</value></data>
+  <data name="Timeline_Quarters" xml:space="preserve"><value>तिमाहियाँ</value></data>
+  <data name="Timeline_ExportQuarters" xml:space="preserve"><value>तिमाहियाँ · वर्तमान और अगली 3 तिमाहियाँ</value></data>
 </root>
