@@ -11,7 +11,7 @@ namespace TodoSuite.Server.Services;
 /// Implements task lifecycle operations and preserves list ordering, revision metadata, and notifications.
 /// Mutations verify access to the owning list before touching the task.
 /// </summary>
-public class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
+public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskService
 {
     private readonly INotificationService _notificationService;
     private readonly ITodoAutomationService _automationService;
