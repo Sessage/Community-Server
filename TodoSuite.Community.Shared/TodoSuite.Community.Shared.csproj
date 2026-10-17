@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AddRazorSupportForMvc>false</AddRazorSupportForMvc>
+    <StaticWebAssetsAdditionalBuildPropertiesToRemove>$(StaticWebAssetsAdditionalBuildPropertiesToRemove);BuildAsEnterpriseDependency</StaticWebAssetsAdditionalBuildPropertiesToRemove>
     <!-- IDE and CI builds evaluate this shared RCL from several project graphs.
          Avoid concurrent writes to the SDK's optional *.dswa.cache.json files
          in all configurations; asset discovery and the actual manifests remain enabled. -->

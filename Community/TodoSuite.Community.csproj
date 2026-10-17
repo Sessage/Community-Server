@@ -47,7 +47,7 @@
 
 
   <ItemGroup>
-    <ProjectReference Include="..\TodoSuite.Community.Shared\TodoSuite.Community.Shared.csproj" />
+    <ProjectReference Include="..\TodoSuite.Community.Shared\TodoSuite.Community.Shared.csproj" GlobalPropertiesToRemove="BuildAsEnterpriseDependency" />
   </ItemGroup>
 
   <!-- Local and example settings may contain workstation credentials and must never
