@@ -46,8 +46,10 @@ public sealed class AuthenticationFlowDiagnosticsMiddleware(RequestDelegate next
 
     internal static string RedactRedirect(string location)
     {
-        if (Uri.TryCreate(location, UriKind.Absolute, out var uri))
+        var path = location.Split('?', '#')[0];
+        if (Uri.TryCreate(path, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
             return $"{uri.Scheme}://{uri.Authority}{uri.AbsolutePath}";
-        return location.Split('?', '#')[0];
+        return path;
     }
 }
