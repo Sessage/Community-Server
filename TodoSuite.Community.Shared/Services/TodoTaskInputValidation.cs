@@ -1,3 +1,4 @@
+using Klassenbibliothek.Localization;
 using Klassenbibliothek.Data;
 
 namespace Klassenbibliothek.Services;
@@ -11,9 +12,9 @@ public static class TodoTaskInputValidation
     {
         var normalized = (title ?? string.Empty).Trim();
         if (normalized.Length == 0)
-            throw new ArgumentException("Der Aufgabentitel darf nicht leer sein.", parameterName);
+            throw new ArgumentException(SharedText.Get("ExcelImport_EmptyTitle"), parameterName);
         if (normalized.Length > MaxTitleLength)
-            throw new ArgumentException($"Der Aufgabentitel darf höchstens {MaxTitleLength} Zeichen enthalten.", parameterName);
+            throw new ArgumentException(SharedText.Get("ExcelImport_TitleTooLong", MaxTitleLength), parameterName);
         return normalized;
     }
 
@@ -26,14 +27,14 @@ public static class TodoTaskInputValidation
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (columns.Count == 0)
-            throw new InvalidOperationException("Die Liste enthält keine Spalte.");
+            throw new InvalidOperationException(SharedText.Get("ExcelImport_NoColumns"));
 
         if (string.IsNullOrWhiteSpace(requestedColumn))
             return columns[0]!;
 
         return columns.FirstOrDefault(column =>
                    string.Equals(column, requestedColumn.Trim(), StringComparison.OrdinalIgnoreCase))
-               ?? throw new ArgumentException("Die Aufgabe verweist auf eine unbekannte Spalte.", nameof(requestedColumn));
+               ?? throw new ArgumentException(SharedText.Get("ExcelImport_InvalidTaskColumn"), nameof(requestedColumn));
     }
 
     public static string? ResolveAssignee(TodoListEntity list, string? requestedAssignee, string parameterName)
@@ -55,7 +56,7 @@ public static class TodoTaskInputValidation
 
         if (participant is null || string.IsNullOrWhiteSpace(participant.UserId))
             throw new ArgumentException(
-                "Der Bearbeiter muss eine Person aus der Liste sein, die ihre Einladung angenommen hat.",
+                SharedText.Get("ExcelImport_InvalidAssignee"),
                 parameterName);
 
         return participant.UserId.Trim();

@@ -2558,4 +2558,136 @@
   <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>अपडेट के दौरान अंतिम मान्य पूर्वावलोकन दिखाई देता रहता है।</value></data>
   <data name="Timeline_Quarters" xml:space="preserve"><value>तिमाहियाँ</value></data>
   <data name="Timeline_ExportQuarters" xml:space="preserve"><value>तिमाहियाँ · वर्तमान और अगली 3 तिमाहियाँ</value></data>
+  <data name="ExcelImport_Title" xml:space="preserve"><value>Excel आयात</value></data>
+  <data name="ExcelImport_Close" xml:space="preserve"><value>बंद करें</value></data>
+  <data name="ExcelImport_Upload" xml:space="preserve"><value>Excel फ़ाइल (.xlsx, अधिकतम 10 MB)</value></data>
+  <data name="ExcelImport_UploadHint" xml:space="preserve"><value>अपलोड के बाद कार्यपत्रक और शीर्षक पंक्ति चुनें। प्रति कार्यपत्रक अधिकतम 1000 कार्य और 128 स्तंभ। सूत्रों के लिए Excel में सहेजे गए परिणाम उपयोग होते हैं। अपलोड से पहले Excel में दोबारा गणना करके फ़ाइल सहेजें। मैक्रो और बाहरी लिंक की अनुमति नहीं है।</value></data>
+  <data name="ExcelImport_FollowUpFailed" xml:space="preserve"><value>कार्य सहेज दिए गए हैं। कुछ सूचनाएँ या स्वचालन नहीं चल सके। दोबारा आयात न करें।</value></data>
+  <data name="ExcelImport_SelectSheet" xml:space="preserve"><value>आयात के लिए कार्यपत्रक चुनें</value></data>
+  <data name="ExcelImport_HeaderRow" xml:space="preserve"><value>स्तंभ शीर्षकों की पंक्ति</value></data>
+  <data name="ExcelImport_HeaderHint" xml:space="preserve"><value>उदाहरण: पंक्ति 5 में शीर्षक → पंक्ति 6 से कार्य। शीर्षकों से पहले की पंक्तियाँ और खाली डेटा पंक्तियाँ छोड़ दी जाती हैं।</value></data>
+  <data name="ExcelImport_MappingTitle" xml:space="preserve"><value>स्तंभ मैपिंग और डिफ़ॉल्ट मान</value></data>
+  <data name="ExcelImport_MappingHint" xml:space="preserve"><value>सूची के हर वांछित फ़ील्ड को Excel स्तंभ से जोड़ें। स्तंभ न जुड़ा होने या सेल खाली होने पर डिफ़ॉल्ट मान उपयोग होता है। बिना मैपिंग वाले Excel स्तंभ छोड़ दिए जाते हैं।</value></data>
+  <data name="ExcelImport_ListField" xml:space="preserve"><value>सूची फ़ील्ड</value></data>
+  <data name="ExcelImport_ExcelColumn" xml:space="preserve"><value>Excel स्तंभ</value></data>
+  <data name="ExcelImport_DefaultValue" xml:space="preserve"><value>खाली सेल के लिए डिफ़ॉल्ट मान</value></data>
+  <data name="ExcelImport_NoMapping" xml:space="preserve"><value>कोई मैपिंग नहीं</value></data>
+  <data name="ExcelImport_StatusDefault" xml:space="preserve"><value>स्थिति / सूची स्तंभ के लिए डिफ़ॉल्ट मान</value></data>
+  <data name="ExcelImport_FirstColumn" xml:space="preserve"><value>सूची का पहला स्तंभ</value></data>
+  <data name="ExcelImport_StatusMapping" xml:space="preserve"><value>स्थिति मानों की मैपिंग</value></data>
+  <data name="ExcelImport_SourceStatus" xml:space="preserve"><value>Excel की स्थिति</value></data>
+  <data name="ExcelImport_TargetColumn" xml:space="preserve"><value>सूची का लक्ष्य स्तंभ</value></data>
+  <data name="ExcelImport_SelectTarget" xml:space="preserve"><value>लक्ष्य स्तंभ चुनें</value></data>
+  <data name="ExcelImport_SheetPreview" xml:space="preserve"><value>Excel पूर्वावलोकन (पहली 5 डेटा पंक्तियाँ)</value></data>
+  <data name="ExcelImport_Row" xml:space="preserve"><value>पंक्ति</value></data>
+  <data name="ExcelImport_Preview" xml:space="preserve"><value>आयात पूर्वावलोकन</value></data>
+  <data name="ExcelImport_PreviewTitle" xml:space="preserve"><value>शीर्षक</value></data>
+  <data name="ExcelImport_PreviewStatus" xml:space="preserve"><value>स्थिति</value></data>
+  <data name="ExcelImport_PreviewDueDate" xml:space="preserve"><value>नियत तिथि</value></data>
+  <data name="ExcelImport_Validate" xml:space="preserve"><value>मैपिंग जाँचें</value></data>
+  <data name="ExcelImport_IntoList" xml:space="preserve"><value>“{0}” में कार्य आयात करें</value></data>
+  <data name="ExcelImport_Imported" xml:space="preserve"><value>{0} कार्य आयात किए गए।</value></data>
+  <data name="ExcelImport_RowsFrom" xml:space="preserve"><value>पंक्ति {1} से {0} कार्य।</value></data>
+  <data name="ExcelImport_ColumnFor" xml:space="preserve"><value>{0} के लिए Excel स्तंभ</value></data>
+  <data name="ExcelImport_DefaultFor" xml:space="preserve"><value>{0} के लिए डिफ़ॉल्ट मान</value></data>
+  <data name="ExcelImport_StatusHint" xml:space="preserve"><value>“{0}” के मानों को सूची के मौजूदा स्तंभों से जोड़ें। आयात से पहले अज्ञात मानों की मैपिंग ज़रूरी है। डिफ़ॉल्ट मान केवल खाली सेल पर लागू होता है।</value></data>
+  <data name="ExcelImport_TargetFor" xml:space="preserve"><value>स्थिति {0} के लिए लक्ष्य स्तंभ</value></data>
+  <data name="ExcelImport_Validated" xml:space="preserve"><value>सभी {0} कार्य जाँचे गए हैं। “आयात की पुष्टि करें” से वे “{1}” में बनाए जाएँगे।</value></data>
+  <data name="ExcelImport_Confirm" xml:space="preserve"><value>आयात की पुष्टि करें ({0} कार्य)</value></data>
+  <data name="ExcelImport_Analyzing" xml:space="preserve"><value>फ़ाइल का विश्लेषण हो रहा है…</value></data>
+  <data name="ExcelImport_SelectXlsx" xml:space="preserve"><value>XLSX फ़ाइल चुनें। पुरानी XLS फ़ाइलों को पहले XLSX के रूप में सहेजें।</value></data>
+  <data name="ExcelImport_InvalidHeaderRow" xml:space="preserve"><value>स्तंभ शीर्षकों के लिए मान्य पंक्ति संख्या दर्ज करें।</value></data>
+  <data name="ExcelImport_Validating" xml:space="preserve"><value>सभी पंक्तियाँ जाँची जा रही हैं…</value></data>
+  <data name="ExcelImport_Importing" xml:space="preserve"><value>कार्य आयात हो रहे हैं…</value></data>
+  <data name="ExcelImport_Failed" xml:space="preserve"><value>आयात पूरा नहीं हो सका। दोबारा जाँचें।</value></data>
+  <data name="ExcelImport_RefreshFailed" xml:space="preserve"><value>कार्य सहेज दिए गए हैं। सूची दृश्य अपडेट नहीं हो सका।</value></data>
+  <data name="ExcelImport_ConnectionFailed" xml:space="preserve"><value>आयात सर्वर से कनेक्शन विफल रहा। दोबारा प्रयास से पहले सूची जाँचें।</value></data>
+  <data name="ExcelImport_HeaderRange" xml:space="preserve"><value>शीर्षक पंक्ति 1 से 1048576 के बीच होनी चाहिए।</value></data>
+  <data name="ExcelImport_NoData" xml:space="preserve"><value>शीर्षक पंक्ति के नीचे कोई कार्य नहीं मिला।</value></data>
+  <data name="ExcelImport_RowLimit" xml:space="preserve"><value>प्रति कार्यपत्रक अधिकतम 1000 डेटा पंक्तियों की अनुमति है।</value></data>
+  <data name="ExcelImport_FileTooLarge" xml:space="preserve"><value>फ़ाइल अधिकतम 10 MB की हो सकती है।</value></data>
+  <data name="ExcelImport_ArchiveLimit" xml:space="preserve"><value>खोली गई कार्यपुस्तिका बहुत बड़ी है या उसमें दोहराई गई प्रविष्टियाँ हैं।</value></data>
+  <data name="ExcelImport_UnsafeWorkbook" xml:space="preserve"><value>मैक्रो, एम्बेड किए गए ऑब्जेक्ट और बाहरी लिंक की अनुमति नहीं है।</value></data>
+  <data name="ExcelImport_ExternalLinks" xml:space="preserve"><value>बाहरी लिंक की अनुमति नहीं है।</value></data>
+  <data name="ExcelImport_MissingPart" xml:space="preserve"><value>कार्यपुस्तिका का एक आवश्यक भाग नहीं है।</value></data>
+  <data name="ExcelImport_MissingRelationshipId" xml:space="preserve"><value>संबंध की ID नहीं है।</value></data>
+  <data name="ExcelImport_MissingRelationshipTarget" xml:space="preserve"><value>संबंध का लक्ष्य नहीं है।</value></data>
+  <data name="ExcelImport_StringLimit" xml:space="preserve"><value>बहुत अधिक साझा स्ट्रिंग हैं।</value></data>
+  <data name="ExcelImport_MissingSheetDefinition" xml:space="preserve"><value>कार्यपत्रक की परिभाषा नहीं है।</value></data>
+  <data name="ExcelImport_SheetLimit" xml:space="preserve"><value>अधिकतम 10 कार्यपत्रकों की अनुमति है।</value></data>
+  <data name="ExcelImport_MissingSheetId" xml:space="preserve"><value>कार्यपत्रक की ID नहीं है।</value></data>
+  <data name="ExcelImport_InvalidSheetReference" xml:space="preserve"><value>कार्यपत्रक संदर्भ अमान्य है।</value></data>
+  <data name="ExcelImport_MissingSheetData" xml:space="preserve"><value>कार्यपत्रक का डेटा नहीं है।</value></data>
+  <data name="ExcelImport_InvalidRowNumber" xml:space="preserve"><value>Excel पंक्ति संख्या अमान्य या दोहराई गई है।</value></data>
+  <data name="ExcelImport_MissingCellReference" xml:space="preserve"><value>सेल का पता नहीं है।</value></data>
+  <data name="ExcelImport_ColumnLimit" xml:space="preserve"><value>अधिकतम 128 अलग स्तंभों की अनुमति है।</value></data>
+  <data name="ExcelImport_InvalidStringReference" xml:space="preserve"><value>टेक्स्ट संदर्भ अमान्य है।</value></data>
+  <data name="ExcelImport_ExcelError" xml:space="preserve"><value>कार्यपत्रक में Excel त्रुटि मान हैं।</value></data>
+  <data name="ExcelImport_InvalidCell" xml:space="preserve"><value>किसी सेल में बहुत अधिक टेक्स्ट या अमान्य नियंत्रण वर्ण हैं।</value></data>
+  <data name="ExcelImport_SourceRowLimit" xml:space="preserve"><value>प्रारंभिक पंक्तियों सहित अधिकतम 10000 भरी हुई पंक्तियों की अनुमति है।</value></data>
+  <data name="ExcelImport_Sheet" xml:space="preserve"><value>कार्यपत्रक</value></data>
+  <data name="ExcelImport_NoSheets" xml:space="preserve"><value>शीर्षकों और डेटा वाला कोई कार्यपत्रक नहीं मिला।</value></data>
+  <data name="ExcelImport_EmptyHeader" xml:space="preserve"><value>पंक्ति {0} खाली है या मौजूद नहीं है। भरी हुई शीर्षक पंक्ति चुनें।</value></data>
+  <data name="ExcelImport_Column" xml:space="preserve"><value>स्तंभ {0}</value></data>
+  <data name="ExcelImport_InvalidWorkbook" xml:space="preserve"><value>फ़ाइल समर्थित, मान्य XLSX फ़ाइल नहीं है।</value></data>
+  <data name="ExcelImport_MissingFormulaResult" xml:space="preserve"><value>कार्यपत्रक “{0}”, सेल {1}: सूत्र का सहेजा गया परिणाम नहीं है। Excel में दोबारा गणना करके फ़ाइल सहेजें।</value></data>
+  <data name="ExcelImport_FieldTitle" xml:space="preserve"><value>शीर्षक *</value></data>
+  <data name="ExcelImport_FieldDescription" xml:space="preserve"><value>विवरण</value></data>
+  <data name="ExcelImport_FieldColumn" xml:space="preserve"><value>स्थिति / सूची स्तंभ</value></data>
+  <data name="ExcelImport_FieldStartDate" xml:space="preserve"><value>प्रारंभ तिथि</value></data>
+  <data name="ExcelImport_FieldDueDate" xml:space="preserve"><value>नियत तिथि</value></data>
+  <data name="ExcelImport_FieldDone" xml:space="preserve"><value>पूर्ण</value></data>
+  <data name="ExcelImport_FieldIsImportant" xml:space="preserve"><value>महत्वपूर्ण</value></data>
+  <data name="ExcelImport_FieldAssignee" xml:space="preserve"><value>जिम्मेदार व्यक्ति</value></data>
+  <data name="ExcelImport_FieldLabels" xml:space="preserve"><value>लेबल</value></data>
+  <data name="ExcelImport_DateHint" xml:space="preserve"><value>DD.MM.YYYY या YYYY-MM-DD</value></data>
+  <data name="ExcelImport_BooleanHint" xml:space="preserve"><value>हाँ/नहीं, true/false या 1/0</value></data>
+  <data name="ExcelImport_AssigneeHint" xml:space="preserve"><value>आमंत्रण स्वीकार कर चुके सूची सहभागी की उपयोगकर्ता ID या ईमेल</value></data>
+  <data name="ExcelImport_LabelsHint" xml:space="preserve"><value>मौजूदा लेबल नाम, ; से अलग करें</value></data>
+  <data name="ExcelImport_MultipleHint" xml:space="preserve"><value> (एकाधिक मान ; से अलग करें)</value></data>
+  <data name="ExcelImport_TaskReferenceHint" xml:space="preserve"><value>लिंक की गई सूची के मौजूदा कार्य की ID</value></data>
+  <data name="ExcelImport_NumberHint" xml:space="preserve"><value>संख्या, जैसे 12.5</value></data>
+  <data name="ExcelImport_TextHint" xml:space="preserve"><value>टेक्स्ट</value></data>
+  <data name="ExcelImport_InvalidDimensions" xml:space="preserve"><value>पंक्तियों या स्तंभों की संख्या अमान्य है।</value></data>
+  <data name="ExcelImport_InvalidMapping" xml:space="preserve"><value>फ़ील्ड मैपिंग अमान्य या पुरानी है।</value></data>
+  <data name="ExcelImport_InvalidValue" xml:space="preserve"><value>फ़ील्ड में अमान्य सामग्री या 10000 से अधिक वर्ण हैं।</value></data>
+  <data name="ExcelImport_InvalidNumber" xml:space="preserve"><value>संख्या अमान्य है। हज़ार के विभाजक हटा दें।</value></data>
+  <data name="ExcelImport_InvalidBoolean" xml:space="preserve"><value>हाँ/नहीं का मान अमान्य है।</value></data>
+  <data name="ExcelImport_InvalidDate" xml:space="preserve"><value>तिथि अमान्य है। DD.MM.YYYY या YYYY-MM-DD का उपयोग करें।</value></data>
+  <data name="ExcelImport_OptionsHint" xml:space="preserve"><value>विकल्प: {0}</value></data>
+  <data name="ExcelImport_UnknownLabel" xml:space="preserve"><value>लेबल “{0}” अज्ञात या अस्पष्ट है।</value></data>
+  <data name="ExcelImport_RequiredField" xml:space="preserve"><value>आवश्यक फ़ील्ड “{0}” नहीं है।</value></data>
+  <data name="ExcelImport_RequiredSelection" xml:space="preserve"><value>आवश्यक फ़ील्ड “{0}” में कम से कम एक चयन चाहिए।</value></data>
+  <data name="ExcelImport_RowError" xml:space="preserve"><value>Excel पंक्ति {0}: {1}</value></data>
+  <data name="ExcelImport_MissingStatusTarget" xml:space="preserve"><value>स्थिति “{0}” का लक्ष्य स्तंभ नहीं है। “स्थिति मानों की मैपिंग” में सूची का स्तंभ चुनें।</value></data>
+  <data name="ExcelImport_UnknownStatus" xml:space="preserve"><value>स्थिति “{0}” किसी सूची स्तंभ से मेल नहीं खाती। मान्य मान: {1}। “स्थिति मानों की मैपिंग” में लक्ष्य चुनें या “स्थिति / सूची स्तंभ” की Excel मैपिंग हटाकर निश्चित डिफ़ॉल्ट मान दें।</value></data>
+  <data name="ExcelImport_ProfileChanged" xml:space="preserve"><value>सर्वर प्रोफ़ाइल या साइन-इन बदल गया है। मैपिंग दोबारा जाँचें।</value></data>
+  <data name="ExcelImport_Offline" xml:space="preserve"><value>Excel आयात के लिए सर्वर से कनेक्शन आवश्यक है।</value></data>
+  <data name="ExcelImport_ServerUpgrade" xml:space="preserve"><value>यह सर्वर अभी Excel आयात का समर्थन नहीं करता। सर्वर अपडेट करें।</value></data>
+  <data name="ExcelImport_Forbidden" xml:space="preserve"><value>आयात की अनुमति नहीं है। साइन-इन और सूची की अनुमतियाँ जाँचें।</value></data>
+  <data name="ExcelImport_InvalidResponse" xml:space="preserve"><value>आयात सर्वर का उत्तर अमान्य है।</value></data>
+  <data name="ExcelImport_HttpError" xml:space="preserve"><value>आयात पूरा नहीं हो सका (HTTP {0})। दोबारा प्रयास से पहले सूची जाँचें।</value></data>
+  <data name="ExcelImport_PartialImport" xml:space="preserve"><value>यह आयात पहले ही आंशिक रूप से संसाधित हो चुका है। सूची दोबारा लोड करें।</value></data>
+  <data name="ExcelImport_NoWriteAccess" xml:space="preserve"><value>इस सूची में लिखने की अनुमति नहीं है।</value></data>
+  <data name="ExcelImport_NotificationTitle" xml:space="preserve"><value>कार्य आयात किया गया</value></data>
+  <data name="ExcelImport_NotificationBody" xml:space="preserve"><value>कार्य “{0}” आयात किया गया।</value></data>
+  <data name="ExcelImport_IncompleteRequest" xml:space="preserve"><value>आयात अनुरोध अधूरा है।</value></data>
+  <data name="ExcelImport_EmptyTitle" xml:space="preserve"><value>कार्य का शीर्षक खाली नहीं हो सकता।</value></data>
+  <data name="ExcelImport_NoColumns" xml:space="preserve"><value>सूची में कोई स्तंभ नहीं है।</value></data>
+  <data name="ExcelImport_InvalidTaskColumn" xml:space="preserve"><value>कार्य किसी अज्ञात स्तंभ का संदर्भ देता है।</value></data>
+  <data name="ExcelImport_InvalidAssignee" xml:space="preserve"><value>जिम्मेदार व्यक्ति सूची का ऐसा सहभागी होना चाहिए जिसने आमंत्रण स्वीकार किया हो।</value></data>
+  <data name="ExcelImport_TitleTooLong" xml:space="preserve"><value>कार्य का शीर्षक अधिकतम {0} वर्णों का हो सकता है।</value></data>
+  <data name="FileExport_Closed" xml:space="preserve"><value>निर्यात संवाद बंद हो गया है।</value></data>
+  <data name="FileExport_UnsupportedFormat" xml:space="preserve"><value>यह निर्यात प्रारूप समर्थित नहीं है।</value></data>
+  <data name="FileExport_TooLarge" xml:space="preserve"><value>निर्यात बहुत बड़ा है। एक बार में कम चित्र चुनें।</value></data>
+  <data name="FileExport_Busy" xml:space="preserve"><value>एक निर्यात पहले से साझा हो रहा है।</value></data>
+  <data name="FileExport_InvalidFileName" xml:space="preserve"><value>फ़ाइल नाम अमान्य है।</value></data>
+  <data name="ExcelImport_Action" xml:space="preserve"><value>आयात</value></data>
+  <data name="Timeline_QuarterLabel" xml:space="preserve"><value>तिमाही {0} {1}</value></data>
+  <data name="ExcelImport_InvalidTaskReference" xml:space="preserve"><value>कार्य चयन फ़ील्ड किसी मान्य कार्य का संदर्भ नहीं देता।</value></data>
+  <data name="ExcelImport_MissingTaskReference" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” किसी मौजूदा कार्य का संदर्भ नहीं देता।</value></data>
+  <data name="ExcelImport_FieldNeedsNumber" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में संख्या चाहिए।</value></data>
+  <data name="ExcelImport_FieldNeedsDate" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में मान्य तिथि चाहिए।</value></data>
+  <data name="ExcelImport_FieldNeedsBoolean" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में हाँ या नहीं चाहिए।</value></data>
+  <data name="ExcelImport_FieldInvalidSelection" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में अमान्य चयन है।</value></data>
 </root>

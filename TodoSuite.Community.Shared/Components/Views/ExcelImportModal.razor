@@ -1,22 +1,23 @@
-@inject TodoTaskService TaskService
+@using Microsoft.Extensions.Logging
+@inject IExcelTaskImportService TaskService
 @inject ILogger<ExcelImportModal> Logger
 
 <div class="excel-import-backdrop" @onkeydown="OnKeyDown">
     <section class="excel-import-dialog" role="dialog" aria-modal="true" aria-labelledby="excel-import-title" tabindex="-1" @ref="_dialog">
         <header>
             <div>
-                <h2 id="excel-import-title">Excel-Import</h2>
-                <p>Aufgaben in „@List.Name“ importieren</p>
+                <h2 id="excel-import-title">@L["ExcelImport_Title"]</h2>
+                <p>@L["ExcelImport_IntoList", List.Name]</p>
             </div>
-            <button type="button" aria-label="Schließen" disabled="@_busy" @onclick="CloseAsync">✕</button>
+            <button type="button" aria-label="@L["ExcelImport_Close"]" disabled="@_busy" @onclick="CloseAsync">✕</button>
         </header>
         <div class="excel-import-body" aria-busy="@_busy">
             @if (_result is not null)
             {
-                <p role="status">@_result.Count Aufgaben wurden importiert.</p>
+                <p role="status">@L["ExcelImport_Imported", _result.Count]</p>
                 @if (_result.FollowUpFailed)
                 {
-                    <p role="alert">Die Aufgaben sind gespeichert. Einige Benachrichtigungen oder Automationen konnten nicht ausgeführt werden. Bitte nicht erneut importieren.</p>
+                    <p role="alert">@L["ExcelImport_FollowUpFailed"]</p>
                 }
             }
             else
@@ -24,7 +25,7 @@
                 <label class="excel-upload">Excel-Datei (.xlsx, maximal 10 MB)
                     <InputFile OnChange="UploadAsync" accept=".xlsx" disabled="@_busy" />
                 </label>
-                <p>Wähle nach dem Upload das Tabellenblatt und die Überschriftenzeile. Maximal 1000 Aufgaben und 128 Spalten pro Arbeitsblatt. Bei Formeln werden die in Excel gespeicherten Ergebnisse importiert. Bitte die Datei vor dem Upload in Excel neu berechnen und speichern. Makros und externe Verknüpfungen sind nicht erlaubt.</p>
+                <p>@L["ExcelImport_UploadHint"]</p>
                 @if (_document is not null)
                 {
                     <label>Tabellenblatt für den Import auswählen
@@ -39,22 +40,22 @@
                         <input type="number" min="1" max="@ExcelImportDocument.MaxExcelRowNumber" step="1"
                                @bind="_headerRowInput" @bind:event="oninput" @bind:after="ChangeHeaderRow" disabled="@_busy" />
                     </label>
-                    <p>Beispiel: Überschriften in Zeile 5 → Aufgaben ab Zeile 6. Zeilen vor den Überschriften und leere Datenzeilen werden übersprungen.</p>
+                    <p>@L["ExcelImport_HeaderHint"]</p>
                     @if (_sheet is not null)
                     {
-                    <p>@Sheet.Rows.Count Aufgaben ab Zeile @(Sheet.HeaderRowNumber + 1).</p>
-                    <h3>Spaltenzuordnung und Standardwerte</h3>
-                    <p>Ordne jedem gewünschten Listenfeld eine Excel-Spalte zu. Der Standardwert wird verwendet, wenn keine Spalte zugeordnet oder die Zelle leer ist. Nicht zugeordnete Excel-Spalten werden ignoriert.</p>
+                    <p>@L["ExcelImport_RowsFrom", Sheet.Rows.Count, Sheet.HeaderRowNumber + 1]</p>
+                    <h3>@L["ExcelImport_MappingTitle"]</h3>
+                    <p>@L["ExcelImport_MappingHint"]</p>
                     <div class="excel-table-scroll">
                         <table>
-                            <thead><tr><th>Listenfeld</th><th>Excel-Spalte</th><th>Standardwert bei leerer Zelle</th></tr></thead>
+                            <thead><tr><th>@L["ExcelImport_ListField"]</th><th>@L["ExcelImport_ExcelColumn"]</th><th>@L["ExcelImport_DefaultValue"]</th></tr></thead>
                             <tbody>
                                 @foreach (var field in _mappings)
                                 {
                                     <tr @key="field.Key">
                                         <th scope="row">@field.Name <small>@field.Hint</small></th>
-                                        <td><select aria-label="@($"Excel-Spalte für {field.Name}")" @bind="field.Column" @bind:after="() => FieldColumnChanged(field)" disabled="@_busy">
-                                            <option value="-1">Keine Zuordnung</option>
+                                        <td><select aria-label="@L["ExcelImport_ColumnFor", field.Name]" @bind="field.Column" @bind:after="() => FieldColumnChanged(field)" disabled="@_busy">
+                                            <option value="-1">@L["ExcelImport_NoMapping"]</option>
                                             @for (var i = 0; i < Sheet.Headers.Length; i++)
                                             {
                                                 <option value="@i">@(i + 1): @Sheet.Headers[i]</option>
@@ -63,14 +64,14 @@
                                         <td>
                                             @if (field.Key == "Column")
                                             {
-                                                <select aria-label="Standardwert für Status / Listenspalte" @bind="field.DefaultValue" @bind:after="Invalidate" disabled="@_busy">
-                                                    <option value="">Erste Listenspalte</option>
+                                                <select aria-label="@L["ExcelImport_StatusDefault"]" @bind="field.DefaultValue" @bind:after="Invalidate" disabled="@_busy">
+                                                    <option value="">@L["ExcelImport_FirstColumn"]</option>
                                                     @foreach (var column in List.Columns) { <option value="@column">@column</option> }
                                                 </select>
                                             }
                                             else
                                             {
-                                            <input aria-label="@($"Standardwert für {field.Name}")" list="@($"excel-default-{field.Key}")" @bind="field.DefaultValue" @bind:event="oninput" @bind:after="Invalidate" maxlength="10000" disabled="@_busy" />
+                                            <input aria-label="@L["ExcelImport_DefaultFor", field.Name]" list="@($"excel-default-{field.Key}")" @bind="field.DefaultValue" @bind:event="oninput" @bind:after="Invalidate" maxlength="10000" disabled="@_busy" />
                                             <datalist id="@($"excel-default-{field.Key}")">
                                                 @foreach (var value in DefaultOptions(field.Key)) { <option value="@value"></option> }
                                             </datalist>
@@ -83,17 +84,17 @@
                     </div>
                     @if (StatusMapping is { Column: >= 0 })
                     {
-                        <h3>Statuswerte zuordnen</h3>
-                        <p>Ordne die Werte aus „@Sheet.Headers[StatusMapping.Column]“ den vorhandenen Listenspalten zu. Unbekannte Werte müssen vor dem Import zugeordnet werden. Ein Standardwert gilt nur für leere Zellen.</p>
+                        <h3>@L["ExcelImport_StatusMapping"]</h3>
+                        <p>@L["ExcelImport_StatusHint", Sheet.Headers[StatusMapping.Column]]</p>
                         <div class="excel-table-scroll"><table>
-                            <thead><tr><th>Status aus Excel</th><th>Zielspalte der Liste</th></tr></thead>
+                            <thead><tr><th>@L["ExcelImport_SourceStatus"]</th><th>@L["ExcelImport_TargetColumn"]</th></tr></thead>
                             <tbody>
                                 @foreach (var value in StatusValues())
                                 {
                                     <tr @key="value"><th scope="row">@Short(value)</th><td>
-                                        <select aria-label="@($"Zielspalte für Status {Short(value)}")" value="@StatusTarget(value)"
+                                        <select aria-label="@L["ExcelImport_TargetFor", Short(value)]" value="@StatusTarget(value)"
                                                 @onchange="e => MapStatus(value, e.Value?.ToString())" disabled="@_busy">
-                                            <option value="">Bitte Zielspalte auswählen</option>
+                                            <option value="">@L["ExcelImport_SelectTarget"]</option>
                                             @foreach (var column in List.Columns) { <option value="@column">@column</option> }
                                         </select>
                                     </td></tr>
@@ -102,9 +103,9 @@
                         </table></div>
                     }
                     <details>
-                        <summary>Excel-Vorschau (erste 5 Datenzeilen)</summary>
+                        <summary>@L["ExcelImport_SheetPreview"]</summary>
                         <div class="excel-table-scroll"><table>
-                            <thead><tr><th>Zeile</th>@foreach (var header in Sheet.Headers) { <th>@header</th> }</tr></thead>
+                            <thead><tr><th>@L["ExcelImport_Row"]</th>@foreach (var header in Sheet.Headers) { <th>@header</th> }</tr></thead>
                             <tbody>@foreach (var row in Sheet.Rows.Take(5))
                             {
                                 <tr><td>@row.Number</td>@foreach (var value in row.Cells) { <td>@Short(value)</td> }</tr>
@@ -113,13 +114,13 @@
                     </details>
                     @if (_preview is not null)
                     {
-                        <h3>Importvorschau</h3>
-                        <p role="status">Alle @_preview.Count Aufgaben wurden geprüft. Mit „Import bestätigen“ werden sie in „@List.Name“ angelegt.</p>
+                        <h3>@L["ExcelImport_Preview"]</h3>
+                        <p role="status">@L["ExcelImport_Validated", _preview.Count, List.Name]</p>
                         <div class="excel-table-scroll"><table>
-                            <thead><tr><th>Titel</th><th>Status</th><th>Fällig am</th></tr></thead>
+                            <thead><tr><th>@L["ExcelImport_PreviewTitle"]</th><th>@L["ExcelImport_PreviewStatus"]</th><th>@L["ExcelImport_PreviewDueDate"]</th></tr></thead>
                             <tbody>@foreach (var task in _preview.Take(5))
                             {
-                                <tr><td>@Short(task.Title)</td><td>@task.Column</td><td>@task.DueDate?.ToString("dd.MM.yyyy")</td></tr>
+                                <tr><td>@Short(task.Title)</td><td>@task.Column</td><td>@task.DueDate?.ToString("d")</td></tr>
                             }</tbody>
                         </table></div>
                     }
@@ -130,16 +131,16 @@
             @if (_error is not null) { <p class="excel-import-error" role="alert">@_error</p> }
         </div>
         <footer>
-            <button type="button" disabled="@_busy" @onclick="CloseAsync">@(_result is null ? "Abbrechen" : "Schließen")</button>
+            <button type="button" disabled="@_busy" @onclick="CloseAsync">@(_result is null ? L["Btn_Cancel"] : L["Btn_Close"])</button>
             @if (_document is not null && _sheet is not null && _result is null)
             {
                 @if (_preview is null)
                 {
-                    <button type="button" class="excel-import-primary" disabled="@_busy" @onclick="ValidateAsync">Zuordnung prüfen</button>
+                    <button type="button" class="excel-import-primary" disabled="@_busy" @onclick="ValidateAsync">@L["ExcelImport_Validate"]</button>
                 }
                 else
                 {
-                    <button type="button" class="excel-import-primary" disabled="@_busy" @onclick="ImportAsync">Import bestätigen (@_preview.Count Aufgaben)</button>
+                    <button type="button" class="excel-import-primary" disabled="@_busy" @onclick="ImportAsync">@L["ExcelImport_Confirm", _preview.Count]</button>
                 }
             }
         </footer>
@@ -164,6 +165,7 @@
     private bool _busy;
     private string? _error;
     private string _progress = "";
+    private Guid _importId = Guid.NewGuid();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -176,11 +178,13 @@
         _document = null;
         _sheet = null;
         _preview = null;
-        await RunAsync("Datei wird analysiert …", async () =>
+        await RunAsync(L["ExcelImport_Analyzing"], async () =>
         {
             var file = args.File;
+            if (file.Size > ExcelImportDocument.MaxFileBytes)
+                throw new InvalidDataException(L["ExcelImport_FileTooLarge"]);
             if (!string.Equals(Path.GetExtension(file.Name), ".xlsx", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Bitte eine XLSX-Datei auswählen. Ältere XLS-Dateien bitte zuerst als XLSX speichern.");
+                throw new InvalidDataException(L["ExcelImport_SelectXlsx"]);
             await using var stream = file.OpenReadStream(ExcelImportDocument.MaxFileBytes);
             using var buffer = new MemoryStream();
             await stream.CopyToAsync(buffer);
@@ -203,7 +207,7 @@
         _sheet = null;
         if (!int.TryParse(_headerRowInput, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number))
         {
-            _error = "Bitte eine gültige Zeilennummer für die Spaltenüberschriften eingeben.";
+            _error = L["ExcelImport_InvalidHeaderRow"];
             return;
         }
         try { _sheet = _document!.Sheets[_sheetIndex].WithHeaderRow(number); }
@@ -213,13 +217,11 @@
         foreach (var field in _mappings)
         {
             field.DefaultValue = defaults.GetValueOrDefault(field.Key, "");
-            var name = field.Name.TrimEnd(' ', '*');
-            field.Column = Array.FindIndex(Sheet.Headers, h => string.Equals(h, name, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(h, field.Key, StringComparison.OrdinalIgnoreCase));
+            field.Column = ExcelTaskMapping.FindColumn(Sheet.Headers, field);
         }
     }
 
-    private void Invalidate() { _preview = null; _error = null; }
+    private void Invalidate() { _preview = null; _error = null; _importId = Guid.NewGuid(); }
     private void FieldColumnChanged(ExcelFieldMapping field)
     {
         field.ValueMappings.Clear();
@@ -245,24 +247,24 @@
     private IEnumerable<string> DefaultOptions(string key)
     {
         if (key == "Column") return List.Columns;
-        if (key is "Done" or "IsImportant") return ["Ja", "Nein"];
+        if (key is "Done" or "IsImportant") return [L["Common_Yes"].Value, L["Common_No"].Value];
         if (key == "Assignee") return List.Participants.Where(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
             .Select(p => string.IsNullOrWhiteSpace(p.Email) ? p.UserId! : p.Email!).Prepend(List.OwnerId).Distinct();
         var field = List.CustomFields.FirstOrDefault(f => f.Id.ToString() == key);
         return field?.Type switch
         {
-            TodoCustomFieldType.Checkbox => ["Ja", "Nein"],
+            TodoCustomFieldType.Checkbox => [L["Common_Yes"].Value, L["Common_No"].Value],
             TodoCustomFieldType.Dropdown => field.Options.Select(o => o.Value),
             _ => []
         };
     }
-    private Task ValidateAsync() => RunAsync("Alle Zeilen werden geprüft …", async () =>
+    private Task ValidateAsync() => RunAsync(L["ExcelImport_Validating"], async () =>
         _preview = await TaskService.ValidateExcelImportAsync(UserId, List.Id, Sheet, _document!.Date1904, _mappings));
 
-    private Task ImportAsync() => RunAsync("Aufgaben werden importiert …", async () =>
+    private Task ImportAsync() => RunAsync(L["ExcelImport_Importing"], async () =>
     {
         if (_preview is null) return;
-        _result = await TaskService.ImportExcelAsync(UserId, List.Id, Sheet, _document!.Date1904, _mappings);
+        _result = await TaskService.ImportExcelAsync(UserId, List.Id, Sheet, _document!.Date1904, _mappings, _importId);
         _document = null;
         _sheet = null;
         _preview = null;
@@ -284,7 +286,7 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Excel import failed for list {ListId}", List.Id);
-            _error = _result is null ? "Der Import konnte nicht abgeschlossen werden. Bitte erneut prüfen." : "Die Aufgaben sind gespeichert. Die Listenansicht konnte nicht aktualisiert werden.";
+            _error = _result is null ? L["ExcelImport_Failed"] : L["ExcelImport_RefreshFailed"];
             _preview = null;
         }
         finally { _busy = false; }

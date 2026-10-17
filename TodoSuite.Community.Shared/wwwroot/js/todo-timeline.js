@@ -271,6 +271,7 @@
     ui.downloadTimelineExport = async (canvas, filename) => {
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         if (!blob) throw new Error('PNG encoding failed');
+        if (ui.saveBlob) { await ui.saveBlob(blob, filename); return; }
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url; link.download = filename.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').slice(0, 220).replace(/\.png$/i, '') + '.png';
@@ -282,7 +283,8 @@
 (() => {
     const ui = window.todoUi;
     const safeName = name => name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').slice(0, 180).replace(/\.png$/i, '');
-    const save = (blob, filename) => {
+    const save = async (blob, filename) => {
+        if (ui.saveBlob) { await ui.saveBlob(blob, filename); return; }
         const url = URL.createObjectURL(blob), link = document.createElement('a');
         link.href = url; link.download = filename;
         document.body.appendChild(link); link.click(); link.remove();
@@ -312,7 +314,7 @@
                 const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
                 if (!blob) throw new Error('PNG encoding failed');
                 const name = base + (model.pageCount > 1 ? `-${String(model.pageNumber).padStart(3, '0')}` : '') + '.png';
-                if (models.length === 1) { save(blob, name); return; }
+                if (models.length === 1) { await save(blob, name); return; }
                 if (offset + blob.size > 200000000) throw new Error('Archive too large');
                 const bytes = new Uint8Array(await blob.arrayBuffer()), encodedName = new TextEncoder().encode(name), crc = crc32(bytes);
                 const local = new Uint8Array(30 + encodedName.length), l = new DataView(local.buffer);
@@ -330,7 +332,7 @@
             const end = new Uint8Array(22), e = new DataView(end.buffer);
             e.setUint32(0, 0x06054b50, true); e.setUint16(8, models.length, true); e.setUint16(10, models.length, true);
             e.setUint32(12, centralSize, true); e.setUint32(16, offset, true);
-            save(new Blob([...locals, ...central, end], { type: 'application/zip' }), base + '.zip');
+            await save(new Blob([...locals, ...central, end], { type: 'application/zip' }), base + '.zip');
         } finally { canvas.width = 1; canvas.height = 1; }
     };
 })();

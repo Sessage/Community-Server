@@ -2558,4 +2558,136 @@
   <data name="Timeline_ExportPreviousPreview" xml:space="preserve"><value>The last valid preview remains visible while updating.</value></data>
   <data name="Timeline_Quarters" xml:space="preserve"><value>Quarters</value></data>
   <data name="Timeline_ExportQuarters" xml:space="preserve"><value>Quarters · this quarter and next 3 quarters</value></data>
+  <data name="ExcelImport_Title" xml:space="preserve"><value>Excel import</value></data>
+  <data name="ExcelImport_Close" xml:space="preserve"><value>Close</value></data>
+  <data name="ExcelImport_Upload" xml:space="preserve"><value>Excel file (.xlsx, up to 10 MB)</value></data>
+  <data name="ExcelImport_UploadHint" xml:space="preserve"><value>After uploading, choose the worksheet and header row. Up to 1000 tasks and 128 columns per worksheet. Formulas use the results saved in Excel. Recalculate and save the file in Excel before uploading. Macros and external links are not allowed.</value></data>
+  <data name="ExcelImport_FollowUpFailed" xml:space="preserve"><value>The tasks are saved. Some notifications or automations could not run. Do not import again.</value></data>
+  <data name="ExcelImport_SelectSheet" xml:space="preserve"><value>Choose a worksheet to import</value></data>
+  <data name="ExcelImport_HeaderRow" xml:space="preserve"><value>Column header row</value></data>
+  <data name="ExcelImport_HeaderHint" xml:space="preserve"><value>Example: headers on row 5 → tasks start on row 6. Rows before the headers and empty data rows are skipped.</value></data>
+  <data name="ExcelImport_MappingTitle" xml:space="preserve"><value>Column mappings and defaults</value></data>
+  <data name="ExcelImport_MappingHint" xml:space="preserve"><value>Map each desired list field to an Excel column. The default is used when no column is mapped or the cell is empty. Unmapped Excel columns are ignored.</value></data>
+  <data name="ExcelImport_ListField" xml:space="preserve"><value>List field</value></data>
+  <data name="ExcelImport_ExcelColumn" xml:space="preserve"><value>Excel column</value></data>
+  <data name="ExcelImport_DefaultValue" xml:space="preserve"><value>Default for empty cells</value></data>
+  <data name="ExcelImport_NoMapping" xml:space="preserve"><value>No mapping</value></data>
+  <data name="ExcelImport_StatusDefault" xml:space="preserve"><value>Default for status / list column</value></data>
+  <data name="ExcelImport_FirstColumn" xml:space="preserve"><value>First list column</value></data>
+  <data name="ExcelImport_StatusMapping" xml:space="preserve"><value>Map status values</value></data>
+  <data name="ExcelImport_SourceStatus" xml:space="preserve"><value>Status from Excel</value></data>
+  <data name="ExcelImport_TargetColumn" xml:space="preserve"><value>Target list column</value></data>
+  <data name="ExcelImport_SelectTarget" xml:space="preserve"><value>Choose a target column</value></data>
+  <data name="ExcelImport_SheetPreview" xml:space="preserve"><value>Excel preview (first 5 data rows)</value></data>
+  <data name="ExcelImport_Row" xml:space="preserve"><value>Row</value></data>
+  <data name="ExcelImport_Preview" xml:space="preserve"><value>Import preview</value></data>
+  <data name="ExcelImport_PreviewTitle" xml:space="preserve"><value>Title</value></data>
+  <data name="ExcelImport_PreviewStatus" xml:space="preserve"><value>Status</value></data>
+  <data name="ExcelImport_PreviewDueDate" xml:space="preserve"><value>Due date</value></data>
+  <data name="ExcelImport_Validate" xml:space="preserve"><value>Validate mappings</value></data>
+  <data name="ExcelImport_IntoList" xml:space="preserve"><value>Import tasks into “{0}”</value></data>
+  <data name="ExcelImport_Imported" xml:space="preserve"><value>{0} tasks imported.</value></data>
+  <data name="ExcelImport_RowsFrom" xml:space="preserve"><value>{0} tasks starting on row {1}.</value></data>
+  <data name="ExcelImport_ColumnFor" xml:space="preserve"><value>Excel column for {0}</value></data>
+  <data name="ExcelImport_DefaultFor" xml:space="preserve"><value>Default for {0}</value></data>
+  <data name="ExcelImport_StatusHint" xml:space="preserve"><value>Map values from “{0}” to existing list columns. Unknown values must be mapped before importing. A default applies only to empty cells.</value></data>
+  <data name="ExcelImport_TargetFor" xml:space="preserve"><value>Target column for status {0}</value></data>
+  <data name="ExcelImport_Validated" xml:space="preserve"><value>All {0} tasks have been validated. “Confirm import” creates them in “{1}”.</value></data>
+  <data name="ExcelImport_Confirm" xml:space="preserve"><value>Confirm import ({0} tasks)</value></data>
+  <data name="ExcelImport_Analyzing" xml:space="preserve"><value>Analyzing file…</value></data>
+  <data name="ExcelImport_SelectXlsx" xml:space="preserve"><value>Choose an XLSX file. Save older XLS files as XLSX first.</value></data>
+  <data name="ExcelImport_InvalidHeaderRow" xml:space="preserve"><value>Enter a valid row number for the column headers.</value></data>
+  <data name="ExcelImport_Validating" xml:space="preserve"><value>Validating all rows…</value></data>
+  <data name="ExcelImport_Importing" xml:space="preserve"><value>Importing tasks…</value></data>
+  <data name="ExcelImport_Failed" xml:space="preserve"><value>The import could not be completed. Validate again.</value></data>
+  <data name="ExcelImport_RefreshFailed" xml:space="preserve"><value>The tasks are saved. The list view could not be refreshed.</value></data>
+  <data name="ExcelImport_ConnectionFailed" xml:space="preserve"><value>Could not connect to the import server. Check the list before trying again.</value></data>
+  <data name="ExcelImport_HeaderRange" xml:space="preserve"><value>The header row must be between 1 and 1048576.</value></data>
+  <data name="ExcelImport_NoData" xml:space="preserve"><value>No tasks were found below the header row.</value></data>
+  <data name="ExcelImport_RowLimit" xml:space="preserve"><value>Up to 1000 data rows per worksheet are allowed.</value></data>
+  <data name="ExcelImport_FileTooLarge" xml:space="preserve"><value>The file must not exceed 10 MB.</value></data>
+  <data name="ExcelImport_ArchiveLimit" xml:space="preserve"><value>The expanded workbook is too large or contains duplicate entries.</value></data>
+  <data name="ExcelImport_UnsafeWorkbook" xml:space="preserve"><value>Macros, embedded objects and external links are not allowed.</value></data>
+  <data name="ExcelImport_ExternalLinks" xml:space="preserve"><value>External links are not allowed.</value></data>
+  <data name="ExcelImport_MissingPart" xml:space="preserve"><value>A required part of the workbook is missing.</value></data>
+  <data name="ExcelImport_MissingRelationshipId" xml:space="preserve"><value>A relationship ID is missing.</value></data>
+  <data name="ExcelImport_MissingRelationshipTarget" xml:space="preserve"><value>A relationship target is missing.</value></data>
+  <data name="ExcelImport_StringLimit" xml:space="preserve"><value>Too many shared strings.</value></data>
+  <data name="ExcelImport_MissingSheetDefinition" xml:space="preserve"><value>The worksheet definition is missing.</value></data>
+  <data name="ExcelImport_SheetLimit" xml:space="preserve"><value>Up to 10 worksheets are allowed.</value></data>
+  <data name="ExcelImport_MissingSheetId" xml:space="preserve"><value>A worksheet ID is missing.</value></data>
+  <data name="ExcelImport_InvalidSheetReference" xml:space="preserve"><value>Invalid worksheet reference.</value></data>
+  <data name="ExcelImport_MissingSheetData" xml:space="preserve"><value>Worksheet data is missing.</value></data>
+  <data name="ExcelImport_InvalidRowNumber" xml:space="preserve"><value>Invalid or duplicate Excel row number.</value></data>
+  <data name="ExcelImport_MissingCellReference" xml:space="preserve"><value>A cell address is missing.</value></data>
+  <data name="ExcelImport_ColumnLimit" xml:space="preserve"><value>Up to 128 distinct columns are allowed.</value></data>
+  <data name="ExcelImport_InvalidStringReference" xml:space="preserve"><value>Invalid text reference.</value></data>
+  <data name="ExcelImport_ExcelError" xml:space="preserve"><value>The worksheet contains Excel error values.</value></data>
+  <data name="ExcelImport_InvalidCell" xml:space="preserve"><value>A cell contains too much text or invalid control characters.</value></data>
+  <data name="ExcelImport_SourceRowLimit" xml:space="preserve"><value>Up to 10000 populated rows, including introductory rows, are allowed.</value></data>
+  <data name="ExcelImport_Sheet" xml:space="preserve"><value>Worksheet</value></data>
+  <data name="ExcelImport_NoSheets" xml:space="preserve"><value>No worksheet with headers and data was found.</value></data>
+  <data name="ExcelImport_EmptyHeader" xml:space="preserve"><value>Row {0} is empty or missing. Choose a populated header row.</value></data>
+  <data name="ExcelImport_Column" xml:space="preserve"><value>Column {0}</value></data>
+  <data name="ExcelImport_InvalidWorkbook" xml:space="preserve"><value>The file is not a supported, valid XLSX file.</value></data>
+  <data name="ExcelImport_MissingFormulaResult" xml:space="preserve"><value>Worksheet “{0}”, cell {1}: the formula has no saved result. Recalculate and save the file in Excel.</value></data>
+  <data name="ExcelImport_FieldTitle" xml:space="preserve"><value>Title *</value></data>
+  <data name="ExcelImport_FieldDescription" xml:space="preserve"><value>Description</value></data>
+  <data name="ExcelImport_FieldColumn" xml:space="preserve"><value>Status / list column</value></data>
+  <data name="ExcelImport_FieldStartDate" xml:space="preserve"><value>Start date</value></data>
+  <data name="ExcelImport_FieldDueDate" xml:space="preserve"><value>Due date</value></data>
+  <data name="ExcelImport_FieldDone" xml:space="preserve"><value>Done</value></data>
+  <data name="ExcelImport_FieldIsImportant" xml:space="preserve"><value>Important</value></data>
+  <data name="ExcelImport_FieldAssignee" xml:space="preserve"><value>Assignee</value></data>
+  <data name="ExcelImport_FieldLabels" xml:space="preserve"><value>Labels</value></data>
+  <data name="ExcelImport_DateHint" xml:space="preserve"><value>DD.MM.YYYY or YYYY-MM-DD</value></data>
+  <data name="ExcelImport_BooleanHint" xml:space="preserve"><value>Yes/No, true/false or 1/0</value></data>
+  <data name="ExcelImport_AssigneeHint" xml:space="preserve"><value>User ID or email of a list participant who accepted their invitation</value></data>
+  <data name="ExcelImport_LabelsHint" xml:space="preserve"><value>Existing label names, separated by ;</value></data>
+  <data name="ExcelImport_MultipleHint" xml:space="preserve"><value> (separate multiple values with ;)</value></data>
+  <data name="ExcelImport_TaskReferenceHint" xml:space="preserve"><value>ID of an existing task from the linked list</value></data>
+  <data name="ExcelImport_NumberHint" xml:space="preserve"><value>Number, e.g. 12.5</value></data>
+  <data name="ExcelImport_TextHint" xml:space="preserve"><value>Text</value></data>
+  <data name="ExcelImport_InvalidDimensions" xml:space="preserve"><value>Invalid number of rows or columns.</value></data>
+  <data name="ExcelImport_InvalidMapping" xml:space="preserve"><value>The field mapping is invalid or out of date.</value></data>
+  <data name="ExcelImport_InvalidValue" xml:space="preserve"><value>Invalid field content or more than 10000 characters.</value></data>
+  <data name="ExcelImport_InvalidNumber" xml:space="preserve"><value>Invalid number. Remove thousands separators.</value></data>
+  <data name="ExcelImport_InvalidBoolean" xml:space="preserve"><value>Invalid Yes/No value.</value></data>
+  <data name="ExcelImport_InvalidDate" xml:space="preserve"><value>Invalid date. Use DD.MM.YYYY or YYYY-MM-DD.</value></data>
+  <data name="ExcelImport_OptionsHint" xml:space="preserve"><value>Options: {0}</value></data>
+  <data name="ExcelImport_UnknownLabel" xml:space="preserve"><value>Label “{0}” is unknown or ambiguous.</value></data>
+  <data name="ExcelImport_RequiredField" xml:space="preserve"><value>Required field “{0}” is missing.</value></data>
+  <data name="ExcelImport_RequiredSelection" xml:space="preserve"><value>Required field “{0}” needs at least one selection.</value></data>
+  <data name="ExcelImport_RowError" xml:space="preserve"><value>Excel row {0}: {1}</value></data>
+  <data name="ExcelImport_MissingStatusTarget" xml:space="preserve"><value>Status “{0}” has no target column. Choose a list column under “Map status values”.</value></data>
+  <data name="ExcelImport_UnknownStatus" xml:space="preserve"><value>Status “{0}” does not match a list column. Allowed: {1}. Choose a target under “Map status values”, or remove the Excel mapping for “Status / list column” and set a fixed default.</value></data>
+  <data name="ExcelImport_ProfileChanged" xml:space="preserve"><value>The server profile or sign-in has changed. Validate the mappings again.</value></data>
+  <data name="ExcelImport_Offline" xml:space="preserve"><value>Excel import requires a connection to the server.</value></data>
+  <data name="ExcelImport_ServerUpgrade" xml:space="preserve"><value>This server does not support Excel import yet. Update the server.</value></data>
+  <data name="ExcelImport_Forbidden" xml:space="preserve"><value>You do not have permission to import. Check your sign-in and list permissions.</value></data>
+  <data name="ExcelImport_InvalidResponse" xml:space="preserve"><value>Invalid response from the import server.</value></data>
+  <data name="ExcelImport_HttpError" xml:space="preserve"><value>The import could not be completed (HTTP {0}). Check the list before trying again.</value></data>
+  <data name="ExcelImport_PartialImport" xml:space="preserve"><value>This import has already been partially processed. Reload the list.</value></data>
+  <data name="ExcelImport_NoWriteAccess" xml:space="preserve"><value>You do not have write access to this list.</value></data>
+  <data name="ExcelImport_NotificationTitle" xml:space="preserve"><value>Task imported</value></data>
+  <data name="ExcelImport_NotificationBody" xml:space="preserve"><value>Task “{0}” was imported.</value></data>
+  <data name="ExcelImport_IncompleteRequest" xml:space="preserve"><value>The import request is incomplete.</value></data>
+  <data name="ExcelImport_EmptyTitle" xml:space="preserve"><value>The task title must not be empty.</value></data>
+  <data name="ExcelImport_NoColumns" xml:space="preserve"><value>The list has no columns.</value></data>
+  <data name="ExcelImport_InvalidTaskColumn" xml:space="preserve"><value>The task refers to an unknown column.</value></data>
+  <data name="ExcelImport_InvalidAssignee" xml:space="preserve"><value>The assignee must be a list participant who accepted their invitation.</value></data>
+  <data name="ExcelImport_TitleTooLong" xml:space="preserve"><value>The task title must not exceed {0} characters.</value></data>
+  <data name="FileExport_Closed" xml:space="preserve"><value>The export dialog has been closed.</value></data>
+  <data name="FileExport_UnsupportedFormat" xml:space="preserve"><value>This export format is not supported.</value></data>
+  <data name="FileExport_TooLarge" xml:space="preserve"><value>The export is too large. Select fewer images at a time.</value></data>
+  <data name="FileExport_Busy" xml:space="preserve"><value>An export is already being shared.</value></data>
+  <data name="FileExport_InvalidFileName" xml:space="preserve"><value>Invalid file name.</value></data>
+  <data name="ExcelImport_Action" xml:space="preserve"><value>Import</value></data>
+  <data name="Timeline_QuarterLabel" xml:space="preserve"><value>Q{0} {1}</value></data>
+  <data name="ExcelImport_InvalidTaskReference" xml:space="preserve"><value>A task selection field does not refer to a valid task.</value></data>
+  <data name="ExcelImport_MissingTaskReference" xml:space="preserve"><value>Custom field “{0}” does not refer to an existing task.</value></data>
+  <data name="ExcelImport_FieldNeedsNumber" xml:space="preserve"><value>Custom field “{0}” requires a number.</value></data>
+  <data name="ExcelImport_FieldNeedsDate" xml:space="preserve"><value>Custom field “{0}” requires a valid date.</value></data>
+  <data name="ExcelImport_FieldNeedsBoolean" xml:space="preserve"><value>Custom field “{0}” requires Yes or No.</value></data>
+  <data name="ExcelImport_FieldInvalidSelection" xml:space="preserve"><value>Custom field “{0}” contains an invalid selection.</value></data>
 </root>

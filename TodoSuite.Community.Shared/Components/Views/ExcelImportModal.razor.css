@@ -18,3 +18,9 @@ th, td { padding: 10px; border-bottom: 1px solid #cbd5e1; vertical-align: top; m
 small { display: block; font-weight: normal; font-size: .75rem; margin-top: 4px; }
 .excel-import-error { color: #b91c1c; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; }
 summary { cursor: pointer; margin-top: 16px; }
+@media (max-width: 600px) {
+    .excel-import-backdrop { padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); }
+    .excel-import-dialog { max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px); }
+    header, footer, .excel-import-body { padding: 12px; }
+    footer { flex-wrap: wrap; }
+}

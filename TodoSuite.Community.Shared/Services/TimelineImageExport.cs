@@ -1,4 +1,5 @@
 using System.Globalization;
+using Klassenbibliothek.Localization;
 using Klassenbibliothek.Data;
 
 namespace Klassenbibliothek.Services;
@@ -139,7 +140,7 @@ public static class TimelineImageExport
             switch (options.Scale)
             {
                 case TimelineExportScale.Days:
-                    next = TimelineDateRange.AddDaysClamped(cursor, 1); label = cursor.ToString("dd.MM."); break;
+                    next = TimelineDateRange.AddDaysClamped(cursor, 1); label = cursor.ToString("d"); break;
                 case TimelineExportScale.Weeks:
                     next = TimelineDateRange.AddDaysClamped(cursor, 7 - ((int)cursor.DayOfWeek + 6) % 7);
                     label = $"{ISOWeek.GetYear(cursor)} · {ISOWeek.GetWeekOfYear(cursor):00}"; break;
@@ -149,7 +150,7 @@ public static class TimelineImageExport
                 case TimelineExportScale.Quarters:
                     var quarterEnd = TimelineDateRange.GetQuarterEnd(cursor);
                     next = quarterEnd == DateTime.MaxValue.Date ? cursor : quarterEnd.AddDays(1);
-                    label = $"Q{(cursor.Month - 1) / 3 + 1} {cursor:yyyy}"; break;
+                    label = SharedText.Get("Timeline_QuarterLabel", (cursor.Month - 1) / 3 + 1, cursor.ToString("yyyy")); break;
                 default:
                     next = cursor.Year == 9999 ? DateTime.MaxValue.Date : new DateTime(cursor.Year + 1, 1, 1);
                     label = cursor.ToString("yyyy"); break;

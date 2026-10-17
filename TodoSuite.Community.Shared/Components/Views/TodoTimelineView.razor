@@ -84,7 +84,7 @@ else
                                 @if (_scale == TimelineScale.Day)
                                 {
                                     <span class="timeline-axis__weekday">@segment.Start.ToString("ddd", CultureInfo.CurrentCulture)</span>
-                                    <span class="timeline-axis__date">@segment.Start.ToString("dd.MM", CultureInfo.CurrentCulture)</span>
+                                    <span class="timeline-axis__date">@segment.Start.ToString("d", CultureInfo.CurrentCulture)</span>
                                 }
                                 else
                                 {
@@ -533,13 +533,13 @@ else
             if (_scale == TimelineScale.Day)
             {
                 segmentEnd = cursor;
-                label = cursor.ToString("ddd dd.MM", CultureInfo.CurrentCulture);
+                label = $"{cursor.ToString("ddd", CultureInfo.CurrentCulture)} {cursor:d}";
             }
             else if (_scale == TimelineScale.Week)
             {
                 var daysToSunday = ((int)DayOfWeek.Sunday - (int)cursor.DayOfWeek + 7) % 7;
                 segmentEnd = Min(cursor.AddDays(daysToSunday), range.End);
-                label = $"{L["Timeline_CalendarWeek"]} {ISOWeek.GetWeekOfYear(cursor)} · {cursor:dd.MM.}";
+                label = $"{L["Timeline_CalendarWeek"]} {ISOWeek.GetWeekOfYear(cursor)} · {cursor:d}";
             }
             else if (_scale == TimelineScale.Month)
             {
@@ -549,7 +549,7 @@ else
             else if (_scale == TimelineScale.Quarter)
             {
                 segmentEnd = Min(TimelineDateRange.GetQuarterEnd(cursor), range.End);
-                label = $"Q{(cursor.Month - 1) / 3 + 1} {cursor:yyyy}";
+                label = L["Timeline_QuarterLabel", (cursor.Month - 1) / 3 + 1, cursor.ToString("yyyy", CultureInfo.CurrentCulture)];
             }
             else
             {

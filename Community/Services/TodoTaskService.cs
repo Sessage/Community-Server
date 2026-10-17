@@ -4,6 +4,7 @@ using Klassenbibliothek.Data;
 using Klassenbibliothek.Services;
 using Klassenbibliothek.Hubs;
 using Klassenbibliothek.Features;
+using Klassenbibliothek.Localization;
 
 namespace TodoSuite.Server.Services;
 
@@ -887,7 +888,7 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
             .ToList();
 
         if (taskReferences.Any(reference => reference.SourceListId is null || reference.TaskId is null))
-            throw new ArgumentException("Ein Aufgaben-Auswahlfeld verweist auf keine gültige Aufgabe.");
+            throw new ArgumentException(SharedText.Get("ExcelImport_InvalidTaskReference"));
 
         var requestedTaskIds = taskReferences.Select(reference => reference.TaskId!.Value).Distinct().ToArray();
         var requestedListIds = taskReferences.Select(reference => reference.SourceListId!.Value).Distinct().ToArray();
@@ -905,7 +906,7 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
 
         foreach (var reference in taskReferences)
             if (!validTaskReferences.Contains((reference.TaskId!.Value, reference.SourceListId!.Value)))
-                throw new ArgumentException($"Das benutzerdefinierte Feld „{customFields[reference.Value.FieldId].Name}“ verweist auf keine vorhandene Aufgabe.");
+                throw new ArgumentException(SharedText.Get("ExcelImport_MissingTaskReference", customFields[reference.Value.FieldId].Name));
 
         return candidates
             .Select(value => new NormalizedCustomFieldValue(
@@ -924,16 +925,16 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
         if (field.Type == TodoCustomFieldType.Number
             && !decimal.TryParse(normalized, System.Globalization.NumberStyles.Number,
                 System.Globalization.CultureInfo.InvariantCulture, out _))
-            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ benötigt eine Zahl.");
+            throw new ArgumentException(SharedText.Get("ExcelImport_FieldNeedsNumber", field.Name));
         if (field.Type == TodoCustomFieldType.Date
             && !DateOnly.TryParse(normalized, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out _))
-            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ benötigt ein gültiges Datum.");
+            throw new ArgumentException(SharedText.Get("ExcelImport_FieldNeedsDate", field.Name));
         if (field.Type == TodoCustomFieldType.Checkbox && !bool.TryParse(normalized, out _))
-            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ benötigt Ja oder Nein.");
+            throw new ArgumentException(SharedText.Get("ExcelImport_FieldNeedsBoolean", field.Name));
         if (field.Type is TodoCustomFieldType.Dropdown or TodoCustomFieldType.MultiSelect
             && !CustomFieldSelectOptions.ContainsValue(field, normalized))
-            throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ enthält eine ungültige Auswahl.");
+            throw new ArgumentException(SharedText.Get("ExcelImport_FieldInvalidSelection", field.Name));
 
         if (field.Type == TodoCustomFieldType.MultiSelect)
             return CustomFieldMultiSelectValues.Serialize(CustomFieldMultiSelectValues.Parse(normalized));
@@ -944,7 +945,7 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
         if (Guid.TryParse(normalized, out var taskId))
             return CustomFieldSelectOptions.TaskValue(taskId);
 
-        throw new ArgumentException($"Das benutzerdefinierte Feld „{field.Name}“ verweist auf keine vorhandene Aufgabe.");
+        throw new ArgumentException(SharedText.Get("ExcelImport_MissingTaskReference", field.Name));
     }
 
     private static void ApplyCustomFieldValues(TodoTaskEntity entity, IReadOnlyList<NormalizedCustomFieldValue> incoming)

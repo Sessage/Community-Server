@@ -297,7 +297,7 @@
                                 </button>
                                 <button class="w-full text-left px-3 py-2 hover:bg-slate-50"
                                         @onclick="() => { _actionsOpen = false; _excelImportOpen = true; }">
-                                    Import
+                                    @L["ExcelImport_Action"]
                                 </button>
 
                                 <div class="my-1 border-t border-slate-100"></div>
@@ -503,7 +503,7 @@
 
 @if (_excelImportOpen && _list is not null && CanWriteCurrentList())
 {
-    <TodoSuite.Server.Components.Views.ExcelImportModal @key="_list.Id" List="_list" UserId="@_userId"
+    <ExcelImportModal @key="_list.Id" List="_list" UserId="@_userId"
         CustomFieldsEnabled="@ProductFeatures.IsEnabled(ProductFeatureIds.Forms)"
         OnClose="() => _excelImportOpen = false" OnImported="ReloadAsync" />
 }

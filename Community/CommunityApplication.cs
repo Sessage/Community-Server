@@ -127,6 +127,7 @@ public static class CommunityApplication
         builder.Services.AddSingleton<IProductFeatureCatalog, CommunityProductFeatureCatalog>();
         builder.Services.AddScoped<NavigationRefreshNotifier>();
         builder.Services.AddScoped<TodoTaskService>();
+        builder.Services.AddScoped<IExcelTaskImportService>(services => services.GetRequiredService<TodoTaskService>());
         builder.Services.AddScoped<ITodoTaskService>(services => services.GetRequiredService<TodoTaskService>());
         builder.Services.AddScoped<ITodoAutomationService, CommunityAutomationService>();
         builder.Services.AddScoped<ITodoFormService, CommunityFormService>();
