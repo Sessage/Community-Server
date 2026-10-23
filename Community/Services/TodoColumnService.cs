@@ -215,7 +215,7 @@ public class TodoColumnService : TodoWorkspaceServiceBase, ITodoColumnService
 
         // Eine Reorder-Anfrage darf weder Spalten hinzufügen noch unterschlagen. Änderungen
         // an der Spaltenmenge laufen ausschließlich über die dafür autorisierten Operationen.
-        if (!incomingSet.SetEquals(currentSet))
+        if (incoming.Count != incomingSet.Count || !incomingSet.SetEquals(currentSet))
             throw new InvalidOperationException(
                 $"Spaltenreihenfolge konnte nicht gespeichert werden: Spaltenmenge stimmt nicht überein. " +
                 $"Liste='{list.Name}'. Aktuell={string.Join(", ", list.Columns)}. Neu={string.Join(", ", incoming)}.");

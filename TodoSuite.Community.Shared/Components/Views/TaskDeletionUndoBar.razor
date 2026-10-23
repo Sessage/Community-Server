@@ -1,0 +1,57 @@
+@using Klassenbibliothek.Services
+@inject ITodoTrashService TrashService
+@implements IDisposable
+
+@if (Request is not null && Request != _consumedRequest && Request.UserScope == UserScope && Request.ExpiresAtUtc > DateTime.UtcNow)
+{
+    <div class="m-3 flex shrink-0 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm" role="status" data-testid="task-deletion-undo">
+        <span>@L["Undo_TaskDeleted"]</span>
+        <button type="button" class="rounded border px-3 py-2" disabled="@(_busy || !Enabled)" @onclick="UndoAsync">@L["Common_Undo"]</button>
+        @if (!string.IsNullOrEmpty(_error)) { <span role="alert">@_error</span> }
+    </div>
+}
+
+@code {
+    [Parameter] public TaskDeletionUndoRequest? Request { get; set; }
+    [Parameter] public string UserScope { get; set; } = "";
+    [Parameter] public bool Enabled { get; set; } = true;
+    [Parameter] public EventCallback OnRestored { get; set; }
+    private readonly CancellationTokenSource _lifetime = new();
+    private TaskDeletionUndoRequest? _timedRequest;
+    private TaskDeletionUndoRequest? _consumedRequest;
+    private bool _busy, _disposed;
+    private string? _error;
+    protected override void OnParametersSet()
+    {
+        if (Request == _timedRequest) return;
+        _timedRequest = Request; _error = null;
+        if (Request is not null) _ = ExpireAsync(Request);
+    }
+    private async Task ExpireAsync(TaskDeletionUndoRequest request)
+    {
+        try
+        {
+            var delay = request.ExpiresAtUtc - DateTime.UtcNow;
+            if (delay > TimeSpan.Zero) await Task.Delay(delay, _lifetime.Token);
+            if (!_disposed && Request == request) await InvokeAsync(StateHasChanged);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+    }
+    private async Task UndoAsync()
+    {
+        var request = Request;
+        if (_busy || !Enabled || request is null || request.UserScope != UserScope || request.ExpiresAtUtc <= DateTime.UtcNow) return;
+        _busy = true; _error = null;
+        try
+        {
+            var restored = await TrashService.RestoreTaskAsync(request.UserId, request.ListId, request.TaskId, _lifetime.Token);
+            if (_disposed || Request != request || request.UserScope != UserScope) return;
+            if (restored) { _consumedRequest = request; await OnRestored.InvokeAsync(); }
+            else _error = L["Trash_ItemNoLongerAvailable"].Value;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch { if (!_disposed && Request == request) _error = L["Undo_RestoreFailed"].Value; }
+        finally { _busy = false; }
+    }
+    public void Dispose() { _disposed = true; _lifetime.Cancel(); _lifetime.Dispose(); }
+}

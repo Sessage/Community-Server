@@ -10,9 +10,9 @@
 @inject NavigationManager Navigation
 @inject ILogger<ResetAuthenticator> Logger
 
-<PageTitle>Authenticator-Schlüssel zurücksetzen</PageTitle>
+<PageTitle>@L["Account_Ui_90"]</PageTitle>
 
-<h3>Authenticator-Schlüssel zurücksetzen</h3>
+<h3>@L["Account_Ui_90"]</h3>
 
 @if (!string.IsNullOrEmpty(_statusMessage))
 {
@@ -21,7 +21,7 @@
 
 <div class="ui-alert ui-alert-warning" role="alert">
     <p>
-        <strong>Wenn Sie Ihren Authenticator-Schlüssel zurücksetzen, funktioniert Ihre Authenticator-App erst wieder, wenn Sie sie neu konfigurieren.</strong>
+        <strong>@L["Account_Ui_91"]</strong>
     </p>
     <p>
         Dieser Vorgang deaktiviert 2FA, bis Sie Ihre Authenticator-App verifizieren.
@@ -30,7 +30,7 @@
 </div>
 
 <button class="ui-btn ui-btn-danger" @onclick="OnResetAsync" disabled="@_loading">
-    @(_loading ? "Wird zurückgesetzt…" : "Authenticator-Schlüssel zurücksetzen")
+    @L[_loading ? "App_Loading" : "Account_Ui_90"]
 </button>
 
 @code {
@@ -59,7 +59,7 @@
             if (!disableResult.Succeeded)
             {
                 _isError = true;
-                _statusMessage = "Die Zwei-Faktor-Authentifizierung konnte nicht zurückgesetzt werden.";
+                _statusMessage = SharedText.Get("Security_RequestFailed");
                 _loading = false;
                 return;
             }
@@ -71,7 +71,7 @@
                 if (!restoreResult.Succeeded)
                     Logger.LogError("2FA could not be restored after authenticator reset failed for user {UserId}.", userId);
                 _isError = true;
-                _statusMessage = "Der Authenticator-Schlüssel konnte nicht zurückgesetzt werden.";
+                _statusMessage = SharedText.Get("Security_RequestFailed");
                 _loading = false;
                 return;
             }
@@ -87,7 +87,7 @@
         {
             Logger.LogError(ex, "Unexpected error while resetting the authenticator key.");
             _isError = true;
-            _statusMessage = "Der Authenticator-Schlüssel konnte nicht zurückgesetzt werden. Bitte versuchen Sie es erneut.";
+            _statusMessage = SharedText.Get("Security_RequestFailed");
             _loading = false;
             StateHasChanged();
         }

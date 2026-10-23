@@ -11,9 +11,9 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>E-Mail verwalten</PageTitle>
+<PageTitle>@L["Account_Ui_52"]</PageTitle>
 
-<h3>E-Mail verwalten</h3>
+<h3>@L["Account_Ui_52"]</h3>
 
 <StatusMessage Message="@message"/>
 <div class="ui-row">
@@ -27,27 +27,27 @@
             @if (isEmailConfirmed)
             {
                 <div class="ui-form-floating mb-3 input-group">
-                    <input type="text" value="@email" id="email" class="ui-form-control" placeholder="E-Mail-Adresse eingeben" disabled />
+                    <input type="text" value="@email" id="email" class="ui-form-control" placeholder="@L["Account_Ui_56"]" disabled />
                     <div class="input-group-append">
                         <span class="h-100 input-group-text ui-text-success font-weight-bold">✓</span>
                     </div>
-                    <label for="email" class="ui-form-label">E-Mail</label>
+                    <label for="email" class="ui-form-label">@L["Notifications_ChannelEmail"]</label>
                 </div>
             }
             else
             {
                 <div class="ui-form-floating mb-3">
-                    <input type="text" value="@email" id="email" class="ui-form-control" placeholder="E-Mail-Adresse eingeben" disabled />
-                    <label for="email" class="ui-form-label">E-Mail</label>
-                    <button type="submit" class="ui-btn ui-btn-link" form="send-verification-form">Bestätigungs-E-Mail senden</button>
+                    <input type="text" value="@email" id="email" class="ui-form-control" placeholder="@L["Account_Ui_56"]" disabled />
+                    <label for="email" class="ui-form-label">@L["Notifications_ChannelEmail"]</label>
+                    <button type="submit" class="ui-btn ui-btn-link" form="send-verification-form">@L["Account_SendConfirmation"]</button>
                 </div>
             }
             <div class="ui-form-floating mb-3">
-                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="ui-form-control" autocomplete="email" aria-required="true" placeholder="Neue E-Mail-Adresse eingeben" />
-                <label for="Input.NewEmail" class="ui-form-label">Neue E-Mail-Adresse</label>
+                <InputText @bind-Value="Input.NewEmail" id="Input.NewEmail" class="ui-form-control" autocomplete="email" aria-required="true" placeholder="@L["Account_Ui_57"]" />
+                <label for="Input.NewEmail" class="ui-form-label">@L["Account_NewEmail"]</label>
                 <ValidationMessage For="() => Input.NewEmail" class="ui-text-danger" />
             </div>
-            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">E-Mail-Adresse ändern</button>
+            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Account_ChangeEmail"]</button>
         </EditForm>
     </div>
 </div>
@@ -85,7 +85,7 @@
     {
         if (Input.NewEmail is null || Input.NewEmail == email)
         {
-            message = "Ihre E-Mail-Adresse wurde nicht geändert.";
+            message = SharedText.Get("Account_EmailUnchanged");
             return;
         }
 
@@ -104,7 +104,7 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, callbackUrl);
 
-        message = "Bestätigungslink zum Ändern der E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihre E-Mails.";
+        message = SharedText.Get("Account_ConfirmationLinkSent");
     }
 
     private async Task OnSendEmailVerificationAsync()
@@ -129,13 +129,13 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, email, callbackUrl);
 
-        message = "Bestätigungs-E-Mail gesendet. Bitte überprüfen Sie Ihre E-Mails.";
+        message = SharedText.Get("Account_ConfirmationEmailSent");
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedEmailAddress("Account_InvalidEmail")]
         [Display(Name = "Neue E-Mail-Adresse")]
         public string? NewEmail { get; set; }
     }

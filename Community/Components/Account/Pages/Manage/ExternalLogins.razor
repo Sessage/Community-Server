@@ -9,12 +9,12 @@
 @inject IUserStore<ApplicationUser> UserStore
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Externe Anmeldungen verwalten</PageTitle>
+<PageTitle>@L["Account_Ui_64"]</PageTitle>
 
 <StatusMessage />
 @if (currentLogins?.Count > 0)
 {
-    <h3>Registrierte Anmeldungen</h3>
+    <h3>@L["Account_Ui_65"]</h3>
     <table class="ui-table">
         <tbody>
             @foreach (var login in currentLogins)
@@ -29,7 +29,7 @@
                                 <div>
                                     <input type="hidden" name="@nameof(LoginProvider)" value="@login.LoginProvider" />
                                     <input type="hidden" name="@nameof(ProviderKey)" value="@login.ProviderKey" />
-                                    <button type="submit" class="ui-btn ui-btn-primary" title="Diese @login.ProviderDisplayName-Anmeldung von Ihrem Konto entfernen">Entfernen</button>
+                                    <button type="submit" class="ui-btn ui-btn-primary" title="Diese @login.ProviderDisplayName-Anmeldung von Ihrem Konto entfernen">@L["Btn_Remove"]</button>
                                 </div>
                             </form>
                         }
@@ -45,7 +45,7 @@
 }
 @if (otherLogins?.Count > 0)
 {
-    <h4>Weiteren Dienst zum Anmelden hinzufügen.</h4>
+    <h4>@L["Account_Ui_67"]</h4>
     <hr />
     <form class="ui-form-horizontal" action="Account/Manage/LinkExternalLogin" method="post">
         <AntiforgeryToken />
@@ -121,12 +121,12 @@
         var result = await UserManager.RemoveLoginAsync(user, LoginProvider!, ProviderKey!);
         if (!result.Succeeded)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Fehler: Die externe Anmeldung konnte nicht entfernt werden.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(SharedText.Get("App_RequestFailed"), HttpContext);
         }
         else
         {
             await SignInManager.RefreshSignInAsync(user);
-            RedirectManager.RedirectToCurrentPageWithStatus("Die externe Anmeldung wurde entfernt.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(SharedText.Get("Account_ExternalRemoved"), HttpContext);
         }
     }
 
@@ -142,7 +142,7 @@
         var info = await SignInManager.GetExternalLoginInfoAsync(userId);
         if (info is null)
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Fehler: Externe Anmeldeinformationen konnten nicht geladen werden.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(SharedText.Get("App_RequestFailed"), HttpContext);
             return;
         }
 
@@ -152,11 +152,11 @@
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
 
-            RedirectManager.RedirectToCurrentPageWithStatus("Die externe Anmeldung wurde hinzugefügt.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(SharedText.Get("Account_ExternalAdded"), HttpContext);
         }
         else
         {
-            RedirectManager.RedirectToCurrentPageWithStatus("Fehler: Die externe Anmeldung konnte nicht hinzugefügt werden. Externe Anmeldungen können nur einem Konto zugeordnet werden.", HttpContext);
+            RedirectManager.RedirectToCurrentPageWithStatus(SharedText.Get("Account_ExternalAssociated"), HttpContext);
         }
     }
 }

@@ -40,6 +40,10 @@ public static class SwaggerServiceCollectionExtensions
             var xmlPath = Path.ChangeExtension(assembly.Location, ".xml");
             if (File.Exists(xmlPath))
                 options.IncludeXmlComments(xmlPath);
+
+            // XML comment processing can introduce Environment.NewLine into string
+            // values. Normalize the completed document, not just the JSON file lines.
+            options.DocumentFilter<NormalizeDocumentationLineEndingsFilter>();
         });
 
         return services;

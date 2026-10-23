@@ -2,6 +2,10 @@
 // Requires SortableJS global "Sortable"
 
 window.todoUi = window.todoUi || {};
+window.todoUi.focusTaskCreation = function () {
+    const input = document.querySelector(".task-quick-add-input, .todo-table-add-input, [data-quick-add]");
+    if (input) { input.focus(); input.scrollIntoView({ block: "nearest" }); }
+};
 
 window.todoUi.scrollToTop = function (element) {
     if (!element) return false;

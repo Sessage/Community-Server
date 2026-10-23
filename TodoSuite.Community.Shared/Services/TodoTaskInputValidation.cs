@@ -8,6 +8,10 @@ public static class TodoTaskInputValidation
 {
     public const int MaxTitleLength = 500;
 
+    /// <summary>Checklist titles follow the same limit on creation, rename and aggregate updates.</summary>
+    public static string NormalizeStepTitle(string? title)
+        => NormalizeTitle(title, nameof(title));
+
     public static string NormalizeTitle(string? title, string parameterName)
     {
         var normalized = (title ?? string.Empty).Trim();

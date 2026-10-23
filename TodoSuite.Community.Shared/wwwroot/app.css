@@ -946,12 +946,29 @@ html[data-theme="dark"] .account-auth-page h2 {
     overflow-y: auto;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-    padding: 15px 0.375rem 1px;
+    padding: 9px 0.375rem 7px;
     line-height: 1.3;
 }
 
 .task-edit-modal-actions {
     min-height: 44px;
+}
+
+/* Match the Fluent host to its 44px control. The default 32px host lets
+   the visible control overflow below the flex row's vertical midpoint. */
+.task-edit-title-row > fluent-button,
+.task-edit-modal-actions fluent-button {
+    height: 44px;
+    min-height: 44px;
+    align-items: center;
+}
+
+.task-edit-modal-actions .task-persistence-status {
+    display: inline-flex;
+    align-items: center;
+    align-self: center;
+    min-height: 44px;
+    line-height: 1.25;
 }
 
 .kanban-column-dialog fluent-text-field::part(control),

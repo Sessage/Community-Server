@@ -64,3 +64,9 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
 @media (prefers-reduced-motion: reduce) { .ui-btn { transition: none; } }
 :root[data-theme="dark"] { --ui-text: #e2e8f0; --ui-muted: #94a3b8; --ui-surface: #172033; --ui-line: #475569; --ui-danger: #f87171; }
 :root[data-theme="dark"] .ui-form-control[readonly] { background: #1e293b; }
+
+/* Keep table actions usable on touch devices with the standard spacing. */
+@media (pointer: coarse) {
+    .todo-table-row { min-height: 44px; }
+    .todo-table-action-button { min-width: 44px; min-height: 44px; }
+}

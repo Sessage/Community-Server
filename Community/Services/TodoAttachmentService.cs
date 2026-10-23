@@ -106,6 +106,7 @@ public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentSe
 
         var storedFileName = attachmentId.ToString("N");
         var diskPath = Path.Combine(UploadRoot, storedFileName);
+        var stagingPath = Path.Combine(UploadRoot, $".upload-{attachmentId:N}-{Guid.NewGuid():N}.tmp");
 
         var fileCreatedByThisAttempt = false;
         try
@@ -115,19 +116,23 @@ public class TodoAttachmentService : TodoWorkspaceServiceBase, ITodoAttachmentSe
             // lock handles local retries; CreateNew is the cross-instance safety boundary when
             // multiple application nodes share the upload volume.
             await using (var fs = new FileStream(
-                             diskPath,
+                             stagingPath,
                              FileMode.CreateNew,
                              FileAccess.Write,
                              FileShare.None,
                              bufferSize: 81920,
                              useAsync: true))
             {
-                fileCreatedByThisAttempt = true;
                 await CopyToWithLimitAsync(content, fs, MaxAttachmentSizeBytes, cancellationToken);
             }
+            // Publish only complete bytes. The final stable ID is never overwritten; an
+            // interrupted staging file is reclaimed by the age-bounded reconciler.
+            File.Move(stagingPath, diskPath, overwrite: false);
+            fileCreatedByThisAttempt = true;
         }
         catch
         {
+            try { File.Delete(stagingPath); } catch (IOException) { }
             // A CreateNew collision belongs to another instance or an earlier committed upload;
             // never delete that file while compensating this failed attempt.
             if (fileCreatedByThisAttempt)

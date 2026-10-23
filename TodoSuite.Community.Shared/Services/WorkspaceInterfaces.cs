@@ -70,6 +70,10 @@ public record EmailImportRunResult(IReadOnlyList<EmailImportedTaskDto> ImportedT
 /// <summary>Configures and executes mailbox-to-task imports when supported by the product edition.</summary>
 public interface IListEmailImportService
 {
+    Task<IReadOnlyList<EmailImportMessageStatus>> GetMessageStatusAsync(string userId, Guid listId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<EmailImportMessageStatus>>([]);
+    Task RetryMessageAsync(string userId, Guid listId, Guid messageId, CancellationToken ct = default)
+        => Task.FromException(new NotSupportedException("E-Mail-Import ist nicht verfügbar."));
     Task<ListEmailImportConfigurationDto?> GetConfigurationAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
     Task SaveConfigurationAsync(string userId, Guid listId, ListEmailImportSaveRequest request, CancellationToken cancellationToken = default);
     Task DeleteConfigurationAsync(string userId, Guid listId, CancellationToken cancellationToken = default);
@@ -202,6 +206,13 @@ public interface ITodoFormService
     Task<TodoFormEntity?> SaveFormAsync(string userId, TodoFormEntity form, string? plainPassword, CancellationToken cancellationToken = default);
     Task<bool> DeleteFormAsync(string userId, Guid formId, CancellationToken cancellationToken = default);
     Task<TodoFormEntity?> GetFormForSubmissionAsync(string slug, string? userId, CancellationToken cancellationToken = default);
+    async Task<TodoFormEntity?> GetVerifiedFormForSubmissionAsync(string slug, string? userId, string? password,
+        string? remoteAddress = null, CancellationToken cancellationToken = default)
+    {
+        var form = await GetFormForSubmissionAsync(slug, userId, cancellationToken);
+        return form is not null && await VerifySubmissionPasswordAsync(form.Id, userId, password, remoteAddress, cancellationToken)
+            ? form : null;
+    }
     Task<bool> VerifySubmissionPasswordAsync(Guid formId, string? userId, string? password, string? remoteAddress = null, CancellationToken cancellationToken = default);
     Task<TodoFormSubmitResult> SubmitAsync(TodoFormSubmitRequest request, string? userId, CancellationToken cancellationToken = default);
 }

@@ -220,7 +220,7 @@ public class MobileAuthController : ControllerBase
 
             var signIn = await _signInManager.CheckPasswordSignInAsync(user, password, lockoutOnFailure: true);
             if (signIn.IsLockedOut)
-                return StatusCode(StatusCodes.Status423Locked, new ErrorResponse("Konto ist voruebergehend gesperrt. Bitte spaeter erneut versuchen."));
+                return StatusCode(StatusCodes.Status423Locked, new ErrorResponse(_localizer["Account_LockoutHint"].Value));
 
             if (!signIn.Succeeded)
             {
@@ -230,7 +230,7 @@ public class MobileAuthController : ControllerBase
         }
 
         if (await _userManager.IsLockedOutAsync(user))
-            return StatusCode(StatusCodes.Status423Locked, new ErrorResponse("Konto ist voruebergehend gesperrt. Bitte spaeter erneut versuchen."));
+            return StatusCode(StatusCodes.Status423Locked, new ErrorResponse(_localizer["Account_LockoutHint"].Value));
 
         var isAdmin = await _userManager.IsInRoleAsync(user, "Admin");
         if (await _userManager.GetTwoFactorEnabledAsync(user))
@@ -279,13 +279,12 @@ public class MobileAuthController : ControllerBase
         }
 
         if (await _userManager.IsLockedOutAsync(user))
-            return StatusCode(StatusCodes.Status423Locked, new ErrorResponse("Konto ist voruebergehend gesperrt. Bitte spaeter erneut versuchen."));
+            return StatusCode(StatusCodes.Status423Locked, new ErrorResponse(_localizer["Account_LockoutHint"].Value));
 
         var code = (request.Code ?? string.Empty).Replace(" ", string.Empty).Replace("-", string.Empty);
-        var valid = await _userManager.VerifyTwoFactorTokenAsync(
-            user,
-            _userManager.Options.Tokens.AuthenticatorTokenProvider,
-            code);
+        var valid = request.UseRecoveryCode
+            ? (await _userManager.RedeemTwoFactorRecoveryCodeAsync(user, (request.Code ?? "").Trim())).Succeeded
+            : await _userManager.VerifyTwoFactorTokenAsync(user, _userManager.Options.Tokens.AuthenticatorTokenProvider, code);
 
         if (!valid)
         {
@@ -294,8 +293,8 @@ public class MobileAuthController : ControllerBase
                 _logger.LogWarning("Could not record failed mobile 2FA attempt for user {UserId}.", user.Id);
             _attemptProtection.RecordFailure(HttpContext, subject);
             if (await _userManager.IsLockedOutAsync(user))
-                return StatusCode(StatusCodes.Status423Locked, new ErrorResponse("Konto ist voruebergehend gesperrt. Bitte spaeter erneut versuchen."));
-            return Unauthorized(new ErrorResponse("Der Authenticator-Code ist ungültig."));
+                return StatusCode(StatusCodes.Status423Locked, new ErrorResponse(_localizer["Account_LockoutHint"].Value));
+            return Unauthorized(new ErrorResponse(_localizer["Account_CodeInvalid"].Value));
         }
 
         var resetFailures = await _userManager.ResetAccessFailedCountAsync(user);
@@ -320,7 +319,7 @@ public class MobileAuthController : ControllerBase
         var email = (request.Email ?? string.Empty).Trim();
         var password = request.Password ?? string.Empty;
         if (string.IsNullOrWhiteSpace(email) || string.IsNullOrEmpty(password))
-            return BadRequest(new RegisterResponse(false, ["E-Mail-Adresse und Passwort müssen angegeben werden."]));
+            return BadRequest(new RegisterResponse(false, [_localizer["Err_Admin_EmailAndPasswordRequired"].Value]));
 
         var existingUser = await _userManager.FindByEmailAsync(email);
         if (existingUser is not null)
@@ -356,7 +355,7 @@ public class MobileAuthController : ControllerBase
                 await _userManager.DeleteAsync(user);
                 return StatusCode(
                     StatusCodes.Status503ServiceUnavailable,
-                    new RegisterResponse(false, ["Bestätigungs-E-Mail konnte nicht versendet werden. Bitte später erneut versuchen."]));
+                    new RegisterResponse(false, [_localizer["Account_ConfirmationEmailSendError"].Value]));
             }
             return Ok(new RegisterResponse(true, []));
         }
@@ -397,7 +396,7 @@ public class MobileAuthController : ControllerBase
         var (_, user) = await GetCurrentUserAsync();
         if (user is null) return Unauthorized();
         if (!UserLanguagePreferences.TryNormalize(request.PreferredLanguage, out var preferredLanguage))
-            return BadRequest(new ErrorResponse("Die ausgewählte Sprache wird nicht unterstützt."));
+            return BadRequest(new ErrorResponse(_localizer["Account_LanguageUnsupported"].Value));
 
         user.PreferredLanguage = preferredLanguage;
         var result = await _userManager.UpdateAsync(user);
@@ -415,7 +414,7 @@ public class MobileAuthController : ControllerBase
         if (user is null) return Unauthorized();
 
         if (!await _userManager.HasPasswordAsync(user))
-            return BadRequest(new ErrorResponse("Dieses Konto verwendet kein lokales Passwort."));
+            return BadRequest(new ErrorResponse(_localizer["Account_NoLocalPassword"].Value));
 
         var result = await _userManager.ChangePasswordAsync(user, request.OldPassword, request.NewPassword);
         if (result.Succeeded)
@@ -436,19 +435,19 @@ public class MobileAuthController : ControllerBase
         if (user is null || string.IsNullOrWhiteSpace(userId)) return Unauthorized();
 
         if (!await _userManager.HasPasswordAsync(user))
-            return BadRequest(new ErrorResponse("E-Mail-Adresse wird ueber den Anmeldeanbieter verwaltet."));
+            return BadRequest(new ErrorResponse(_localizer["Account_ExternalLoginManaged"].Value));
 
         var newEmail = (request.NewEmail ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(newEmail))
-            return BadRequest(new ErrorResponse("E-Mail-Adresse darf nicht leer sein."));
+            return BadRequest(new ErrorResponse(_localizer["App_Emailisrequired"].Value));
         if (!new EmailAddressAttribute().IsValid(newEmail))
-            return BadRequest(new ErrorResponse("Bitte eine gültige E-Mail-Adresse angeben."));
+            return BadRequest(new ErrorResponse(_localizer["Account_InvalidEmail"].Value));
         if (string.Equals(user.Email, newEmail, StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new ErrorResponse("Die neue E-Mail-Adresse entspricht der aktuellen Adresse."));
+            return BadRequest(new ErrorResponse(_localizer["Account_EmailUnchanged"].Value));
 
         var existing = await _userManager.FindByEmailAsync(newEmail);
         if (existing is not null && existing.Id != user.Id)
-            return Conflict(new ErrorResponse("Diese E-Mail-Adresse wird bereits verwendet."));
+            return Conflict(new ErrorResponse(_localizer["Account_EmailAlreadyUsed"].Value));
 
         var code = await _userManager.GenerateChangeEmailTokenAsync(user, newEmail);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
@@ -470,7 +469,7 @@ public class MobileAuthController : ControllerBase
         {
             _logger.LogWarning(ex, "E-mail change confirmation for user {UserId} could not be sent.", userId);
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                new ErrorResponse("Die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte später erneut versuchen."));
+                new ErrorResponse(_localizer["Account_ConfirmationEmailSendError"].Value));
         }
         return NoContent();
     }
@@ -484,7 +483,7 @@ public class MobileAuthController : ControllerBase
 
         var email = await _userManager.GetEmailAsync(user);
         if (string.IsNullOrWhiteSpace(email))
-            return BadRequest(new ErrorResponse("Keine E-Mail-Adresse hinterlegt."));
+            return BadRequest(new ErrorResponse(_localizer["App_Emailisrequired"].Value));
 
         var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
@@ -505,7 +504,7 @@ public class MobileAuthController : ControllerBase
         {
             _logger.LogWarning(ex, "E-mail confirmation for user {UserId} could not be sent.", userId);
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                new ErrorResponse("Die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte später erneut versuchen."));
+                new ErrorResponse(_localizer["Account_ConfirmationEmailSendError"].Value));
         }
         return NoContent();
     }
@@ -516,7 +515,7 @@ public class MobileAuthController : ControllerBase
     {
         var email = (request.Email ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(email))
-            return BadRequest(new ErrorResponse("E-Mail-Adresse darf nicht leer sein."));
+            return BadRequest(new ErrorResponse(_localizer["App_Emailisrequired"].Value));
 
         var user = await _userManager.FindByEmailAsync(email);
         if (user is not null && await _userManager.HasPasswordAsync(user))
@@ -547,7 +546,7 @@ public class MobileAuthController : ControllerBase
         var (userId, user) = await GetCurrentUserAsync();
         if (user is null || string.IsNullOrWhiteSpace(userId)) return Unauthorized();
         if (!_centralPolicy.Current.AllowPersonalDataExport)
-            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse("Der Export persönlicher Daten wurde administrativ deaktiviert."));
+            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(_localizer["Account_ExportDisabled"].Value));
 
         var personalData = new Dictionary<string, string>();
         var properties = typeof(ApplicationUser).GetProperties()
@@ -573,10 +572,10 @@ public class MobileAuthController : ControllerBase
         var (userId, user) = await GetCurrentUserAsync();
         if (user is null || string.IsNullOrWhiteSpace(userId)) return Unauthorized();
         if (!_centralPolicy.Current.AllowAccountDeletion)
-            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse("Die Selbstlöschung von Konten wurde administrativ deaktiviert."));
+            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(_localizer["Account_DeleteDisabled"].Value));
         if (await _userManager.HasPasswordAsync(user)
             && !await _userManager.CheckPasswordAsync(user, request.Password ?? string.Empty))
-            return BadRequest(new ErrorResponse("Das eingegebene Passwort ist falsch."));
+            return BadRequest(new ErrorResponse(_localizer["Identity_PasswordMismatch"].Value));
 
         var profilePicturePath = user.ProfilePicturePath;
         // Identity deletion is authoritative. External artifacts are removed only afterwards,
@@ -622,6 +621,10 @@ public class MobileAuthController : ControllerBase
             new(ClaimTypes.Email, user.Email ?? fallbackName),
             new(JwtTokenOptions.SecurityStampClaimType, securityStamp)
         };
+
+        MobileAuthenticationTime.AddLoginClaim(claims, isRefresh: refreshToken is not null, DateTimeOffset.UtcNow,
+            refreshToken?.AuthenticatedAtUtc is { } authenticated
+                ? new DateTimeOffset(DateTime.SpecifyKind(authenticated, DateTimeKind.Utc)) : null);
 
         if (isAdmin)
             claims.Add(new Claim(ClaimTypes.Role, "Admin"));
@@ -761,7 +764,7 @@ public class MobileAuthController : ControllerBase
             => new(null, null, null, false, true, challenge, null, null);
     }
     public record RefreshTokenRequest(string RefreshToken);
-    public record LoginWith2faRequest(string ChallengeToken, string Code);
+    public record LoginWith2faRequest(string ChallengeToken, string Code, bool UseRecoveryCode = false);
     public record RegisterRequest(string Email, string Password);
     public record RegisterResponse(bool Succeeded, IReadOnlyList<string> Errors);
     public record MeResponse(

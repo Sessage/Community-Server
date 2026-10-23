@@ -1,0 +1,18 @@
+@inject NavigationManager Navigation
+
+<TodoTimelineView @key="PortfolioId"
+                  List="PortfolioTimelineProjection.Build(PortfolioId, Name, Lists, PortfolioListIds)"
+                  ProjectMode="true"
+                  AllowTaskCreation="false"
+                  AllowTaskReordering="false"
+                  OnTaskSelected="OpenProject" />
+
+@code {
+    [Parameter] public Guid PortfolioId { get; set; }
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public IReadOnlyList<TodoListEntity> Lists { get; set; } = [];
+    [Parameter] public IReadOnlyList<Guid> PortfolioListIds { get; set; } = [];
+
+    private void OpenProject(TodoTaskEntity project)
+        => Navigation.NavigateTo($"/list/{project.ListId}");
+}

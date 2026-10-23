@@ -16,10 +16,18 @@
 }
 else
 {
+    // Rebuild once per render so in-place edits and language changes remain visible,
+    // without allocating the column graph again for each row or active filter.
+    var baseColumns = BaseColumns;
+    var orderedColumns = GetOrderedColumns(baseColumns);
+    var renderColumns = orderedColumns.Where(c => !_hiddenColumns.Contains(c.Key)).ToList();
+    var renderTasks = GetVisibleTasks(baseColumns);
+    var addInputColumn = GetAddInputColumn(renderColumns);
+    var renderGridStyle = $"grid-template-columns: {string.Join(" ", renderColumns.Select(ColumnWidth))};";
     <div class="h-full min-h-0 flex flex-col overflow-hidden px-3 pb-3">
         <div class="mb-2 flex items-center justify-between gap-2 shrink-0">
             <div class="flex items-center gap-2 min-w-0">
-                <div class="text-sm text-slate-600 rounded-md px-2 py-1" style="background-color: var(--neutral-fill-stealth-rest); color: var(--neutral-foreground-rest);">@L["Table_TaskCount", VisibleTasks.Count]</div>
+                <div class="text-sm text-slate-600 rounded-md px-2 py-1" style="background-color: var(--neutral-fill-stealth-rest); color: var(--neutral-foreground-rest);">@L["Table_TaskCount", renderTasks.Count]</div>
                 @if (!string.IsNullOrWhiteSpace(_sortColumn))
                 {
                     <button type="button"
@@ -50,7 +58,7 @@ else
                 {
                     <div class="absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lg z-30"
                          @onclick:stopPropagation="true">
-                        @foreach (var column in HideableColumns)
+                        @foreach (var column in orderedColumns.Where(c => c.Hideable))
                         {
                             <label class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50">
                                 <input type="checkbox" checked="@(!_hiddenColumns.Contains(column.Key))" @onchange="e => ToggleColumnAsync(column.Key, e)" />
@@ -72,9 +80,9 @@ else
         <div class="flex-1 min-h-0 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
             <div class="min-w-max" @key="_tableRenderVersion">
                 <div class="todo-table-row sticky top-0 z-20 border-b border-slate-200 bg-slate-50"
-                     style="@GridStyle"
+                     style="@renderGridStyle"
                      @ref="_headerHost">
-                    @foreach (var column in VisibleColumns)
+                    @foreach (var column in renderColumns)
                     {
                         <div class="@CellClass(column, header: true)"
                              @key="column.Key"
@@ -173,14 +181,14 @@ else
                 </div>
 
                 <div @ref="_taskRowsHost" @key="_taskRowsRenderVersion">
-                    @foreach (var item in VisibleTasks.Select((task, index) => new { task, index }))
+                    @foreach (var item in renderTasks.Select((task, index) => new { task, index }))
                     {
                         <div class="todo-table-row border-b border-slate-100 hover:bg-slate-50"
                              @key="item.task.Id"
-                             style="@GridStyle"
+                             style="@renderGridStyle"
                              data-taskid="@item.task.Id"
                              data-task-reorderable="@CanReorderTask(item.task).ToString().ToLowerInvariant()">
-                            @foreach (var column in VisibleColumns)
+                            @foreach (var column in renderColumns)
                             {
                                 <div class="@CellClass(column)" @key="column.Key">
                                     @if (column.Key == "open")
@@ -234,8 +242,8 @@ else
                 @if (CanWriteToList())
                 {
                     <div class="todo-table-row todo-table-add-row border-b border-slate-100 bg-white"
-                         style="@GridStyle">
-                        @foreach (var column in VisibleColumns)
+                         style="@renderGridStyle">
+                        @foreach (var column in renderColumns)
                         {
                             <div class="@CellClass(column)">
                                 @if (column.Key == "#")
@@ -244,7 +252,7 @@ else
                                         <FluentIcon Value="@(new Icons.Regular.Size16.Add())" />
                                     </span>
                                 }
-                                else if (IsAddInputColumn(column))
+                                else if (string.Equals(column.Key, addInputColumn?.Key, StringComparison.OrdinalIgnoreCase))
                                 {
                                     <input class="todo-table-input todo-table-add-input"
                                            placeholder="@L["Table_NewTask"]"
@@ -346,43 +354,40 @@ else
         }
     }
 
-    private IReadOnlyList<TableColumn> VisibleColumns => OrderedColumns.Where(c => !_hiddenColumns.Contains(c.Key)).ToList();
-    private IReadOnlyList<TableColumn> HideableColumns => OrderedColumns.Where(c => c.Hideable).ToList();
-
-    private IReadOnlyList<TableColumn> OrderedColumns
+    private IReadOnlyList<TableColumn> GetOrderedColumns(IReadOnlyList<TableColumn> columns)
     {
-        get
-        {
-            EnsureColumnOrder();
-            var map = BaseColumns.ToDictionary(c => c.Key, StringComparer.OrdinalIgnoreCase);
-            return _columnOrder.Where(map.ContainsKey).Select(key => map[key])
-                .Concat(BaseColumns.Where(c => !_columnOrder.Contains(c.Key, StringComparer.OrdinalIgnoreCase)))
-                .ToList();
-        }
+        var map = columns.ToDictionary(c => c.Key, StringComparer.OrdinalIgnoreCase);
+        return _columnOrder.Where(map.ContainsKey).Select(key => map[key])
+            .Concat(columns.Where(c => !_columnOrder.Contains(c.Key, StringComparer.OrdinalIgnoreCase)))
+            .ToList();
     }
 
-    private string GridStyle => $"grid-template-columns: {string.Join(" ", VisibleColumns.Select(ColumnWidth))};";
+    private List<TodoTaskEntity> VisibleTasks => GetVisibleTasks(BaseColumns);
 
-    private List<TodoTaskEntity> VisibleTasks
+    private List<TodoTaskEntity> GetVisibleTasks(IReadOnlyList<TableColumn> columns)
     {
-        get
+        var activeFilters = _filters
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .Select(kv => (Column: columns.FirstOrDefault(c => c.Key == kv.Key), Text: kv.Value))
+            .ToArray();
+        var tasks = (List?.Tasks ?? new()).Where(t => t.DeletedAt == null).Where(MatchesFilter);
+        if (activeFilters.Length > 0)
+            tasks = tasks.Where(task => activeFilters.All(filter =>
+                filter.Column?.Value(task).Contains(filter.Text, StringComparison.OrdinalIgnoreCase) == true));
+        if (!string.IsNullOrWhiteSpace(_sortColumn))
         {
-            var tasks = (List?.Tasks ?? new()).Where(t => t.DeletedAt == null).Where(MatchesFilter).Where(MatchesColumnFilters);
-            if (!string.IsNullOrWhiteSpace(_sortColumn))
+            var column = columns.FirstOrDefault(c => c.Key == _sortColumn);
+            if (column is not null)
             {
-                var column = BaseColumns.FirstOrDefault(c => c.Key == _sortColumn);
-                if (column is not null)
-                {
-                    tasks = SortByColumn(tasks, column, _sortAscending);
-                }
+                tasks = SortByColumn(tasks, column, _sortAscending);
             }
-            else
-            {
-                tasks = tasks.OrderBy(t => t.Done).ThenBy(GetEffectiveCustomOrder).ThenBy(t => t.CreatedAtUtc);
-            }
-
-            return tasks.ToList();
         }
+        else
+        {
+            tasks = tasks.OrderBy(t => t.Done).ThenBy(GetEffectiveCustomOrder).ThenBy(t => t.CreatedAtUtc);
+        }
+
+        return tasks.ToList();
     }
 
     private static IEnumerable<TodoTaskEntity> SortByColumn(
@@ -417,13 +422,10 @@ else
             ? tasks.OrderBy(task => selector(task) is null).ThenBy(selector).ThenBy(task => task.ListSortOrder)
             : tasks.OrderBy(task => selector(task) is null).ThenByDescending(selector).ThenBy(task => task.ListSortOrder);
 
-    private TableColumn? AddInputColumn
-        => VisibleColumns.FirstOrDefault(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase))
-           ?? VisibleColumns.FirstOrDefault(c => !IsCenteredIconColumn(c.Key))
-           ?? VisibleColumns.FirstOrDefault();
-
-    private bool IsAddInputColumn(TableColumn column)
-        => AddInputColumn is { } addColumn && string.Equals(column.Key, addColumn.Key, StringComparison.OrdinalIgnoreCase);
+    private static TableColumn? GetAddInputColumn(IReadOnlyList<TableColumn> columns)
+        => columns.FirstOrDefault(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase))
+           ?? columns.FirstOrDefault(c => !IsCenteredIconColumn(c.Key))
+           ?? columns.FirstOrDefault();
 
     protected override async Task OnInitializedAsync()
     {
@@ -1493,10 +1495,6 @@ else
         builder.CloseElement();
     }
 
-    private bool MatchesColumnFilters(TodoTaskEntity task)
-        => _filters.Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
-            .All(kv => BaseColumns.FirstOrDefault(c => c.Key == kv.Key)?.Value(task).Contains(kv.Value, StringComparison.OrdinalIgnoreCase) == true);
-
     private bool MatchesFilter(TodoTaskEntity t)
     {
         return TodoTaskFilterMatcher.Matches(Filter, t, _userId);
@@ -1529,6 +1527,9 @@ else
 
     private void PruneSelectionToVisibleTasks()
     {
+        if (_selectedTaskIds.Count == 0)
+            return;
+
         var visibleTaskIds = VisibleTasks.Select(task => task.Id).ToHashSet();
         _selectedTaskIds.RemoveWhere(taskId => !visibleTaskIds.Contains(taskId));
     }
@@ -1910,6 +1911,20 @@ else
 
     .todo-table-action-button-active {
         opacity: 1;
+    }
+
+    .todo-table-row:focus-within .todo-table-action-button,
+    .todo-table-action-button:focus-visible {
+        opacity: 1;
+    }
+
+    .todo-table-action-button:focus-visible {
+        outline: 2px solid #2563eb;
+        outline-offset: 2px;
+    }
+
+    @@media (hover: none), (pointer: coarse) {
+        .todo-table-action-button { opacity: 1; min-width: 2rem; min-height: 2rem; }
     }
 
     .todo-table-action-button:hover {

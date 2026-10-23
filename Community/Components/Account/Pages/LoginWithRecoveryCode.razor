@@ -9,14 +9,13 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<LoginWithRecoveryCode> Logger
 
-<PageTitle>Recovery code verification</PageTitle>
+<PageTitle>@L["Account_Ui_16"]</PageTitle>
 
-<h1>Recovery code verification</h1>
+<h1>@L["Account_Ui_16"]</h1>
 <hr />
 <StatusMessage Message="@message" />
 <p>
-    You have requested to log in with a recovery code. This login will not be remembered until you provide
-    an authenticator app code at log in or disable 2FA and log in again.
+    @L["Account_RecoveryLoginHint"]
 </p>
 <div class="ui-row">
     <div class="ui-col-md-4">
@@ -24,11 +23,11 @@
             <DataAnnotationsValidator />
             <ValidationSummary class="ui-text-danger" role="alert" />
             <div class="ui-form-floating mb-3">
-                <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="ui-form-control" autocomplete="off" placeholder="RecoveryCode" />
-                <label for="Input.RecoveryCode" class="ui-form-label">Recovery Code</label>
+                <InputText @bind-Value="Input.RecoveryCode" id="Input.RecoveryCode" class="ui-form-control" autocomplete="off" placeholder="@L["Security_RecoveryCode"]" />
+                <label for="Input.RecoveryCode" class="ui-form-label">@L["Security_RecoveryCode"]</label>
                 <ValidationMessage For="() => Input.RecoveryCode" class="ui-text-danger" />
             </div>
-            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">Log in</button>
+            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Account_Login_Button"]</button>
         </EditForm>
     </div>
 </div>
@@ -56,7 +55,7 @@
         {
             RedirectManager.RedirectToWithStatus(
                 "Account/Login",
-                "Fehler: Die Zwei-Faktor-Anmeldung ist abgelaufen. Bitte melden Sie sich erneut an.",
+                SharedText.Get("Account_TwoFactorExpired"),
                 HttpContext);
             return;
         }
@@ -85,13 +84,13 @@
         else
         {
             Logger.LogWarning("Invalid recovery code entered for user with ID '{UserId}' ", userId);
-            message = "Error: Invalid recovery code entered.";
+            message = SharedText.Get("Account_CodeInvalid");
         }
     }
 
     private sealed class InputModel
     {
-        [Required]
+        [LocalizedRequired("Account_Required")]
         [DataType(DataType.Text)]
         [Display(Name = "Recovery Code")]
         public string RecoveryCode { get; set; } = "";

@@ -34,6 +34,8 @@ public class TrashCleanupService : BackgroundService
                 using var scope = _services.CreateScope();
                 var trashService = scope.ServiceProvider.GetRequiredService<ITodoTrashService>();
                 var purged = await trashService.PurgeExpiredAsync(stoppingToken);
+                var attachments = scope.ServiceProvider.GetRequiredService<AttachmentStorageReconciler>();
+                await attachments.ReconcileAsync(stoppingToken);
 
                 if (purged > 0)
                     _logger.LogInformation("Papierkorb-Bereinigung: {Count} abgelaufene Einträge endgültig gelöscht.", purged);

@@ -1,0 +1,48 @@
+@using Klassenbibliothek.Services
+@inject IListEmailImportService Import
+
+<section class="rounded-lg border border-slate-200 p-3 text-sm">
+    <div class="flex items-center justify-between gap-2">
+        <h3 class="font-semibold">@L["ImportStatus_Title"]</h3>
+        <button type="button" disabled="@_busy" @onclick="LoadAsync">@L["ImportStatus_Refresh"]</button>
+    </div>
+    @if (_error is not null) { <p role="alert" class="text-red-700">@_error</p> }
+    @if (!_busy && _messages.Count == 0) { <p class="text-slate-500">@L["ImportStatus_Empty"]</p> }
+    <ul class="divide-y divide-slate-100">
+        @foreach (var message in _messages)
+        {
+            <li class="py-2">
+                <p>@string.Format(L["ImportStatus_Message"].Value, message.MessageUid, message.AttemptCount)</p>
+                <p>@(message.TaskCreatedAutomationCompletedAtUtc is not null ? L["ImportStatus_TaskStageDone"] : L["ImportStatus_TaskStagePending"])</p>
+                @if (message.LastError is not null) { <p class="text-red-700">@message.LastError</p> }
+                <button type="button" class="mt-1 text-blue-700" disabled="@_busy" @onclick="() => RetryAsync(message.Id)">@L["ImportStatus_Retry"]</button>
+            </li>
+        }
+    </ul>
+    <p class="text-xs text-slate-500">@L["ImportStatus_Hint"]</p>
+</section>
+
+@code {
+    [Parameter] public Guid ListId { get; set; }
+    [Parameter] public string UserId { get; set; } = "";
+    private Guid? _loadedList;
+    private IReadOnlyList<EmailImportMessageStatus> _messages = [];
+    private string? _error;
+    private bool _busy;
+    protected override async Task OnParametersSetAsync() { if (_loadedList != ListId) { _loadedList = ListId; await LoadAsync(); } }
+    private async Task LoadAsync()
+    {
+        _busy = true; _error = null;
+        var list = ListId;
+        try { var messages = await Import.GetMessageStatusAsync(UserId, list); if (ListId == list) _messages = messages; }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+    private async Task RetryAsync(Guid id)
+    {
+        _busy = true; _error = null;
+        try { await Import.RetryMessageAsync(UserId, ListId, id); await LoadAsync(); }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+}

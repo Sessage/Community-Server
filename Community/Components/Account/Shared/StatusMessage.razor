@@ -1,7 +1,8 @@
 @if (!string.IsNullOrEmpty(DisplayMessage))
 {
     var statusMessageClass =
-        DisplayMessage.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
+        DisplayMessage.StartsWith(SharedText.Get("Err_Generic", string.Empty).Trim(), StringComparison.OrdinalIgnoreCase)
+        || DisplayMessage.StartsWith("Error", StringComparison.OrdinalIgnoreCase)
         || DisplayMessage.StartsWith("Fehler", StringComparison.OrdinalIgnoreCase)
             ? "danger"
             : "success";

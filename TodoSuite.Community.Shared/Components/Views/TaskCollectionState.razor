@@ -1,0 +1,30 @@
+@using Klassenbibliothek.Data
+@using Klassenbibliothek.Services
+@inject IJSRuntime JS
+
+@if (List.Tasks.Count == 0)
+{
+    <div role="status" class="m-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+        <p class="font-semibold">@L["EmptyTasks_Title"]</p>
+        <p>@L[CanWrite ? "EmptyTasks_CreateHint" : "EmptyTasks_ReadOnly"]</p>
+        @if (CanWrite && ShowCreateAction) { <button type="button" class="mt-2 text-blue-700" @onclick="FocusCreateAsync">@L["EmptyTasks_Create"]</button> }
+    </div>
+}
+else if (Filter?.IsActive() == true && !List.Tasks.Any(task => TodoTaskFilterMatcher.Matches(Filter, task, UserId,
+    task.Done || (List.DoneColumns ?? []).Contains(task.Column, StringComparer.OrdinalIgnoreCase))))
+{
+    <div role="status" class="m-3 rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+        <p>@L["EmptyTasks_Filter"]</p>
+        <button type="button" class="mt-2 text-blue-700" @onclick="OnClearFilter">@L["EmptyTasks_ClearFilter"]</button>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public TodoListEntity List { get; set; } = default!;
+    [Parameter] public TodoTaskFilter? Filter { get; set; }
+    [Parameter] public string UserId { get; set; } = "";
+    [Parameter] public bool CanWrite { get; set; }
+    [Parameter] public bool ShowCreateAction { get; set; } = true;
+    [Parameter] public EventCallback OnClearFilter { get; set; }
+    private async Task FocusCreateAsync() { try { await JS.InvokeVoidAsync("todoUi.focusTaskCreation"); } catch (JSException) { } }
+}

@@ -51,8 +51,18 @@ window.floatingDropdown = (function () {
         // during the delay (for example when switching dashboard views); without
         // this entry unregisterCloseHandlers cannot cancel the timer and the
         // disposed .NET reference would be invoked by the next document click.
-        var registration = { timer: null, onDocClick: null, onKeyDown: null };
+        var registration = { timer: null, onDocClick: null, onKeyDown: null, anchor: anchorElement };
+        anchorElement?.querySelector('button, fluent-button, [role="button"]')?.setAttribute('aria-expanded', 'true');
         activeHandlers.set(dropdownId, registration);
+        // Escape is safe immediately: delaying it together with outside-click
+        // registration loses quick keyboard dismissal after opening a menu.
+        registration.onKeyDown = function (e) {
+            if (e.key !== 'Escape' || [...activeHandlers.keys()].at(-1) !== dropdownId) return;
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            dotnetRef.invokeMethodAsync('OnEscapeKey').catch(function () { });
+        };
+        document.addEventListener('keydown', registration.onKeyDown, true);
         registration.timer = setTimeout(function () {
             if (activeHandlers.get(dropdownId) !== registration) return;
 
@@ -68,31 +78,26 @@ window.floatingDropdown = (function () {
                 dotnetRef.invokeMethodAsync('OnOutsideClick').catch(function () { });
             };
 
-            var onKeyDown = function (e) {
-                if (e.key === 'Escape') {
-                    dotnetRef.invokeMethodAsync('OnEscapeKey').catch(function () { });
-                }
-            };
-
             document.addEventListener('click', onDocClick, true);
-            document.addEventListener('keydown', onKeyDown, true);
 
             registration.timer = null;
             registration.onDocClick = onDocClick;
-            registration.onKeyDown = onKeyDown;
         }, 100);
     }
 
     /**
      * Removes previously registered close handlers for a given overlay ID.
      */
-    function unregisterCloseHandlers(dropdownId) {
+    function unregisterCloseHandlers(dropdownId, restoreFocus) {
         var handlers = activeHandlers.get(dropdownId);
         if (!handlers) return;
 
         if (handlers.timer !== null) clearTimeout(handlers.timer);
         if (handlers.onDocClick) document.removeEventListener('click', handlers.onDocClick, true);
         if (handlers.onKeyDown) document.removeEventListener('keydown', handlers.onKeyDown, true);
+        const trigger = handlers.anchor?.querySelector('button, fluent-button, [role="button"], a[href]');
+        trigger?.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && trigger?.isConnected) trigger.focus({ preventScroll: true });
         activeHandlers.delete(dropdownId);
     }
 

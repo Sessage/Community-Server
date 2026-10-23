@@ -129,6 +129,7 @@ public sealed class ReminderDispatcherService : BackgroundService
                     : RichTextContent.ToPlainText(task.Description),
                 MaxNotificationMessageLength);
             var delivered = false;
+            var emailRequired = false;
             var preference = string.IsNullOrWhiteSpace(recipientUserId)
                 ? null
                 : preferences.GetValueOrDefault(recipientUserId);
@@ -142,6 +143,9 @@ public sealed class ReminderDispatcherService : BackgroundService
             if (!string.IsNullOrWhiteSpace(recipientUserId)
                 && (channel & (NotificationDeliveryChannel.Browser | NotificationDeliveryChannel.Push)) != 0)
             {
+                delivered = true;
+                if (task.ReminderInboxSentAtUtc is null)
+                {
                 db.UserNotifications.Add(new UserNotificationEntity
                 {
                     UserId = recipientUserId,
@@ -153,32 +157,39 @@ public sealed class ReminderDispatcherService : BackgroundService
                     CreatedAtUtc = now
                 });
 
-                delivered = true;
+                task.ReminderInboxSentAtUtc = now;
                 if ((channel & NotificationDeliveryChannel.Browser) != 0)
                     pendingLiveNotifications.Add((recipientUserId, title, message, task.Id));
                 if ((channel & NotificationDeliveryChannel.Push) != 0)
                     pendingPushNotifications.Add((recipientUserId, title, message, task.ListId, task.Id,
                         preference?.PushContentMode ?? PushNotificationContentMode.Anonymous));
+                }
             }
 
             // E-Mail: nur als geliefert werten, wenn der Versand wirklich klappt.
             if (!string.IsNullOrWhiteSpace(recipientEmail)
                 && (string.IsNullOrWhiteSpace(recipientUserId) || (channel & NotificationDeliveryChannel.Email) != 0))
             {
+                emailRequired = true;
+                if (task.ReminderEmailSentAtUtc is null)
+                {
                 try
                 {
                     var body = BuildReminderEmail(task);
                     await email.SendEmailAsync(recipientEmail, title, body);
+                    task.ReminderEmailSentAtUtc = now;
                     delivered = true;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Reminder-E-Mail konnte nicht gesendet werden. TaskId={TaskId}, Recipient={RecipientEmail}", task.Id, recipientEmail);
-                    // Retry im nächsten Dispatcher-Lauf, falls kein anderer Kanal geliefert wurde.
+                    // Keep the independent email stage pending, even when the inbox succeeded.
+                }
                 }
             }
 
-            if (delivered)
+            if ((delivered || task.ReminderEmailSentAtUtc is not null)
+                && (!emailRequired || task.ReminderEmailSentAtUtc is not null))
                 task.ReminderSentAtUtc = now;
         }
 

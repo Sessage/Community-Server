@@ -11,30 +11,30 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Registrierung bestätigen</PageTitle>
+<PageTitle>@L["Account_Ui_21"]</PageTitle>
 
 <div class="ui-row justify-center">
     <div class="ui-col-lg-6">
         <div class="flex justify-center mb-3">
             <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
         </div>
-        <h1 class="h1">Registrierung fast fertig</h1>
+        <h1 class="h1">@L["Account_Ui_22"]</h1>
         <StatusMessage Message="@statusMessage" />
 
         @if (emailConfirmationLink is not null)
         {
             <p role="alert">
-                E-Mail-Versand ist deaktiviert. Bestätige dein Konto über diesen Link:
-                <a href="@emailConfirmationLink">Konto bestätigen</a>
+                @L["Account_EmailDisabledHint"]
+                <a href="@emailConfirmationLink">@L["Account_Ui_23"]</a>
             </p>
         }
         else if (statusMessage is null)
         {
-            <p role="alert">Bitte überprüfe dein Postfach und bestätige deine E-Mail-Adresse.</p>
+            <p role="alert">@L["Account_Ui_24"]</p>
         }
 
         <p class="mt-3">
-            <a href="Account/Login">Zur Anmeldung</a>
+            <a href="Account/Login">@L["Account_BackToLogin"]</a>
         </p>
     </div>
 </div>
@@ -64,7 +64,7 @@
         if (user is null)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
-            statusMessage = "Fehler: Benutzer für diese E-Mail-Adresse wurde nicht gefunden.";
+            statusMessage = SharedText.Get("Account_InvalidUser_Title");
         }
         else if (EmailSender is IdentityNoOpEmailSender)
         {

@@ -1,0 +1,68 @@
+@using Klassenbibliothek.Services
+@using System.Text.Json.Nodes
+
+<FluentDialog Modal="true" TrapFocus="true" PreventScroll="true" Data-testid="workspace-conflict-dialog" aria-labelledby="@_titleId" HiddenChanged="HiddenChangedAsync"
+              Style="position:fixed; inset:0; --dialog-width:min(1100px,96vw); --dialog-height:90vh; overflow:auto; padding:1rem;">
+    <h2 id="@_titleId" class="text-lg font-semibold">@L["Conflict_Title"]</h2>
+    <p class="my-2 text-sm">@L["Conflict_Hint"]</p>
+    @if (!string.IsNullOrWhiteSpace(Error)) { <p role="alert" class="text-red-700">@Error</p> }
+    <div class="overflow-auto">
+        <table class="w-full text-left text-sm">
+            <thead><tr><th>@L["Conflict_Field"]</th><th>@L["Conflict_Local"]</th><th>@L["Conflict_Server"]</th><th>@L["Conflict_Choice"]</th></tr></thead>
+            <tbody>@foreach (var difference in _differences) {
+                <tr class="border-t border-slate-200 align-top">
+                    <th scope="row" class="p-2">@FieldLabel(difference.Field)</th>
+                    <td class="max-w-xs whitespace-pre-wrap break-words p-2">@DisplayValue(difference.Field, difference.LocalValue)</td>
+                    <td class="max-w-xs whitespace-pre-wrap break-words p-2">@DisplayValue(difference.Field, difference.ServerValue)</td>
+                    <td class="p-2"><label><input type="checkbox" checked="@_localFields.Contains(difference.Field)" @onchange="e => Select(difference.Field, e.Value is true)" /> @L["Conflict_UseLocal"]</label></td>
+                </tr>
+            }</tbody>
+        </table>
+    </div>
+    @if (_differences.Count == 0) { <p>@L["Conflict_Identical"]</p> }
+    <div class="mt-4 flex gap-3">
+        <button type="button" class="rounded-lg bg-blue-600 px-3 py-2 text-white" disabled="@Busy" @onclick="ApplyAsync">@L["Btn_Save"]</button>
+        <button type="button" disabled="@Busy" @onclick="() => OnCancel.InvokeAsync()">@L["Btn_Cancel"]</button>
+    </div>
+</FluentDialog>
+
+@code {
+    [Parameter, EditorRequired] public string LocalJson { get; set; } = "{}";
+    [Parameter, EditorRequired] public string ServerJson { get; set; } = "{}";
+    [Parameter] public bool IsTask { get; set; } = true;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback<IReadOnlySet<string>> OnApply { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    private readonly string _titleId = "conflict-" + Guid.NewGuid().ToString("N");
+    private readonly HashSet<string> _localFields = new(StringComparer.Ordinal);
+    private IReadOnlyList<WorkspaceFieldDifference> _differences = [];
+    private string? _loadedLocal, _loadedServer;
+    protected override void OnParametersSet()
+    {
+        if (_loadedLocal == LocalJson && _loadedServer == ServerJson) return;
+        _loadedLocal = LocalJson; _loadedServer = ServerJson;
+        _differences = WorkspaceConflictMerge.Compare(LocalJson, ServerJson, IsTask);
+        _localFields.Clear();
+        foreach (var field in _differences) _localFields.Add(field.Field);
+    }
+    private void Select(string field, bool local) { if (local) _localFields.Add(field); else _localFields.Remove(field); }
+    private Task ApplyAsync() => OnApply.InvokeAsync(new HashSet<string>(_localFields, StringComparer.Ordinal));
+    private Task HiddenChangedAsync(bool hidden) => hidden && !Busy ? OnCancel.InvokeAsync() : Task.CompletedTask;
+    private static string DisplayValue(string field, string json)
+    {
+        var node = JsonNode.Parse(json);
+        if (node is JsonValue value && value.TryGetValue<string>(out var text))
+            return field == "description" ? RichTextContent.ToPlainText(text) : text;
+        return node?.ToJsonString(new() { WriteIndented = true }) ?? "—";
+    }
+    private string FieldLabel(string field) => L[field switch
+    {
+        "title" => "Lbl_Title", "description" => "Task_Description", "startDate" => "Task_Date_StartDate", "dueDate" => "Task_Date_DueDate",
+        "reminderAtUtc" => "Task_Reminder", "done" => "Task_Status_Done", "isImportant" => "QuickLink_Important", "assignee" => "Task_Assignee",
+        "recurrence" or "customRecurrence" => "Task_Recurrence", "column" or "columns" => "Task_Column", "cardColor" or "cardColorMode" => "Task_CardStyle_Title",
+        "memberUserIds" => "Task_Members", "labelLinks" => "Task_Labels", "steps" => "Task_Checklist", "customFieldValues" => "CustomField_SectionTitle",
+        "name" => "Lbl_Name", "defaultView" => "Conflict_DefaultView", "backgroundColor" => "Task_CardStyle_Title",
+        "listSortOrder" or "kanbanSortOrder" => "Conflict_Position", _ => "Conflict_Field"
+    }].Value;
+}

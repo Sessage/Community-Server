@@ -61,10 +61,87 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TodoAutomationConditionEntity> TodoAutomationConditions => Set<TodoAutomationConditionEntity>();
     public DbSet<TodoAutomationActionEntity> TodoAutomationActions => Set<TodoAutomationActionEntity>();
 
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        var (tasks, lists) = ChangedAggregateIds();
+        if (tasks.Count > 0) _ = TodoTasks.Where(task => tasks.Contains(task.Id)).ToList();
+        if (lists.Count > 0) _ = TodoLists.Where(list => lists.Contains(list.Id)).ToList();
+        AdvanceRevisions(tasks, lists);
+        AdvanceDashboardRevisions();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        var (tasks, lists) = ChangedAggregateIds();
+        if (tasks.Count > 0)
+            _ = await TodoTasks.Where(task => tasks.Contains(task.Id)).ToListAsync(cancellationToken);
+        if (lists.Count > 0)
+            _ = await TodoLists.Where(list => lists.Contains(list.Id)).ToListAsync(cancellationToken);
+        AdvanceRevisions(tasks, lists);
+        AdvanceDashboardRevisions();
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private (HashSet<Guid> Tasks, HashSet<Guid> Lists) ChangedAggregateIds()
+    {
+        ChangeTracker.DetectChanges();
+        var tasks = new HashSet<Guid>();
+        var lists = new HashSet<Guid>();
+        foreach (var entry in ChangeTracker.Entries().Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        {
+            if (entry.Entity is TodoTaskEntity reminderTask && entry.State == EntityState.Modified
+                && entry.Property(nameof(TodoTaskEntity.ReminderAtUtc)).IsModified)
+            {
+                reminderTask.ReminderInboxSentAtUtc = null;
+                reminderTask.ReminderEmailSentAtUtc = null;
+                reminderTask.ReminderSentAtUtc = null;
+            }
+            // Comments, files, watchers and delivery markers have independent endpoints.
+            // They must not invalidate a task draft, unlike steps, labels and membership.
+            switch (entry.Entity)
+            {
+                case TodoStepEntity step: tasks.Add(step.TaskId); break;
+                case TodoTaskMemberEntity member: tasks.Add(member.TaskId); break;
+                case TodoTaskLabelEntity label: tasks.Add(label.TaskId); break;
+                case TodoTaskCustomFieldValueEntity value: tasks.Add(value.TaskId); break;
+                case ListParticipantEntity participant: lists.Add(participant.ListId); break;
+                case TodoTaskEntity task when entry.State == EntityState.Modified
+                    && entry.Properties.Any(property => property.IsModified && property.Metadata.Name is not nameof(TodoTaskEntity.ReminderSentAtUtc)
+                        and not nameof(TodoTaskEntity.ReminderInboxSentAtUtc) and not nameof(TodoTaskEntity.ReminderEmailSentAtUtc)):
+                    tasks.Add(task.Id); break;
+                case TodoListEntity list when entry.State == EntityState.Modified: lists.Add(list.Id); break;
+            }
+        }
+        return (tasks, lists);
+    }
+
+    private void AdvanceRevisions(HashSet<Guid> taskIds, HashSet<Guid> listIds)
+    {
+        // Advancing the parent and its children in one SaveChanges makes the existing EF
+        // concurrency token cover every write path, including narrowly scoped services.
+        foreach (var entry in ChangeTracker.Entries<TodoTaskEntity>().Where(entry => taskIds.Contains(entry.Entity.Id)))
+            if (entry.State is not EntityState.Added and not EntityState.Deleted
+                && entry.Entity.ContentVersion == entry.Property(task => task.ContentVersion).OriginalValue)
+                entry.Entity.ContentVersion = checked(entry.Entity.ContentVersion + 1);
+        foreach (var entry in ChangeTracker.Entries<TodoListEntity>().Where(entry => listIds.Contains(entry.Entity.Id)))
+            if (entry.State is not EntityState.Added and not EntityState.Deleted
+                && entry.Entity.ContentVersion == entry.Property(list => list.ContentVersion).OriginalValue)
+                entry.Entity.ContentVersion = checked(entry.Entity.ContentVersion + 1);
+    }
+
+    private void AdvanceDashboardRevisions()
+    {
+        foreach (var entry in ChangeTracker.Entries<DashboardEntity>().Where(entry => entry.State == EntityState.Modified))
+            if (entry.Entity.ContentVersion == entry.Property(dashboard => dashboard.ContentVersion).OriginalValue)
+                entry.Entity.ContentVersion = checked(entry.Entity.ContentVersion + 1);
+    }
+
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.Entity<DashboardEntity>().Property(dashboard => dashboard.ContentVersion).IsConcurrencyToken();
 
         builder.Entity<DailyFocusPreferenceEntity>(entity =>
         {
@@ -92,7 +169,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         builder.Entity<TodoListEntity>(entity =>
         {
-            // ContentVersion is advanced by services and exposed to mobile sync. Database-side
+            // ContentVersion is advanced by services/the unit of work and exposed to mobile sync. Database-side
             // generation would make deterministic conflict fingerprints and offline DTOs diverge.
             entity.Property(l => l.ContentVersion).HasDefaultValue(1L).ValueGeneratedNever().IsConcurrencyToken();
             entity.HasIndex(l => new { l.OwnerId, l.Name });

@@ -61,6 +61,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 
         foreach (var l in lists)
         {
+            l.SyncVersion = l.ContentVersion;
             // Soft-gelöschte Aufgaben aus der In-Memory-Liste ausblenden
             l.Tasks = (l.Tasks ?? new List<TodoTaskEntity>())
                 .Where(t => t.DeletedAt == null)
@@ -68,6 +69,7 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 
             foreach (var t in l.Tasks)
             {
+                t.SyncVersion = t.ContentVersion;
                 t.MemberUserIds = (t.Members ?? new List<TodoTaskMemberEntity>())
                     .Where(m => !string.IsNullOrWhiteSpace(m.UserId))
                     .Select(m => m.UserId.Trim())
@@ -265,6 +267,8 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
 
         foreach (var list in lists)
             list.Tasks = tasksByList.TryGetValue(list.Id, out var tasks) ? tasks : new List<TodoTaskEntity>();
+
+        NormalizeLoadedTasks(lists);
 
         return lists;
     }
@@ -985,12 +989,14 @@ public class TodoListService : TodoWorkspaceServiceBase, ITodoListService
     {
         foreach (var l in lists)
         {
+            l.SyncVersion = l.ContentVersion;
             l.Tasks = (l.Tasks ?? new List<TodoTaskEntity>())
                 .Where(t => t.DeletedAt == null)
                 .ToList();
 
             foreach (var t in l.Tasks)
             {
+                t.SyncVersion = t.ContentVersion;
                 t.MemberUserIds = (t.Members ?? new List<TodoTaskMemberEntity>())
                     .Where(m => !string.IsNullOrWhiteSpace(m.UserId))
                     .Select(m => m.UserId.Trim())

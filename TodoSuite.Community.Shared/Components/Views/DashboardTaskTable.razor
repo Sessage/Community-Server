@@ -23,7 +23,8 @@
                             </td>
                             <td class="p-2">@item.List.Name</td>
                             <td class="p-2">@item.Task.Column</td>
-                            <td class="p-2">@(item.Task.DueDate?.ToLocalTime().ToString("d") ?? "-")</td>
+                            @* A due date is a calendar day, not a UTC instant. *@
+                            <td class="p-2">@(item.Task.DueDate?.ToString("d", System.Globalization.CultureInfo.CurrentCulture) ?? "-")</td>
                         </tr>
                     }
                 </tbody>

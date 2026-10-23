@@ -2690,4 +2690,519 @@
   <data name="ExcelImport_FieldNeedsDate" xml:space="preserve"><value>El campo personalizado «{0}» requiere una fecha válida.</value></data>
   <data name="ExcelImport_FieldNeedsBoolean" xml:space="preserve"><value>El campo personalizado «{0}» requiere Sí o No.</value></data>
   <data name="ExcelImport_FieldInvalidSelection" xml:space="preserve"><value>El campo personalizado «{0}» contiene una selección no válida.</value></data>
+  <data name="Common_Today" xml:space="preserve"><value>Hoy</value></data>
+  <data name="Common_Yesterday" xml:space="preserve"><value>Ayer</value></data>
+  <data name="Task_Reminder_InvalidLocalTime" xml:space="preserve"><value>Esta hora no existe debido al cambio de horario. Elija otra hora.</value></data>
+  <data name="SaveState_Confirmed" xml:space="preserve"><value>Sincronizado</value></data>
+  <data name="SaveState_Local" xml:space="preserve"><value>Guardado localmente</value></data>
+  <data name="SaveState_Transferring" xml:space="preserve"><value>Guardando …</value></data>
+  <data name="SaveState_Conflict" xml:space="preserve"><value>Conflicto</value></data>
+  <data name="SaveState_Failed" xml:space="preserve"><value>Error al guardar</value></data>
+  <data name="SaveState_Unsaved" xml:space="preserve"><value>Aún sin guardar</value></data>
+  <data name="Common_Undo" xml:space="preserve"><value>Deshacer</value></data>
+  <data name="Conflict_Title" xml:space="preserve"><value>Comparar cambios</value></data>
+  <data name="Conflict_Hint" xml:space="preserve"><value>Elige el valor local o del servidor. Los cambios posteriores del servidor siguen protegidos.</value></data>
+  <data name="Conflict_Field" xml:space="preserve"><value>Campo</value></data>
+  <data name="Conflict_Local" xml:space="preserve"><value>Valor local</value></data>
+  <data name="Conflict_Server" xml:space="preserve"><value>Valor del servidor</value></data>
+  <data name="Conflict_Choice" xml:space="preserve"><value>Selección</value></data>
+  <data name="Conflict_UseLocal" xml:space="preserve"><value>Usar valor local</value></data>
+  <data name="Conflict_Identical" xml:space="preserve"><value>Los campos editables son idénticos. La confirmación actualiza la versión.</value></data>
+  <data name="Conflict_DefaultView" xml:space="preserve"><value>Vista predeterminada</value></data>
+  <data name="Conflict_Position" xml:space="preserve"><value>Posición</value></data>
+  <data name="Conflict_RemoteChanged" xml:space="preserve"><value>El servidor cambió. Se conserva tu edición. Las diferencias se comprobarán al guardar.</value></data>
+  <data name="ImportStatus_Title" xml:space="preserve"><value>Mensajes pendientes</value></data>
+  <data name="ImportStatus_Refresh" xml:space="preserve"><value>Actualizar</value></data>
+  <data name="ImportStatus_Empty" xml:space="preserve"><value>No hay mensajes pendientes.</value></data>
+  <data name="ImportStatus_Message" xml:space="preserve"><value>Mensaje {0} · Intentos: {1}</value></data>
+  <data name="ImportStatus_TaskStageDone" xml:space="preserve"><value>Tarea y automatización confirmadas</value></data>
+  <data name="ImportStatus_TaskStagePending" xml:space="preserve"><value>Tarea o automatización pendiente</value></data>
+  <data name="ImportStatus_Retry" xml:space="preserve"><value>Permitir reintento</value></data>
+  <data name="ImportStatus_Hint" xml:space="preserve"><value>Los mensajes se reintentan en la próxima importación. Permanecen sin leer hasta completar el proceso.</value></data>
+  <data name="EmptyTasks_Title" xml:space="preserve"><value>Aún no hay tareas</value></data>
+  <data name="EmptyTasks_CreateHint" xml:space="preserve"><value>Crea una primera tarea para empezar.</value></data>
+  <data name="EmptyTasks_ReadOnly" xml:space="preserve"><value>La lista está vacía. Crear tareas requiere permiso de escritura.</value></data>
+  <data name="EmptyTasks_Create" xml:space="preserve"><value>Crear primera tarea</value></data>
+  <data name="EmptyTasks_Filter" xml:space="preserve"><value>Ninguna tarea coincide con el filtro.</value></data>
+  <data name="EmptyTasks_ClearFilter" xml:space="preserve"><value>Borrar filtro</value></data>
+  <data name="Workspace_OfflineNoCache" xml:space="preserve"><value>Aún no hay una copia local de esta lista disponible sin conexión. Conéctate y vuelve a cargarla.</value></data>
+  <data name="Workspace_Unavailable" xml:space="preserve"><value>No se encontró esta lista o no está compartida con esta cuenta.</value></data>
+  <data name="Workspace_RetryLoad" xml:space="preserve"><value>Reintentar</value></data>
+  <data name="Approval_title" xml:space="preserve"><value>Aprobación</value></data>
+  <data name="Approval_approver" xml:space="preserve"><value>Responsable de aprobación</value></data>
+  <data name="Approval_approve" xml:space="preserve"><value>Aprobar</value></data>
+  <data name="Approval_reject" xml:space="preserve"><value>Rechazar</value></data>
+  <data name="Approval_pending" xml:space="preserve"><value>Pendiente</value></data>
+  <data name="Approval_approved" xml:space="preserve"><value>Aprobada</value></data>
+  <data name="Approval_rejected" xml:space="preserve"><value>Rechazada</value></data>
+  <data name="Approval_none" xml:space="preserve"><value>No solicitada</value></data>
+  <data name="Approval_not-found" xml:space="preserve"><value>No se encontró la tarea.</value></data>
+  <data name="Undo_TaskDeleted" xml:space="preserve"><value>Tarea eliminada.</value></data>
+  <data name="Undo_RestoreFailed" xml:space="preserve"><value>Aún no se pudo restaurar la tarea. Inténtalo de nuevo o abre la papelera.</value></data>
+  <data name="PortfolioTimeline_Title" xml:space="preserve"><value>Cronología de listas</value></data>
+  <data name="PortfolioTimeline_ScheduledCount" xml:space="preserve"><value>{0} de {1} listas programadas</value></data>
+  <data name="PortfolioTimeline_Project" xml:space="preserve"><value>Lista</value></data>
+  <data name="PortfolioTimeline_OpenProject" xml:space="preserve"><value>Abrir lista</value></data>
+  <data name="PortfolioTimeline_TasksTitle" xml:space="preserve"><value>Cronología de tareas</value></data>
+  <data name="App_LoadingSessage" xml:space="preserve"><value>Cargando Sessage…</value></data>
+  <data name="App_Anunexpectederroroccurred" xml:space="preserve"><value>Se produjo un error inesperado</value></data>
+  <data name="App_Menu" xml:space="preserve"><value>Menú</value></data>
+  <data name="App_Home" xml:space="preserve"><value>Inicio</value></data>
+  <data name="App_OfflineChangeswillsyncwhentheconnectionreturns" xml:space="preserve"><value>Sin conexión. Los cambios se sincronizarán al recuperar la conexión.</value></data>
+  <data name="App_Pleaseupdatetheapp" xml:space="preserve"><value>Actualiza la aplicación.</value></data>
+  <data name="App_Synchronizationandrecovery" xml:space="preserve"><value>Sincronización y recuperación</value></data>
+  <data name="App_Disableportfolio" xml:space="preserve"><value>Desactivar portafolio</value></data>
+  <data name="App_Converttoportfolio" xml:space="preserve"><value>Convertir en portafolio</value></data>
+  <data name="App_Syncing1pendingchange" xml:space="preserve"><value>Sincronizando 1 cambio pendiente…</value></data>
+  <data name="App_Createanewlistinthisportfolio" xml:space="preserve"><value>Crear una lista en este portafolio</value></data>
+  <data name="App_Createanewlistinthisgroup" xml:space="preserve"><value>Crear una lista en este grupo</value></data>
+  <data name="App_ServerunavailableCheckyourconnection" xml:space="preserve"><value>Servidor no disponible. Revisa la conexión.</value></data>
+  <data name="App_InvalidQRcodenovalidinvitationlink" xml:space="preserve"><value>Código QR no válido: no contiene una invitación válida.</value></data>
+  <data name="App_Portfolioadded" xml:space="preserve"><value>Portafolio añadido.</value></data>
+  <data name="App_Listadded" xml:space="preserve"><value>Lista añadida.</value></data>
+  <data name="App_TokencreatedCopyitnow" xml:space="preserve"><value>Token creado. ¡Cópialo ahora!</value></data>
+  <data name="App_Thistokenisshownonlyonce" xml:space="preserve"><value>Este token solo se muestra una vez.</value></data>
+  <data name="App_Createaccesstoken" xml:space="preserve"><value>Crear token de acceso</value></data>
+  <data name="App_Tokenname" xml:space="preserve"><value>Nombre del token</value></data>
+  <data name="App_Notokensyet" xml:space="preserve"><value>No hay tokens.</value></data>
+  <data name="App_Readonly" xml:space="preserve"><value>Solo lectura</value></data>
+  <data name="App_Readandwrite" xml:space="preserve"><value>Lectura y escritura</value></data>
+  <data name="App_Confirm" xml:space="preserve"><value>Confirmar</value></data>
+  <data name="App_Couldnotloadaccesstokens" xml:space="preserve"><value>No se pudieron cargar los tokens.</value></data>
+  <data name="App_Couldnotcreatetheaccesstoken" xml:space="preserve"><value>No se pudo crear el token.</value></data>
+  <data name="App_Couldnotdeletetheaccesstoken" xml:space="preserve"><value>No se pudo eliminar el token.</value></data>
+  <data name="App_Couldnotcopythetokentotheclipboard" xml:space="preserve"><value>No se pudo copiar el token al portapapeles.</value></data>
+  <data name="App_Loading" xml:space="preserve"><value>Cargando…</value></data>
+  <data name="App_Administrationunavailable" xml:space="preserve"><value>Administración no disponible</value></data>
+  <data name="App_Currentprofile" xml:space="preserve"><value>Perfil actual</value></data>
+  <data name="App_Centralpolicies" xml:space="preserve"><value>Políticas centrales</value></data>
+  <data name="App_Thesesettingsapplyimmediatelytoallclientsofthisinstallation" xml:space="preserve"><value>Estos ajustes se aplican inmediatamente a todos los clientes de esta instalación.</value></data>
+  <data name="App_Allowselfregistration" xml:space="preserve"><value>Permitir autorregistro</value></data>
+  <data name="App_Allowpersonaldataexport" xml:space="preserve"><value>Permitir exportar datos personales</value></data>
+  <data name="App_Allowaccountselfdeletion" xml:space="preserve"><value>Permitir eliminar la propia cuenta</value></data>
+  <data name="App_Savepolicies" xml:space="preserve"><value>Guardar políticas</value></data>
+  <data name="App_Administrativeandprivacyrelatedactions" xml:space="preserve"><value>Acciones administrativas y de privacidad</value></data>
+  <data name="App_Noauditentriesyet" xml:space="preserve"><value>No hay entradas de auditoría.</value></data>
+  <data name="App_Createuser" xml:space="preserve"><value>Crear usuario</value></data>
+  <data name="App_Edituser" xml:space="preserve"><value>Editar usuario</value></data>
+  <data name="App_Youcannotremoveyourownadministratorrolehere" xml:space="preserve"><value>No puedes quitarte el rol de administrador aquí.</value></data>
+  <data name="App_Users" xml:space="preserve"><value>Usuarios</value></data>
+  <data name="App_Loadingusers" xml:space="preserve"><value>Cargando usuarios…</value></data>
+  <data name="App_Nousersfound" xml:space="preserve"><value>No se encontraron usuarios.</value></data>
+  <data name="App_Deleteuser" xml:space="preserve"><value>Eliminar usuario</value></data>
+  <data name="App_Couldnotcheckadministratorstatus" xml:space="preserve"><value>No se pudo comprobar el estado de administrador.</value></data>
+  <data name="App_Couldnotloadadministration" xml:space="preserve"><value>No se pudo cargar la administración.</value></data>
+  <data name="App_Couldnotloadpolicies" xml:space="preserve"><value>No se pudieron cargar las políticas.</value></data>
+  <data name="App_Centralpoliciessaved" xml:space="preserve"><value>Políticas centrales guardadas.</value></data>
+  <data name="App_Couldnotsavepolicies" xml:space="preserve"><value>No se pudieron guardar las políticas.</value></data>
+  <data name="App_Couldnotloadtheauditlog" xml:space="preserve"><value>No se pudo cargar el registro de auditoría.</value></data>
+  <data name="App_Policieschanged" xml:space="preserve"><value>Políticas modificadas</value></data>
+  <data name="App_Usercreated" xml:space="preserve"><value>Usuario creado</value></data>
+  <data name="App_Userupdated" xml:space="preserve"><value>Usuario actualizado</value></data>
+  <data name="App_Userrolechanged" xml:space="preserve"><value>Rol de usuario modificado</value></data>
+  <data name="App_Userdeleted" xml:space="preserve"><value>Usuario eliminado</value></data>
+  <data name="App_Personaldataexported" xml:space="preserve"><value>Datos personales exportados</value></data>
+  <data name="App_Accountdeletedbyitsowner" xml:space="preserve"><value>Cuenta eliminada por su titular</value></data>
+  <data name="App_Couldnotloadtheuserlist" xml:space="preserve"><value>No se pudo cargar la lista de usuarios.</value></data>
+  <data name="App_Enteranemailaddress" xml:space="preserve"><value>Introduce una dirección de correo.</value></data>
+  <data name="App_Enterapassword" xml:space="preserve"><value>Introduce una contraseña.</value></data>
+  <data name="App_Userupdated63" xml:space="preserve"><value>Usuario actualizado.</value></data>
+  <data name="App_Couldnotcompletetheuseraction" xml:space="preserve"><value>No se pudo completar la acción de usuario.</value></data>
+  <data name="App_Youcannotdeleteyourownaccountinadministration" xml:space="preserve"><value>No puedes eliminar tu propia cuenta en administración.</value></data>
+  <data name="App_Couldnotdeletetheuser" xml:space="preserve"><value>No se pudo eliminar el usuario.</value></data>
+  <data name="App_Couldnotloadimportanttasks" xml:space="preserve"><value>No se pudieron cargar las tareas importantes.</value></data>
+  <data name="App_Permanentlydeleteaccount" xml:space="preserve"><value>Eliminar cuenta permanentemente</value></data>
+  <data name="App_Thispermanentlyremovestheaccountandcannotbeundone" xml:space="preserve"><value>Esta acción elimina la cuenta permanentemente y no se puede deshacer.</value></data>
+  <data name="App_Currentpasswordforconfirmation" xml:space="preserve"><value>Contraseña actual para confirmar</value></data>
+  <data name="App_Couldnotloadaccountdata" xml:space="preserve"><value>No se pudieron cargar los datos de la cuenta.</value></data>
+  <data name="App_Couldnotchangethepassword" xml:space="preserve"><value>No se pudo cambiar la contraseña.</value></data>
+  <data name="App_Couldnotchangetheemailaddress" xml:space="preserve"><value>No se pudo cambiar el correo.</value></data>
+  <data name="App_Personaldataexported75" xml:space="preserve"><value>Datos personales exportados.</value></data>
+  <data name="App_Couldnotexportpersonaldata" xml:space="preserve"><value>No se pudieron exportar los datos personales.</value></data>
+  <data name="App_Couldnotdeletetheaccount" xml:space="preserve"><value>No se pudo eliminar la cuenta.</value></data>
+  <data name="App_Exportchanges" xml:space="preserve"><value>Exportar cambios</value></data>
+  <data name="App_Discardchangesanddeleteprofile" xml:space="preserve"><value>Descartar cambios y eliminar perfil</value></data>
+  <data name="App_Chooseaccount" xml:space="preserve"><value>Elegir cuenta</value></data>
+  <data name="App_Chooseasavedaccountoraddanewone" xml:space="preserve"><value>Elige una cuenta guardada o añade una nueva.</value></data>
+  <data name="App_Deleteprofile" xml:space="preserve"><value>Eliminar perfil</value></data>
+  <data name="App_Signinwithyouraccountdetails" xml:space="preserve"><value>Inicia sesión con tus datos de cuenta.</value></data>
+  <data name="App_AddressoftheSessageserver" xml:space="preserve"><value>Dirección del servidor Sessage</value></data>
+  <data name="App_WewillsendaresetlinktothisaddressForsecuritytheresponseisthesameforeveryacc" xml:space="preserve"><value>Enviaremos un enlace a esta dirección. Por seguridad, la respuesta es igual para todas las cuentas.</value></data>
+  <data name="App_Enterthesixdigitcodefromyourauthenticatorapp" xml:space="preserve"><value>Introduce el código de seis dígitos de tu aplicación de autenticación.</value></data>
+  <data name="App_Confirmcode" xml:space="preserve"><value>Confirmar código</value></data>
+  <data name="App_ServerunavailableChecktheconnectionandserverURL" xml:space="preserve"><value>Servidor no disponible. Revisa la conexión y la URL.</value></data>
+  <data name="App_ThisaccountistemporarilylockedTryagainlater" xml:space="preserve"><value>Esta cuenta está bloqueada temporalmente. Inténtalo más tarde.</value></data>
+  <data name="App_SigninfailedCheckyourcredentialsandserverURL" xml:space="preserve"><value>Error al iniciar sesión. Revisa tus credenciales y la URL.</value></data>
+  <data name="App_TheserverconnectiontimedoutTryagain" xml:space="preserve"><value>La conexión con el servidor agotó el tiempo de espera. Reinténtalo.</value></data>
+  <data name="App_CouldnotcompletesigninTryagain" xml:space="preserve"><value>No se pudo completar el inicio de sesión. Reinténtalo.</value></data>
+  <data name="App_Enteranauthenticatorcode" xml:space="preserve"><value>Introduce un código de autenticación.</value></data>
+  <data name="App_Invalidauthenticatorcode" xml:space="preserve"><value>Código de autenticación no válido.</value></data>
+  <data name="App_CouldnotcompletetwofactorsigninTryagain" xml:space="preserve"><value>No se pudo completar el acceso de dos factores. Reinténtalo.</value></data>
+  <data name="App_EntertheserverURLandemailaddress" xml:space="preserve"><value>Introduce la URL del servidor y el correo.</value></data>
+  <data name="App_Ifalocalaccountexistswiththisaddressaresetlinkhasbeensent" xml:space="preserve"><value>Si existe una cuenta local con esta dirección, se ha enviado un enlace.</value></data>
+  <data name="App_Couldnotsendthepasswordresetrequest" xml:space="preserve"><value>No se pudo enviar la solicitud de restablecimiento.</value></data>
+  <data name="App_Enableimportforthislist" xml:space="preserve"><value>Activar importación para esta lista</value></data>
+  <data name="App_Pollingintervalinminutes" xml:space="preserve"><value>Intervalo de consulta en minutos</value></data>
+  <data name="App_Atleast1minutedefaultis15minutes" xml:space="preserve"><value>Mínimo 1 minuto; 15 minutos de forma predeterminada.</value></data>
+  <data name="App_Foldertoimport" xml:space="preserve"><value>Carpeta para importar</value></data>
+  <data name="App_Newtasks" xml:space="preserve"><value>Tareas nuevas</value></data>
+  <data name="App_Checkingconnection" xml:space="preserve"><value>Comprobando conexión…</value></data>
+  <data name="App_Checkingfornewemails" xml:space="preserve"><value>Buscando correos nuevos…</value></data>
+  <data name="App_Nonewunreademailsfound" xml:space="preserve"><value>No hay correos nuevos sin leer.</value></data>
+  <data name="App_Savingconfiguration" xml:space="preserve"><value>Guardando configuración…</value></data>
+  <data name="App_Removingconfiguration" xml:space="preserve"><value>Eliminando configuración…</value></data>
+  <data name="App_Uploadaprofilepictureandcropit" xml:space="preserve"><value>Sube una foto de perfil y recórtala.</value></data>
+  <data name="App_Currentprofilepicture" xml:space="preserve"><value>Foto de perfil actual</value></data>
+  <data name="App_Noprofilepicture" xml:space="preserve"><value>No hay foto de perfil.</value></data>
+  <data name="App_Uploadprofilepicture" xml:space="preserve"><value>Subir foto de perfil</value></data>
+  <data name="App_Saving" xml:space="preserve"><value>Guardando…</value></data>
+  <data name="App_Saveprofilepicture" xml:space="preserve"><value>Guardar foto de perfil</value></data>
+  <data name="App_Couldnotloadtheprofile" xml:space="preserve"><value>No se pudo cargar el perfil.</value></data>
+  <data name="App_Couldnotloadtheprofilepicture" xml:space="preserve"><value>No se pudo cargar la foto de perfil.</value></data>
+  <data name="App_Noimagetosave" xml:space="preserve"><value>No hay imagen para guardar.</value></data>
+  <data name="App_Profilepicturesaved" xml:space="preserve"><value>Foto de perfil guardada.</value></data>
+  <data name="App_Errorsaving" xml:space="preserve"><value>Error al guardar.</value></data>
+  <data name="App_Couldnotsavetheprofilepicture" xml:space="preserve"><value>No se pudo guardar la foto de perfil.</value></data>
+  <data name="App_Profilepictureremoved" xml:space="preserve"><value>Foto de perfil eliminada.</value></data>
+  <data name="App_Errorremoving" xml:space="preserve"><value>Error al eliminar.</value></data>
+  <data name="App_Couldnotremovetheprofilepicture" xml:space="preserve"><value>No se pudo eliminar la foto de perfil.</value></data>
+  <data name="App_Createaccount" xml:space="preserve"><value>Crear cuenta</value></data>
+  <data name="App_RegisterwithaSessageinstallation" xml:space="preserve"><value>Regístrate en una instalación de Sessage.</value></data>
+  <data name="App_EnteremailpasswordandserverURL" xml:space="preserve"><value>Completa el correo, la contraseña y la URL del servidor.</value></data>
+  <data name="App_AccountcreatedConfirmyouremailusingthelinkthensignin" xml:space="preserve"><value>Cuenta creada. Confirma tu correo con el enlace recibido e inicia sesión.</value></data>
+  <data name="App_CouldnotcompleteregistrationChecktheconnectionandserverURL" xml:space="preserve"><value>No se pudo completar el registro. Revisa la conexión y la URL.</value></data>
+  <data name="App_Pendingchanges" xml:space="preserve"><value>Cambios pendientes</value></data>
+  <data name="App_Syncnow" xml:space="preserve"><value>Sincronizar ahora</value></data>
+  <data name="App_Localstoragebackup" xml:space="preserve"><value>Copia del almacenamiento local</value></data>
+  <data name="App_LocalstoragewasrecreatedafteranerrorPreviousfileswerebackedupandmaycontainu" xml:space="preserve"><value>El almacenamiento local se recreó tras un error. Los archivos anteriores se guardaron y pueden contener trabajo sin sincronizar. Los datos dañados no se restauraron automáticamente.</value></data>
+  <data name="App_TheexportmaycontainsensitivedatafromallprofilesonthisdeviceShareitonlywitha" xml:space="preserve"><value>La exportación puede contener datos sensibles de todos los perfiles del dispositivo. Compártela solo con una persona de confianza para la recuperación.</value></data>
+  <data name="App_Exportbackupfiles" xml:space="preserve"><value>Exportar copias de seguridad</value></data>
+  <data name="App_Loadingchanges" xml:space="preserve"><value>Cargando cambios…</value></data>
+  <data name="App_Nopendingchanges" xml:space="preserve"><value>No hay cambios pendientes.</value></data>
+  <data name="App_Comparefields" xml:space="preserve"><value>Comparar campos</value></data>
+  <data name="App_Loadserverversion" xml:space="preserve"><value>Cargar versión del servidor</value></data>
+  <data name="App_Backuplocalstorage" xml:space="preserve"><value>Guardar almacenamiento local</value></data>
+  <data name="App_YourchoicesweresavedlocallyPendingtransfersandnewconflictsremainvisibleinth" xml:space="preserve"><value>La selección se guardó localmente. Las transferencias pendientes y los nuevos conflictos siguen visibles.</value></data>
+  <data name="App_1pendingchange" xml:space="preserve"><value>1 cambio pendiente</value></data>
+  <data name="App_Allchangessynchronized" xml:space="preserve"><value>Todos los cambios sincronizados.</value></data>
+  <data name="App_SynchronizationstartedSomechangesarestillpending" xml:space="preserve"><value>Sincronización iniciada. Algunos cambios siguen pendientes.</value></data>
+  <data name="App_Changedeleted" xml:space="preserve"><value>Cambio eliminado.</value></data>
+  <data name="App_Thechangestillcouldnotbesynchronized" xml:space="preserve"><value>El cambio sigue sin poder sincronizarse.</value></data>
+  <data name="App_Synchronizationretried" xml:space="preserve"><value>Sincronización reintentada.</value></data>
+  <data name="App_Thelocalversionwasexplicitlysenttotheserver" xml:space="preserve"><value>La versión local se envió expresamente al servidor.</value></data>
+  <data name="App_Thelocalconflictwasdiscardedandtheserverversionloaded" xml:space="preserve"><value>Se descartó el conflicto local y se cargó la versión del servidor.</value></data>
+  <data name="App_Createlist" xml:space="preserve"><value>Crear lista</value></data>
+  <data name="App_Updatelist" xml:space="preserve"><value>Actualizar lista</value></data>
+  <data name="App_Updatetask" xml:space="preserve"><value>Actualizar tarea</value></data>
+  <data name="App_Updatecompletedcolumn" xml:space="preserve"><value>Actualizar columna de completadas</value></data>
+  <data name="App_Sortnavigation" xml:space="preserve"><value>Ordenar navegación</value></data>
+  <data name="App_Movelist" xml:space="preserve"><value>Mover lista</value></data>
+  <data name="App_Sortlists" xml:space="preserve"><value>Ordenar listas</value></data>
+  <data name="App_Sortgroups" xml:space="preserve"><value>Ordenar grupos</value></data>
+  <data name="App_Creategroup" xml:space="preserve"><value>Crear grupo</value></data>
+  <data name="App_Updateportfoliosetting" xml:space="preserve"><value>Actualizar ajuste del portafolio</value></data>
+  <data name="App_Deletegroup" xml:space="preserve"><value>Eliminar grupo</value></data>
+  <data name="App_Createtask" xml:space="preserve"><value>Crear tarea</value></data>
+  <data name="App_Sorttasks" xml:space="preserve"><value>Ordenar tareas</value></data>
+  <data name="App_SortKanbancolumn" xml:space="preserve"><value>Ordenar columna Kanban</value></data>
+  <data name="App_Createcustomfield" xml:space="preserve"><value>Crear campo personalizado</value></data>
+  <data name="App_Updatecustomfield" xml:space="preserve"><value>Actualizar campo personalizado</value></data>
+  <data name="App_Deletecustomfield" xml:space="preserve"><value>Eliminar campo personalizado</value></data>
+  <data name="App_Addcomment" xml:space="preserve"><value>Añadir comentario</value></data>
+  <data name="App_Deletecomment" xml:space="preserve"><value>Eliminar comentario</value></data>
+  <data name="App_Createlabel" xml:space="preserve"><value>Crear etiqueta</value></data>
+  <data name="App_Updatelabel" xml:space="preserve"><value>Actualizar etiqueta</value></data>
+  <data name="App_Uploadattachment" xml:space="preserve"><value>Subir adjunto</value></data>
+  <data name="App_Deleteattachment" xml:space="preserve"><value>Eliminar adjunto</value></data>
+  <data name="App_Updatetaskwatching" xml:space="preserve"><value>Actualizar seguimiento de tarea</value></data>
+  <data name="App_Updatelistwatching" xml:space="preserve"><value>Actualizar seguimiento de lista</value></data>
+  <data name="App_Sortcustomfields" xml:space="preserve"><value>Ordenar campos personalizados</value></data>
+  <data name="App_Localattachmentfilepathhiddenforprivacy" xml:space="preserve"><value>Archivo adjunto local (ruta oculta por privacidad)</value></data>
+  <data name="App_Expireson" xml:space="preserve"><value>Caduca el</value></data>
+  <data name="App_Lastacceptedwebhook" xml:space="preserve"><value>Último webhook aceptado</value></data>
+  <data name="App_Lastwebhookfailure" xml:space="preserve"><value>Último fallo de webhook</value></data>
+  <data name="App_Lastcompletegroupsync" xml:space="preserve"><value>Última sincronización de grupos completa</value></data>
+  <data name="App_Lastincompletegroupsync" xml:space="preserve"><value>Última sincronización de grupos incompleta</value></data>
+  <data name="App_Pushrelayconfigured" xml:space="preserve"><value>Relé push configurado</value></data>
+  <data name="App_Lastsuccessfulregistration" xml:space="preserve"><value>Último registro correcto</value></data>
+  <data name="App_Lastprovideracceptance" xml:space="preserve"><value>Última aceptación del proveedor</value></data>
+  <data name="App_Lastpushfailure" xml:space="preserve"><value>Último fallo de push</value></data>
+  <data name="App_ProvideracceptancedoesnotconfirmdisplayonadeviceTheinappinboxremainsauthori" xml:space="preserve"><value>La aceptación del proveedor no confirma la visualización en el dispositivo. La bandeja de la aplicación sigue siendo la referencia. Los webhooks fallidos no tienen entrega automática persistente.</value></data>
+  <data name="App_Fullname" xml:space="preserve"><value>Nombre completo</value></data>
+  <data name="App_Useuppercaseandlowercaselettersanumberandasymbol" xml:space="preserve"><value>Usa mayúsculas, minúsculas, un número y un símbolo.</value></data>
+  <data name="App_Searchnameoremail" xml:space="preserve"><value>Buscar nombre o correo</value></data>
+  <data name="App_Nameisrequired" xml:space="preserve"><value>El nombre es obligatorio.</value></data>
+  <data name="App_Namemustnotexceed200characters" xml:space="preserve"><value>El nombre no puede superar los 200 caracteres.</value></data>
+  <data name="App_Emailisrequired" xml:space="preserve"><value>El correo es obligatorio.</value></data>
+  <data name="App_Invalidemailaddress" xml:space="preserve"><value>Correo no válido.</value></data>
+  <data name="App_Passwordmusthaveatleast6characters" xml:space="preserve"><value>La contraseña debe tener al menos 6 caracteres.</value></data>
+  <data name="App_Couldnotloadusers" xml:space="preserve"><value>No se pudieron cargar los usuarios.</value></data>
+  <data name="App_Usernotfound" xml:space="preserve"><value>Usuario no encontrado.</value></data>
+  <data name="App_Usermanagementcouldnotcompletetheaction" xml:space="preserve"><value>La gestión de usuarios no pudo completar la acción.</value></data>
+  <data name="App_CouldnotcompletetheuseractionTryagain" xml:space="preserve"><value>No se pudo completar la acción. Reinténtalo.</value></data>
+  <data name="App_Licenseisvalid" xml:space="preserve"><value>La licencia es válida</value></data>
+  <data name="App_Enterpriselicenseexpired" xml:space="preserve"><value>Licencia Enterprise caducada</value></data>
+  <data name="App_NoEnterpriselicenseinstalled" xml:space="preserve"><value>No hay licencia Enterprise instalada</value></data>
+  <data name="App_Publiclicensekeymissing" xml:space="preserve"><value>Falta la clave pública de licencia</value></data>
+  <data name="App_Licensebelongstoanotherinstallation" xml:space="preserve"><value>La licencia pertenece a otra instalación</value></data>
+  <data name="App_Publickeydoesnotbelongtothislicense" xml:space="preserve"><value>La clave pública no pertenece a esta licencia</value></data>
+  <data name="App_Licenseandpublickeydonotmatch" xml:space="preserve"><value>La licencia y la clave pública no coinciden</value></data>
+  <data name="App_Invalidlicensefile" xml:space="preserve"><value>Archivo de licencia no válido</value></data>
+  <data name="App_Unsupportedlicensealgorithm" xml:space="preserve"><value>Algoritmo de licencia no compatible</value></data>
+  <data name="App_Couldnotreadlicensefiles" xml:space="preserve"><value>No se pudieron leer las licencias</value></data>
+  <data name="App_NovalidEnterpriselicense" xml:space="preserve"><value>No hay licencia Enterprise válida</value></data>
+  <data name="App_Noexpirydateset" xml:space="preserve"><value>No hay fecha de caducidad</value></data>
+  <data name="App_Localservertime" xml:space="preserve"><value>Hora local del servidor</value></data>
+  <data name="App_Enterpriselicensesonly" xml:space="preserve"><value>Solo licencias Enterprise</value></data>
+  <data name="App_Passwordistooshort" xml:space="preserve"><value>La contraseña es demasiado corta.</value></data>
+  <data name="App_Passwordneedsasymbol" xml:space="preserve"><value>La contraseña necesita un símbolo.</value></data>
+  <data name="App_Passwordneedsanumber" xml:space="preserve"><value>La contraseña necesita un número.</value></data>
+  <data name="App_Passwordneedsalowercaseletter" xml:space="preserve"><value>La contraseña necesita una minúscula.</value></data>
+  <data name="App_Passwordneedsanuppercaseletter" xml:space="preserve"><value>La contraseña necesita una mayúscula.</value></data>
+  <data name="Operations_Title" xml:space="preserve"><value>Diagnóstico operativo</value></data>
+  <data name="Operations_Refresh" xml:space="preserve"><value>Actualizar</value></data>
+  <data name="Operations_Hint" xml:space="preserve"><value>Observaciones de esta instancia desde el último inicio. Horas en UTC; «—» indica que no hay datos.</value></data>
+  <data name="Operations_GroupCounts" xml:space="preserve"><value>Grupos en la última sincronización / fallidos</value></data>
+  <data name="Operations_LoadError" xml:space="preserve"><value>No se pudo cargar el diagnóstico operativo.</value></data>
+  <data name="PublicForm_OnlineRequired" xml:space="preserve"><value>El envío del formulario requiere conexión al servidor.</value></data>
+  <data name="Security_VerificationFailed" xml:space="preserve"><value>Verificación fallida. Revisa la contraseña o el código; las cuentas de directorio deben volver a iniciar sesión.</value></data>
+  <data name="Security_RequestFailed" xml:space="preserve"><value>No se pudieron cargar o guardar los ajustes de seguridad.</value></data>
+  <data name="Security_PasskeysTitle" xml:space="preserve"><value>Administrar passkeys</value></data>
+  <data name="Security_RecoveryTitle" xml:space="preserve"><value>Códigos de recuperación</value></data>
+  <data name="Security_RecoveryHint" xml:space="preserve"><value>Guarda estos códigos de forma segura. Solo se muestran ahora y sustituyen a los anteriores.</value></data>
+  <data name="Security_CodesSaved" xml:space="preserve"><value>Códigos guardados</value></data>
+  <data name="Security_VerifyHint" xml:space="preserve"><value>Confirma los cambios con tu código o contraseña actual. Las cuentas de directorio sin contraseña requieren un inicio de sesión reciente.</value></data>
+  <data name="Security_Code" xml:space="preserve"><value>Código de autenticación</value></data>
+  <data name="Security_CurrentPassword" xml:space="preserve"><value>Contraseña actual</value></data>
+  <data name="Security_PasskeyBrowserHint" xml:space="preserve"><value>Los nuevos passkeys se registran para la dirección del servidor en el navegador del sistema. Inicia sesión allí. Administra aquí los existentes.</value></data>
+  <data name="Security_AddPasskey" xml:space="preserve"><value>Registrar passkey</value></data>
+  <data name="Security_PasskeyName" xml:space="preserve"><value>Nombre del passkey</value></data>
+  <data name="Security_RenamePasskey" xml:space="preserve"><value>Renombrar</value></data>
+  <data name="Security_DeletePasskeyConfirm" xml:space="preserve"><value>¿Eliminar el passkey «{0}»?</value></data>
+  <data name="Security_NewRecoveryCodes" xml:space="preserve"><value>Generar nuevos códigos de recuperación</value></data>
+  <data name="Security_DisableConfirm" xml:space="preserve"><value>Quiero desactivar la autenticación de dos factores.</value></data>
+  <data name="Security_Disable" xml:space="preserve"><value>Desactivar autenticación de dos factores</value></data>
+  <data name="Security_SetupHint" xml:space="preserve"><value>Escanea el QR con tu aplicación de autenticación o introduce la clave y confirma el código de seis dígitos.</value></data>
+  <data name="Security_SetupQr" xml:space="preserve"><value>Código QR de configuración</value></data>
+  <data name="Security_Enable" xml:space="preserve"><value>Confirmar código y activar</value></data>
+  <data name="Security_Setup" xml:space="preserve"><value>Configurar autenticador</value></data>
+  <data name="Security_ChangedSignIn" xml:space="preserve"><value>Ajustes de seguridad modificados. Guarda los códigos si aparecen y vuelve a iniciar sesión.</value></data>
+  <data name="Security_CodesReplaced" xml:space="preserve"><value>Nuevos códigos creados. Los anteriores ya no son válidos.</value></data>
+  <data name="Btn_Back" xml:space="preserve"><value>Volver</value></data>
+  <data name="App_Update" xml:space="preserve"><value>Actualizar aplicación</value></data>
+  <data name="App_ReadOnlyAccess" xml:space="preserve"><value>Permitir solo lectura</value></data>
+  <data name="App_AdminOnly" xml:space="preserve"><value>Esta página es solo para administradores.</value></data>
+  <data name="App_SystemAdministration" xml:space="preserve"><value>Administración del sistema</value></data>
+  <data name="App_SwitchProfile" xml:space="preserve"><value>Cambiar perfil</value></data>
+  <data name="App_AuditLog" xml:space="preserve"><value>Registro de auditoría</value></data>
+  <data name="App_AuditLoading" xml:space="preserve"><value>Cargando auditoría…</value></data>
+  <data name="App_DownloadPersonalData" xml:space="preserve"><value>Descargar datos personales</value></data>
+  <data name="App_AddAccount" xml:space="preserve"><value>+ Añadir cuenta</value></data>
+  <data name="App_BackToAccountSelection" xml:space="preserve"><value>Volver a elegir cuenta</value></data>
+  <data name="App_ProfileName" xml:space="preserve"><value>Nombre del perfil</value></data>
+  <data name="App_ServerUrl" xml:space="preserve"><value>URL del servidor</value></data>
+  <data name="App_DirectorySignIn" xml:space="preserve"><value>Acceder con LDAP / Active Directory</value></data>
+  <data name="App_ImapDescription" xml:space="preserve"><value>Los correos no leídos de la carpeta IMAP se importan como tareas.</value></data>
+  <data name="App_ImapServer" xml:space="preserve"><value>Servidor IMAP</value></data>
+  <data name="App_UseTls" xml:space="preserve"><value>Usar SSL/TLS</value></data>
+  <data name="App_TestConnection" xml:space="preserve"><value>Probar conexión</value></data>
+  <data name="App_CheckEmails" xml:space="preserve"><value>Comprobar correos nuevos</value></data>
+  <data name="App_RemoveProfilePicture" xml:space="preserve"><value>Eliminar foto de perfil</value></data>
+  <data name="App_BackToSignIn" xml:space="preserve"><value>Volver al inicio de sesión</value></data>
+  <data name="App_Synchronization" xml:space="preserve"><value>Sincronización</value></data>
+  <data name="App_License" xml:space="preserve"><value>Licencia</value></data>
+  <data name="App_DisplayName" xml:space="preserve"><value>Nombre visible</value></data>
+  <data name="App_DeleteUserConfirm" xml:space="preserve"><value>¿Eliminar al usuario «{0}»? No se puede deshacer.</value></data>
+  <data name="App_OwnAccountDeleteDenied" xml:space="preserve"><value>No puedes eliminar tu propia cuenta aquí.</value></data>
+  <data name="App_UserDeletedMessage" xml:space="preserve"><value>Usuario {0} eliminado.</value></data>
+  <data name="App_PendingChangesCount" xml:space="preserve"><value>{0} cambios pendientes</value></data>
+  <data name="App_PendingProfileWarning" xml:space="preserve"><value>{0} cambios pendientes en «{1}». Eliminar el perfil los descarta permanentemente.</value></data>
+  <data name="App_OperationError" xml:space="preserve"><value>Error en la operación: {0}</value></data>
+  <data name="App_NextAttempt" xml:space="preserve"><value>Próximo intento: {0}</value></data>
+  <data name="App_AttemptError" xml:space="preserve"><value>Sincronización fallida (intento {0}): {1}</value></data>
+  <data name="App_LoginFieldsRequired" xml:space="preserve"><value>Completa usuario/correo, contraseña y URL del servidor.</value></data>
+  <data name="App_RegistrationFailed" xml:space="preserve"><value>Registro fallido: {0}</value></data>
+  <data name="App_ServerLabel" xml:space="preserve"><value>Servidor: {0}</value></data>
+  <data name="App_SessionLabel" xml:space="preserve"><value>Sesión: {0}</value></data>
+  <data name="App_Reachable" xml:space="preserve"><value>disponible</value></data>
+  <data name="App_Unreachable" xml:space="preserve"><value>no disponible</value></data>
+  <data name="App_SignedIn" xml:space="preserve"><value>sesión iniciada</value></data>
+  <data name="App_SignInRequired" xml:space="preserve"><value>inicio de sesión necesario</value></data>
+  <data name="App_UpdateRequired" xml:space="preserve"><value>actualización necesaria</value></data>
+  <data name="App_NoRequiredUpdate" xml:space="preserve"><value>sin actualización obligatoria</value></data>
+  <data name="App_Syncing" xml:space="preserve"><value>Sincronizando…</value></data>
+  <data name="App_TokenExpiry" xml:space="preserve"><value>Válido hasta: {0}</value></data>
+  <data name="Operations_WebhookAccepted" xml:space="preserve"><value>Último webhook aceptado</value></data>
+  <data name="Operations_WebhookFailed" xml:space="preserve"><value>Último fallo de webhook</value></data>
+  <data name="Operations_DirectoryComplete" xml:space="preserve"><value>Última sincronización de grupos completa</value></data>
+  <data name="Operations_DirectoryIncomplete" xml:space="preserve"><value>Última sincronización de grupos incompleta</value></data>
+  <data name="Operations_PushConfigured" xml:space="preserve"><value>Relé push configurado</value></data>
+  <data name="Operations_PushRegistered" xml:space="preserve"><value>Último registro correcto</value></data>
+  <data name="Operations_PushAccepted" xml:space="preserve"><value>Última aceptación del proveedor</value></data>
+  <data name="Operations_PushFailed" xml:space="preserve"><value>Último fallo de push</value></data>
+  <data name="Operations_DeliveryHint" xml:space="preserve"><value>La aceptación del proveedor no confirma la visualización en el dispositivo. La bandeja de la aplicación sigue siendo la referencia. Los webhooks fallidos no tienen entrega automática persistente.</value></data>
+  <data name="Security_UseRecoveryCode" xml:space="preserve"><value>Usar un código de recuperación</value></data>
+  <data name="PublicForm_CapacityMessage" xml:space="preserve"><value>Este formulario ya no acepta envíos.</value></data>
+  <data name="PublicForm_AttachmentHint" xml:space="preserve"><value>Permitido: {0}. Hasta 10 archivos, de 25 MB cada uno.</value></data>
+  <data name="App_Profile" xml:space="preserve"><value>Perfil</value></data>
+  <data name="App_Administrator" xml:space="preserve"><value>Administrador</value></data>
+  <data name="App_EmailImport" xml:space="preserve"><value>Importación de correo</value></data>
+  <data name="App_NameLabel" xml:space="preserve"><value>Nombre:</value></data>
+  <data name="App_EmailLabel" xml:space="preserve"><value>E-mail:</value></data>
+  <data name="App_ServerNameLabel" xml:space="preserve"><value>Servidor:</value></data>
+  <data name="App_ListLabel" xml:space="preserve"><value>Lista: {0}</value></data>
+  <data name="App_CreatedLabel" xml:space="preserve"><value>Creado: {0}</value></data>
+  <data name="App_ExpiresLabel" xml:space="preserve"><value>Caduca: {0}</value></data>
+  <data name="App_LastUsedLabel" xml:space="preserve"><value>Último uso: {0}</value></data>
+  <data name="App_Port" xml:space="preserve"><value>Puerto</value></data>
+  <data name="App_HttpError" xml:space="preserve"><value>Error {0}</value></data>
+  <data name="App_OnlineRequired" xml:space="preserve"><value>Esta acción requiere conexión al servidor.</value></data>
+  <data name="App_InvalidServerResponse" xml:space="preserve"><value>Respuesta del servidor no válida. Reinténtalo.</value></data>
+  <data name="App_RequestFailed" xml:space="preserve"><value>No se pudo procesar la solicitud.</value></data>
+  <data name="App_ServerUnavailable" xml:space="preserve"><value>El servidor no está disponible actualmente.</value></data>
+  <data name="App_LocalSessionFailed" xml:space="preserve"><value>No se pudo guardar la asociación de cuenta local.</value></data>
+  <data name="App_InvalidSession" xml:space="preserve"><value>El servidor no devolvió una sesión válida. Vuelve a iniciar sesión.</value></data>
+  <data name="App_ProfileChanged" xml:space="preserve"><value>El perfil seleccionado cambió. Inicia de nuevo la operación.</value></data>
+  <data name="App_ProfileMissing" xml:space="preserve"><value>El perfil seleccionado ya no existe.</value></data>
+  <data name="App_ProfileHasPendingChanges" xml:space="preserve"><value>Sincroniza los cambios pendientes o expórtalos y descártalos antes de cambiar el servidor o la cuenta.</value></data>
+  <data name="App_InvalidServerUrl" xml:space="preserve"><value>Introduce una URL de servidor válida.</value></data>
+  <data name="App_HttpsRequired" xml:space="preserve"><value>No se permiten servidores HTTP inseguros. Usa HTTPS.</value></data>
+  <data name="App_PendingChangeMissing" xml:space="preserve"><value>No se encontró el cambio pendiente.</value></data>
+  <data name="App_ListNotCached" xml:space="preserve"><value>La lista no está disponible localmente. Cárgala primero.</value></data>
+  <data name="App_TaskNotCached" xml:space="preserve"><value>La tarea no está disponible localmente.</value></data>
+  <data name="App_ChangeUpdated" xml:space="preserve"><value>La versión local cambió. Vuelve a cargar la comparación.</value></data>
+  <data name="Attachment_Documents" xml:space="preserve"><value>Documentos</value></data>
+  <data name="Attachment_Images" xml:space="preserve"><value>Imágenes</value></data>
+  <data name="Attachment_Archives" xml:space="preserve"><value>Archivos comprimidos</value></data>
+  <data name="Attachment_Audio" xml:space="preserve"><value>Audio</value></data>
+  <data name="Attachment_Video" xml:space="preserve"><value>Vídeo</value></data>
+  <data name="Identity_PasswordMismatch" xml:space="preserve"><value>La contraseña actual es incorrecta.</value></data>
+  <data name="Identity_PasswordLength" xml:space="preserve"><value>La contraseña debe tener al menos {0} caracteres.</value></data>
+  <data name="Identity_DuplicateEmail" xml:space="preserve"><value>Esta dirección de correo ya se utiliza.</value></data>
+  <data name="Identity_InvalidEmail" xml:space="preserve"><value>La dirección de correo no es válida.</value></data>
+  <data name="Identity_DuplicateUser" xml:space="preserve"><value>Este nombre de usuario ya se utiliza.</value></data>
+  <data name="Identity_InvalidUser" xml:space="preserve"><value>El nombre de usuario no es válido.</value></data>
+  <data name="Identity_InvalidToken" xml:space="preserve"><value>El enlace o código no es válido o ha caducado.</value></data>
+  <data name="App_Expired" xml:space="preserve"><value>Caducado</value></data>
+  <data name="App_TokenDescription" xml:space="preserve"><value>Los tokens de acceso personal permiten acceder a la API con los mismos permisos que tu cuenta.</value></data>
+  <data name="App_TokenNeverUsed" xml:space="preserve"><value>Nunca utilizado</value></data>
+  <data name="App_ProfileExample" xml:space="preserve"><value>p. ej. Trabajo</value></data>
+  <data name="App_ServerExample" xml:space="preserve"><value>mi-servidor.example</value></data>
+  <data name="App_EmailExample" xml:space="preserve"><value>usuario@example.com</value></data>
+  <data name="App_DirectoryUsername" xml:space="preserve"><value>Usuario de AD</value></data>
+  <data name="App_DirectoryUsernameHint" xml:space="preserve"><value>Usuario o UPN</value></data>
+  <data name="Security_RecoveryCode" xml:space="preserve"><value>Código de recuperación</value></data>
+  <data name="Security_RecoveryCodeHint" xml:space="preserve"><value>Introduce uno de tus códigos de recuperación guardados. Cada código solo se puede usar una vez.</value></data>
+  <data name="Account_Ui_0" xml:space="preserve"><value>Confirmar correo</value></data>
+  <data name="Account_Ui_2" xml:space="preserve"><value>Enlace de restablecimiento enviado</value></data>
+  <data name="Account_Ui_3" xml:space="preserve"><value>Enlace de restablecimiento no válido</value></data>
+  <data name="Account_Ui_4" xml:space="preserve"><value>Solicitar otro enlace</value></data>
+  <data name="Account_Ui_6" xml:space="preserve"><value>Cuenta bloqueada temporalmente</value></data>
+  <data name="Account_Ui_8" xml:space="preserve"><value>Iniciar sesión con otro servicio.</value></data>
+  <data name="Account_Ui_9" xml:space="preserve"><value>Inicio de sesión de dos factores</value></data>
+  <data name="Account_Ui_10" xml:space="preserve"><value>Inicio de sesión protegido</value></data>
+  <data name="Account_Ui_11" xml:space="preserve"><value>Introducir código</value></data>
+  <data name="Account_Ui_16" xml:space="preserve"><value>Verificar código de recuperación</value></data>
+  <data name="Account_Ui_20" xml:space="preserve"><value>Registrarse con otro servicio.</value></data>
+  <data name="Account_Ui_21" xml:space="preserve"><value>Confirmar registro</value></data>
+  <data name="Account_Ui_22" xml:space="preserve"><value>Registro casi completo</value></data>
+  <data name="Account_Ui_23" xml:space="preserve"><value>Confirmar cuenta</value></data>
+  <data name="Account_Ui_24" xml:space="preserve"><value>Revisa tu bandeja de entrada y confirma tu correo.</value></data>
+  <data name="Account_Ui_25" xml:space="preserve"><value>Enviar confirmación por correo</value></data>
+  <data name="Account_Ui_26" xml:space="preserve"><value>Confirmación de correo</value></data>
+  <data name="Account_Ui_27" xml:space="preserve"><value>Recibir otro enlace de confirmación.</value></data>
+  <data name="Account_Ui_29" xml:space="preserve"><value>Enviar confirmación</value></data>
+  <data name="Account_Ui_30" xml:space="preserve"><value>Contraseña cambiada</value></data>
+  <data name="Account_Ui_32" xml:space="preserve"><value>Administrar cuenta</value></data>
+  <data name="Account_Ui_35" xml:space="preserve"><value>Guarda estos códigos en un lugar seguro.</value></data>
+  <data name="Account_Ui_41" xml:space="preserve"><value>Introducir contraseña actual</value></data>
+  <data name="Account_Ui_42" xml:space="preserve"><value>Introducir nueva contraseña</value></data>
+  <data name="Account_Ui_44" xml:space="preserve"><value>Eliminar datos personales</value></data>
+  <data name="Account_Ui_45" xml:space="preserve"><value>Eliminar estos datos elimina tu cuenta de forma permanente y no se puede deshacer.</value></data>
+  <data name="Account_Ui_47" xml:space="preserve"><value>Eliminar datos y cerrar cuenta</value></data>
+  <data name="Account_Ui_48" xml:space="preserve"><value>Introduce tu contraseña.</value></data>
+  <data name="Account_Ui_50" xml:space="preserve"><value>Esta acción solo desactiva la autenticación de dos factores.</value></data>
+  <data name="Account_Ui_51" xml:space="preserve"><value>Restablecer las claves del autenticador.</value></data>
+  <data name="Account_Ui_52" xml:space="preserve"><value>Administrar correo</value></data>
+  <data name="Account_Ui_56" xml:space="preserve"><value>Introducir correo electrónico</value></data>
+  <data name="Account_Ui_57" xml:space="preserve"><value>Introducir nuevo correo</value></data>
+  <data name="Account_Ui_59" xml:space="preserve"><value>Sigue estos pasos para usar una aplicación de autenticación:</value></data>
+  <data name="Account_Ui_62" xml:space="preserve"><value>Código de verificación</value></data>
+  <data name="Account_Ui_64" xml:space="preserve"><value>Administrar accesos externos</value></data>
+  <data name="Account_Ui_65" xml:space="preserve"><value>Accesos registrados</value></data>
+  <data name="Account_Ui_67" xml:space="preserve"><value>Añadir otro servicio de acceso.</value></data>
+  <data name="Account_Ui_68" xml:space="preserve"><value>Generar códigos de recuperación de dos factores</value></data>
+  <data name="Account_Ui_71" xml:space="preserve"><value>Número de teléfono</value></data>
+  <data name="Account_Ui_73" xml:space="preserve"><value>Elige un nombre de usuario.</value></data>
+  <data name="Account_Ui_74" xml:space="preserve"><value>Introducir teléfono</value></data>
+  <data name="Account_Ui_78" xml:space="preserve"><value>No hay claves de acceso registradas.</value></data>
+  <data name="Account_Ui_79" xml:space="preserve"><value>Has alcanzado el límite de claves de acceso. Elimina una antes de añadir otra.</value></data>
+  <data name="Account_Ui_81" xml:space="preserve"><value>Renombrar esta clave de acceso</value></data>
+  <data name="Account_Ui_82" xml:space="preserve"><value>Eliminar esta clave de acceso de tu cuenta</value></data>
+  <data name="Account_Ui_84" xml:space="preserve"><value>Tu cuenta contiene datos personales que proporcionaste. Aquí puedes descargarlos o eliminarlos.</value></data>
+  <data name="Account_Ui_85" xml:space="preserve"><value>Descargar</value></data>
+  <data name="Account_Ui_86" xml:space="preserve"><value>Introducir nombre de la clave de acceso</value></data>
+  <data name="Account_Ui_88" xml:space="preserve"><value>Continuar</value></data>
+  <data name="Account_Ui_89" xml:space="preserve"><value>Mi clave de acceso</value></data>
+  <data name="Account_Ui_90" xml:space="preserve"><value>Restablecer clave del autenticador</value></data>
+  <data name="Account_Ui_91" xml:space="preserve"><value>Tras restablecer la clave, tendrás que configurar de nuevo la aplicación de autenticación.</value></data>
+  <data name="Account_Ui_92" xml:space="preserve"><value>Establecer contraseña</value></data>
+  <data name="Account_Ui_95" xml:space="preserve"><value>No te quedan códigos de recuperación.</value></data>
+  <data name="Account_Ui_99" xml:space="preserve"><value>Te queda 1 código de recuperación.</value></data>
+  <data name="Account_Ui_102" xml:space="preserve"><value>Olvidar este navegador</value></data>
+  <data name="Account_Ui_104" xml:space="preserve"><value>Restablecer códigos de recuperación</value></data>
+  <data name="Account_Ui_105" xml:space="preserve"><value>Aplicación de autenticación</value></data>
+  <data name="Account_Ui_106" xml:space="preserve"><value>Restablecer aplicación de autenticación</value></data>
+  <data name="Account_Ui_107" xml:space="preserve"><value>No se ha aceptado la política de privacidad y cookies.</value></data>
+  <data name="Account_Ui_108" xml:space="preserve"><value>Acepta la política antes de activar la autenticación de dos factores.</value></data>
+  <data name="App_UpdateRequiredNotice" xml:space="preserve"><value>Actualización de la app necesaria</value></data>
+  <data name="App_UpdateAvailable" xml:space="preserve"><value>Actualización de la app disponible</value></data>
+  <data name="App_LatestVersion" xml:space="preserve"><value>Disponible: {0}</value></data>
+  <data name="App_UserCreatedNotice" xml:space="preserve"><value>Se ha creado el usuario {0}.</value></data>
+  <data name="App_TasksCreated" xml:space="preserve"><value>Se han creado {0} tareas nuevas.</value></data>
+  <data name="App_ListNameRequired" xml:space="preserve"><value>El nombre de la lista no puede estar vacío. Lista: «{0}».</value></data>
+  <data name="App_ListMissing" xml:space="preserve"><value>No se encontró la lista «{0}» o ya se eliminó.</value></data>
+  <data name="Account_CodeInvalid" xml:space="preserve"><value>El código no es válido.</value></data>
+  <data name="Account_Verify" xml:space="preserve"><value>Verificar</value></data>
+  <data name="Account_Verifying" xml:space="preserve"><value>Verificando…</value></data>
+  <data name="Account_PasskeyUnnamed" xml:space="preserve"><value>Clave de acceso sin nombre</value></data>
+  <data name="Account_PasskeyMissing" xml:space="preserve"><value>Error: El navegador no proporcionó una clave de acceso.</value></data>
+  <data name="Account_PasskeyAddFailed" xml:space="preserve"><value>Error: No se pudo añadir la clave de acceso a tu cuenta.</value></data>
+  <data name="Account_PasskeyInvalidId" xml:space="preserve"><value>Error: El identificador de la clave de acceso tiene un formato no válido.</value></data>
+  <data name="Account_PasskeyDeleteFailed" xml:space="preserve"><value>Error: No se pudo eliminar la clave de acceso.</value></data>
+  <data name="Account_PasskeyDeleted" xml:space="preserve"><value>Clave de acceso eliminada.</value></data>
+  <data name="Account_RecoveryGenerateHint" xml:space="preserve"><value>Genera nuevos códigos antes de iniciar sesión con un código de recuperación.</value></data>
+  <data name="Account_ResetSentHint" xml:space="preserve"><value>Revisa tu correo. Si existe una cuenta confirmada, recibirás un enlace para restablecer la contraseña.</value></data>
+  <data name="Account_ResetInvalidHint" xml:space="preserve"><value>El enlace para restablecer la contraseña no es válido o ha caducado.</value></data>
+  <data name="Account_LockoutHint" xml:space="preserve"><value>Demasiados intentos de acceso fallidos. Espera un momento y vuelve a intentarlo.</value></data>
+  <data name="Account_LockoutTwoFactorHint" xml:space="preserve"><value>Con la autenticación de dos factores activada, los intentos con contraseña incorrecta no bloquean la cuenta.</value></data>
+  <data name="Account_TrustDevice" xml:space="preserve"><value>Confiar en este dispositivo</value></data>
+  <data name="Account_NoAuthenticator" xml:space="preserve"><value>¿No puedes acceder al autenticador?</value></data>
+  <data name="Account_RecoveryLoginHint" xml:space="preserve"><value>Este acceso con código de recuperación no se recordará hasta que accedas con un código del autenticador o desactives 2FA y accedas de nuevo.</value></data>
+  <data name="Account_EmailDisabledHint" xml:space="preserve"><value>El envío de correo está desactivado. Confirma tu cuenta con este enlace:</value></data>
+  <data name="Account_ResetDoneHint" xml:space="preserve"><value>Tu contraseña se ha restablecido.</value></data>
+  <data name="Account_AuthenticatorDownload" xml:space="preserve"><value>Instala una aplicación como Microsoft Authenticator o Google Authenticator.</value></data>
+  <data name="Account_TwoFactorVerified" xml:space="preserve"><value>Tu aplicación de autenticación se ha verificado.</value></data>
+  <data name="Account_ExternalRemoved" xml:space="preserve"><value>Se ha eliminado el acceso externo.</value></data>
+  <data name="Account_ExternalAdded" xml:space="preserve"><value>Se ha añadido el acceso externo.</value></data>
+  <data name="Account_PhoneSaved" xml:space="preserve"><value>Tu número de teléfono se ha actualizado.</value></data>
+  <data name="Account_Required" xml:space="preserve"><value>Este campo es obligatorio.</value></data>
+  <data name="Account_LengthInvalid" xml:space="preserve"><value>Usa entre {0} y {1} caracteres.</value></data>
+  <data name="Account_ExternalNone" xml:space="preserve"><value>No hay servicios de acceso externo configurados.</value></data>
+  <data name="Account_KeyUnchangedHint" xml:space="preserve"><value>Esta acción no cambia la clave del autenticador. Restablécela para cambiarla.</value></data>
+  <data name="Account_RecoveryLossHint" xml:space="preserve"><value>Si pierdes tu dispositivo y no tienes códigos de recuperación, perderás el acceso a tu cuenta.</value></data>
+  <data name="Account_SetPasswordHint" xml:space="preserve"><value>No tienes una contraseña local. Establece una para acceder sin un proveedor externo.</value></data>
+  <data name="Account_RecoveryDisabled" xml:space="preserve"><value>No se pueden generar códigos porque 2FA está desactivada.</value></data>
+  <data name="Account_ExternalAssociated" xml:space="preserve"><value>Error: No se pudo añadir el acceso externo. Solo puede vincularse a una cuenta.</value></data>
+  <data name="Account_ProfileSaved" xml:space="preserve"><value>Tu perfil se ha actualizado.</value></data>
+  <data name="Account_EmailVerified" xml:space="preserve"><value>Tu correo está confirmado. Ya puedes iniciar sesión.</value></data>
+  <data name="Account_TwoFactorExpired" xml:space="preserve"><value>Error: El acceso de dos factores ha caducado. Inicia sesión de nuevo.</value></data>
+  <data name="Account_EmailDeliveryFailed" xml:space="preserve"><value>Tu cuenta se ha creado, pero no se pudo enviar el correo de confirmación. Solicita otro correo.</value></data>
+  <data name="Account_LanguageUnsupported" xml:space="preserve"><value>El idioma seleccionado no es compatible.</value></data>
+  <data name="Account_NoLocalPassword" xml:space="preserve"><value>Esta cuenta no usa una contraseña local.</value></data>
+  <data name="Account_ExportDisabled" xml:space="preserve"><value>Un administrador ha desactivado la exportación de datos personales.</value></data>
+  <data name="Account_DeleteDisabled" xml:space="preserve"><value>Un administrador ha desactivado la eliminación de la propia cuenta.</value></data>
+  <data name="Account_PasskeyUpdated" xml:space="preserve"><value>Clave de acceso actualizada.</value></data>
+  <data name="App_ImportLastRun" xml:space="preserve"><value>Última importación: {0}</value></data>
+  <data name="App_ImportLastError" xml:space="preserve"><value>Último error: {0}</value></data>
 </root>

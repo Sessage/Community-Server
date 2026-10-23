@@ -165,6 +165,10 @@ namespace TodoSuite.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<long>("ContentVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp without time zone");
 
@@ -417,6 +421,12 @@ namespace TodoSuite.Server.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("AutomationCompletedAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("timestamp without time zone");
 
@@ -431,8 +441,14 @@ namespace TodoSuite.Server.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
                     b.Property<long>("MessageUid")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("TaskCreatedAutomationCompletedAtUtc")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<Guid>("TaskId")
                         .HasColumnType("uuid");
@@ -1542,6 +1558,12 @@ namespace TodoSuite.Server.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("ReminderAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ReminderEmailSentAtUtc")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ReminderInboxSentAtUtc")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("ReminderSentAtUtc")

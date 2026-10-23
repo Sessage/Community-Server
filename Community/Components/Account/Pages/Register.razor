@@ -63,7 +63,7 @@ else
         </div>
         @* <div class="ui-col-lg-4 ui-col-lg-offset-2">
             <section>
-                <h3>Mit einem anderen Dienst registrieren.</h3>
+                <h3>@L["Account_Ui_20"]</h3>
                 <hr />
                 <ExternalLoginPicker />
             </section>
@@ -151,7 +151,7 @@ else
                     new Dictionary<string, object?> { ["email"] = email, ["returnUrl"] = ReturnUrl });
                 RedirectManager.RedirectToWithStatus(
                     confirmationUri,
-                    "Das Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte fordern Sie eine neue E-Mail an.",
+                    SharedText.Get("Account_EmailDeliveryFailed"),
                     HttpContext);
                 return;
             }
@@ -194,20 +194,20 @@ else
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedEmailAddress("Account_InvalidEmail")]
         [Display(Name = "E-Mail")]
         public string Email { get; set; } = "";
 
-        [Required]
-        [StringLength(100, ErrorMessage = "Das {0} muss mindestens {2} und maximal {1} Zeichen lang sein.", MinimumLength = 6)]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedStringLength(100, 6, "Account_LengthInvalid")]
         [DataType(DataType.Password)]
         [Display(Name = "Passwort")]
         public string Password { get; set; } = "";
 
         [DataType(DataType.Password)]
         [Display(Name = "Passwort bestätigen")]
-        [Compare("Password", ErrorMessage = "Das Passwort und die Bestätigung stimmen nicht überein.")]
+        [LocalizedCompare("Password", "Account_PasswordMismatch")]
         public string ConfirmPassword { get; set; } = "";
     }
 }

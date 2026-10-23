@@ -53,4 +53,9 @@ public class ListEmailImportedMessageEntity
     public Guid TaskId { get; set; } = Guid.NewGuid();
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAtUtc { get; set; }
+    /// <summary>Persistent per-message progress and dead-letter state; a poison message never blocks its mailbox.</summary>
+    public DateTime? AutomationCompletedAtUtc { get; set; }
+    public DateTime? TaskCreatedAutomationCompletedAtUtc { get; set; }
+    public int AttemptCount { get; set; }
+    public string? LastError { get; set; }
 }

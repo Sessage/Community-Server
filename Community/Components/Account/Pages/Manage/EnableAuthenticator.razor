@@ -17,7 +17,7 @@
 @inject NavigationManager Navigation
 @inject ILogger<EnableAuthenticator> Logger
 
-<PageTitle>Authenticator-App einrichten</PageTitle>
+<PageTitle>@L["Security_Setup"]</PageTitle>
 
 @if (recoveryCodes is not null)
 {
@@ -29,52 +29,37 @@ else
     {
         <div class="ui-alert ui-alert-info mt-2">@message</div>
     }
-    <h3>Authenticator-App einrichten</h3>
+    <h3>@L["Security_Setup"]</h3>
     <div>
-        <p>Um eine Authenticator-App zu verwenden, führen Sie die folgenden Schritte aus:</p>
+        <p>@L["Account_Ui_59"]</p>
         <ol class="list">
             <li>
-                <p>
-                    Laden Sie eine Zwei-Faktor-Authentifizierungs-App herunter, wie Microsoft Authenticator für
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> und
-                    <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a>, oder
-                    Google Authenticator für
-                    <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> und
-                    <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
-                </p>
+                <p>@L["Account_AuthenticatorDownload"]</p><p>Microsoft Authenticator: <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> / <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a>. Google Authenticator: <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2">Android</a> / <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605">iOS</a>.</p>
             </li>
             <li>
-                <p>
-                    Scannen Sie den QR-Code mit Ihrer Authenticator-App oder geben Sie den Schlüssel
-                    <kbd>@sharedKey</kbd> manuell ein.
-                    Leerzeichen und Groß-/Kleinschreibung sind unwichtig.
-                </p>
+                <p>@L["Security_SetupHint"]</p><kbd>@sharedKey</kbd>
                 @if (qrCodeDataUrl is not null)
                 {
                     <div class="my-3">
                         <img src="@qrCodeDataUrl"
-                             alt="QR-Code für Authenticator-App"
+                             alt="@L["Security_SetupQr"]"
                              style="width:200px;height:200px;border:8px solid #fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.12);" />
                     </div>
                 }
             </li>
             <li>
-                <p>
-                    Sobald Sie den QR-Code gescannt oder den Schlüssel eingegeben haben, gibt Ihnen Ihre
-                    Zwei-Faktor-Authentifizierungs-App einen eindeutigen Code.
-                    Geben Sie den Code in das Bestätigungsfeld unten ein.
-                </p>
+                <p>@L["App_Enterthesixdigitcodefromyourauthenticatorapp"]</p>
                 <div class="ui-row">
                     <div class="ui-col-xl-6">
                         <EditForm Model="Input" OnValidSubmit="OnValidSubmitAsync">
                             <DataAnnotationsValidator />
                             <div class="ui-form-floating mb-3">
-                                <InputText @bind-Value="Input.Code" id="Input.Code" class="ui-form-control" autocomplete="off" placeholder="Code eingeben" />
-                                <label for="Input.Code" class="control-label ui-form-label">Verifizierungscode</label>
+                                <InputText @bind-Value="Input.Code" id="Input.Code" class="ui-form-control" autocomplete="off" placeholder="@L["Account_Ui_11"]" />
+                                <label for="Input.Code" class="control-label ui-form-label">@L["Account_Ui_62"]</label>
                                 <ValidationMessage For="() => Input.Code" class="ui-text-danger" />
                             </div>
                             <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary" disabled="@_submitting">
-                                @(_submitting ? "Wird verifiziert…" : "Verifizieren")
+                                @L[_submitting ? "Account_Verifying" : "Account_Verify"]
                             </button>
                             <ValidationSummary class="ui-text-danger" role="alert" />
                         </EditForm>
@@ -135,7 +120,7 @@ else
 
             if (!is2faTokenValid)
             {
-                message = "Fehler: Der Verifizierungscode ist ungültig.";
+                message = SharedText.Get("Account_CodeInvalid");
                 _submitting = false;
                 StateHasChanged();
                 return;
@@ -148,20 +133,20 @@ else
                     "Enabling 2FA failed for user {UserId}: {Errors}",
                     userId,
                     string.Join(", ", enableResult.Errors.Select(error => error.Code)));
-                message = "Die Zwei-Faktor-Authentifizierung konnte nicht aktiviert werden. Bitte versuchen Sie es erneut.";
+                message = SharedText.Get("Security_RequestFailed");
                 _submitting = false;
                 return;
             }
             Logger.LogInformation("User with ID '{UserId}' has enabled 2FA with an authenticator app.", userId);
 
-            message = "Ihre Authenticator-App wurde verifiziert.";
+            message = SharedText.Get("Account_TwoFactorVerified");
 
             if (await UserManager.CountRecoveryCodesAsync(user) == 0)
             {
                 recoveryCodes = await UserManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
                 if (recoveryCodes is null)
                 {
-                    message = "Die Wiederherstellungscodes konnten nicht erzeugt werden. Bitte generieren Sie sie in den Kontoeinstellungen erneut.";
+                    message = SharedText.Get("Security_RequestFailed");
                     _submitting = false;
                     return;
                 }
@@ -174,7 +159,7 @@ else
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unexpected error while enabling 2FA.");
-            message = "Die Authenticator-App konnte nicht eingerichtet werden. Bitte versuchen Sie es erneut.";
+            message = SharedText.Get("Security_RequestFailed");
             _submitting = false;
             StateHasChanged();
         }
@@ -263,8 +248,8 @@ else
 
     private sealed class InputModel
     {
-        [Required]
-        [StringLength(7, ErrorMessage = "Das {0} muss mindestens {2} und höchstens {1} Zeichen lang sein.", MinimumLength = 6)]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedStringLength(7, 6, "Account_LengthInvalid")]
         [DataType(DataType.Text)]
         [Display(Name = "Verifizierungscode")]
         public string Code { get; set; } = "";

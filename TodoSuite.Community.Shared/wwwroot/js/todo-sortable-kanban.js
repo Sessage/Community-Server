@@ -478,7 +478,9 @@ window.todoUi = window.todoUi || {};
             draggable: "[data-taskid]",
 
             // Bereiche, die NICHT ziehen sollen (Inputs/Buttons/Links/controls)
-            filter: ".no-drag, input, select, textarea, button, a, [data-nodrag='true']",
+            // The semantic title button also remains the familiar drag surface. Other
+            // actions must stay filtered so clicking a checkbox/menu never starts a move.
+            filter: ".no-drag, input, select, textarea, button:not(.kanban-task-open), a, [data-nodrag='true']",
             preventOnFilter: true,
 
             // Trello-Feeling: Drag startet erst nach kurzem Hold (v.a. touch/trackpad)

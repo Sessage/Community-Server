@@ -174,7 +174,6 @@
                                     <div @key="t.Id"
                                          class="kanban-task-card relative rounded-2xl border border-slate-200 p-3 shadow-sm hover:shadow-md transition cursor-pointer overflow-hidden"
                                          style="@style"
-                                         role="button"
                                          data-taskid="@t.Id"
                                          data-col="@col"
                                          @onclick="() => HandleTaskCardClickAsync(t)">
@@ -238,12 +237,16 @@
                                                     </div>
                                                 }
                                                     
-                                                    <div>@t.Title </div>
+                                                    <button type="button" class="kanban-task-open text-left font-semibold rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600" @onclick:stopPropagation="true" @onclick="() => HandleTaskCardClickAsync(t)">@t.Title</button>
                                                 </div>
 
                                                 <!-- Meta -->
-                                                <div class="text-xs text-slate-500" style="@(isUrgent ? "color:rgba(255,255,255,0.85);" : "")">
+                                                <div class="text-xs text-slate-500" style="color:var(--card-readable-text);">
                                                     @(t.DueDate?.ToString("d") )
+                                                    @if (isUrgent)
+                                                    {
+                                                        <span> · @L[t.DueDate?.Date < DateTime.Today ? "Focus_Overdue" : "Dashboard_Chart_DueSoon"]</span>
+                                                    }
                                                 </div>
                                             </div>
 
@@ -269,7 +272,7 @@
                                         {
                                             <div class="flex items-center justify-between mt-2 gap-2">
                                                 <!-- Badges: Anhänge, Kommentare, Checkliste -->
-                                                <div class="flex items-center gap-2 text-slate-400" style="font-size:11px; @(isUrgent ? "color:rgba(255,255,255,0.75);" : "")">
+                                                <div class="flex items-center gap-2 text-slate-400" style="font-size:11px; color:var(--card-readable-text);">
                                                     @if (_attCnt > 0)
                                                     {
                                                         <span class="flex items-center gap-0.5" title="@(string.Format(L["Kanban_AttachmentCount"].Value, _attCnt))">
@@ -324,7 +327,7 @@
                             <div class="p-2">
                                 @if (CanWriteToList())
                                 {
-                                    <FluentTextField class="w-full outline-none text-base"
+                                    <FluentTextField class="w-full outline-none text-base" Data-quick-add="true"
                                                      @key="NewTitleInputKey(col)"
                                                      Value="@NewTitleFor(col)"
                                                      ValueChanged="(string v) => SetNewTitleFor(col, v)"
@@ -2029,7 +2032,7 @@
 
         if (dueSoon)
         {
-            return $"background-color: lightcoral;{border}";
+            return $"background-color: lightcoral; color:#000000; --card-readable-text:#000000;{border}";
         }
 
         if (manual is null)
@@ -2040,7 +2043,8 @@
         // Manuelle Farbe vorhanden:
         if (t.CardColorMode == TaskCardColorMode.Full)
         {
-            return $"background-color: {manual};{border}";
+            var foreground = Klassenbibliothek.Services.ColorContrast.TextColor(manual);
+            return $"background-color: {manual}; color:{foreground}; --card-readable-text:{foreground};{border}";
         }
 
         // TopOnly: wir färben NICHT den ganzen Body, sondern nutzen ein Top-Band (via inline CSS Variable)

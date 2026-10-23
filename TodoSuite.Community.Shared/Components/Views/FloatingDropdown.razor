@@ -170,7 +170,7 @@
         catch { /* ignore prerender */ }
     }
 
-    private async Task HideOverlayAsync()
+    private async Task HideOverlayAsync(bool restoreFocus = false)
     {
         if (!IsOpen) return;
 
@@ -181,7 +181,7 @@
         try
         {
             await JS.InvokeVoidAsync("floatingDropdown.unregisterCloseHandlers",
-                _closeHandlerId ?? id?.ToString() ?? string.Empty);
+                _closeHandlerId ?? id?.ToString() ?? string.Empty, restoreFocus);
         }
         catch { /* ignore */ }
 
@@ -205,7 +205,7 @@
     public async Task OnEscapeKey()
     {
         if (_disposed) return;
-        await HideOverlayAsync();
+        await HideOverlayAsync(restoreFocus: true);
         await InvokeAsync(StateHasChanged);
     }
 

@@ -113,7 +113,7 @@
     {
         <div class="ui-col-lg-4 ui-col-lg-offset-2">
             <section>
-                <h3>Mit einem anderen Dienst anmelden.</h3>
+                <h3>@L["Account_Ui_8"]</h3>
                 <hr />
                 <ExternalLoginPicker />
             </section>
@@ -386,11 +386,11 @@
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedEmailAddress("Account_InvalidEmail")]
         public string Email { get; set; } = "";
 
-        [Required]
+        [LocalizedRequired("Account_Required")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 
@@ -402,10 +402,10 @@
 
     private sealed class AdInputModel
     {
-        [Required]
+        [LocalizedRequired("Account_Required")]
         public string Username { get; set; } = "";
 
-        [Required]
+        [LocalizedRequired("Account_Required")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 

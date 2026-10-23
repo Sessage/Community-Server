@@ -7,7 +7,7 @@ using Klassenbibliothek.Hubs;
 namespace TodoSuite.Server.Services;
 
 /// <summary>
-/// Manages ordered checklist steps belonging to a task, including completion state and reordering.
+/// Manages checklist steps belonging to an authorized task, including completion and conversion.
 /// </summary>
 public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
 {
@@ -26,11 +26,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
     /// <inheritdoc />
     public async Task<TodoStepEntity?> AddStepAsync(string userId, Guid listId, Guid taskId, string title, CancellationToken cancellationToken = default)
     {
-        var t = (title ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(t))
-            throw new ArgumentException("Schritt ist leer.", nameof(title));
-        if (t.Length > 500)
-            throw new ArgumentException("Ein Schritt darf höchstens 500 Zeichen enthalten.", nameof(title));
+        var t = TodoTaskInputValidation.NormalizeStepTitle(title);
 
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 
@@ -108,9 +104,7 @@ public class TodoStepService : TodoWorkspaceServiceBase, ITodoStepService
     /// <inheritdoc />
     public async Task<bool> RenameStepAsync(string userId, Guid listId, Guid taskId, Guid stepId, string title, CancellationToken cancellationToken = default)
     {
-        var t = (title ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(t))
-            throw new ArgumentException("Schritt-Titel ist leer.", nameof(title));
+        var t = TodoTaskInputValidation.NormalizeStepTitle(title);
 
         await using var db = await DbContextFactory.CreateDbContextAsync(cancellationToken);
 

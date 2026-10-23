@@ -390,3 +390,14 @@
     45% { opacity: 1; box-shadow: 0 0 0 7px rgb(239 68 68 / .12); }
     100% { opacity: .7; box-shadow: 0 0 0 0 transparent; }
 }
+
+/* Portfolio rows use list names and derived dates instead of task metadata. */
+.timeline-view--projects .timeline-meta { grid-template-columns: 50px 40px minmax(0, 1fr); }
+.timeline-view--projects .timeline-dates { display: inline; }
+.timeline-view--projects .timeline-cell--icon:nth-child(3),
+.timeline-view--projects .timeline-cell--icon:nth-child(4) { display: none; }
+
+@media (max-width: 700px) {
+    .timeline-view--projects { --timeline-sidebar-width: min(350px, calc(100vw - 5rem)); }
+    .timeline-view--projects .timeline-dates { margin-left: 0; white-space: normal; }
+}

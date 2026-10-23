@@ -103,6 +103,11 @@ public sealed class MobileRefreshTokenService(
 
             // A family has an absolute lifetime. Rotation must not turn a bounded
             // credential into an indefinitely renewable session.
+            // Retain the original login time, including revoked predecessors. Family
+            // rows share their absolute expiry and remain until that expiry or account deletion.
+            var authenticatedAt = await db.MobileRefreshTokens
+                .Where(token => token.FamilyId == existing.FamilyId && token.UserId == existing.UserId)
+                .MinAsync(token => token.CreatedAtUtc, ct);
             var replacement = Create(
                 existing.UserId,
                 currentSecurityStamp,
@@ -114,7 +119,7 @@ public sealed class MobileRefreshTokenService(
             db.MobileRefreshTokens.Add(replacement.Entity);
             await db.SaveChangesAsync(ct);
             if (transaction is not null) await transaction.CommitAsync(ct);
-            return replacement.Result;
+            return replacement.Result with { AuthenticatedAtUtc = authenticatedAt };
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -186,7 +191,7 @@ public sealed class MobileRefreshTokenService(
     private sealed record IssuedEntity(MobileRefreshTokenEntity Entity, IssuedMobileRefreshToken Result);
 }
 
-public sealed record IssuedMobileRefreshToken(string Token, DateTime ExpiresAtUtc);
+public sealed record IssuedMobileRefreshToken(string Token, DateTime ExpiresAtUtc, DateTime? AuthenticatedAtUtc = null);
 public sealed record MobileRefreshTokenCandidate(
     string UserId,
     string SecurityStamp,

@@ -1,0 +1,37 @@
+@using Klassenbibliothek.Administration
+
+<section class="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-label="@L["Operations_Title"]">
+    <div class="flex items-center justify-between gap-3">
+        <h2 class="font-semibold">@L["Operations_Title"]</h2>
+        <button type="button" class="rounded-lg border px-3 py-2 text-sm" disabled="@Loading" @onclick="OnRefresh">@L["Operations_Refresh"]</button>
+    </div>
+    <p class="text-sm text-slate-600">@L["Operations_Hint"]</p>
+    @if (!string.IsNullOrWhiteSpace(Error)) { <p role="alert" class="text-sm text-red-700">@Error</p> }
+    @if (Snapshot is { } snapshot)
+    {
+        var operations = snapshot.Operations;
+        <dl class="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+            <dt>@L["Operations_WebhookAccepted"]</dt><dd>@Time(operations.LastWebhookAcceptedAtUtc)</dd>
+            <dt>@L["Operations_WebhookFailed"]</dt><dd>@Time(operations.LastWebhookFailureAtUtc)</dd>
+            <dt>@L["Operations_DirectoryComplete"]</dt><dd>@Time(operations.LastCompleteDirectoryRunAtUtc)</dd>
+            <dt>@L["Operations_DirectoryIncomplete"]</dt><dd>@Time(operations.LastIncompleteDirectoryRunAtUtc)</dd>
+            <dt>@L["Operations_GroupCounts"]</dt><dd>@(operations.LastDirectoryGroupCount?.ToString() ?? "—") / @(operations.LastDirectoryFailedGroupCount?.ToString() ?? "—")</dd>
+            @if (snapshot.Push is { } push)
+            {
+                <dt>@L["Operations_PushConfigured"]</dt><dd>@L[push.Configured ? "Common_Yes" : "Common_No"]</dd>
+                <dt>@L["Operations_PushRegistered"]</dt><dd>@Time(push.LastRegistrationAtUtc)</dd>
+                <dt>@L["Operations_PushAccepted"]</dt><dd>@Time(push.LastProviderAcceptanceAtUtc)</dd>
+                <dt>@L["Operations_PushFailed"]</dt><dd>@Time(push.LastFailureAtUtc) @push.LastFailureStatus</dd>
+            }
+        </dl>
+    }
+    <p class="text-sm text-slate-600">@L["Operations_DeliveryHint"]</p>
+</section>
+
+@code {
+    [Parameter] public EnterpriseDiagnosticsSnapshot? Snapshot { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    private static string Time(DateTimeOffset? value) => value?.UtcDateTime.ToString("u") ?? "—";
+}

@@ -6,23 +6,23 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Persönliche Daten</PageTitle>
+<PageTitle>@L["PersonalData_Title"]</PageTitle>
 
 <StatusMessage />
-<h3>Persönliche Daten</h3>
+<h3>@L["PersonalData_Title"]</h3>
 
 <div class="ui-row">
     <div class="ui-col-md-6">
-        <p>Ihr Konto enthält persönliche Daten, die Sie uns mitgeteilt haben. Auf dieser Seite können Sie diese Daten herunterladen oder löschen.</p>
+        <p>@L["Account_Ui_84"]</p>
         <p>
-            <strong>Das Löschen dieser Daten entfernt Ihr Konto dauerhaft und kann nicht rückgängig gemacht werden.</strong>
+            <strong>@L["Account_Ui_45"]</strong>
         </p>
         <div class="ui-flex flex-wrap gap-2 mt-3">
             <form action="Account/Manage/DownloadPersonalData" method="post">
                 <AntiforgeryToken />
-                <button class="ui-btn ui-btn-primary" type="submit">Herunterladen</button>
+                <button class="ui-btn ui-btn-primary" type="submit">@L["Account_Ui_85"]</button>
             </form>
-            <a href="Account/Manage/DeletePersonalData" class="ui-btn ui-btn-danger" data-enhance-nav="false">Löschen</a>
+            <a href="Account/Manage/DeletePersonalData" class="ui-btn ui-btn-danger" data-enhance-nav="false">@L["Dashboard_Delete"]</a>
         </div>
     </div>
 </div>

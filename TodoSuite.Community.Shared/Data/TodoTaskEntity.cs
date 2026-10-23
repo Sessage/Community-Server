@@ -49,6 +49,11 @@ public class TodoTaskEntity
     // Idempotenzmarker: verhindert erneuten E-Mail-/Push-Versand durch den nächsten Hintergrundlauf.
     public DateTime? ReminderSentAtUtc { get; set; }
 
+    // Channel checkpoints survive a failed email attempt without duplicating the inbox.
+    // Delivery markers are server-owned and never accepted as client mutation fields.
+    [JsonIgnore] public DateTime? ReminderInboxSentAtUtc { get; set; }
+    [JsonIgnore] public DateTime? ReminderEmailSentAtUtc { get; set; }
+
     public bool Done { get; set; }
     public bool IsImportant { get; set; }
 

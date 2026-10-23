@@ -11,14 +11,17 @@
 }
 else
 {
-    <div class="timeline-view" style="@ToolbarContrastStyle" @onkeydown="HandleTimelineKeyDown">
+    <div class="timeline-view @(ProjectMode ? "timeline-view--projects" : "")" style="@ToolbarContrastStyle" @onkeydown="HandleTimelineKeyDown">
         <div class="timeline-toolbar">
-            <div class="timeline-toolbar__group" role="group" aria-label="@L["Timeline_Grouping"]">
-                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Tasks)" aria-pressed="@((_grouping == TimelineGrouping.Tasks).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Tasks)">@L["Timeline_ByTask"]</button>
-                <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Assignees)" aria-pressed="@((_grouping == TimelineGrouping.Assignees).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Assignees)">@L["Timeline_ByAssignee"]</button>
-            </div>
+            @if (!ProjectMode)
+            {
+                <div class="timeline-toolbar__group" role="group" aria-label="@L["Timeline_Grouping"]">
+                    <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Tasks)" aria-pressed="@((_grouping == TimelineGrouping.Tasks).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Tasks)">@L["Timeline_ByTask"]</button>
+                    <button type="button" class="@ToolbarButtonClass(_grouping == TimelineGrouping.Assignees)" aria-pressed="@((_grouping == TimelineGrouping.Assignees).ToString().ToLowerInvariant())" @onclick="() => SetGrouping(TimelineGrouping.Assignees)">@L["Timeline_ByAssignee"]</button>
+                </div>
+            }
             <div class="timeline-toolbar__summary">
-                <span>@L["Timeline_ScheduledCount", ScheduledTaskCount, VisibleTasks.Count]</span>
+                <span>@L[ProjectMode ? "PortfolioTimeline_ScheduledCount" : "Timeline_ScheduledCount", ScheduledTaskCount, VisibleTasks.Count]</span>
                 @if (_savingTaskIds.Count > 0)
                 {
                     <span class="timeline-saving" aria-live="polite">@L["Timeline_Saving"]</span>
@@ -39,7 +42,7 @@ else
             <button type="button" class="timeline-toolbar__button timeline-export-button" disabled="@IsDragging" @onclick="() => _exportOpen = true">@L["Timeline_ExportButton"]</button>
         </div>
 
-        @if (AllowTaskCreation && CanWriteToList())
+        @if (!ProjectMode && AllowTaskCreation && CanWriteToList())
         {
             <form class="timeline-create" @onsubmit="AddTaskAsync" @onsubmit:preventDefault="true">
                 <input type="text"
@@ -75,7 +78,7 @@ else
                         <div class="timeline-cell timeline-cell--icon" title="@L["Table_Open"]"><FluentIcon Value="@(new Icons.Regular.Size16.Eye())" /></div>
                         <div class="timeline-cell timeline-cell--icon" title="@L["Task_Tab_Attachments_Header"]"><FluentIcon Value="@(new Icons.Regular.Size16.Attach())" /></div>
                         <div class="timeline-cell timeline-cell--icon" title="@L["Task_Tab_Comments_Header"]"><FluentIcon Value="@(new Icons.Regular.Size16.Chat())" /></div>
-                        <div class="timeline-cell timeline-cell--title">@L["FormDesigner_Field_Title"] / @L["Task_Assignee"]</div>
+                        <div class="timeline-cell timeline-cell--title">@(ProjectMode ? L["PortfolioTimeline_Project"] : $"{L["FormDesigner_Field_Title"]} / {L["Task_Assignee"]}")</div>
                     </div>
                     <div class="timeline-axis" style="@TimelineWidthStyle">
                         @foreach (var segment in HeaderSegments)
@@ -133,7 +136,7 @@ else
                                         }
                                     </div>
                                     <div class="timeline-cell timeline-cell--icon">
-                                        <button type="button" class="timeline-action" title="@L["Table_OpenTask"]" @onclick="() => OpenTaskDetailsAsync(task)"><FluentIcon Value="@(new Icons.Regular.Size16.Eye())" /></button>
+                                        <button type="button" class="timeline-action" title="@L[ProjectMode ? "PortfolioTimeline_OpenProject" : "Table_OpenTask"]" @onclick="() => OpenTaskDetailsAsync(task)"><FluentIcon Value="@(new Icons.Regular.Size16.Eye())" /></button>
                                     </div>
                                     <div class="timeline-cell timeline-cell--icon">
                                         <button type="button" class="timeline-action @((task.Attachments?.Count ?? 0) > 0 ? "timeline-action--active" : "")" title="@L["Table_OpenAttachments"]" @onclick="() => OpenTaskAttachmentsAsync(task)"><FluentIcon Value="@(new Icons.Regular.Size16.Attach())" /></button>
@@ -144,8 +147,11 @@ else
                                     <div class="timeline-cell timeline-cell--title">
                                         <button type="button" class="timeline-title" title="@task.Title" @onclick="() => OpenTaskDetailsAsync(task)">@task.Title</button>
                                         <div class="timeline-assignee">
-                                            <span class="timeline-avatar timeline-avatar--small" style="background:@GetAvatarColor(task.Assignee)">@GetInitials(GetAssigneeDisplayName(task.Assignee))</span>
-                                            <span class="timeline-assignee__name">@GetAssigneeDisplayName(task.Assignee)</span>
+                                            @if (!ProjectMode)
+                                            {
+                                                <span class="timeline-avatar timeline-avatar--small" style="background:@GetAvatarColor(task.Assignee)">@GetInitials(GetAssigneeDisplayName(task.Assignee))</span>
+                                                <span class="timeline-assignee__name">@GetAssigneeDisplayName(task.Assignee)</span>
+                                            }
                                             @if (range is not null)
                                             {
                                                 <span class="timeline-dates">@FormatRange(task)</span>
@@ -218,7 +224,10 @@ else
                                                     }
                                                     <button type="button" class="timeline-bar__label" title="@task.Title" @onclick="() => OpenTaskDetailsAsync(task)">
                                                         <span>@task.Title</span>
-                                                        <small>@GetAssigneeDisplayName(task.Assignee)</small>
+                                                        @if (!ProjectMode)
+                                                        {
+                                                            <small>@GetAssigneeDisplayName(task.Assignee)</small>
+                                                        }
                                                     </button>
                                                     @if (CanEditSchedule(task))
                                                     {
@@ -256,6 +265,7 @@ else
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskDetailsRequested { get; set; }
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskAttachmentsRequested { get; set; }
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskCommentsRequested { get; set; }
+    [Parameter] public bool ProjectMode { get; set; }
     [Parameter] public bool AllowTaskCreation { get; set; } = true;
     [Parameter] public bool AllowTaskReordering { get; set; } = true;
     [Parameter] public Func<TodoTaskEntity, bool>? TaskCanWrite { get; set; }
@@ -502,7 +512,7 @@ else
         var tasks = VisibleTasks;
         var rows = new List<TimelineRow>();
         var number = 0;
-        if (_grouping == TimelineGrouping.Tasks)
+        if (ProjectMode || _grouping == TimelineGrouping.Tasks)
         {
             rows.AddRange(tasks.Select(task => TimelineRow.ForTask(task, ++number)));
             return rows;
@@ -636,7 +646,7 @@ else
     }
 
     private bool CanWriteTask(TodoTaskEntity task)
-        => TaskCanWrite?.Invoke(task) ?? CanWriteToList();
+        => !ProjectMode && (TaskCanWrite?.Invoke(task) ?? CanWriteToList());
 
     private bool CanEditSchedule(TodoTaskEntity task)
         => CanWriteTask(task) && !_savingTaskIds.Contains(task.Id);
@@ -647,6 +657,7 @@ else
     // A filtered or assignee-grouped DOM is only a partial/projection-specific
     // ordering. Persisting that snapshot would move hidden tasks unexpectedly.
     private bool CanReorderTasks => List is not null
+                                    && !ProjectMode
                                     && AllowTaskReordering
                                     && _grouping == TimelineGrouping.Tasks
                                     && Filter?.IsActive() != true

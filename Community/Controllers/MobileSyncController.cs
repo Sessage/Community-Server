@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
@@ -27,6 +29,10 @@ namespace TodoSuite.Server.Controllers;
 [Authorize(Policy = "MobileApi")]
 public class MobileSyncController : ControllerBase
 {
+    private static readonly Meter SyncMetrics = new("Sessage.WorkspaceSync", "1.0");
+    private static readonly Histogram<double> SnapshotDuration = SyncMetrics.CreateHistogram<double>("sessage.sync.snapshot.duration", "ms");
+    private static readonly Histogram<long> SnapshotBytes = SyncMetrics.CreateHistogram<long>("sessage.sync.snapshot.bytes", "By");
+    private static readonly Histogram<int> SnapshotTasks = SyncMetrics.CreateHistogram<int>("sessage.sync.snapshot.tasks");
     private const long MaxAttachmentSizeBytes = 25L * 1024 * 1024;
     private const int MaxAttachmentChunkSizeBytes = 512 * 1024;
     private const int MaxChunkEnvelopeBytes = 64 * 1024;
@@ -46,13 +52,28 @@ public class MobileSyncController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<TodoListEntity>>> GetLists([FromServices] ITodoListService listService, CancellationToken token)
     {
         var userId = ResolveUserId();
+        var started = Stopwatch.GetTimestamp();
         var lists = await listService.GetListsAsync(userId, token);
         ApplySyncTokens(lists);
-        var etag = CreateWorkspaceEtag(lists);
+        var (payload, etag) = CreateWorkspaceSnapshot(lists);
+        SnapshotDuration.Record(Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        SnapshotTasks.Record(lists.Sum(list => list.Tasks.Count));
+        Response.Headers.ETag = etag;
         if (Request.Headers.IfNoneMatch.Any(value => string.Equals(value, etag, StringComparison.Ordinal)))
             return StatusCode(StatusCodes.Status304NotModified);
-        Response.Headers.ETag = etag;
-        return Ok(lists);
+        // Reuse exactly the bytes that were hashed instead of serializing the full
+        // graph again in MVC's output formatter. Preserve the service's list ordering.
+        return File(payload, "application/json; charset=utf-8");
+    }
+
+    [HttpGet("lists/{listId:guid}")]
+    public async Task<ActionResult<TodoListEntity>> GetList(Guid listId, [FromServices] ITodoListService listService, CancellationToken token)
+    {
+        var list = await listService.GetListAsync(ResolveUserId(), listId, token);
+        if (list is null) return NotFound();
+        ApplySyncTokens([list]);
+        Response.Headers.CacheControl = "no-store";
+        return Ok(list);
     }
 
     [HttpPost("lists")]
@@ -2066,14 +2087,14 @@ public class MobileSyncController : ControllerBase
                Encoding.UTF8.GetBytes(suppliedToken),
                Encoding.UTF8.GetBytes(currentToken));
 
-    private static string CreateWorkspaceEtag(IEnumerable<TodoListEntity> lists)
+    private static (byte[] Payload, string Etag) CreateWorkspaceSnapshot(IReadOnlyList<TodoListEntity> lists)
     {
         // Hash the complete response graph. Comments, attachments, watchers, labels, custom fields
         // and user-specific navigation/table preferences are intentionally part of the ETag even
         // though they are excluded from full-update conflict fingerprints.
-        var ordered = lists.OrderBy(list => list.Id).ToList();
-        var payload = JsonSerializer.SerializeToUtf8Bytes(ordered, WorkspaceEtagJson);
-        return $"\"{Convert.ToHexString(SHA256.HashData(payload))}\"";
+        var payload = JsonSerializer.SerializeToUtf8Bytes(lists, WorkspaceEtagJson);
+        SnapshotBytes.Record(payload.LongLength);
+        return (payload, $"\"{Convert.ToHexString(SHA256.HashData(payload))}\"");
     }
 
     private string ResolveUserId()

@@ -467,6 +467,7 @@
 }
 
 @code {
+    [Parameter] public bool OpenPublicInApp { get; set; }
     [Parameter] public TodoListEntity? List { get; set; }
     [Parameter] public string UserId { get; set; } = "";
     [Parameter] public EventCallback OnChanged { get; set; }
@@ -894,6 +895,12 @@
 
     private async Task OpenPublicForm()
     {
+        if (OpenPublicInApp && _selectedForm is not null)
+        {
+            Nav.NavigateTo($"/forms/{Uri.EscapeDataString(_selectedForm.Slug)}");
+            return;
+        }
+
         if (_selectedForm is null) return;
         await JS.InvokeVoidAsync("open", PublicLink(_selectedForm), "_blank", "noopener,noreferrer");
     }

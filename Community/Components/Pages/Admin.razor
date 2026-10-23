@@ -8,6 +8,8 @@
 @using Klassenbibliothek.Data
 @using Klassenbibliothek.Features
 @using Klassenbibliothek.Administration
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceProvider Services
 @inject UserManager<ApplicationUser> UserManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IProductFeatureCatalog FeatureCatalog
@@ -15,7 +17,7 @@
 @inject UserAccountArtifactCleanupService AccountArtifactCleanup
 @inject ILogger<Admin> Logger
 
-<PageTitle>Administration - Sessage</PageTitle>
+<PageTitle>@L["App_SystemAdministration"] – Sessage</PageTitle>
 
 <div class="h-full min-h-0 overflow-y-auto">
 <div class="admin-page space-y-6 max-w-5xl mx-auto p-4 sm:p-6">
@@ -23,8 +25,8 @@
     <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
-            <p class="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-1">Systemverwaltung</p>
-            <h1 class="text-2xl font-bold text-slate-900">Administration</h1>
+            <p class="text-xs font-semibold uppercase tracking-widest text-indigo-500 mb-1">@SharedText.Get("App_SystemAdministration")</p>
+            <h1 class="text-2xl font-bold text-slate-900">@SharedText.Get("Page_Admin_Title")</h1>
         </div>
     </div>
 
@@ -32,18 +34,24 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Lizenzstatus">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center justify-between gap-4">
             <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Lizenz</p>
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">@SharedText.Get("App_License")</p>
                 <p class="text-lg font-semibold text-slate-900">@LicenseEdition</p>
                 <p class="text-xs text-slate-500 mt-1">@LicenseStatusDescription</p>
             </div>
             <span class="rounded-full px-3 py-1 text-xs font-semibold @LicenseBadgeCss">@LicenseEdition</span>
         </div>
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Läuft ab am</p>
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">@SharedText.Get("App_Expireson")</p>
             <p class="text-lg font-semibold text-slate-900">@LicenseExpiryText</p>
             <p class="text-xs text-slate-500 mt-1">@LicenseExpiryDescription</p>
         </div>
     </div>
+
+    @if (Services.GetService<IEnterpriseOperationsDiagnostics>() is { } diagnostics)
+    {
+        <EnterpriseDiagnosticsPanel Snapshot="new EnterpriseDiagnosticsSnapshot(diagnostics.GetOperations(), diagnostics.GetPush())"
+                                    OnRefresh="() => StateHasChanged()" />
+    }
 
     <!-- Benutzer anlegen / bearbeiten -->
     <div class="grid grid-cols-1 gap-4">
@@ -55,7 +63,7 @@
                     @(_editingUserId == null ? "+" : "✎")
                 </div>
                 <h2 class="text-base font-semibold text-slate-800">
-                    @(_editingUserId == null ? "Benutzer anlegen" : "Benutzer bearbeiten")
+                    @(_editingUserId == null ? SharedText.Get("App_Createuser") : SharedText.Get("App_Edituser"))
                 </h2>
             </div>
             @if (!string.IsNullOrWhiteSpace(_message))
@@ -69,12 +77,12 @@
                 <DataAnnotationsValidator />
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs font-medium text-slate-600 mb-1">Anzeigename</label>
-                        <FluentTextField @bind-Value="_form.DisplayName" Placeholder="Vollständiger Name" Class="admin-text-field w-full" />
+                        <label class="block text-xs font-medium text-slate-600 mb-1">@SharedText.Get("App_DisplayName")</label>
+                        <FluentTextField @bind-Value="_form.DisplayName" Placeholder="@SharedText.Get("App_Fullname")" Class="admin-text-field w-full" />
                         <ValidationMessage For="@(() => _form.DisplayName)" class="text-xs text-red-600 mt-0.5" />
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-600 mb-1">E-Mail-Adresse</label>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">@SharedText.Get("Account_EmailAddress")</label>
                         <FluentTextField @bind-Value="_form.Email" Placeholder="benutzer@beispiel.de" Class="admin-text-field w-full"
                                          autocomplete="off"
                                          ReadOnly="@(_editingUserId != null)" />
@@ -83,31 +91,31 @@
                     @if (_editingUserId == null)
                     {
                         <div>
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Passwort</label>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">@SharedText.Get("Login_Password")</label>
                             <FluentTextField @bind-Value="_form.Password" Placeholder="Mindestens 6 Zeichen"
                                              TextFieldType="TextFieldType.Password" autocomplete="new-password"
                                              Class="admin-text-field w-full" />
                             <ValidationMessage For="@(() => _form.Password)" class="text-xs text-red-600 mt-0.5" />
-                            <p class="text-xs text-slate-500 mt-1">Mit Groß- und Kleinbuchstaben, Ziffer und Sonderzeichen.</p>
+                            <p class="text-xs text-slate-500 mt-1">@SharedText.Get("App_Useuppercaseandlowercaselettersanumberandasymbol")</p>
                         </div>
                     }
-                    <FluentSwitch @bind-Checked="_form.IsAdmin" Disabled="@IsEditingCurrentUser">Administrator</FluentSwitch>
+                    <FluentSwitch @bind-Checked="_form.IsAdmin" Disabled="@IsEditingCurrentUser">@SharedText.Get("App_Administrator")</FluentSwitch>
                     @if (IsEditingCurrentUser)
                     {
-                        <p class="mt-1 text-xs text-slate-500">Die eigene Administratorrolle kann hier nicht entfernt werden.</p>
+                        <p class="mt-1 text-xs text-slate-500">@SharedText.Get("App_Youcannotremoveyourownadministratorrolehere")</p>
                     }
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     @if (_editingUserId != null)
                     {
-                        <FluentButton Appearance="Appearance.Outline" OnClick="() => ResetForm()">Abbrechen</FluentButton>
+                        <FluentButton Appearance="Appearance.Outline" OnClick="() => ResetForm()">@SharedText.Get("Btn_Cancel")</FluentButton>
                     }
                     <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Disabled="@_saving">
                         @if (_saving)
                         {
                             <FluentProgressRing Style="width:14px;height:14px;margin-right:6px;" />
                         }
-                        @(_editingUserId == null ? "Anlegen" : "Speichern")
+                        @(_editingUserId == null ? "Anlegen" : SharedText.Get("Btn_Save"))
                     </FluentButton>
                 </div>
             </EditForm>
@@ -119,16 +127,16 @@
         <div class="flex flex-col items-stretch gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-base">👥</div>
-                <h2 class="text-base font-semibold text-slate-800">Benutzer-Übersicht</h2>
+                <h2 class="text-base font-semibold text-slate-800">@SharedText.Get("App_Users")</h2>
                 <span class="rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-0.5">@_users.Count</span>
             </div>
             <div class="flex flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                <FluentTextField @bind-Value="_searchTerm" Placeholder="Name oder E-Mail suchen" Class="admin-text-field w-full" Style="width:100%;min-width:0;"
+                <FluentTextField @bind-Value="_searchTerm" Placeholder="@SharedText.Get("App_Searchnameoremail")" Class="admin-text-field w-full" Style="width:100%;min-width:0;"
                                  @oninput="OnSearchInput" />
                 <a href="#admin-user-form"
                    @onclick="() => ResetForm()"
                    class="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white no-underline transition-colors hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                    + Benutzer anlegen
+                    + @L["App_Createuser"]
                 </a>
             </div>
         </div>
@@ -137,14 +145,14 @@
         {
             <div class="flex items-center justify-center py-12 gap-3 text-slate-400">
                 <FluentProgressRing Style="width:20px;height:20px;" />
-                <span class="text-sm">Benutzer werden geladen…</span>
+                <span class="text-sm">@SharedText.Get("App_Loadingusers")</span>
             </div>
         }
         else if (_users.Count == 0)
         {
             <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
                 <span class="text-3xl">🔍</span>
-                <span class="text-sm">Keine Benutzer gefunden.</span>
+                <span class="text-sm">@SharedText.Get("App_Nousersfound")</span>
             </div>
         }
         else
@@ -164,21 +172,21 @@
                             @if (user.IsAdmin)
                             {
                                 <span class="shrink-0 rounded-full bg-amber-100 text-amber-700 text-[11px] font-semibold px-2 py-0.5 uppercase tracking-wide">
-                                    Admin
+                                    @SharedText.Get("Participants_RoleAdmin")
                                 </span>
                             }
                         </div>
                         <div class="flex shrink-0 justify-end gap-2 sm:ml-3">
                             <FluentButton Appearance="Appearance.Outline" OnClick="() => StartEdit(user)"
-                                          Title="Bearbeiten">
-                                Bearbeiten
+                                          Title="@SharedText.Get("Btn_Edit")">
+                                @SharedText.Get("Btn_Edit")
                             </FluentButton>
                             <FluentButton Appearance="Appearance.Outline"
                                           Style="border-color: #fca5a5; color: #dc2626;"
                                           Disabled="@IsCurrentUser(user)"
                                           OnClick="() => ConfirmDelete(user)"
-                                          Title="@(IsCurrentUser(user) ? "Das eigene Konto kann hier nicht gelöscht werden." : "Löschen")">
-                                Löschen
+                                          Title="@(IsCurrentUser(user) ? SharedText.Get("App_OwnAccountDeleteDenied") : SharedText.Get("Btn_Delete"))">
+                                @SharedText.Get("Btn_Delete")
                             </FluentButton>
                         </div>
                     </div>
@@ -194,18 +202,17 @@
 {
     <FluentDialog Open="true" Modal="true" Style="width:min(440px,92vw);" TrapFocus="true">
         <FluentDialogHeader>
-            <div class="font-semibold text-red-700">Benutzer löschen</div>
+            <div class="font-semibold text-red-700">@SharedText.Get("App_Deleteuser")</div>
         </FluentDialogHeader>
         <FluentDialogBody>
             <p class="text-sm text-slate-700">
-                Soll der Benutzer <span class="font-semibold">@_deleteTarget.Email</span> wirklich gelöscht werden?
-                Diese Aktion kann nicht rückgängig gemacht werden.
+                @L["App_DeleteUserConfirm", _deleteTarget.Email ?? ""]
             </p>
         </FluentDialogBody>
         <FluentDialogFooter>
-            <FluentButton Appearance="Appearance.Stealth" OnClick="() => _deleteTarget = null">Abbrechen</FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="() => _deleteTarget = null">@SharedText.Get("Btn_Cancel")</FluentButton>
             <FluentButton Appearance="Appearance.Accent" Style="background:#dc2626;" Disabled="@_saving" OnClick="ExecuteDeleteAsync">
-                Löschen
+                @SharedText.Get("Btn_Delete")
             </FluentButton>
         </FluentDialogFooter>
     </FluentDialog>
@@ -241,15 +248,15 @@
 
     private class UserFormModel
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Name ist erforderlich.")]
-        [System.ComponentModel.DataAnnotations.MaxLength(200, ErrorMessage = "Der Name darf höchstens 200 Zeichen lang sein.")]
+        [LocalizedRequired("App_Nameisrequired")]
+        [LocalizedMaxLength(200, "App_Namemustnotexceed200characters")]
         public string DisplayName { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "E-Mail ist erforderlich.")]
-        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "Ungültige E-Mail-Adresse.")]
+        [LocalizedRequired("App_Emailisrequired")]
+        [LocalizedEmailAddress("App_Invalidemailaddress")]
         public string Email { get; set; } = string.Empty;
 
-        [System.ComponentModel.DataAnnotations.MinLength(6, ErrorMessage = "Passwort muss mindestens 6 Zeichen lang sein.")]
+        [LocalizedMinLength(6, "App_Passwordmusthaveatleast6characters")]
         public string Password { get; set; } = string.Empty;
 
         public bool IsAdmin { get; set; }
@@ -262,6 +269,9 @@
         _currentUserId = authenticationState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
         await LoadUsersAsync();
     }
+
+    private static string DiagnosticTime(DateTimeOffset? value)
+        => value?.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", System.Globalization.CultureInfo.InvariantCulture) ?? "—";
 
     private async Task LoadUsersAsync()
     {
@@ -287,8 +297,8 @@
         }
         catch (Exception exception)
         {
-            Logger.LogError(exception, "Benutzerliste konnte nicht geladen werden.");
-            ShowMessage("Die Benutzerliste konnte nicht geladen werden.", true);
+            Logger.LogError(exception, SharedText.Get("App_Couldnotloadusers"));
+            ShowMessage(SharedText.Get("App_Couldnotloadtheuserlist"), true);
         }
         finally
         {
@@ -329,7 +339,7 @@
                 // Neuen Benutzer anlegen
                 if (string.IsNullOrWhiteSpace(_form.Password))
                 {
-                    ShowMessage("Bitte ein Passwort eingeben.", isError: true);
+                    ShowMessage(SharedText.Get("App_Enterapassword"), isError: true);
                     return;
                 }
 
@@ -337,7 +347,7 @@
                 var existing = await UserManager.FindByEmailAsync(normalizedEmail);
                 if (existing != null)
                 {
-                    ShowMessage("Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.", isError: true);
+                    ShowMessage(SharedText.Get("Err_Admin_UserAlreadyExists"), isError: true);
                     return;
                 }
 
@@ -376,7 +386,7 @@
                 var user = await UserManager.FindByIdAsync(_editingUserId);
                 if (user == null)
                 {
-                    ShowMessage("Benutzer nicht gefunden.", isError: true);
+                    ShowMessage(SharedText.Get("App_Usernotfound"), isError: true);
                     return;
                 }
 
@@ -391,7 +401,7 @@
                 var isCurrentlyAdmin = await UserManager.IsInRoleAsync(user, "Admin");
                 if (!_form.IsAdmin && isCurrentlyAdmin && IsCurrentUser(user.Id))
                 {
-                    ShowMessage("Die eigene Administratorrolle kann nicht entfernt werden.", isError: true);
+                    ShowMessage(SharedText.Get("Err_Admin_CannotRemoveOwnAdminRole"), isError: true);
                     return;
                 }
 
@@ -423,8 +433,8 @@
         }
         catch (Exception exception)
         {
-            Logger.LogError(exception, "Benutzerverwaltung konnte die Aktion nicht abschließen.");
-            ShowMessage("Die Benutzeraktion konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut.", isError: true);
+            Logger.LogError(exception, SharedText.Get("App_Usermanagementcouldnotcompletetheaction"));
+            ShowMessage(SharedText.Get("App_CouldnotcompletetheuseractionTryagain"), isError: true);
         }
         finally
         {
@@ -457,7 +467,7 @@
     {
         if (IsCurrentUser(user))
         {
-            ShowMessage("Das eigene Konto kann im Adminbereich nicht gelöscht werden.", true);
+            ShowMessage(SharedText.Get("App_Youcannotdeleteyourownaccountinadministration"), true);
             return;
         }
 
@@ -472,7 +482,7 @@
         if (IsCurrentUser(target))
         {
             _deleteTarget = null;
-            ShowMessage("Das eigene Konto kann im Adminbereich nicht gelöscht werden.", true);
+            ShowMessage(SharedText.Get("App_Youcannotdeleteyourownaccountinadministration"), true);
             return;
         }
 
@@ -488,7 +498,7 @@
                 {
                     await AccountArtifactCleanup.CleanupAfterUserDeletionAsync(user.Id, profilePicturePath, CancellationToken.None);
                     await TryRecordAuditAsync("user-deleted", $"userId={user.Id}");
-                    ShowMessage($"Benutzer {target.Email} wurde gelöscht.", isError: false);
+                    ShowMessage(SharedText.Get("App_UserDeletedMessage", target.Email ?? ""), isError: false);
                 }
                 else
                     ShowMessage(IdentityErrors(result), isError: true);
@@ -499,7 +509,7 @@
         catch (Exception exception)
         {
             Logger.LogError(exception, "Benutzer {UserId} konnte nicht gelöscht werden.", target.Id);
-            ShowMessage("Der Benutzer konnte nicht gelöscht werden.", true);
+            ShowMessage(SharedText.Get("App_Couldnotdeletetheuser"), true);
         }
         finally
         {
@@ -544,19 +554,19 @@
         : "bg-slate-100 text-slate-700";
     private string LicenseStatusDescription => _capabilities.LicenseStatus switch
     {
-        "valid" => "Lizenz ist gültig",
+        "valid" => SharedText.Get("App_Licenseisvalid"),
         "development" => "Entwicklungslizenz",
-        "expired" => "Enterprise-Lizenz ist abgelaufen",
+        "expired" => SharedText.Get("App_Enterpriselicenseexpired"),
         "community" => "Community-Edition",
-        "license-missing" => "Keine Enterprise-Lizenz installiert",
-        "public-key-missing" => "Öffentlicher Lizenzschlüssel fehlt",
-        "installation-mismatch" => "Lizenz gehört zu einer anderen Installation",
-        "public-key-mismatch" => "Der öffentliche Schlüssel gehört nicht zu dieser Lizenz",
-        "invalid-signature" => "Lizenz und öffentlicher Schlüssel passen nicht zusammen",
-        "invalid-license" => "Lizenzdatei ist ungültig",
-        "unsupported-algorithm" => "Lizenz verwendet einen nicht unterstützten Algorithmus",
-        "license-unavailable" => "Lizenzdateien konnten nicht gelesen werden",
-        _ => HasEnterpriseLicense ? "Lizenz ist gültig" : "Keine gültige Enterprise-Lizenz"
+        "license-missing" => SharedText.Get("App_NoEnterpriselicenseinstalled"),
+        "public-key-missing" => SharedText.Get("App_Publiclicensekeymissing"),
+        "installation-mismatch" => SharedText.Get("App_Licensebelongstoanotherinstallation"),
+        "public-key-mismatch" => SharedText.Get("App_Publickeydoesnotbelongtothislicense"),
+        "invalid-signature" => SharedText.Get("App_Licenseandpublickeydonotmatch"),
+        "invalid-license" => SharedText.Get("App_Invalidlicensefile"),
+        "unsupported-algorithm" => SharedText.Get("App_Unsupportedlicensealgorithm"),
+        "license-unavailable" => SharedText.Get("App_Couldnotreadlicensefiles"),
+        _ => HasEnterpriseLicense ? SharedText.Get("App_Licenseisvalid") : SharedText.Get("App_NovalidEnterpriselicense")
     };
     private string LicenseExpiryText => !HasEnterpriseLicense
         ? "–"
@@ -564,18 +574,18 @@
             ? DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc).ToLocalTime().ToString("dd.MM.yyyy HH:mm")
             : "Unbefristet";
     private string LicenseExpiryDescription => HasEnterpriseLicense
-        ? _capabilities.LicenseExpiresAtUtc is null ? "Kein Ablaufdatum hinterlegt" : "Lokale Serverzeit"
-        : "Nur für Enterprise-Lizenzen";
+        ? _capabilities.LicenseExpiresAtUtc is null ? SharedText.Get("App_Noexpirydateset") : SharedText.Get("App_Localservertime")
+        : SharedText.Get("App_Enterpriselicensesonly");
 
     private static string IdentityErrors(IdentityResult result)
         => string.Join(" ", result.Errors.Select(error => error.Code switch
         {
-            "PasswordTooShort" => "Das Passwort ist zu kurz.",
-            "PasswordRequiresNonAlphanumeric" => "Das Passwort benötigt ein Sonderzeichen.",
-            "PasswordRequiresDigit" => "Das Passwort benötigt eine Ziffer.",
-            "PasswordRequiresLower" => "Das Passwort benötigt einen Kleinbuchstaben.",
-            "PasswordRequiresUpper" => "Das Passwort benötigt einen Großbuchstaben.",
-            "DuplicateEmail" or "DuplicateUserName" => "Diese E-Mail-Adresse wird bereits verwendet.",
+            "PasswordTooShort" => SharedText.Get("App_Passwordistooshort"),
+            "PasswordRequiresNonAlphanumeric" => SharedText.Get("App_Passwordneedsasymbol"),
+            "PasswordRequiresDigit" => SharedText.Get("App_Passwordneedsanumber"),
+            "PasswordRequiresLower" => SharedText.Get("App_Passwordneedsalowercaseletter"),
+            "PasswordRequiresUpper" => SharedText.Get("App_Passwordneedsanuppercaseletter"),
+            "DuplicateEmail" or "DuplicateUserName" => SharedText.Get("Account_EmailAlreadyUsed"),
             _ => error.Description
         }));
 }

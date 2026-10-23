@@ -23,7 +23,7 @@
     <FluentDialog id="@_dialogDomId"
                   Class="task-edit-dialog"
                   Modal="true"
-                  TrapFocus="true"
+                  TrapFocus="@(_conflictLocalJson is null && !_moveDialogOpen && !_cardStyleOpen && !_confirmDialogOpen)"
                   PreventScroll="true"
                   Style="position:fixed; inset:0; width:100vw; height:100dvh; --dialog-width: min(1100px, 96vw); --dialog-height: min(820px, 92vh); --dialog-display: flex; flex-direction: column;"
                   Data-testid="task-edit-modal">
@@ -61,6 +61,11 @@
 
                 <!-- Right: Add + Important + Actions + Close -->
                 <div class="task-edit-modal-actions flex items-center gap-1 shrink-0">
+                    <TaskPersistenceStatus ListId="ListId" TaskId="_editableTask.Id" Busy="_saveInProgress" Dirty="_dirty" Failed="_saveFailed" />
+                    @if (_undoPosition is not null && _undoPosition.TaskId == _editableTask.Id && _undoPosition.ExpiresAtUtc > DateTime.UtcNow)
+                    {
+                        <button type="button" class="rounded px-2 py-1 text-sm text-blue-700" disabled="@_saveInProgress" @onclick="UndoPositionAsync">@L["Common_Undo"]</button>
+                    }
 
                     <!-- ✅ + Hinzufügen (Zu Karte hinzufügen) -->
                     <div class="relative" @onclick:stopPropagation="true">
@@ -232,6 +237,10 @@
         </FluentDialogHeader>
 
         <FluentDialogBody>
+            @if (_remoteChangePending)
+            {
+                <p role="status" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">@L["Conflict_RemoteChanged"]</p>
+            }
             <div @ref="_scrollHost" class="task-edit-scroll-host" style="overflow-y:auto; overflow-x:hidden; height: 100%; display: flex; flex-direction: column; min-height: 0;">
                 <div class="task-edit-tabbar flex shrink-0 items-center gap-2 mb-2 px-4 pt-2 pb-1">
                     <button type="button"
@@ -586,12 +595,10 @@
                                                     <option value="@RecurrencePattern.Keine">@L["Task_Recurrence_None"]</option>
                                                     <option value="@RecurrencePattern.Taeglich">@L["Task_Recurrence_Daily"]</option>
                                                     <option value="@RecurrencePattern.Woechentlich">@L["Task_Recurrence_Weekly"]</option>
-@*                                                     <option value="@RecurrencePattern.BestimmteWochentage">@L["Task_Recurrence_SpecificDays"]</option>
- *@                                                    <option value="@RecurrencePattern.Monatlich">@L["Task_Recurrence_Monthly"]</option>
+                                                    <option value="@RecurrencePattern.Monatlich">@L["Task_Recurrence_Monthly"]</option>
                                                     <option value="@RecurrencePattern.Jaehrlich">@L["Task_Recurrence_Yearly"]</option>
                                                     <option value="@RecurrencePattern.TageNachAbschluss">@L["Task_Recurrence_AfterCompletion"]</option>
-@*                                                     <option value="@RecurrencePattern.Benutzerdefiniert">@L["Task_Recurrence_Custom"]</option>
- *@                                                </InputSelect>
+                                                </InputSelect>
                                             </div>
 
                                             @if (_editableTask?.Recurrence == RecurrencePattern.TageNachAbschluss)
@@ -703,7 +710,7 @@
                                                 @if (_editableTask?.ReminderAtUtc is not null)
                                                 {
                                                     <div class="text-xs text-slate-500">
-                                                        @(string.Format(L["Task_Reminder_SetFor"].Value, _editableTask.ReminderAtUtc.Value.AddMinutes(_browserUtcOffsetMinutes).ToString("g")))
+                                                        @(string.Format(L["Task_Reminder_SetFor"].Value, ToBrowserLocalTime(_editableTask.ReminderAtUtc.Value).ToString("g")))
                                                     </div>
                                                 }
 
@@ -1173,9 +1180,15 @@
         </FluentDialogBody>
 
         
-    </FluentDialog>
-
+        @* Keep the comparison inside its owning dialog so focus remains inside the
+           parent even while Fluent applies the changed TrapFocus property. *@
+        @if (_conflictLocalJson is not null && _conflictServerJson is not null)
+        {
+            <WorkspaceConflictDialog LocalJson="@_conflictLocalJson" ServerJson="@_conflictServerJson" Busy="_saveInProgress" Error="@_error"
+                                     OnApply="ApplyTaskConflictAsync" OnCancel="() => { _conflictLocalJson = null; _conflictServerJson = null; }" />
+        }
     <!-- Move-Dialog -->
+
     @if (_moveDialogOpen)
     {
         <FluentDialog id="@MoveDialogDomId"
@@ -1370,7 +1383,7 @@
                     <FluentButton Appearance="Appearance.Outline"
                                   Class="w-full"
                                   OnClick="@(() => SetCardColor(null))">
-                        Kartenfarbe entfernen
+                        @L["Bulk_ClearColor"]
                     </FluentButton>
 
                     <div class="text-sm text-slate-600 font-semibold">@L["Task_CardStyle_Colors"]</div>
@@ -1395,6 +1408,7 @@
             </FluentDialogFooter>
         </FluentDialog>
     }
+    </FluentDialog>
 }
 
 @code {
@@ -1405,6 +1419,8 @@
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskUpdated { get; set; }
     [Parameter] public EventCallback<TodoTaskEntity> OnTaskMoved { get; set; }
     [Parameter] public EventCallback OnListChanged { get; set; }
+    [Parameter] public EventCallback<TaskDeletionUndoRequest> OnTaskDeleted { get; set; }
+    [Parameter] public string UserScope { get; set; } = "";
     [Parameter] public IReadOnlyList<TodoLabelEntity>? Labels { get; set; }
     [Parameter] public TodoListEntity? List { get; set; }
     [Parameter] public IReadOnlyList<TodoListEntity> AvailableLists { get; set; } = [];
@@ -1459,6 +1475,46 @@
     // Autosave / Concurrency-Schutz
     private bool _dirty = false;
     private bool _saveInProgress = false;
+    private bool _saveFailed;
+    private bool _remoteChangePending;
+    private string? _conflictLocalJson, _conflictServerJson;
+    private static readonly System.Text.Json.JsonSerializerOptions ConflictJson = new(System.Text.Json.JsonSerializerDefaults.Web);
+
+    private async Task ApplyTaskConflictAsync(IReadOnlySet<string> localFields)
+    {
+        if (_conflictLocalJson is null || _conflictServerJson is null) return;
+        _editableTask = System.Text.Json.JsonSerializer.Deserialize<TodoTaskEntity>(
+            WorkspaceConflictMerge.Merge(_conflictLocalJson, _conflictServerJson, true, localFields), ConflictJson);
+        _conflictLocalJson = null; _conflictServerJson = null;
+        if (localFields.Count == 0)
+        {
+            CancelPendingAutosave(); _dirty = false; _saveFailed = false; _remoteChangePending = false; _error = "";
+            SyncSectionVisibilityFromData();
+            if (OnTaskUpdated.HasDelegate && _editableTask is not null) await OnTaskUpdated.InvokeAsync(CloneTask(_editableTask));
+            return;
+        }
+        ScheduleAutosave(0);
+        await FlushPendingTaskEditsAsync();
+    }
+    private TaskPositionUndo? _undoPosition;
+    private sealed record TaskPositionUndo(Guid TaskId, string Column, bool Done, DateTime? ReminderAtUtc, DateTime ExpiresAtUtc);
+
+    private void CapturePositionUndo()
+    {
+        _undoPosition = null;
+        if (_editableTask is not null && _editableTask.Recurrence == RecurrencePattern.Keine)
+            _undoPosition = new(_editableTask.Id, _editableTask.Column, _editableTask.Done, _editableTask.ReminderAtUtc, DateTime.UtcNow.AddSeconds(30));
+    }
+
+    private async Task UndoPositionAsync()
+    {
+        var undo = _undoPosition;
+        _undoPosition = null;
+        if (_editableTask is null || undo?.TaskId != _editableTask.Id || undo.ExpiresAtUtc < DateTime.UtcNow || !CanWriteToList()) return;
+        _editableTask.Column = undo.Column; _editableTask.Done = undo.Done; _editableTask.ReminderAtUtc = undo.ReminderAtUtc;
+        ScheduleAutosave(0);
+        await FlushPendingTaskEditsAsync();
+    }
     private int _editRevision = 0;
     private int _taskContextVersion;
     private bool _closeBusy;
@@ -1620,21 +1676,9 @@
 
             _stepMenuOpenFor = null;
 
-            var steps = _editableTask.Steps.ToList();
-            foreach (var s in steps)
-            {
-                var removed = await StepService.RemoveStepAsync(_userId, listId, taskId, s.Id, _taskContextCts.Token);
-                if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
-                if (!removed)
-                {
-                    _error = string.Format(L["Err_TaskChecklistClearStep"].Value, s.Title, s.Id);
-                    break;
-                }
-
-                var localStep = _editableTask.Steps.FirstOrDefault(step => step.Id == s.Id);
-                if (localStep is not null)
-                    _editableTask.Steps.Remove(localStep);
-            }
+            _editableTask.Steps.Clear();
+            ScheduleAutosave(0);
+            if (!await FlushPendingTaskEditsAsync()) return;
 
             if (_editableTask.Steps.Count == 0)
             {
@@ -1815,6 +1859,7 @@
     private DateTime? _reminderLocalDate;
     private string _reminderLocalTime = "09:00";
     private int _browserUtcOffsetMinutes;
+    private TimeZoneInfo _browserTimeZone = TimeZoneInfo.Utc;
 
     private string _userId = "gast";
     private string _currentUserDisplayName = "";
@@ -2216,6 +2261,8 @@
             BeginNewTaskContext();
             _suppressAutosave = true;
             _editableTask = CloneTask(Task);
+            _saveFailed = false;
+            _undoPosition = null;
             _completionIntervalDays = TaskRecurrenceRules.TryGetCompletionInterval(
                 _editableTask.CustomRecurrence, out var completionDays)
                 ? completionDays
@@ -2322,6 +2369,12 @@
             try
             {
                 _browserUtcOffsetMinutes = await JS.InvokeAsync<int>("getBrowserUtcOffsetMinutes");
+                try { _browserTimeZone = TimeZoneInfo.FindSystemTimeZoneById(await JS.InvokeAsync<string>("getBrowserTimeZone")); }
+                catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException or JSException)
+                {
+                    // Compatibility fallback for older WebViews lacking Intl zone support.
+                    _browserTimeZone = TimeZoneInfo.CreateCustomTimeZone("BrowserOffset", TimeSpan.FromMinutes(_browserUtcOffsetMinutes), "Browser", "Browser");
+                }
 
                 // Reminder-Felder nach dem Laden des korrekten Offsets neu synchronisieren
                 if (_editableTask?.ReminderAtUtc is not null)
@@ -2330,7 +2383,7 @@
                     await InvokeAsync(StateHasChanged);
                 }
             }
-            catch { /* JS nicht verfügbar (z.B. Prerender) – Offset bleibt 0 */ }
+            catch (JSException) { /* Until interop is available, show UTC rather than the server's local zone. */ }
         }
     }
 
@@ -2591,6 +2644,7 @@
         }
 
         _saveInProgress = true;
+        _saveFailed = false;
         var saved = false;
         TodoTaskEntity? taskToNotify = null;
 
@@ -2618,6 +2672,7 @@
 
             if (updated is null)
             {
+                _saveFailed = true;
                 _error = L["Err_TaskDeleteNotFound"].Value;
                 return false;
             }
@@ -2646,6 +2701,7 @@
                 _suppressAutosave = false;
 
                 _dirty = false;
+                _remoteChangePending = false;
 
                 SyncSectionVisibilityFromData();
 
@@ -2664,11 +2720,33 @@
 
             saved = true;
         }
+        catch (WorkspaceConcurrencyException ex)
+        {
+            if (IsCurrentTaskContext(contextVersion, taskId, listId))
+            {
+                _saveFailed = true;
+                _error = ex.Message;
+                try
+                {
+                    var remote = (await ListService.GetListAsync(_userId, listId, contextToken))?.Tasks.FirstOrDefault(task => task.Id == taskId);
+                    if (remote is not null && IsCurrentTaskContext(contextVersion, taskId, listId))
+                    {
+                        _conflictLocalJson = System.Text.Json.JsonSerializer.Serialize(_editableTask, ConflictJson);
+                        _conflictServerJson = System.Text.Json.JsonSerializer.Serialize(CloneTask(remote), ConflictJson);
+                    }
+                }
+                catch (OperationCanceledException) when (contextToken.IsCancellationRequested) { }
+                catch (Exception) { /* The original concurrency error and local draft remain visible; retry can reload the comparison. */ }
+            }
+        }
         catch (OperationCanceledException) when (contextToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
             if (IsCurrentTaskContext(contextVersion, taskId, listId))
+            {
+                _saveFailed = true;
                 _error = string.Format(L["Err_TaskSave"].Value, ex.Message);
+            }
         }
         finally
         {
@@ -2730,7 +2808,7 @@
         _editableTask.Description = value;
         ScheduleAutosave();
     }
-    private void OnColumnChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.Column = v ?? _editableTask.Column; ScheduleAutosave(200); }
+    private void OnColumnChanged(string? v) { if (_editableTask is null || !CanWriteToList()) return; CapturePositionUndo(); _editableTask.Column = v ?? _editableTask.Column; ScheduleAutosave(200); }
 
     private void OnStartDateChanged(DateTime? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.StartDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
     private void OnDueDateChanged(DateTime? v) { if (_editableTask is null || !CanWriteToList()) return; _editableTask.DueDate = v; ScheduleAutosave(200); SyncSectionVisibilityFromData(); }
@@ -2916,10 +2994,13 @@
             _newStepTitle = "";
             _showAddStep = false;
 
-            var added = await StepService.AddStepAsync(_userId, listId, taskId, title, _taskContextCts.Token);
+            var added = new TodoStepEntity { Id = Guid.NewGuid(), TaskId = taskId,
+                Title = TodoTaskInputValidation.NormalizeStepTitle(title), CreatedAtUtc = DateTime.UtcNow };
+            _editableTask.Steps.Add(added);
+            ScheduleAutosave(0);
+            if (!await FlushPendingTaskEditsAsync()) return;
             if (added is not null && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
-                _editableTask.Steps.Add(added);
                 if (OnTaskUpdated.HasDelegate)
                     await OnTaskUpdated.InvokeAsync(_editableTask);
 
@@ -2946,7 +3027,9 @@
             var taskId = _editableTask.Id;
             var listId = ListId;
             if (!await FlushPendingTaskEditsAsync()) return;
-            var ok = await StepService.RemoveStepAsync(_userId, listId, taskId, step.Id, _taskContextCts.Token);
+            _editableTask.Steps.RemoveAll(item => item.Id == step.Id);
+            ScheduleAutosave(0);
+            var ok = await FlushPendingTaskEditsAsync();
             if (ok && IsCurrentTaskContext(contextVersion, taskId, listId))
             {
                 var localStep = _editableTask.Steps.FirstOrDefault(s => s.Id == step.Id);
@@ -2997,7 +3080,9 @@
             if (addedTask is null || !IsCurrentTaskContext(contextVersion, taskId, listId))
                 return;
 
-            var ok = await StepService.RemoveStepAsync(_userId, listId, taskId, step.Id, _taskContextCts.Token);
+            _editableTask.Steps.RemoveAll(item => item.Id == step.Id);
+            ScheduleAutosave(0);
+            var ok = await FlushPendingTaskEditsAsync();
             if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
             if (ok)
             {
@@ -3054,7 +3139,8 @@
             t = new TimeSpan(9, 0, 0);
 
         var local = _reminderLocalDate.Value.Date.Add(t);
-        _editableTask.ReminderAtUtc = DateTime.SpecifyKind(local.AddMinutes(-_browserUtcOffsetMinutes), DateTimeKind.Utc);
+        try { _editableTask.ReminderAtUtc = UserDateTime.ToUtc(local, _browserTimeZone); }
+        catch (ArgumentException) { _error = L["Task_Reminder_InvalidLocalTime"].Value; return; }
         ScheduleAutosave(200);
         SyncSectionVisibilityFromData();
     }
@@ -3068,7 +3154,7 @@
             return;
         }
 
-        var local = reminderAtUtc.Value.AddMinutes(_browserUtcOffsetMinutes);
+        var local = ToBrowserLocalTime(reminderAtUtc.Value);
         _reminderLocalDate = local.Date;
         _reminderLocalTime = local.ToString("HH:mm");
     }
@@ -3076,11 +3162,11 @@
     // Kommentare
     private string GetCommentDateLabel(DateTime localDate)
     {
-        var today = DateTime.UtcNow.AddMinutes(_browserUtcOffsetMinutes).Date;
-        if (localDate == today) return "Heute";
-        if (localDate == today.AddDays(-1)) return "Gestern";
+        var today = ToBrowserLocalTime(DateTime.UtcNow).Date;
+        if (localDate == today) return L["Common_Today"].Value;
+        if (localDate == today.AddDays(-1)) return L["Common_Yesterday"].Value;
 
-        var culture = new System.Globalization.CultureInfo("de-DE");
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
         string dayAbbr = culture.DateTimeFormat.GetAbbreviatedDayName(localDate.DayOfWeek);
         string month = culture.DateTimeFormat.GetMonthName(localDate.Month);
         return $"{dayAbbr}. {localDate.Day}. {month} {localDate.Year}";
@@ -3092,7 +3178,7 @@
             ? utcOrLocal.ToUniversalTime()
             : DateTime.SpecifyKind(utcOrLocal, DateTimeKind.Utc);
 
-        return utc.AddMinutes(_browserUtcOffsetMinutes);
+        return UserDateTime.FromUtc(utc, _browserTimeZone);
     }
 
     private bool IsOwnComment(TodoCommentEntity comment)
@@ -3381,7 +3467,12 @@
 
             _hubConnection.On<Guid>(TodoHub.ListsUpdated, async listId =>
             {
-                if (_isDisposed || listId != ListId || _saveInProgress || _dirty) return;
+                if (_isDisposed || listId != ListId || _saveInProgress) return;
+                if (_dirty || _descriptionEditing)
+                {
+                    await InvokeAsync(() => { _undoPosition = null; _remoteChangePending = true; StateHasChanged(); });
+                    return;
+                }
                 try { await InvokeAsync(() => RefreshTaskAsync()); } catch { }
             });
 
@@ -3457,14 +3548,14 @@
     private async Task RefreshTaskAsync(bool scrollToNewestComment = false)
     {
         if (_taskId is null) return;
-        if (_saveInProgress || _dirty) return;
+        if (_saveInProgress || _dirty || _descriptionEditing) return;
 
         var contextVersion = _taskContextVersion;
         var taskId = _taskId.Value;
         var listId = ListId;
         var token = _taskContextCts.Token;
         var list = await ListService.GetListAsync(_userId, listId, token);
-        if (!IsCurrentTaskContext(contextVersion, taskId, listId) || _saveInProgress || _dirty) return;
+        if (!IsCurrentTaskContext(contextVersion, taskId, listId) || _saveInProgress || _dirty || _descriptionEditing) return;
         var updated = list?.Tasks.FirstOrDefault(t => t.Id == taskId);
 
         if (updated is null)
@@ -3476,6 +3567,10 @@
 
         if (updated is not null)
         {
+            // A remote revision invalidates the short-lived undo position; restoring
+            // it against a refreshed token could otherwise undo someone else's move.
+            if (_editableTask?.SyncVersion != updated.SyncVersion || _editableTask?.SyncToken != updated.SyncToken)
+                _undoPosition = null;
             var previousCommentIds = scrollToNewestComment
                 ? (_editableTask?.Comments ?? []).Select(comment => comment.Id).ToHashSet()
                 : null;
@@ -3539,6 +3634,8 @@
         _taskContextVersion++;
         _editRevision = 0;
         _dirty = false;
+        _conflictLocalJson = null; _conflictServerJson = null;
+        _remoteChangePending = false;
         _error = "";
         _approvalError = null;
         _newCommentMessage = "";
@@ -3620,7 +3717,7 @@
            ?? userId
            ?? "-";
 
-    private static string ApprovalStatusLabel(TodoApprovalStatus status) => status switch
+    private string ApprovalStatusLabel(TodoApprovalStatus status) => status switch
     {
         TodoApprovalStatus.Pending => ApprovalUiText("pending"),
         TodoApprovalStatus.Approved => ApprovalUiText("approved"),
@@ -3628,31 +3725,7 @@
         _ => ApprovalUiText("none")
     };
 
-    private static string ApprovalUiText(string key)
-    {
-        var de = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "de";
-        return (de, key) switch
-        {
-            (true, "title") => "Genehmigung",
-            (true, "approver") => "Genehmiger",
-            (true, "approve") => "Genehmigen",
-            (true, "reject") => "Ablehnen",
-            (true, "pending") => "Ausstehend",
-            (true, "approved") => "Genehmigt",
-            (true, "rejected") => "Abgelehnt",
-            (true, "none") => "Nicht angefordert",
-            (true, "not-found") => "Die Aufgabe wurde nicht gefunden.",
-            (false, "title") => "Approval",
-            (false, "approver") => "Approver",
-            (false, "approve") => "Approve",
-            (false, "reject") => "Reject",
-            (false, "pending") => "Pending",
-            (false, "approved") => "Approved",
-            (false, "rejected") => "Rejected",
-            (false, "none") => "Not requested",
-            _ => "The task was not found."
-        };
-    }
+    private string ApprovalUiText(string key) => L["Approval_" + key].Value;
 
     private static TodoTaskEntity CloneTask(TodoTaskEntity task)
     {
@@ -3796,7 +3869,7 @@
             if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
 
             CancelPendingAutosave();
-
+            var deletionScope = UserScope;
             var deleted = await TaskService.DeleteTaskAsync(_userId, listId, taskId, _taskContextCts.Token);
             if (!IsCurrentTaskContext(contextVersion, taskId, listId)) return;
             if (!deleted)
@@ -3806,7 +3879,8 @@
             }
 
             _dirty = false;
-
+            if (OnTaskDeleted.HasDelegate)
+                await OnTaskDeleted.InvokeAsync(new(listId, taskId, _userId, deletionScope, DateTime.UtcNow.AddSeconds(30)));
             if (OnListChanged.HasDelegate)
                 await OnListChanged.InvokeAsync();
 
@@ -3827,6 +3901,7 @@
     {
         _error = "";
         if (!CanWriteToList() || _saveInProgress) return;
+        CapturePositionUndo();
         t.Done = !t.Done;
         CancelPendingAutosave();
         _dirty = true;

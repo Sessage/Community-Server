@@ -7,6 +7,10 @@ namespace Klassenbibliothek.Data;
 /// </summary>
 public class DashboardEntity
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public long ContentVersion { get; set; } = 1;
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public long? SyncVersion { get; set; }
     public Guid Id { get; set; } = Guid.NewGuid();
     public string OwnerId { get; set; } = "";
     /// <summary>Zugeordnetes Portfolio; null bei einem frei verwaltbaren Dashboard.</summary>

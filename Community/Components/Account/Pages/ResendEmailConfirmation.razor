@@ -12,28 +12,28 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<ResendEmailConfirmation> Logger
 
-<PageTitle>E-Mail-Bestätigung senden</PageTitle>
+<PageTitle>@L["Account_Ui_25"]</PageTitle>
 
 <div class="account-auth-page">
     <div class="account-auth-card">
         <div class="account-auth-logo">
             <img class="object-center" src="_content/TodoSuite.Community.Shared/img/logo.png" />
         </div>
-        <h1 class="h1">E-Mail-Bestätigung</h1>
+        <h1 class="h1">@L["Account_Ui_26"]</h1>
         <StatusMessage Message="@message" />
         <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
             <DataAnnotationsValidator />
-            <h2>Bestätigungslink erneut erhalten.</h2>
+            <h2>@L["Account_Ui_27"]</h2>
             <ValidationSummary class="ui-text-danger" role="alert" />
             <div class="account-auth-field">
-                <label for="Input.Email">E-Mail</label>
+                <label for="Input.Email">@L["Notifications_ChannelEmail"]</label>
                 <InputText @bind-Value="Input.Email" id="Input.Email" class="ui-form-control" aria-required="true" placeholder="name@example.com" />
                 <ValidationMessage For="() => Input.Email" class="ui-text-danger" />
             </div>
-            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">Bestätigung senden</button>
+            <button type="submit" class="ui-full-width ui-btn ui-btn-lg ui-btn-primary">@L["Account_Ui_29"]</button>
         </EditForm>
         <p class="mt-3">
-            <a href="Account/Login">Zur Anmeldung</a>
+            <a href="Account/Login">@L["Account_BackToLogin"]</a>
         </p>
     </div>
 </div>
@@ -55,7 +55,7 @@
         var user = await UserManager.FindByEmailAsync(email);
         if (user is null)
         {
-            message = "Bestätigungs-E-Mail gesendet. Bitte überprüfe dein Postfach.";
+            message = SharedText.Get("Account_ConfirmationEmailSent");
             return;
         }
 
@@ -76,13 +76,13 @@
         }
 
         // Keep the response indistinguishable from the unknown-address path.
-        message = "Bestätigungs-E-Mail gesendet. Bitte überprüfe dein Postfach.";
+        message = SharedText.Get("Account_ConfirmationEmailSent");
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedEmailAddress("Account_InvalidEmail")]
         public string Email { get; set; } = "";
     }
 }

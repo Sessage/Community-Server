@@ -1,0 +1,40 @@
+@using Klassenbibliothek.Services
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceProvider Services
+@implements IDisposable
+
+<span role="status" aria-live="polite" class="task-persistence-status text-xs text-slate-500" data-save-state="@State">
+    @L[ResourceKey]
+</span>
+
+@code {
+    [Parameter] public Guid ListId { get; set; }
+    [Parameter] public Guid TaskId { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Dirty { get; set; }
+    [Parameter] public bool Failed { get; set; }
+    private IWorkspacePersistenceStatus? _provider;
+    private WorkspacePersistenceState _state;
+    private bool _disposed;
+    private long _revision;
+    private WorkspacePersistenceState State => Failed ? WorkspacePersistenceState.Failed : Busy ? WorkspacePersistenceState.Transferring : Dirty ? WorkspacePersistenceState.Unsaved : _state;
+    private string ResourceKey => "SaveState_" + State;
+    protected override void OnInitialized()
+    {
+        _provider = Services.GetService<IWorkspacePersistenceStatus>();
+        if (_provider is not null) _provider.Changed += Changed;
+    }
+    protected override Task OnParametersSetAsync() => RefreshAsync();
+    private void Changed() => _ = InvokeAsync(async () => { await RefreshAsync(); if (!_disposed) StateHasChanged(); });
+    private async Task RefreshAsync()
+    {
+        var revision = ++_revision;
+        try
+        {
+            var state = _provider is null ? WorkspacePersistenceState.Confirmed : await _provider.GetAsync(ListId, TaskId);
+            if (!_disposed && revision == _revision) _state = state;
+        }
+        catch { if (!_disposed && revision == _revision) _state = WorkspacePersistenceState.Failed; }
+    }
+    public void Dispose() { _disposed = true; if (_provider is not null) _provider.Changed -= Changed; }
+}

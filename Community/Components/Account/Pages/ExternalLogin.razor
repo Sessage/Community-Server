@@ -73,7 +73,7 @@
         if (RemoteError is not null)
         {
             Logger.LogWarning("External login provider returned an error: {RemoteError}", RemoteError);
-            RedirectManager.RedirectToWithStatus("Account/Login", "Fehler: Die externe Anmeldung konnte nicht abgeschlossen werden.", HttpContext);
+            RedirectManager.RedirectToWithStatus("Account/Login", SharedText.Get("Account_Error_LoginIncomplete"), HttpContext);
             return;
         }
 
@@ -189,7 +189,7 @@
                             new Dictionary<string, object?> { ["email"] = email, ["returnUrl"] = ReturnUrl });
                         RedirectManager.RedirectToWithStatus(
                             confirmationUri,
-                            "Das Konto wurde erstellt, aber die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte fordern Sie eine neue E-Mail an.",
+                            SharedText.Get("Account_EmailDeliveryFailed"),
                             HttpContext);
                         return;
                     }
@@ -216,12 +216,12 @@
                         string.Join(", ", deleteResult.Errors.Select(error => error.Code)));
                 }
 
-                message = $"Fehler: {string.Join(", ", result.Errors.Select(error => error.Description))}";
+                message = SharedText.Get("Err_Generic", string.Join(", ", result.Errors.Select(error => error.Description)));
             }
         }
         else
         {
-            message = $"Error: {string.Join(",", result.Errors.Select(error => error.Description))}";
+            message = SharedText.Get("Err_Generic", string.Join(",", result.Errors.Select(error => error.Description)));
         }
     }
 
@@ -249,8 +249,8 @@
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [LocalizedRequired("Account_Required")]
+        [LocalizedEmailAddress("Account_InvalidEmail")]
         public string Email { get; set; } = "";
     }
 }

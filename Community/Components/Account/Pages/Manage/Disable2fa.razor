@@ -11,28 +11,24 @@
 @inject NavigationManager Navigation
 @inject ILogger<Disable2fa> Logger
 
-<PageTitle>Zwei-Faktor-Authentifizierung (2FA) deaktivieren</PageTitle>
+<PageTitle>@L["Security_Disable"]</PageTitle>
 
 @if (!string.IsNullOrEmpty(_statusMessage))
 {
     <div class="ui-alert @(_isError ? "ui-alert-danger" : "ui-alert-success") mt-2">@_statusMessage</div>
 }
 
-<h3>Zwei-Faktor-Authentifizierung (2FA) deaktivieren</h3>
+<h3>@L["Security_Disable"]</h3>
 
 <div class="ui-alert ui-alert-warning" role="alert">
     <p>
-        <strong>Diese Aktion deaktiviert nur die 2FA.</strong>
+        <strong>@L["Account_Ui_50"]</strong>
     </p>
-    <p>
-        Das Deaktivieren der 2FA ändert die in Authenticator-Apps verwendeten Schlüssel nicht. Wenn Sie den
-        in einer Authenticator-App verwendeten Schlüssel ändern möchten, sollten Sie
-        <a href="Account/Manage/ResetAuthenticator" data-enhance-nav="false">Ihre Authenticator-Schlüssel zurücksetzen.</a>
-    </p>
+    <p>@L["Account_KeyUnchangedHint"] <a href="Account/Manage/ResetAuthenticator" data-enhance-nav="false">@L["Account_Ui_51"]</a></p>
 </div>
 
 <button class="ui-btn ui-btn-danger" @onclick="OnDisableAsync" disabled="@_loading">
-    @(_loading ? "Wird deaktiviert…" : "2FA deaktivieren")
+    @L[_loading ? "App_Loading" : "Security_Disable"]
 </button>
 
 @code {
@@ -61,7 +57,7 @@
             if (!result.Succeeded)
             {
                 _isError = true;
-                _statusMessage = "Unerwarteter Fehler beim Deaktivieren der 2FA.";
+                _statusMessage = SharedText.Get("Security_RequestFailed");
                 _loading = false;
                 StateHasChanged();
                 return;
@@ -74,7 +70,7 @@
         {
             Logger.LogError(ex, "Unexpected error while disabling 2FA.");
             _isError = true;
-            _statusMessage = "Die Zwei-Faktor-Authentifizierung konnte nicht deaktiviert werden. Bitte versuchen Sie es erneut.";
+            _statusMessage = SharedText.Get("Security_RequestFailed");
             _loading = false;
             StateHasChanged();
         }

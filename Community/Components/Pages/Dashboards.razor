@@ -80,8 +80,14 @@
                             @L["QuickLink_Calendar"]
                         </button>
                         <button class="@ViewMenuItemCss(DashboardView.Timeline)" @onclick="() => SwitchView(DashboardView.Timeline)">
-                            @L["Timeline_Title"]
+                            @L[PortfolioId.HasValue ? "PortfolioTimeline_TasksTitle" : "Timeline_Title"]
                         </button>
+                        @if (PortfolioId.HasValue)
+                        {
+                            <button class="@ViewMenuItemCss(DashboardView.ProjectTimeline)" @onclick="() => SwitchView(DashboardView.ProjectTimeline)">
+                                @L["PortfolioTimeline_Title"]
+                            </button>
+                        }
                         <button class="@ViewMenuItemCss(DashboardView.PriorityMatrix)" @onclick="() => SwitchView(DashboardView.PriorityMatrix)">
                             @L["Matrix_Title"]
                         </button>
@@ -110,6 +116,13 @@
                               TaskListIdSelector="@(task => task.ListId)"
                               OnTaskSelected="OpenTimelineTaskAsync"
                               OnTaskUpdated="HandleTaskUpdated" />
+        }
+        else if (_view == DashboardView.ProjectTimeline && PortfolioId.HasValue)
+        {
+            <PortfolioTimelineView PortfolioId="PortfolioId.Value"
+                                   Name="@_activeDashboard.Name"
+                                   Lists="_lists"
+                                   PortfolioListIds="_activeDashboard.SelectedListIds" />
         }
         else if (_view == DashboardView.PriorityMatrix)
         {
@@ -207,7 +220,7 @@
 
 @code {
     [Parameter] public Guid? PortfolioId { get; set; }
-    private enum DashboardView { List, Calendar, Timeline, PriorityMatrix }
+    private enum DashboardView { List, Calendar, Timeline, PriorityMatrix, ProjectTimeline }
 
     private readonly List<DashboardEntity> _dashboards = [];
     private IReadOnlyList<TodoListEntity> _lists = [];
@@ -292,6 +305,8 @@
     private async Task LoadCurrentRouteAsync()
     {
         _loadedPortfolioId = PortfolioId;
+        if (!PortfolioId.HasValue && _view == DashboardView.ProjectTimeline)
+            _view = DashboardView.List;
         _lists = await ListService.GetListsAsync(_userId);
         await ReloadDashboardsAsync();
     }
@@ -727,6 +742,7 @@
             SortOrder = source.SortOrder,
             CreatedAtUtc = source.CreatedAtUtc,
             UpdatedAtUtc = source.UpdatedAtUtc,
+            SyncVersion = source.SyncVersion,
             SelectedListIds = [.. source.SelectedListIds],
             SortMode = source.SortMode,
             GroupBy = source.GroupBy
@@ -964,7 +980,8 @@
     private string CurrentViewLabel => _view switch
     {
         DashboardView.Calendar => L["QuickLink_Calendar"],
-        DashboardView.Timeline => L["Timeline_Title"],
+        DashboardView.Timeline => L[PortfolioId.HasValue ? "PortfolioTimeline_TasksTitle" : "Timeline_Title"],
+        DashboardView.ProjectTimeline => L["PortfolioTimeline_Title"],
         DashboardView.PriorityMatrix => L["Matrix_Title"],
         _ => L["Page_Workspace_ListView"]
     };

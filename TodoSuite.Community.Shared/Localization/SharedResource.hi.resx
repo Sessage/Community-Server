@@ -2690,4 +2690,519 @@
   <data name="ExcelImport_FieldNeedsDate" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में मान्य तिथि चाहिए।</value></data>
   <data name="ExcelImport_FieldNeedsBoolean" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में हाँ या नहीं चाहिए।</value></data>
   <data name="ExcelImport_FieldInvalidSelection" xml:space="preserve"><value>कस्टम फ़ील्ड “{0}” में अमान्य चयन है।</value></data>
+  <data name="Common_Today" xml:space="preserve"><value>आज</value></data>
+  <data name="Common_Yesterday" xml:space="preserve"><value>कल</value></data>
+  <data name="Task_Reminder_InvalidLocalTime" xml:space="preserve"><value>घड़ी बदलने के कारण यह समय मौजूद नहीं है। कृपया दूसरा समय चुनें।</value></data>
+  <data name="SaveState_Confirmed" xml:space="preserve"><value>सिंक्रनाइज़ किया गया</value></data>
+  <data name="SaveState_Local" xml:space="preserve"><value>स्थानीय रूप से सहेजा गया</value></data>
+  <data name="SaveState_Transferring" xml:space="preserve"><value>सहेजा जा रहा है …</value></data>
+  <data name="SaveState_Conflict" xml:space="preserve"><value>टकराव</value></data>
+  <data name="SaveState_Failed" xml:space="preserve"><value>सहेजना विफल</value></data>
+  <data name="SaveState_Unsaved" xml:space="preserve"><value>अभी सहेजा नहीं गया</value></data>
+  <data name="Common_Undo" xml:space="preserve"><value>पूर्ववत करें</value></data>
+  <data name="Conflict_Title" xml:space="preserve"><value>बदलावों की तुलना</value></data>
+  <data name="Conflict_Hint" xml:space="preserve"><value>हर अंतर के लिए स्थानीय या सर्वर मान चुनें। सर्वर के आगे के बदलाव सुरक्षित रहते हैं।</value></data>
+  <data name="Conflict_Field" xml:space="preserve"><value>फ़ील्ड</value></data>
+  <data name="Conflict_Local" xml:space="preserve"><value>स्थानीय मान</value></data>
+  <data name="Conflict_Server" xml:space="preserve"><value>सर्वर मान</value></data>
+  <data name="Conflict_Choice" xml:space="preserve"><value>चयन</value></data>
+  <data name="Conflict_UseLocal" xml:space="preserve"><value>स्थानीय मान अपनाएँ</value></data>
+  <data name="Conflict_Identical" xml:space="preserve"><value>संपादन योग्य फ़ील्ड समान हैं। पुष्टि संस्करण को अद्यतन करती है।</value></data>
+  <data name="Conflict_DefaultView" xml:space="preserve"><value>डिफ़ॉल्ट दृश्य</value></data>
+  <data name="Conflict_Position" xml:space="preserve"><value>स्थान</value></data>
+  <data name="Conflict_RemoteChanged" xml:space="preserve"><value>सर्वर पर बदलाव हुआ है। आपका प्रारूप सुरक्षित है। सहेजते समय अंतरों की जाँच होगी।</value></data>
+  <data name="ImportStatus_Title" xml:space="preserve"><value>लंबित संदेश</value></data>
+  <data name="ImportStatus_Refresh" xml:space="preserve"><value>ताज़ा करें</value></data>
+  <data name="ImportStatus_Empty" xml:space="preserve"><value>कोई लंबित संदेश नहीं।</value></data>
+  <data name="ImportStatus_Message" xml:space="preserve"><value>संदेश {0} · प्रयास: {1}</value></data>
+  <data name="ImportStatus_TaskStageDone" xml:space="preserve"><value>कार्य और निर्माण स्वचालन की पुष्टि हुई</value></data>
+  <data name="ImportStatus_TaskStagePending" xml:space="preserve"><value>कार्य या निर्माण स्वचालन लंबित है</value></data>
+  <data name="ImportStatus_Retry" xml:space="preserve"><value>पुनः प्रयास की अनुमति दें</value></data>
+  <data name="ImportStatus_Hint" xml:space="preserve"><value>अगले आयात में संदेशों पर फिर प्रयास होगा। प्रक्रिया पूरी होने तक ईमेल अपठित रहता है।</value></data>
+  <data name="EmptyTasks_Title" xml:space="preserve"><value>अभी कोई कार्य नहीं</value></data>
+  <data name="EmptyTasks_CreateHint" xml:space="preserve"><value>शुरू करने के लिए पहला कार्य बनाएँ।</value></data>
+  <data name="EmptyTasks_ReadOnly" xml:space="preserve"><value>यह सूची खाली है। कार्य बनाने के लिए लेखन अनुमति चाहिए।</value></data>
+  <data name="EmptyTasks_Create" xml:space="preserve"><value>पहला कार्य बनाएँ</value></data>
+  <data name="EmptyTasks_Filter" xml:space="preserve"><value>वर्तमान फ़िल्टर से कोई कार्य मेल नहीं खाता।</value></data>
+  <data name="EmptyTasks_ClearFilter" xml:space="preserve"><value>फ़िल्टर हटाएँ</value></data>
+  <data name="Workspace_OfflineNoCache" xml:space="preserve"><value>इस सूची की स्थानीय प्रति अभी ऑफ़लाइन उपलब्ध नहीं है। कनेक्ट करें और इसे फिर से लोड करें।</value></data>
+  <data name="Workspace_Unavailable" xml:space="preserve"><value>यह सूची नहीं मिली या इस खाते के साथ साझा नहीं की गई है।</value></data>
+  <data name="Workspace_RetryLoad" xml:space="preserve"><value>फिर कोशिश करें</value></data>
+  <data name="Approval_title" xml:space="preserve"><value>अनुमोदन</value></data>
+  <data name="Approval_approver" xml:space="preserve"><value>अनुमोदक</value></data>
+  <data name="Approval_approve" xml:space="preserve"><value>अनुमोदित करें</value></data>
+  <data name="Approval_reject" xml:space="preserve"><value>अस्वीकार करें</value></data>
+  <data name="Approval_pending" xml:space="preserve"><value>लंबित</value></data>
+  <data name="Approval_approved" xml:space="preserve"><value>अनुमोदित</value></data>
+  <data name="Approval_rejected" xml:space="preserve"><value>अस्वीकृत</value></data>
+  <data name="Approval_none" xml:space="preserve"><value>अनुरोध नहीं किया गया</value></data>
+  <data name="Approval_not-found" xml:space="preserve"><value>कार्य नहीं मिला।</value></data>
+  <data name="Undo_TaskDeleted" xml:space="preserve"><value>कार्य हटाया गया।</value></data>
+  <data name="Undo_RestoreFailed" xml:space="preserve"><value>कार्य अभी बहाल नहीं किया जा सका। फिर कोशिश करें या ट्रैश खोलें।</value></data>
+  <data name="PortfolioTimeline_Title" xml:space="preserve"><value>सूची समयरेखा</value></data>
+  <data name="PortfolioTimeline_ScheduledCount" xml:space="preserve"><value>{1} में से {0} सूचियाँ निर्धारित</value></data>
+  <data name="PortfolioTimeline_Project" xml:space="preserve"><value>सूची</value></data>
+  <data name="PortfolioTimeline_OpenProject" xml:space="preserve"><value>सूची खोलें</value></data>
+  <data name="PortfolioTimeline_TasksTitle" xml:space="preserve"><value>कार्य समयरेखा</value></data>
+  <data name="App_LoadingSessage" xml:space="preserve"><value>Sessage लोड हो रहा है…</value></data>
+  <data name="App_Anunexpectederroroccurred" xml:space="preserve"><value>एक अनपेक्षित त्रुटि हुई</value></data>
+  <data name="App_Menu" xml:space="preserve"><value>मेनू</value></data>
+  <data name="App_Home" xml:space="preserve"><value>मुख्य पृष्ठ</value></data>
+  <data name="App_OfflineChangeswillsyncwhentheconnectionreturns" xml:space="preserve"><value>ऑफ़लाइन। कनेक्शन लौटने पर बदलाव सिंक होंगे।</value></data>
+  <data name="App_Pleaseupdatetheapp" xml:space="preserve"><value>कृपया ऐप अपडेट करें।</value></data>
+  <data name="App_Synchronizationandrecovery" xml:space="preserve"><value>सिंक्रनाइज़ेशन और पुनर्प्राप्ति</value></data>
+  <data name="App_Disableportfolio" xml:space="preserve"><value>पोर्टफोलियो अक्षम करें</value></data>
+  <data name="App_Converttoportfolio" xml:space="preserve"><value>पोर्टफोलियो में बदलें</value></data>
+  <data name="App_Syncing1pendingchange" xml:space="preserve"><value>1 लंबित बदलाव सिंक हो रहा है…</value></data>
+  <data name="App_Createanewlistinthisportfolio" xml:space="preserve"><value>इस पोर्टफोलियो में नई सूची बनाएँ</value></data>
+  <data name="App_Createanewlistinthisgroup" xml:space="preserve"><value>इस समूह में नई सूची बनाएँ</value></data>
+  <data name="App_ServerunavailableCheckyourconnection" xml:space="preserve"><value>सर्वर उपलब्ध नहीं है। कनेक्शन जाँचें।</value></data>
+  <data name="App_InvalidQRcodenovalidinvitationlink" xml:space="preserve"><value>अमान्य QR कोड: वैध आमंत्रण लिंक नहीं है।</value></data>
+  <data name="App_Portfolioadded" xml:space="preserve"><value>पोर्टफोलियो जोड़ा गया।</value></data>
+  <data name="App_Listadded" xml:space="preserve"><value>सूची जोड़ी गई।</value></data>
+  <data name="App_TokencreatedCopyitnow" xml:space="preserve"><value>टोकन बनाया गया। अभी कॉपी करें!</value></data>
+  <data name="App_Thistokenisshownonlyonce" xml:space="preserve"><value>यह टोकन केवल एक बार दिखाया जाएगा।</value></data>
+  <data name="App_Createaccesstoken" xml:space="preserve"><value>एक्सेस टोकन बनाएँ</value></data>
+  <data name="App_Tokenname" xml:space="preserve"><value>टोकन का नाम</value></data>
+  <data name="App_Notokensyet" xml:space="preserve"><value>कोई टोकन नहीं है।</value></data>
+  <data name="App_Readonly" xml:space="preserve"><value>केवल पढ़ें</value></data>
+  <data name="App_Readandwrite" xml:space="preserve"><value>पढ़ें और लिखें</value></data>
+  <data name="App_Confirm" xml:space="preserve"><value>पुष्टि करें</value></data>
+  <data name="App_Couldnotloadaccesstokens" xml:space="preserve"><value>एक्सेस टोकन लोड नहीं हो सके।</value></data>
+  <data name="App_Couldnotcreatetheaccesstoken" xml:space="preserve"><value>एक्सेस टोकन नहीं बन सका।</value></data>
+  <data name="App_Couldnotdeletetheaccesstoken" xml:space="preserve"><value>एक्सेस टोकन हटाया नहीं जा सका।</value></data>
+  <data name="App_Couldnotcopythetokentotheclipboard" xml:space="preserve"><value>टोकन क्लिपबोर्ड में कॉपी नहीं हो सका।</value></data>
+  <data name="App_Loading" xml:space="preserve"><value>लोड हो रहा है…</value></data>
+  <data name="App_Administrationunavailable" xml:space="preserve"><value>प्रशासन उपलब्ध नहीं है</value></data>
+  <data name="App_Currentprofile" xml:space="preserve"><value>वर्तमान प्रोफ़ाइल</value></data>
+  <data name="App_Centralpolicies" xml:space="preserve"><value>केंद्रीय नीतियाँ</value></data>
+  <data name="App_Thesesettingsapplyimmediatelytoallclientsofthisinstallation" xml:space="preserve"><value>ये सेटिंग इस स्थापना के सभी क्लाइंट पर तुरंत लागू होंगी।</value></data>
+  <data name="App_Allowselfregistration" xml:space="preserve"><value>स्व-पंजीकरण की अनुमति दें</value></data>
+  <data name="App_Allowpersonaldataexport" xml:space="preserve"><value>व्यक्तिगत डेटा निर्यात की अनुमति दें</value></data>
+  <data name="App_Allowaccountselfdeletion" xml:space="preserve"><value>स्वयं खाता हटाने की अनुमति दें</value></data>
+  <data name="App_Savepolicies" xml:space="preserve"><value>नीतियाँ सहेजें</value></data>
+  <data name="App_Administrativeandprivacyrelatedactions" xml:space="preserve"><value>प्रशासनिक और गोपनीयता संबंधी कार्रवाइयाँ</value></data>
+  <data name="App_Noauditentriesyet" xml:space="preserve"><value>अभी कोई ऑडिट प्रविष्टि नहीं है।</value></data>
+  <data name="App_Createuser" xml:space="preserve"><value>उपयोगकर्ता बनाएँ</value></data>
+  <data name="App_Edituser" xml:space="preserve"><value>उपयोगकर्ता संपादित करें</value></data>
+  <data name="App_Youcannotremoveyourownadministratorrolehere" xml:space="preserve"><value>आप यहाँ अपनी प्रशासक भूमिका नहीं हटा सकते।</value></data>
+  <data name="App_Users" xml:space="preserve"><value>उपयोगकर्ता</value></data>
+  <data name="App_Loadingusers" xml:space="preserve"><value>उपयोगकर्ता लोड हो रहे हैं…</value></data>
+  <data name="App_Nousersfound" xml:space="preserve"><value>कोई उपयोगकर्ता नहीं मिला।</value></data>
+  <data name="App_Deleteuser" xml:space="preserve"><value>उपयोगकर्ता हटाएँ</value></data>
+  <data name="App_Couldnotcheckadministratorstatus" xml:space="preserve"><value>प्रशासक स्थिति जाँची नहीं जा सकी।</value></data>
+  <data name="App_Couldnotloadadministration" xml:space="preserve"><value>प्रशासन लोड नहीं हो सका।</value></data>
+  <data name="App_Couldnotloadpolicies" xml:space="preserve"><value>नीतियाँ लोड नहीं हो सकीं।</value></data>
+  <data name="App_Centralpoliciessaved" xml:space="preserve"><value>केंद्रीय नीतियाँ सहेजी गईं।</value></data>
+  <data name="App_Couldnotsavepolicies" xml:space="preserve"><value>नीतियाँ सहेजी नहीं जा सकीं।</value></data>
+  <data name="App_Couldnotloadtheauditlog" xml:space="preserve"><value>ऑडिट लॉग लोड नहीं हो सका।</value></data>
+  <data name="App_Policieschanged" xml:space="preserve"><value>नीतियाँ बदली गईं</value></data>
+  <data name="App_Usercreated" xml:space="preserve"><value>उपयोगकर्ता बनाया गया</value></data>
+  <data name="App_Userupdated" xml:space="preserve"><value>उपयोगकर्ता अपडेट किया गया</value></data>
+  <data name="App_Userrolechanged" xml:space="preserve"><value>उपयोगकर्ता भूमिका बदली गई</value></data>
+  <data name="App_Userdeleted" xml:space="preserve"><value>उपयोगकर्ता हटाया गया</value></data>
+  <data name="App_Personaldataexported" xml:space="preserve"><value>व्यक्तिगत डेटा निर्यात किया गया</value></data>
+  <data name="App_Accountdeletedbyitsowner" xml:space="preserve"><value>स्वामी ने खाता हटाया</value></data>
+  <data name="App_Couldnotloadtheuserlist" xml:space="preserve"><value>उपयोगकर्ता सूची लोड नहीं हो सकी।</value></data>
+  <data name="App_Enteranemailaddress" xml:space="preserve"><value>ईमेल पता दर्ज करें।</value></data>
+  <data name="App_Enterapassword" xml:space="preserve"><value>पासवर्ड दर्ज करें।</value></data>
+  <data name="App_Userupdated63" xml:space="preserve"><value>उपयोगकर्ता अपडेट किया गया।</value></data>
+  <data name="App_Couldnotcompletetheuseraction" xml:space="preserve"><value>उपयोगकर्ता कार्रवाई पूरी नहीं हो सकी।</value></data>
+  <data name="App_Youcannotdeleteyourownaccountinadministration" xml:space="preserve"><value>आप प्रशासन से अपना खाता नहीं हटा सकते।</value></data>
+  <data name="App_Couldnotdeletetheuser" xml:space="preserve"><value>उपयोगकर्ता हटाया नहीं जा सका।</value></data>
+  <data name="App_Couldnotloadimportanttasks" xml:space="preserve"><value>महत्वपूर्ण कार्य लोड नहीं हो सके।</value></data>
+  <data name="App_Permanentlydeleteaccount" xml:space="preserve"><value>खाता स्थायी रूप से हटाएँ</value></data>
+  <data name="App_Thispermanentlyremovestheaccountandcannotbeundone" xml:space="preserve"><value>इससे खाता स्थायी रूप से हट जाएगा और इसे वापस नहीं लाया जा सकेगा।</value></data>
+  <data name="App_Currentpasswordforconfirmation" xml:space="preserve"><value>पुष्टि के लिए वर्तमान पासवर्ड</value></data>
+  <data name="App_Couldnotloadaccountdata" xml:space="preserve"><value>खाते का डेटा लोड नहीं हो सका।</value></data>
+  <data name="App_Couldnotchangethepassword" xml:space="preserve"><value>पासवर्ड बदला नहीं जा सका।</value></data>
+  <data name="App_Couldnotchangetheemailaddress" xml:space="preserve"><value>ईमेल पता बदला नहीं जा सका।</value></data>
+  <data name="App_Personaldataexported75" xml:space="preserve"><value>व्यक्तिगत डेटा निर्यात किया गया।</value></data>
+  <data name="App_Couldnotexportpersonaldata" xml:space="preserve"><value>व्यक्तिगत डेटा निर्यात नहीं हो सका।</value></data>
+  <data name="App_Couldnotdeletetheaccount" xml:space="preserve"><value>खाता हटाया नहीं जा सका।</value></data>
+  <data name="App_Exportchanges" xml:space="preserve"><value>बदलाव निर्यात करें</value></data>
+  <data name="App_Discardchangesanddeleteprofile" xml:space="preserve"><value>बदलाव छोड़कर प्रोफ़ाइल हटाएँ</value></data>
+  <data name="App_Chooseaccount" xml:space="preserve"><value>खाता चुनें</value></data>
+  <data name="App_Chooseasavedaccountoraddanewone" xml:space="preserve"><value>सहेजा गया खाता चुनें या नया जोड़ें।</value></data>
+  <data name="App_Deleteprofile" xml:space="preserve"><value>प्रोफ़ाइल हटाएँ</value></data>
+  <data name="App_Signinwithyouraccountdetails" xml:space="preserve"><value>अपने खाते के विवरण से साइन इन करें।</value></data>
+  <data name="App_AddressoftheSessageserver" xml:space="preserve"><value>Sessage सर्वर का पता</value></data>
+  <data name="App_WewillsendaresetlinktothisaddressForsecuritytheresponseisthesameforeveryacc" xml:space="preserve"><value>इस पते पर रीसेट लिंक भेजा जाएगा। सुरक्षा के लिए सभी खातों को एक ही उत्तर मिलता है।</value></data>
+  <data name="App_Enterthesixdigitcodefromyourauthenticatorapp" xml:space="preserve"><value>अपनी प्रमाणक ऐप का छह अंकों वाला कोड दर्ज करें।</value></data>
+  <data name="App_Confirmcode" xml:space="preserve"><value>कोड की पुष्टि करें</value></data>
+  <data name="App_ServerunavailableChecktheconnectionandserverURL" xml:space="preserve"><value>सर्वर उपलब्ध नहीं है। कनेक्शन और सर्वर URL जाँचें।</value></data>
+  <data name="App_ThisaccountistemporarilylockedTryagainlater" xml:space="preserve"><value>खाता अस्थायी रूप से लॉक है। बाद में प्रयास करें।</value></data>
+  <data name="App_SigninfailedCheckyourcredentialsandserverURL" xml:space="preserve"><value>साइन इन विफल। क्रेडेंशियल और सर्वर URL जाँचें।</value></data>
+  <data name="App_TheserverconnectiontimedoutTryagain" xml:space="preserve"><value>सर्वर कनेक्शन का समय समाप्त हो गया। फिर प्रयास करें।</value></data>
+  <data name="App_CouldnotcompletesigninTryagain" xml:space="preserve"><value>साइन इन पूरा नहीं हो सका। फिर प्रयास करें।</value></data>
+  <data name="App_Enteranauthenticatorcode" xml:space="preserve"><value>प्रमाणक कोड दर्ज करें।</value></data>
+  <data name="App_Invalidauthenticatorcode" xml:space="preserve"><value>प्रमाणक कोड अमान्य है।</value></data>
+  <data name="App_CouldnotcompletetwofactorsigninTryagain" xml:space="preserve"><value>दो-कारक साइन इन पूरा नहीं हो सका। फिर प्रयास करें।</value></data>
+  <data name="App_EntertheserverURLandemailaddress" xml:space="preserve"><value>सर्वर URL और ईमेल पता दर्ज करें।</value></data>
+  <data name="App_Ifalocalaccountexistswiththisaddressaresetlinkhasbeensent" xml:space="preserve"><value>यदि इस पते का स्थानीय खाता मौजूद है तो रीसेट लिंक भेज दिया गया है।</value></data>
+  <data name="App_Couldnotsendthepasswordresetrequest" xml:space="preserve"><value>पासवर्ड रीसेट अनुरोध भेजा नहीं जा सका।</value></data>
+  <data name="App_Enableimportforthislist" xml:space="preserve"><value>इस सूची के लिए आयात सक्षम करें</value></data>
+  <data name="App_Pollingintervalinminutes" xml:space="preserve"><value>जाँच अंतराल मिनटों में</value></data>
+  <data name="App_Atleast1minutedefaultis15minutes" xml:space="preserve"><value>कम से कम 1 मिनट; डिफ़ॉल्ट 15 मिनट।</value></data>
+  <data name="App_Foldertoimport" xml:space="preserve"><value>आयात करने वाला फ़ोल्डर</value></data>
+  <data name="App_Newtasks" xml:space="preserve"><value>नए कार्य</value></data>
+  <data name="App_Checkingconnection" xml:space="preserve"><value>कनेक्शन जाँचा जा रहा है…</value></data>
+  <data name="App_Checkingfornewemails" xml:space="preserve"><value>नए ईमेल जाँचे जा रहे हैं…</value></data>
+  <data name="App_Nonewunreademailsfound" xml:space="preserve"><value>कोई नया अपठित ईमेल नहीं मिला।</value></data>
+  <data name="App_Savingconfiguration" xml:space="preserve"><value>कॉन्फ़िगरेशन सहेजा जा रहा है…</value></data>
+  <data name="App_Removingconfiguration" xml:space="preserve"><value>कॉन्फ़िगरेशन हटाया जा रहा है…</value></data>
+  <data name="App_Uploadaprofilepictureandcropit" xml:space="preserve"><value>प्रोफ़ाइल चित्र अपलोड करके काटें।</value></data>
+  <data name="App_Currentprofilepicture" xml:space="preserve"><value>वर्तमान प्रोफ़ाइल चित्र</value></data>
+  <data name="App_Noprofilepicture" xml:space="preserve"><value>कोई प्रोफ़ाइल चित्र नहीं है।</value></data>
+  <data name="App_Uploadprofilepicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र अपलोड करें</value></data>
+  <data name="App_Saving" xml:space="preserve"><value>सहेजा जा रहा है…</value></data>
+  <data name="App_Saveprofilepicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र सहेजें</value></data>
+  <data name="App_Couldnotloadtheprofile" xml:space="preserve"><value>प्रोफ़ाइल लोड नहीं हो सकी।</value></data>
+  <data name="App_Couldnotloadtheprofilepicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र लोड नहीं हो सका।</value></data>
+  <data name="App_Noimagetosave" xml:space="preserve"><value>सहेजने के लिए कोई चित्र नहीं है।</value></data>
+  <data name="App_Profilepicturesaved" xml:space="preserve"><value>प्रोफ़ाइल चित्र सहेजा गया।</value></data>
+  <data name="App_Errorsaving" xml:space="preserve"><value>सहेजते समय त्रुटि।</value></data>
+  <data name="App_Couldnotsavetheprofilepicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र सहेजा नहीं जा सका।</value></data>
+  <data name="App_Profilepictureremoved" xml:space="preserve"><value>प्रोफ़ाइल चित्र हटाया गया।</value></data>
+  <data name="App_Errorremoving" xml:space="preserve"><value>हटाते समय त्रुटि।</value></data>
+  <data name="App_Couldnotremovetheprofilepicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र हटाया नहीं जा सका।</value></data>
+  <data name="App_Createaccount" xml:space="preserve"><value>खाता बनाएँ</value></data>
+  <data name="App_RegisterwithaSessageinstallation" xml:space="preserve"><value>Sessage स्थापना में पंजीकरण करें।</value></data>
+  <data name="App_EnteremailpasswordandserverURL" xml:space="preserve"><value>ईमेल, पासवर्ड और सर्वर URL भरें।</value></data>
+  <data name="App_AccountcreatedConfirmyouremailusingthelinkthensignin" xml:space="preserve"><value>खाता बना दिया गया। भेजे गए लिंक से ईमेल की पुष्टि करके साइन इन करें।</value></data>
+  <data name="App_CouldnotcompleteregistrationChecktheconnectionandserverURL" xml:space="preserve"><value>पंजीकरण पूरा नहीं हो सका। कनेक्शन और सर्वर URL जाँचें।</value></data>
+  <data name="App_Pendingchanges" xml:space="preserve"><value>लंबित बदलाव</value></data>
+  <data name="App_Syncnow" xml:space="preserve"><value>अभी सिंक करें</value></data>
+  <data name="App_Localstoragebackup" xml:space="preserve"><value>स्थानीय संग्रह का बैकअप</value></data>
+  <data name="App_LocalstoragewasrecreatedafteranerrorPreviousfileswerebackedupandmaycontainu" xml:space="preserve"><value>त्रुटि के बाद स्थानीय संग्रह फिर बनाया गया। पुरानी फ़ाइलों का बैकअप लिया गया है और उनमें असिंक कार्य हो सकता है। दूषित डेटा अपने आप बहाल नहीं किया गया।</value></data>
+  <data name="App_TheexportmaycontainsensitivedatafromallprofilesonthisdeviceShareitonlywitha" xml:space="preserve"><value>निर्यात में इस उपकरण की सभी प्रोफ़ाइल का संवेदनशील डेटा हो सकता है। पुनर्प्राप्ति के लिए इसे केवल विश्वसनीय व्यक्ति से साझा करें।</value></data>
+  <data name="App_Exportbackupfiles" xml:space="preserve"><value>बैकअप फ़ाइलें निर्यात करें</value></data>
+  <data name="App_Loadingchanges" xml:space="preserve"><value>बदलाव लोड हो रहे हैं…</value></data>
+  <data name="App_Nopendingchanges" xml:space="preserve"><value>कोई लंबित बदलाव नहीं है।</value></data>
+  <data name="App_Comparefields" xml:space="preserve"><value>फ़ील्ड की तुलना करें</value></data>
+  <data name="App_Loadserverversion" xml:space="preserve"><value>सर्वर संस्करण लोड करें</value></data>
+  <data name="App_Backuplocalstorage" xml:space="preserve"><value>स्थानीय संग्रह का बैकअप लें</value></data>
+  <data name="App_YourchoicesweresavedlocallyPendingtransfersandnewconflictsremainvisibleinth" xml:space="preserve"><value>चयन स्थानीय रूप से सहेजा गया। लंबित स्थानांतरण और नए विरोध इस सूची में दिखाई देंगे।</value></data>
+  <data name="App_1pendingchange" xml:space="preserve"><value>1 लंबित बदलाव</value></data>
+  <data name="App_Allchangessynchronized" xml:space="preserve"><value>सभी बदलाव सिंक हो गए।</value></data>
+  <data name="App_SynchronizationstartedSomechangesarestillpending" xml:space="preserve"><value>सिंक्रनाइज़ेशन शुरू हुआ। कुछ बदलाव अभी लंबित हैं।</value></data>
+  <data name="App_Changedeleted" xml:space="preserve"><value>बदलाव हटाया गया।</value></data>
+  <data name="App_Thechangestillcouldnotbesynchronized" xml:space="preserve"><value>बदलाव अब भी सिंक नहीं हो सका।</value></data>
+  <data name="App_Synchronizationretried" xml:space="preserve"><value>सिंक्रनाइज़ेशन फिर आज़माया गया।</value></data>
+  <data name="App_Thelocalversionwasexplicitlysenttotheserver" xml:space="preserve"><value>स्थानीय संस्करण स्पष्ट रूप से सर्वर को भेजा गया।</value></data>
+  <data name="App_Thelocalconflictwasdiscardedandtheserverversionloaded" xml:space="preserve"><value>स्थानीय विरोध छोड़कर सर्वर संस्करण लोड किया गया।</value></data>
+  <data name="App_Createlist" xml:space="preserve"><value>सूची बनाएँ</value></data>
+  <data name="App_Updatelist" xml:space="preserve"><value>सूची अपडेट करें</value></data>
+  <data name="App_Updatetask" xml:space="preserve"><value>कार्य अपडेट करें</value></data>
+  <data name="App_Updatecompletedcolumn" xml:space="preserve"><value>पूर्ण कार्यों का कॉलम बदलें</value></data>
+  <data name="App_Sortnavigation" xml:space="preserve"><value>नेविगेशन क्रमबद्ध करें</value></data>
+  <data name="App_Movelist" xml:space="preserve"><value>सूची ले जाएँ</value></data>
+  <data name="App_Sortlists" xml:space="preserve"><value>सूचियाँ क्रमबद्ध करें</value></data>
+  <data name="App_Sortgroups" xml:space="preserve"><value>समूह क्रमबद्ध करें</value></data>
+  <data name="App_Creategroup" xml:space="preserve"><value>समूह बनाएँ</value></data>
+  <data name="App_Updateportfoliosetting" xml:space="preserve"><value>पोर्टफोलियो सेटिंग बदलें</value></data>
+  <data name="App_Deletegroup" xml:space="preserve"><value>समूह हटाएँ</value></data>
+  <data name="App_Createtask" xml:space="preserve"><value>कार्य बनाएँ</value></data>
+  <data name="App_Sorttasks" xml:space="preserve"><value>कार्य क्रमबद्ध करें</value></data>
+  <data name="App_SortKanbancolumn" xml:space="preserve"><value>कानबान कॉलम क्रमबद्ध करें</value></data>
+  <data name="App_Createcustomfield" xml:space="preserve"><value>कस्टम फ़ील्ड बनाएँ</value></data>
+  <data name="App_Updatecustomfield" xml:space="preserve"><value>कस्टम फ़ील्ड अपडेट करें</value></data>
+  <data name="App_Deletecustomfield" xml:space="preserve"><value>कस्टम फ़ील्ड हटाएँ</value></data>
+  <data name="App_Addcomment" xml:space="preserve"><value>टिप्पणी जोड़ें</value></data>
+  <data name="App_Deletecomment" xml:space="preserve"><value>टिप्पणी हटाएँ</value></data>
+  <data name="App_Createlabel" xml:space="preserve"><value>लेबल बनाएँ</value></data>
+  <data name="App_Updatelabel" xml:space="preserve"><value>लेबल अपडेट करें</value></data>
+  <data name="App_Uploadattachment" xml:space="preserve"><value>संलग्नक अपलोड करें</value></data>
+  <data name="App_Deleteattachment" xml:space="preserve"><value>संलग्नक हटाएँ</value></data>
+  <data name="App_Updatetaskwatching" xml:space="preserve"><value>कार्य की निगरानी बदलें</value></data>
+  <data name="App_Updatelistwatching" xml:space="preserve"><value>सूची की निगरानी बदलें</value></data>
+  <data name="App_Sortcustomfields" xml:space="preserve"><value>कस्टम फ़ील्ड क्रमबद्ध करें</value></data>
+  <data name="App_Localattachmentfilepathhiddenforprivacy" xml:space="preserve"><value>स्थानीय संलग्नक फ़ाइल (गोपनीयता के लिए पथ छिपा है)</value></data>
+  <data name="App_Expireson" xml:space="preserve"><value>समाप्ति तिथि</value></data>
+  <data name="App_Lastacceptedwebhook" xml:space="preserve"><value>अंतिम स्वीकृत वेबहुक</value></data>
+  <data name="App_Lastwebhookfailure" xml:space="preserve"><value>अंतिम वेबहुक विफलता</value></data>
+  <data name="App_Lastcompletegroupsync" xml:space="preserve"><value>अंतिम पूर्ण समूह सिंक</value></data>
+  <data name="App_Lastincompletegroupsync" xml:space="preserve"><value>अंतिम अधूरा समूह सिंक</value></data>
+  <data name="App_Pushrelayconfigured" xml:space="preserve"><value>पुश रिले कॉन्फ़िगर है</value></data>
+  <data name="App_Lastsuccessfulregistration" xml:space="preserve"><value>अंतिम सफल पंजीकरण</value></data>
+  <data name="App_Lastprovideracceptance" xml:space="preserve"><value>प्रदाता की अंतिम स्वीकृति</value></data>
+  <data name="App_Lastpushfailure" xml:space="preserve"><value>अंतिम पुश विफलता</value></data>
+  <data name="App_ProvideracceptancedoesnotconfirmdisplayonadeviceTheinappinboxremainsauthori" xml:space="preserve"><value>प्रदाता की स्वीकृति उपकरण पर दिखने की पुष्टि नहीं है। ऐप का इनबॉक्स प्रामाणिक स्रोत है। विफल वेबहुक की स्थायी स्वचालित डिलीवरी नहीं होती।</value></data>
+  <data name="App_Fullname" xml:space="preserve"><value>पूरा नाम</value></data>
+  <data name="App_Useuppercaseandlowercaselettersanumberandasymbol" xml:space="preserve"><value>बड़े और छोटे अक्षर, अंक और विशेष चिह्न इस्तेमाल करें।</value></data>
+  <data name="App_Searchnameoremail" xml:space="preserve"><value>नाम या ईमेल खोजें</value></data>
+  <data name="App_Nameisrequired" xml:space="preserve"><value>नाम आवश्यक है।</value></data>
+  <data name="App_Namemustnotexceed200characters" xml:space="preserve"><value>नाम अधिकतम 200 अक्षरों का हो सकता है।</value></data>
+  <data name="App_Emailisrequired" xml:space="preserve"><value>ईमेल आवश्यक है।</value></data>
+  <data name="App_Invalidemailaddress" xml:space="preserve"><value>ईमेल पता अमान्य है।</value></data>
+  <data name="App_Passwordmusthaveatleast6characters" xml:space="preserve"><value>पासवर्ड में कम से कम 6 अक्षर होने चाहिए।</value></data>
+  <data name="App_Couldnotloadusers" xml:space="preserve"><value>उपयोगकर्ता लोड नहीं हो सके।</value></data>
+  <data name="App_Usernotfound" xml:space="preserve"><value>उपयोगकर्ता नहीं मिला।</value></data>
+  <data name="App_Usermanagementcouldnotcompletetheaction" xml:space="preserve"><value>उपयोगकर्ता प्रबंधन कार्रवाई पूरी नहीं कर सका।</value></data>
+  <data name="App_CouldnotcompletetheuseractionTryagain" xml:space="preserve"><value>उपयोगकर्ता कार्रवाई पूरी नहीं हो सकी। फिर प्रयास करें।</value></data>
+  <data name="App_Licenseisvalid" xml:space="preserve"><value>लाइसेंस वैध है</value></data>
+  <data name="App_Enterpriselicenseexpired" xml:space="preserve"><value>Enterprise लाइसेंस समाप्त हो गया</value></data>
+  <data name="App_NoEnterpriselicenseinstalled" xml:space="preserve"><value>Enterprise लाइसेंस स्थापित नहीं है</value></data>
+  <data name="App_Publiclicensekeymissing" xml:space="preserve"><value>सार्वजनिक लाइसेंस कुंजी नहीं है</value></data>
+  <data name="App_Licensebelongstoanotherinstallation" xml:space="preserve"><value>लाइसेंस दूसरी स्थापना का है</value></data>
+  <data name="App_Publickeydoesnotbelongtothislicense" xml:space="preserve"><value>सार्वजनिक कुंजी इस लाइसेंस की नहीं है</value></data>
+  <data name="App_Licenseandpublickeydonotmatch" xml:space="preserve"><value>लाइसेंस और सार्वजनिक कुंजी मेल नहीं खाते</value></data>
+  <data name="App_Invalidlicensefile" xml:space="preserve"><value>लाइसेंस फ़ाइल अमान्य है</value></data>
+  <data name="App_Unsupportedlicensealgorithm" xml:space="preserve"><value>लाइसेंस एल्गोरिदम समर्थित नहीं है</value></data>
+  <data name="App_Couldnotreadlicensefiles" xml:space="preserve"><value>लाइसेंस फ़ाइलें पढ़ी नहीं जा सकीं</value></data>
+  <data name="App_NovalidEnterpriselicense" xml:space="preserve"><value>वैध Enterprise लाइसेंस नहीं है</value></data>
+  <data name="App_Noexpirydateset" xml:space="preserve"><value>समाप्ति तिथि निर्धारित नहीं है</value></data>
+  <data name="App_Localservertime" xml:space="preserve"><value>सर्वर का स्थानीय समय</value></data>
+  <data name="App_Enterpriselicensesonly" xml:space="preserve"><value>केवल Enterprise लाइसेंस</value></data>
+  <data name="App_Passwordistooshort" xml:space="preserve"><value>पासवर्ड बहुत छोटा है।</value></data>
+  <data name="App_Passwordneedsasymbol" xml:space="preserve"><value>पासवर्ड में विशेष चिह्न चाहिए।</value></data>
+  <data name="App_Passwordneedsanumber" xml:space="preserve"><value>पासवर्ड में अंक चाहिए।</value></data>
+  <data name="App_Passwordneedsalowercaseletter" xml:space="preserve"><value>पासवर्ड में छोटा अक्षर चाहिए।</value></data>
+  <data name="App_Passwordneedsanuppercaseletter" xml:space="preserve"><value>पासवर्ड में बड़ा अक्षर चाहिए।</value></data>
+  <data name="Operations_Title" xml:space="preserve"><value>संचालन निदान</value></data>
+  <data name="Operations_Refresh" xml:space="preserve"><value>रीफ़्रेश करें</value></data>
+  <data name="Operations_Hint" xml:space="preserve"><value>इस सर्वर के अंतिम प्रारंभ के बाद के अवलोकन। समय UTC में है; “—” का अर्थ कोई अवलोकन नहीं है।</value></data>
+  <data name="Operations_GroupCounts" xml:space="preserve"><value>अंतिम सिंक के समूह / विफल</value></data>
+  <data name="Operations_LoadError" xml:space="preserve"><value>संचालन निदान लोड नहीं हो सका।</value></data>
+  <data name="PublicForm_OnlineRequired" xml:space="preserve"><value>फ़ॉर्म भेजने के लिए सर्वर कनेक्शन आवश्यक है।</value></data>
+  <data name="Security_VerificationFailed" xml:space="preserve"><value>पुष्टि विफल। पासवर्ड या प्रमाणक कोड जाँचें; निर्देशिका खाते फिर साइन इन करें।</value></data>
+  <data name="Security_RequestFailed" xml:space="preserve"><value>सुरक्षा सेटिंग लोड या सहेजी नहीं जा सकीं।</value></data>
+  <data name="Security_PasskeysTitle" xml:space="preserve"><value>पासकी प्रबंधित करें</value></data>
+  <data name="Security_RecoveryTitle" xml:space="preserve"><value>पुनर्प्राप्ति कोड</value></data>
+  <data name="Security_RecoveryHint" xml:space="preserve"><value>इन कोड को सुरक्षित रखें। ये केवल अभी दिखेंगे और पुराने सभी कोड बदल देंगे।</value></data>
+  <data name="Security_CodesSaved" xml:space="preserve"><value>कोड सुरक्षित किए</value></data>
+  <data name="Security_VerifyHint" xml:space="preserve"><value>बदलाव के लिए प्रमाणक कोड या वर्तमान पासवर्ड दें। बिना पासवर्ड के निर्देशिका खातों को हाल में साइन इन करना होगा।</value></data>
+  <data name="Security_Code" xml:space="preserve"><value>प्रमाणक कोड</value></data>
+  <data name="Security_CurrentPassword" xml:space="preserve"><value>वर्तमान पासवर्ड</value></data>
+  <data name="Security_PasskeyBrowserHint" xml:space="preserve"><value>नई पासकी सर्वर पते के लिए सिस्टम ब्राउज़र में पंजीकृत होती है। वहाँ साइन इन करें। मौजूदा पासकी यहाँ प्रबंधित करें।</value></data>
+  <data name="Security_AddPasskey" xml:space="preserve"><value>पासकी पंजीकृत करें</value></data>
+  <data name="Security_PasskeyName" xml:space="preserve"><value>पासकी का नाम</value></data>
+  <data name="Security_RenamePasskey" xml:space="preserve"><value>नाम बदलें</value></data>
+  <data name="Security_DeletePasskeyConfirm" xml:space="preserve"><value>पासकी “{0}” हटाएँ?</value></data>
+  <data name="Security_NewRecoveryCodes" xml:space="preserve"><value>नए पुनर्प्राप्ति कोड बनाएँ</value></data>
+  <data name="Security_DisableConfirm" xml:space="preserve"><value>मैं दो-कारक प्रमाणीकरण अक्षम करना चाहता/चाहती हूँ।</value></data>
+  <data name="Security_Disable" xml:space="preserve"><value>दो-कारक प्रमाणीकरण अक्षम करें</value></data>
+  <data name="Security_SetupHint" xml:space="preserve"><value>प्रमाणक ऐप में QR कोड स्कैन करें या कुंजी दर्ज करें, फिर छह अंकों का कोड पुष्ट करें।</value></data>
+  <data name="Security_SetupQr" xml:space="preserve"><value>प्रमाणक सेटअप QR कोड</value></data>
+  <data name="Security_Enable" xml:space="preserve"><value>कोड पुष्ट करके सक्षम करें</value></data>
+  <data name="Security_Setup" xml:space="preserve"><value>प्रमाणक सेट करें</value></data>
+  <data name="Security_ChangedSignIn" xml:space="preserve"><value>सुरक्षा सेटिंग बदली गई। कोड सुरक्षित करके फिर साइन इन करें।</value></data>
+  <data name="Security_CodesReplaced" xml:space="preserve"><value>नए कोड बनाए गए। पुराने सभी पुनर्प्राप्ति कोड अमान्य हैं।</value></data>
+  <data name="Btn_Back" xml:space="preserve"><value>वापस</value></data>
+  <data name="App_Update" xml:space="preserve"><value>ऐप अपडेट करें</value></data>
+  <data name="App_ReadOnlyAccess" xml:space="preserve"><value>केवल पढ़ने की अनुमति दें</value></data>
+  <data name="App_AdminOnly" xml:space="preserve"><value>यह पृष्ठ केवल प्रशासकों के लिए है।</value></data>
+  <data name="App_SystemAdministration" xml:space="preserve"><value>सिस्टम प्रशासन</value></data>
+  <data name="App_SwitchProfile" xml:space="preserve"><value>प्रोफ़ाइल बदलें</value></data>
+  <data name="App_AuditLog" xml:space="preserve"><value>ऑडिट लॉग</value></data>
+  <data name="App_AuditLoading" xml:space="preserve"><value>ऑडिट लॉग लोड हो रहा है…</value></data>
+  <data name="App_DownloadPersonalData" xml:space="preserve"><value>व्यक्तिगत डेटा डाउनलोड करें</value></data>
+  <data name="App_AddAccount" xml:space="preserve"><value>+ खाता जोड़ें</value></data>
+  <data name="App_BackToAccountSelection" xml:space="preserve"><value>खाता चयन पर वापस</value></data>
+  <data name="App_ProfileName" xml:space="preserve"><value>प्रोफ़ाइल का नाम</value></data>
+  <data name="App_ServerUrl" xml:space="preserve"><value>सर्वर URL</value></data>
+  <data name="App_DirectorySignIn" xml:space="preserve"><value>LDAP / Active Directory से साइन इन करें</value></data>
+  <data name="App_ImapDescription" xml:space="preserve"><value>चुने हुए IMAP फ़ोल्डर के अपठित ईमेल कार्य के रूप में आयात होंगे।</value></data>
+  <data name="App_ImapServer" xml:space="preserve"><value>IMAP सर्वर</value></data>
+  <data name="App_UseTls" xml:space="preserve"><value>SSL/TLS इस्तेमाल करें</value></data>
+  <data name="App_TestConnection" xml:space="preserve"><value>कनेक्शन जाँचें</value></data>
+  <data name="App_CheckEmails" xml:space="preserve"><value>नए ईमेल जाँचें</value></data>
+  <data name="App_RemoveProfilePicture" xml:space="preserve"><value>प्रोफ़ाइल चित्र हटाएँ</value></data>
+  <data name="App_BackToSignIn" xml:space="preserve"><value>साइन इन पर वापस</value></data>
+  <data name="App_Synchronization" xml:space="preserve"><value>सिंक्रनाइज़ेशन</value></data>
+  <data name="App_License" xml:space="preserve"><value>लाइसेंस</value></data>
+  <data name="App_DisplayName" xml:space="preserve"><value>प्रदर्शित नाम</value></data>
+  <data name="App_DeleteUserConfirm" xml:space="preserve"><value>उपयोगकर्ता “{0}” हटाएँ? इसे वापस नहीं लाया जा सकेगा।</value></data>
+  <data name="App_OwnAccountDeleteDenied" xml:space="preserve"><value>आप अपना खाता यहाँ नहीं हटा सकते।</value></data>
+  <data name="App_UserDeletedMessage" xml:space="preserve"><value>उपयोगकर्ता {0} हटाया गया।</value></data>
+  <data name="App_PendingChangesCount" xml:space="preserve"><value>{0} लंबित बदलाव</value></data>
+  <data name="App_PendingProfileWarning" xml:space="preserve"><value>“{1}” में {0} लंबित बदलाव हैं। प्रोफ़ाइल हटाने पर ये स्थायी रूप से मिट जाएँगे।</value></data>
+  <data name="App_OperationError" xml:space="preserve"><value>कार्रवाई विफल: {0}</value></data>
+  <data name="App_NextAttempt" xml:space="preserve"><value>अगला प्रयास: {0}</value></data>
+  <data name="App_AttemptError" xml:space="preserve"><value>सिंक विफल (प्रयास {0}): {1}</value></data>
+  <data name="App_LoginFieldsRequired" xml:space="preserve"><value>उपयोगकर्ता नाम/ईमेल, पासवर्ड और सर्वर URL भरें।</value></data>
+  <data name="App_RegistrationFailed" xml:space="preserve"><value>पंजीकरण विफल: {0}</value></data>
+  <data name="App_ServerLabel" xml:space="preserve"><value>सर्वर: {0}</value></data>
+  <data name="App_SessionLabel" xml:space="preserve"><value>सत्र: {0}</value></data>
+  <data name="App_Reachable" xml:space="preserve"><value>उपलब्ध</value></data>
+  <data name="App_Unreachable" xml:space="preserve"><value>अनुपलब्ध</value></data>
+  <data name="App_SignedIn" xml:space="preserve"><value>साइन इन किया गया</value></data>
+  <data name="App_SignInRequired" xml:space="preserve"><value>साइन इन आवश्यक है</value></data>
+  <data name="App_UpdateRequired" xml:space="preserve"><value>अपडेट आवश्यक है</value></data>
+  <data name="App_NoRequiredUpdate" xml:space="preserve"><value>अनिवार्य अपडेट की सूचना नहीं है</value></data>
+  <data name="App_Syncing" xml:space="preserve"><value>सिंक हो रहा है…</value></data>
+  <data name="App_TokenExpiry" xml:space="preserve"><value>वैधता: {0}</value></data>
+  <data name="Operations_WebhookAccepted" xml:space="preserve"><value>अंतिम स्वीकृत वेबहुक</value></data>
+  <data name="Operations_WebhookFailed" xml:space="preserve"><value>अंतिम वेबहुक विफलता</value></data>
+  <data name="Operations_DirectoryComplete" xml:space="preserve"><value>अंतिम पूर्ण समूह सिंक</value></data>
+  <data name="Operations_DirectoryIncomplete" xml:space="preserve"><value>अंतिम अधूरा समूह सिंक</value></data>
+  <data name="Operations_PushConfigured" xml:space="preserve"><value>पुश रिले कॉन्फ़िगर है</value></data>
+  <data name="Operations_PushRegistered" xml:space="preserve"><value>अंतिम सफल पंजीकरण</value></data>
+  <data name="Operations_PushAccepted" xml:space="preserve"><value>प्रदाता की अंतिम स्वीकृति</value></data>
+  <data name="Operations_PushFailed" xml:space="preserve"><value>अंतिम पुश विफलता</value></data>
+  <data name="Operations_DeliveryHint" xml:space="preserve"><value>प्रदाता की स्वीकृति उपकरण पर दिखने की पुष्टि नहीं है। ऐप का इनबॉक्स प्रामाणिक स्रोत है। विफल वेबहुक की स्थायी स्वचालित डिलीवरी नहीं होती।</value></data>
+  <data name="Security_UseRecoveryCode" xml:space="preserve"><value>इसके बजाय पुनर्प्राप्ति कोड इस्तेमाल करें</value></data>
+  <data name="PublicForm_CapacityMessage" xml:space="preserve"><value>यह फ़ॉर्म अब प्रविष्टियाँ स्वीकार नहीं करता।</value></data>
+  <data name="PublicForm_AttachmentHint" xml:space="preserve"><value>अनुमति: {0}। अधिकतम 10 फ़ाइलें, प्रत्येक 25 MB।</value></data>
+  <data name="App_Profile" xml:space="preserve"><value>प्रोफ़ाइल</value></data>
+  <data name="App_Administrator" xml:space="preserve"><value>प्रशासक</value></data>
+  <data name="App_EmailImport" xml:space="preserve"><value>ईमेल आयात</value></data>
+  <data name="App_NameLabel" xml:space="preserve"><value>नाम:</value></data>
+  <data name="App_EmailLabel" xml:space="preserve"><value>ईमेल:</value></data>
+  <data name="App_ServerNameLabel" xml:space="preserve"><value>सर्वर:</value></data>
+  <data name="App_ListLabel" xml:space="preserve"><value>सूची: {0}</value></data>
+  <data name="App_CreatedLabel" xml:space="preserve"><value>बनाया गया: {0}</value></data>
+  <data name="App_ExpiresLabel" xml:space="preserve"><value>समाप्ति: {0}</value></data>
+  <data name="App_LastUsedLabel" xml:space="preserve"><value>अंतिम उपयोग: {0}</value></data>
+  <data name="App_Port" xml:space="preserve"><value>पोर्ट</value></data>
+  <data name="App_HttpError" xml:space="preserve"><value>त्रुटि {0}</value></data>
+  <data name="App_OnlineRequired" xml:space="preserve"><value>इस कार्रवाई के लिए सर्वर कनेक्शन आवश्यक है।</value></data>
+  <data name="App_InvalidServerResponse" xml:space="preserve"><value>सर्वर का उत्तर अमान्य था। फिर प्रयास करें।</value></data>
+  <data name="App_RequestFailed" xml:space="preserve"><value>अनुरोध संसाधित नहीं हो सका।</value></data>
+  <data name="App_ServerUnavailable" xml:space="preserve"><value>सर्वर अभी उपलब्ध नहीं है।</value></data>
+  <data name="App_LocalSessionFailed" xml:space="preserve"><value>स्थानीय खाता संबंध सहेजा नहीं जा सका।</value></data>
+  <data name="App_InvalidSession" xml:space="preserve"><value>सर्वर ने वैध सत्र नहीं दिया। फिर साइन इन करें।</value></data>
+  <data name="App_ProfileChanged" xml:space="preserve"><value>चुनी गई प्रोफ़ाइल बदल गई। कार्रवाई फिर शुरू करें।</value></data>
+  <data name="App_ProfileMissing" xml:space="preserve"><value>चुनी गई प्रोफ़ाइल अब मौजूद नहीं है।</value></data>
+  <data name="App_ProfileHasPendingChanges" xml:space="preserve"><value>सर्वर या खाता बदलने से पहले लंबित बदलाव सिंक करें या निर्यात करके छोड़ दें।</value></data>
+  <data name="App_InvalidServerUrl" xml:space="preserve"><value>वैध सर्वर URL दर्ज करें।</value></data>
+  <data name="App_HttpsRequired" xml:space="preserve"><value>असुरक्षित HTTP सर्वर की अनुमति नहीं है। HTTPS इस्तेमाल करें।</value></data>
+  <data name="App_PendingChangeMissing" xml:space="preserve"><value>लंबित बदलाव नहीं मिला।</value></data>
+  <data name="App_ListNotCached" xml:space="preserve"><value>सूची स्थानीय रूप से उपलब्ध नहीं है। पहले लोड करें।</value></data>
+  <data name="App_TaskNotCached" xml:space="preserve"><value>कार्य स्थानीय रूप से उपलब्ध नहीं है।</value></data>
+  <data name="App_ChangeUpdated" xml:space="preserve"><value>स्थानीय संस्करण बदल गया। तुलना फिर लोड करें।</value></data>
+  <data name="Attachment_Documents" xml:space="preserve"><value>दस्तावेज़</value></data>
+  <data name="Attachment_Images" xml:space="preserve"><value>चित्र</value></data>
+  <data name="Attachment_Archives" xml:space="preserve"><value>संग्रह फ़ाइलें</value></data>
+  <data name="Attachment_Audio" xml:space="preserve"><value>ऑडियो</value></data>
+  <data name="Attachment_Video" xml:space="preserve"><value>वीडियो</value></data>
+  <data name="Identity_PasswordMismatch" xml:space="preserve"><value>वर्तमान पासवर्ड गलत है।</value></data>
+  <data name="Identity_PasswordLength" xml:space="preserve"><value>पासवर्ड में कम से कम {0} अक्षर होने चाहिए।</value></data>
+  <data name="Identity_DuplicateEmail" xml:space="preserve"><value>यह ईमेल पता पहले से उपयोग में है।</value></data>
+  <data name="Identity_InvalidEmail" xml:space="preserve"><value>ईमेल पता अमान्य है।</value></data>
+  <data name="Identity_DuplicateUser" xml:space="preserve"><value>यह उपयोगकर्ता नाम पहले से उपयोग में है।</value></data>
+  <data name="Identity_InvalidUser" xml:space="preserve"><value>उपयोगकर्ता नाम अमान्य है।</value></data>
+  <data name="Identity_InvalidToken" xml:space="preserve"><value>पुष्टि लिंक या कोड अमान्य है या समाप्त हो गया है।</value></data>
+  <data name="App_Expired" xml:space="preserve"><value>समाप्त</value></data>
+  <data name="App_TokenDescription" xml:space="preserve"><value>व्यक्तिगत एक्सेस टोकन आपके खाते जैसी अनुमतियों के साथ API तक पहुँच देते हैं।</value></data>
+  <data name="App_TokenNeverUsed" xml:space="preserve"><value>कभी इस्तेमाल नहीं हुआ</value></data>
+  <data name="App_ProfileExample" xml:space="preserve"><value>जैसे कार्यालय</value></data>
+  <data name="App_ServerExample" xml:space="preserve"><value>my-server.example</value></data>
+  <data name="App_EmailExample" xml:space="preserve"><value>user@example.com</value></data>
+  <data name="App_DirectoryUsername" xml:space="preserve"><value>AD उपयोगकर्ता नाम</value></data>
+  <data name="App_DirectoryUsernameHint" xml:space="preserve"><value>उपयोगकर्ता नाम या UPN</value></data>
+  <data name="Security_RecoveryCode" xml:space="preserve"><value>पुनर्प्राप्ति कोड</value></data>
+  <data name="Security_RecoveryCodeHint" xml:space="preserve"><value>अपना एक सहेजा हुआ पुनर्प्राप्ति कोड दर्ज करें। हर कोड केवल एक बार इस्तेमाल किया जा सकता है।</value></data>
+  <data name="Account_Ui_0" xml:space="preserve"><value>ईमेल की पुष्टि करें</value></data>
+  <data name="Account_Ui_2" xml:space="preserve"><value>रीसेट लिंक भेजा गया</value></data>
+  <data name="Account_Ui_3" xml:space="preserve"><value>अमान्य रीसेट लिंक</value></data>
+  <data name="Account_Ui_4" xml:space="preserve"><value>नया रीसेट लिंक माँगें</value></data>
+  <data name="Account_Ui_6" xml:space="preserve"><value>खाता अस्थायी रूप से लॉक है</value></data>
+  <data name="Account_Ui_8" xml:space="preserve"><value>किसी दूसरी सेवा से साइन इन करें।</value></data>
+  <data name="Account_Ui_9" xml:space="preserve"><value>दो-कारक साइन-इन</value></data>
+  <data name="Account_Ui_10" xml:space="preserve"><value>सुरक्षित साइन-इन</value></data>
+  <data name="Account_Ui_11" xml:space="preserve"><value>कोड दर्ज करें</value></data>
+  <data name="Account_Ui_16" xml:space="preserve"><value>पुनर्प्राप्ति कोड सत्यापित करें</value></data>
+  <data name="Account_Ui_20" xml:space="preserve"><value>किसी दूसरी सेवा से पंजीकरण करें।</value></data>
+  <data name="Account_Ui_21" xml:space="preserve"><value>पंजीकरण की पुष्टि करें</value></data>
+  <data name="Account_Ui_22" xml:space="preserve"><value>पंजीकरण लगभग पूरा हो गया</value></data>
+  <data name="Account_Ui_23" xml:space="preserve"><value>खाते की पुष्टि करें</value></data>
+  <data name="Account_Ui_24" xml:space="preserve"><value>अपना इनबॉक्स देखें और ईमेल पते की पुष्टि करें।</value></data>
+  <data name="Account_Ui_25" xml:space="preserve"><value>ईमेल पुष्टिकरण भेजें</value></data>
+  <data name="Account_Ui_26" xml:space="preserve"><value>ईमेल पुष्टिकरण</value></data>
+  <data name="Account_Ui_27" xml:space="preserve"><value>नया पुष्टिकरण लिंक प्राप्त करें।</value></data>
+  <data name="Account_Ui_29" xml:space="preserve"><value>पुष्टिकरण भेजें</value></data>
+  <data name="Account_Ui_30" xml:space="preserve"><value>पासवर्ड बदल दिया गया</value></data>
+  <data name="Account_Ui_32" xml:space="preserve"><value>खाता प्रबंधित करें</value></data>
+  <data name="Account_Ui_35" xml:space="preserve"><value>इन कोड को सुरक्षित जगह पर रखें।</value></data>
+  <data name="Account_Ui_41" xml:space="preserve"><value>वर्तमान पासवर्ड दर्ज करें</value></data>
+  <data name="Account_Ui_42" xml:space="preserve"><value>नया पासवर्ड दर्ज करें</value></data>
+  <data name="Account_Ui_44" xml:space="preserve"><value>व्यक्तिगत डेटा हटाएँ</value></data>
+  <data name="Account_Ui_45" xml:space="preserve"><value>यह डेटा हटाने से आपका खाता स्थायी रूप से हट जाएगा। इसे वापस नहीं किया जा सकता।</value></data>
+  <data name="Account_Ui_47" xml:space="preserve"><value>डेटा हटाएँ और खाता बंद करें</value></data>
+  <data name="Account_Ui_48" xml:space="preserve"><value>कृपया अपना पासवर्ड दर्ज करें।</value></data>
+  <data name="Account_Ui_50" xml:space="preserve"><value>यह कार्रवाई केवल दो-कारक प्रमाणीकरण बंद करती है।</value></data>
+  <data name="Account_Ui_51" xml:space="preserve"><value>अपनी ऑथेंटिकेटर कुंजियाँ रीसेट करें।</value></data>
+  <data name="Account_Ui_52" xml:space="preserve"><value>ईमेल प्रबंधित करें</value></data>
+  <data name="Account_Ui_56" xml:space="preserve"><value>ईमेल पता दर्ज करें</value></data>
+  <data name="Account_Ui_57" xml:space="preserve"><value>नया ईमेल पता दर्ज करें</value></data>
+  <data name="Account_Ui_59" xml:space="preserve"><value>ऑथेंटिकेटर ऐप इस्तेमाल करने के लिए ये चरण पूरे करें:</value></data>
+  <data name="Account_Ui_62" xml:space="preserve"><value>सत्यापन कोड</value></data>
+  <data name="Account_Ui_64" xml:space="preserve"><value>बाहरी साइन-इन प्रबंधित करें</value></data>
+  <data name="Account_Ui_65" xml:space="preserve"><value>पंजीकृत साइन-इन</value></data>
+  <data name="Account_Ui_67" xml:space="preserve"><value>साइन-इन के लिए दूसरी सेवा जोड़ें।</value></data>
+  <data name="Account_Ui_68" xml:space="preserve"><value>दो-कारक पुनर्प्राप्ति कोड बनाएँ</value></data>
+  <data name="Account_Ui_71" xml:space="preserve"><value>फ़ोन नंबर</value></data>
+  <data name="Account_Ui_73" xml:space="preserve"><value>उपयोगकर्ता नाम चुनें।</value></data>
+  <data name="Account_Ui_74" xml:space="preserve"><value>फ़ोन नंबर दर्ज करें</value></data>
+  <data name="Account_Ui_78" xml:space="preserve"><value>कोई पासकी पंजीकृत नहीं है।</value></data>
+  <data name="Account_Ui_79" xml:space="preserve"><value>आप पासकी की अधिकतम संख्या तक पहुँच गए हैं। नई जोड़ने से पहले एक हटाएँ।</value></data>
+  <data name="Account_Ui_81" xml:space="preserve"><value>इस पासकी का नाम बदलें</value></data>
+  <data name="Account_Ui_82" xml:space="preserve"><value>अपने खाते से यह पासकी हटाएँ</value></data>
+  <data name="Account_Ui_84" xml:space="preserve"><value>आपके खाते में आपके दिए व्यक्तिगत डेटा हैं। आप यहाँ उन्हें डाउनलोड या हटा सकते हैं।</value></data>
+  <data name="Account_Ui_85" xml:space="preserve"><value>डाउनलोड करें</value></data>
+  <data name="Account_Ui_86" xml:space="preserve"><value>अपनी पासकी का नाम दर्ज करें</value></data>
+  <data name="Account_Ui_88" xml:space="preserve"><value>जारी रखें</value></data>
+  <data name="Account_Ui_89" xml:space="preserve"><value>मेरी पासकी</value></data>
+  <data name="Account_Ui_90" xml:space="preserve"><value>ऑथेंटिकेटर कुंजी रीसेट करें</value></data>
+  <data name="Account_Ui_91" xml:space="preserve"><value>ऑथेंटिकेटर कुंजी रीसेट करने के बाद, आपको अपना ऑथेंटिकेटर ऐप फिर से सेट करना होगा।</value></data>
+  <data name="Account_Ui_92" xml:space="preserve"><value>पासवर्ड सेट करें</value></data>
+  <data name="Account_Ui_95" xml:space="preserve"><value>आपके पास कोई पुनर्प्राप्ति कोड नहीं बचा है।</value></data>
+  <data name="Account_Ui_99" xml:space="preserve"><value>आपके पास 1 पुनर्प्राप्ति कोड बचा है।</value></data>
+  <data name="Account_Ui_102" xml:space="preserve"><value>इस ब्राउज़र को भूलें</value></data>
+  <data name="Account_Ui_104" xml:space="preserve"><value>पुनर्प्राप्ति कोड रीसेट करें</value></data>
+  <data name="Account_Ui_105" xml:space="preserve"><value>ऑथेंटिकेटर ऐप</value></data>
+  <data name="Account_Ui_106" xml:space="preserve"><value>ऑथेंटिकेटर ऐप रीसेट करें</value></data>
+  <data name="Account_Ui_107" xml:space="preserve"><value>गोपनीयता और कुकी नीति स्वीकार नहीं की गई है।</value></data>
+  <data name="Account_Ui_108" xml:space="preserve"><value>दो-कारक प्रमाणीकरण चालू करने से पहले नीति स्वीकार करें।</value></data>
+  <data name="App_UpdateRequiredNotice" xml:space="preserve"><value>ऐप अपडेट आवश्यक है</value></data>
+  <data name="App_UpdateAvailable" xml:space="preserve"><value>ऐप अपडेट उपलब्ध है</value></data>
+  <data name="App_LatestVersion" xml:space="preserve"><value>अभी उपलब्ध: {0}</value></data>
+  <data name="App_UserCreatedNotice" xml:space="preserve"><value>उपयोगकर्ता {0} बनाया गया।</value></data>
+  <data name="App_TasksCreated" xml:space="preserve"><value>{0} नए कार्य बनाए गए।</value></data>
+  <data name="App_ListNameRequired" xml:space="preserve"><value>सूची का नाम खाली नहीं हो सकता। सूची: “{0}”।</value></data>
+  <data name="App_ListMissing" xml:space="preserve"><value>सूची “{0}” नहीं मिली या पहले ही हटा दी गई है।</value></data>
+  <data name="Account_CodeInvalid" xml:space="preserve"><value>कोड अमान्य है।</value></data>
+  <data name="Account_Verify" xml:space="preserve"><value>सत्यापित करें</value></data>
+  <data name="Account_Verifying" xml:space="preserve"><value>सत्यापन हो रहा है…</value></data>
+  <data name="Account_PasskeyUnnamed" xml:space="preserve"><value>बिना नाम की पासकी</value></data>
+  <data name="Account_PasskeyMissing" xml:space="preserve"><value>त्रुटि: ब्राउज़र ने पासकी नहीं दी।</value></data>
+  <data name="Account_PasskeyAddFailed" xml:space="preserve"><value>त्रुटि: पासकी आपके खाते में नहीं जोड़ी जा सकी।</value></data>
+  <data name="Account_PasskeyInvalidId" xml:space="preserve"><value>त्रुटि: पासकी ID का प्रारूप अमान्य है।</value></data>
+  <data name="Account_PasskeyDeleteFailed" xml:space="preserve"><value>त्रुटि: पासकी हटाई नहीं जा सकी।</value></data>
+  <data name="Account_PasskeyDeleted" xml:space="preserve"><value>पासकी हटा दी गई।</value></data>
+  <data name="Account_RecoveryGenerateHint" xml:space="preserve"><value>पुनर्प्राप्ति कोड से साइन इन करने से पहले नए कोड बनाएँ।</value></data>
+  <data name="Account_ResetSentHint" xml:space="preserve"><value>अपना इनबॉक्स देखें। यदि कोई पुष्ट खाता है, तो आपको पासवर्ड रीसेट लिंक मिलेगा।</value></data>
+  <data name="Account_ResetInvalidHint" xml:space="preserve"><value>पासवर्ड रीसेट लिंक अमान्य है या उसकी समय-सीमा समाप्त हो गई है।</value></data>
+  <data name="Account_LockoutHint" xml:space="preserve"><value>साइन-इन के बहुत से असफल प्रयास हुए। थोड़ा इंतज़ार करके फिर कोशिश करें।</value></data>
+  <data name="Account_LockoutTwoFactorHint" xml:space="preserve"><value>दो-कारक प्रमाणीकरण चालू होने पर गलत पासवर्ड के प्रयास खाते को लॉक नहीं करते।</value></data>
+  <data name="Account_TrustDevice" xml:space="preserve"><value>इस डिवाइस पर भरोसा करें</value></data>
+  <data name="Account_NoAuthenticator" xml:space="preserve"><value>ऑथेंटिकेटर ऐप तक पहुँच नहीं है?</value></data>
+  <data name="Account_RecoveryLoginHint" xml:space="preserve"><value>यह पुनर्प्राप्ति-कोड साइन-इन तब तक याद नहीं रखा जाएगा जब तक आप ऑथेंटिकेटर कोड से साइन इन न करें या दो-कारक प्रमाणीकरण बंद करके फिर साइन इन न करें।</value></data>
+  <data name="Account_EmailDisabledHint" xml:space="preserve"><value>ईमेल भेजना बंद है। इस लिंक से अपने खाते की पुष्टि करें:</value></data>
+  <data name="Account_ResetDoneHint" xml:space="preserve"><value>आपका पासवर्ड रीसेट हो गया है।</value></data>
+  <data name="Account_AuthenticatorDownload" xml:space="preserve"><value>Microsoft Authenticator या Google Authenticator जैसा ऐप इंस्टॉल करें।</value></data>
+  <data name="Account_TwoFactorVerified" xml:space="preserve"><value>आपका ऑथेंटिकेटर ऐप सत्यापित हो गया है।</value></data>
+  <data name="Account_ExternalRemoved" xml:space="preserve"><value>बाहरी साइन-इन हटा दिया गया।</value></data>
+  <data name="Account_ExternalAdded" xml:space="preserve"><value>बाहरी साइन-इन जोड़ दिया गया।</value></data>
+  <data name="Account_PhoneSaved" xml:space="preserve"><value>आपका फ़ोन नंबर अपडेट हो गया।</value></data>
+  <data name="Account_Required" xml:space="preserve"><value>यह फ़ील्ड आवश्यक है।</value></data>
+  <data name="Account_LengthInvalid" xml:space="preserve"><value>{0} से {1} अक्षरों का इस्तेमाल करें।</value></data>
+  <data name="Account_ExternalNone" xml:space="preserve"><value>कोई बाहरी साइन-इन सेवा कॉन्फ़िगर नहीं है।</value></data>
+  <data name="Account_KeyUnchangedHint" xml:space="preserve"><value>यह कार्रवाई ऑथेंटिकेटर कुंजी नहीं बदलती। इसे बदलने के लिए कुंजी रीसेट करें।</value></data>
+  <data name="Account_RecoveryLossHint" xml:space="preserve"><value>यदि आपका डिवाइस खो गया और आपके पास पुनर्प्राप्ति कोड नहीं हैं, तो आप अपने खाते तक पहुँच खो देंगे।</value></data>
+  <data name="Account_SetPasswordHint" xml:space="preserve"><value>आपका स्थानीय पासवर्ड नहीं है। बाहरी सेवा के बिना साइन इन करने के लिए एक सेट करें।</value></data>
+  <data name="Account_RecoveryDisabled" xml:space="preserve"><value>दो-कारक प्रमाणीकरण बंद होने के कारण पुनर्प्राप्ति कोड नहीं बनाए जा सकते।</value></data>
+  <data name="Account_ExternalAssociated" xml:space="preserve"><value>त्रुटि: बाहरी साइन-इन नहीं जोड़ा जा सका। उसे केवल एक खाते से जोड़ा जा सकता है।</value></data>
+  <data name="Account_ProfileSaved" xml:space="preserve"><value>आपकी प्रोफ़ाइल अपडेट हो गई।</value></data>
+  <data name="Account_EmailVerified" xml:space="preserve"><value>आपका ईमेल पता पुष्ट हो गया। अब आप साइन इन कर सकते हैं।</value></data>
+  <data name="Account_TwoFactorExpired" xml:space="preserve"><value>त्रुटि: दो-कारक साइन-इन की समय-सीमा समाप्त हो गई। फिर साइन इन करें।</value></data>
+  <data name="Account_EmailDeliveryFailed" xml:space="preserve"><value>आपका खाता बन गया, लेकिन पुष्टिकरण ईमेल नहीं भेजा जा सका। नया ईमेल माँगें।</value></data>
+  <data name="Account_LanguageUnsupported" xml:space="preserve"><value>चुनी गई भाषा समर्थित नहीं है।</value></data>
+  <data name="Account_NoLocalPassword" xml:space="preserve"><value>यह खाता स्थानीय पासवर्ड इस्तेमाल नहीं करता।</value></data>
+  <data name="Account_ExportDisabled" xml:space="preserve"><value>व्यवस्थापक ने व्यक्तिगत डेटा का निर्यात बंद कर दिया है।</value></data>
+  <data name="Account_DeleteDisabled" xml:space="preserve"><value>व्यवस्थापक ने खुद खाता हटाने की सुविधा बंद कर दी है।</value></data>
+  <data name="Account_PasskeyUpdated" xml:space="preserve"><value>पासकी अपडेट हो गई।</value></data>
+  <data name="App_ImportLastRun" xml:space="preserve"><value>पिछला आयात: {0}</value></data>
+  <data name="App_ImportLastError" xml:space="preserve"><value>पिछली त्रुटि: {0}</value></data>
 </root>

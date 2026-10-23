@@ -130,10 +130,10 @@
                                                 </div>
 
                                                 <div class="text-xs text-slate-600">
-                                                    @(string.Format(L["Participants_RoleCreated"].Value, s.Role, s.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")))
+                                                    @(string.Format(L["Participants_RoleCreated"].Value, s.Role, LocalTime(s.CreatedAtUtc)))
                                                     @if (s.ExpiresAtUtc is not null)
                                                     {
-                                                        <span> · @(string.Format(L["Participants_Expiry"].Value, s.ExpiresAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")))</span>
+                                                        <span> · @(string.Format(L["Participants_Expiry"].Value, LocalTime(s.ExpiresAtUtc.Value)))</span>
                                                     }
                                                 </div>
                                             </div>
@@ -245,24 +245,6 @@
 
                         
 
-                        @if (_results?.Any() == true)
-                        {
-                            <div class="pt-2 space-y-2">
-                                <div class="text-xs uppercase tracking-wide text-slate-500">@L["Participants_SearchResults"]</div>
-
-                                @foreach (var u in _results)
-                                {
-                                    <div class="flex items-center justify-between text-sm border border-slate-200 rounded-2xl px-3 py-2">
-                                        <span>@u.DisplayName (@u.Email)</span>
-                                        <FluentButton Appearance="Appearance.Stealth"
-                                                      OnClick="@(() => InviteKnownAsync(u.DisplayName, u.Email))"
-                                                      Disabled="_busy">
-                                            @L["Participants_Invite"]
-                                        </FluentButton>
-                                    </div>
-                                }
-                            </div>
-                        }
                     </div>
                 }
             </div>
@@ -362,14 +344,29 @@
 </div>
 
 @code {
+    private TimeZoneInfo _displayZone = TimeZoneInfo.Utc;
+    private string LocalTime(DateTime value) => UserDateTime.FromUtc(value, _displayZone)
+        .ToString("g", System.Globalization.CultureInfo.CurrentCulture);
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var id = await JS.InvokeAsync<string>("getBrowserTimeZone");
+            _displayZone = TimeZoneInfo.FindSystemTimeZoneById(id);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex) when (ex is JSException or TimeZoneNotFoundException or InvalidTimeZoneException) { }
+    }
     [Parameter] public TodoListEntity? List { get; set; }
 
-    [Parameter, EditorRequired] public UserDirectoryService Directory { get; set; } = default!;
+    // Retained for existing host markup. Invitations use verified email; directory search
+    // is handled exclusively by DirectorySharingPanel and its authorized server service.
+    [Parameter] public UserDirectoryService? Directory { get; set; }
     [Parameter, EditorRequired] public string RequestingUserId { get; set; } = string.Empty;
     [Parameter, EditorRequired] public EventCallback OnChanged { get; set; }
 
     private string _query = string.Empty;
-    private IReadOnlyCollection<ManagedUser>? _results;
 
     private string _error = string.Empty;
     private string _info = string.Empty;
@@ -520,23 +517,6 @@
     {
         _error = string.Empty;
         _info = string.Empty;
-    }
-
-    private async Task SearchAsync()
-    {
-        ResetMessages();
-
-        if (List is null)
-            return;
-
-        try
-        {
-            _results = await Directory.SearchAsync(_query);
-        }
-        catch (Exception ex)
-        {
-            _error = string.Format(L["Err_ParticipantSearch"].Value, _query, ex.Message);
-        }
     }
 
     private async Task InviteKnownAsync(string displayName, string email)

@@ -127,6 +127,7 @@ public static class CommunityApplication
         builder.Services.AddSingleton<IProductFeatureCatalog, CommunityProductFeatureCatalog>();
         builder.Services.AddScoped<NavigationRefreshNotifier>();
         builder.Services.AddScoped<TodoTaskService>();
+        builder.Services.AddScoped<AttachmentStorageReconciler>();
         builder.Services.AddScoped<IExcelTaskImportService>(services => services.GetRequiredService<TodoTaskService>());
         builder.Services.AddScoped<ITodoTaskService>(services => services.GetRequiredService<TodoTaskService>());
         builder.Services.AddScoped<ITodoAutomationService, CommunityAutomationService>();
@@ -334,6 +335,14 @@ public static class CommunityApplication
         
         builder.Services.AddAuthorization(options =>
         {
+            // Native account operations and multipart submissions use bearer sessions
+            // only. Cookie authentication must not authorize cross-site form posts.
+            options.AddPolicy("MobileSession", policy =>
+            {
+                policy.AddAuthenticationSchemes("MobileBearer");
+                policy.RequireAuthenticatedUser();
+                policy.RequireAssertion(context => ApiIdentityBinding.HasSingleAuthenticatedSubject(context.User));
+            });
             options.AddPolicy("MobileApi", policy =>
             {
                 policy.AddAuthenticationSchemes("MobileBearer", IdentityConstants.ApplicationScheme, PersonalAccessTokenAuthHandler.SchemeName);
@@ -382,7 +391,8 @@ public static class CommunityApplication
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddSignInManager()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddErrorDescriber<LocalizedIdentityErrorDescriber>();
 
         builder.Services.ConfigureApplicationCookie(options =>
         {
@@ -734,21 +744,36 @@ public static class CommunityApplication
             {
                 await next();
             }
-            catch (UnauthorizedAccessException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
+            catch (WorkspaceConcurrencyException ex) when (context.Request.Path.StartsWithSegments("/api"))
+            {
+                if (context.Response.HasStarted) throw;
+                context.Response.Clear();
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                await context.Response.WriteAsJsonAsync(new { error = ex.Message, code = "workspace_conflict" }, context.RequestAborted);
+            }
+            catch (DbUpdateConcurrencyException ex) when (context.Request.Path.StartsWithSegments("/api"))
+            {
+                if (context.Response.HasStarted) throw;
+                app.Logger.LogInformation(ex, "Concurrent workspace mutation rejected.");
+                context.Response.Clear();
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                await context.Response.WriteAsJsonAsync(new { error = "Die Daten wurden zwischenzeitlich geändert.", code = "workspace_conflict" }, context.RequestAborted);
+            }
+            catch (UnauthorizedAccessException ex) when (context.Request.Path.StartsWithSegments("/api"))
             {
                 if (context.Response.HasStarted) throw;
                 app.Logger.LogWarning(ex, "Unauthorized mobile API access.");
                 context.Response.Clear();
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                await context.Response.WriteAsJsonAsync(new { error = "Zugriff verweigert." }, context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(new { error = "Zugriff verweigert.", code = "access_denied" }, context.RequestAborted);
             }
-            catch (ArgumentException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
+            catch (ArgumentException ex) when (context.Request.Path.StartsWithSegments("/api"))
             {
                 if (context.Response.HasStarted) throw;
                 app.Logger.LogWarning(ex, "Invalid mobile API request.");
                 context.Response.Clear();
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsJsonAsync(new { error = "Die Anfrage ist ungültig." }, context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(new { error = "Die Anfrage ist ungültig.", code = "invalid_request" }, context.RequestAborted);
             }
             catch (InvalidOperationException ex) when (context.Request.Path.StartsWithSegments("/api/mobile"))
             {

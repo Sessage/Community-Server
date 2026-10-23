@@ -3,7 +3,7 @@
 @using Microsoft.FluentUI.AspNetCore.Components
 @using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
 
-<PageTitle>Konto voruebergehend gesperrt</PageTitle>
+<PageTitle>@L["Account_Ui_6"]</PageTitle>
 
 <div class="ui-row justify-center">
     <div class="ui-col-lg-6">
@@ -18,22 +18,22 @@
                 </div>
 
                 <div class="min-w-0">
-                    <h1 class="text-2xl font-semibold text-slate-900 mb-2">Konto vorübergehend gesperrt</h1>
+                    <h1 class="text-2xl font-semibold text-slate-900 mb-2">@L["Account_Ui_6"]</h1>
                     <p class="text-sm leading-6 text-slate-600" role="alert">
-                        Für dieses Konto gab es zu viele fehlgeschlagene Anmeldeversuche. Bitte warte einen Moment und versuche es danach erneut.
+                        @L["Account_LockoutHint"]
                     </p>
                     <p class="mt-3 text-sm leading-6 text-slate-600">
-                        Wenn du die Zwei-Faktor-Authentifizierung aktivierst, wird dein Konto bei falschen Passwortversuchen nicht mehr per Benutzer-Lockout gesperrt.
+                        @L["Account_LockoutTwoFactorHint"]
                     </p>
 
                     <div class="mt-6 flex flex-wrap gap-2">
                         <a href="Account/Login"
                            class="inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                            Zur Anmeldung
+                            @L["Account_BackToLogin"]
                         </a>
                         <a href="/"
                            class="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                            Zur Startseite
+                            @L["App_Home"]
                         </a>
                     </div>
                 </div>

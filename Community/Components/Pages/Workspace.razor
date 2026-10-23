@@ -331,6 +331,7 @@
             <div class="flex-1 min-w-0 min-h-0 overflow-hidden">
                 <div class="flex flex-col h-full min-h-0">
 
+                    <TaskDeletionUndoBar Request="_taskDeletionUndo" UserScope="@_userId" OnRestored="ReloadAsync" />
                     @if (!string.IsNullOrWhiteSpace(_error))
                     {
                         <div class="mt-4 mx-5 md:mx-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 shrink-0">
@@ -353,6 +354,7 @@
                         }
                         else
                         {
+                            <TaskCollectionState List="_list" Filter="_filter" UserId="@_userId" CanWrite="CanWriteCurrentList()" ShowCreateAction="@(_view is BoardView.List or BoardView.Kanban or BoardView.Table)" OnClearFilter="ClearFilter" />
                             @if (_view == BoardView.List)
                             {
                                 <ToDoListView @ref="_listViewRef"
@@ -452,6 +454,8 @@
                                       OnListChanged="ReloadAsync" /> *@
 
                      <TaskEditModal @key="SelectedTaskModalKey"
+                                      UserScope="@_userId"
+                                      OnTaskDeleted="request => { _taskDeletionUndo = request; }"
                                       Task="_selectedTask"
                                       ListId="_selectedListId"
                                      Columns="_list?.Columns"
@@ -1256,6 +1260,7 @@
                     </div>
                 }
 
+                <EmailImportStatusPanel ListId="_list.Id" UserId="@_userId" />
                 @if (_emailImportLastImportAtUtc is not null || !string.IsNullOrWhiteSpace(_emailImportLastError))
                 {
                     <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
@@ -1368,6 +1373,7 @@
     private bool _excelImportOpen;
     private string _userId = string.Empty;
     private string _error = "";
+    private TaskDeletionUndoRequest? _taskDeletionUndo;
 
     private List<TodoListEntity> _lists = new();
     private TodoListEntity? _list;

@@ -10,15 +10,15 @@
 @inject ILogger<DeletePersonalData> Logger
 @inject TodoSuite.Server.Services.UserAccountArtifactCleanupService AccountArtifactCleanup
 
-<PageTitle>Persönliche Daten löschen</PageTitle>
+<PageTitle>@L["Account_Ui_44"]</PageTitle>
 
 <StatusMessage Message="@message" />
 
-<h3>Persönliche Daten löschen</h3>
+<h3>@L["Account_Ui_44"]</h3>
 
 <div class="ui-alert ui-alert-warning" role="alert">
     <p>
-        <strong>Das Löschen dieser Daten entfernt Ihr Konto dauerhaft und kann nicht rückgängig gemacht werden.</strong>
+        <strong>@L["Account_Ui_45"]</strong>
     </p>
 </div>
 
@@ -29,12 +29,12 @@
         @if (requirePassword)
         {
             <div class="ui-form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="ui-form-control" autocomplete="current-password" aria-required="true" placeholder="Bitte geben Sie Ihr Passwort ein." />
-                <label for="Input.Password" class="ui-form-label">Passwort</label>
+                <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="ui-form-control" autocomplete="current-password" aria-required="true" placeholder="@L["Account_Ui_48"]" />
+                <label for="Input.Password" class="ui-form-label">@L["Account_Password"]</label>
                 <ValidationMessage For="() => Input.Password" class="ui-text-danger" />
             </div>
         }
-        <button class="ui-full-width ui-btn ui-btn-lg ui-btn-danger" type="submit">Daten löschen und Konto schließen</button>
+        <button class="ui-full-width ui-btn ui-btn-lg ui-btn-danger" type="submit">@L["Account_Ui_47"]</button>
     </EditForm>
 </div>
 
@@ -72,7 +72,7 @@
 
         if (requirePassword && !await UserManager.CheckPasswordAsync(user, Input.Password))
         {
-            message = "Fehler: Falsches Passwort.";
+            message = SharedText.Get("Security_VerificationFailed");
             return;
         }
 

@@ -5,6 +5,8 @@ using Klassenbibliothek.Services;
 using Klassenbibliothek.Hubs;
 using Klassenbibliothek.Features;
 using Klassenbibliothek.Localization;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace TodoSuite.Server.Services;
 
@@ -18,6 +20,7 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
     private readonly ITodoAutomationService _automationService;
     private readonly IProductFeatureCatalog _features;
     private readonly TimeProvider _clock;
+    private readonly ILogger<TodoTaskService> _logger;
     private bool CustomFieldsEnabled => _features.IsEnabled(ProductFeatureIds.Forms);
 
     /// <summary>
@@ -31,14 +34,31 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
         INotificationService notificationService,
         ITodoAutomationService automationService,
         IProductFeatureCatalog features,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        ILogger<TodoTaskService>? logger = null)
         : base(dbContextFactory, hubContext, env, taskMemberService)
     {
         _notificationService = notificationService;
         _automationService = automationService;
         _features = features;
         _clock = clock ?? TimeProvider.System;
+        _logger = logger ?? NullLogger<TodoTaskService>.Instance;
     }
+
+    private async Task RunPostCommitAsync(Guid taskId, string operation, Func<Task> execute)
+    {
+        try { await execute(); }
+        catch (Exception ex)
+        {
+            // The task is already durable. Keep the confirmed mutation successful while
+            // preserving a structured operational error; this does not promise later delivery.
+            _logger.LogError(ex, "Post-commit {Operation} failed for saved task {TaskId}.", operation, taskId);
+        }
+    }
+
+    private Task ExecuteAutomationAfterCommitAsync(TodoAutomationContext context, CancellationToken ct)
+        => RunPostCommitAsync(context.Task.Id, "automation:" + context.TriggerType,
+            () => _automationService.ExecuteAsync(context, ct));
 
     /// <inheritdoc />
     public async Task<TodoTaskEntity?> AddTaskAsync(string userId, Guid listId, TodoTaskEntity task, CancellationToken cancellationToken = default)
@@ -60,10 +80,22 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
         {
             var existing = await db.TodoTasks
                 .AsNoTracking()
+                .AsSplitQuery()
+                .Include(task => task.Steps)
+                .Include(task => task.Members)
+                .Include(task => task.LabelLinks)
+                .Include(task => task.CustomFieldValues)
+                .Include(task => task.Attachments)
+                .Include(task => task.Comments)
+                .Include(task => task.Watchers)
                 .FirstOrDefaultAsync(t => t.Id == task.Id && t.ListId == listId && t.DeletedAt == null, cancellationToken);
 
             if (existing is not null)
+            {
+                existing.SyncVersion = existing.ContentVersion;
+                existing.MemberUserIds = existing.Members.Select(member => member.UserId).ToList();
                 return existing;
+            }
         }
 
         var targetCol = TodoTaskInputValidation.ResolveColumn(list, task.Column);
@@ -110,6 +142,8 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
             Recurrence = task.Recurrence,
             CustomRecurrence = TaskRecurrenceRules.NormalizeCustomRule(task.Recurrence, task.CustomRecurrence),
             Column = targetCol,
+            CardColor = task.CardColor?.Trim(),
+            CardColorMode = task.CardColorMode,
             ReminderAtUtc = task.ReminderAtUtc,
             ReminderSentAtUtc = null,
             ListSortOrder = nextListOrder,
@@ -132,6 +166,25 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
                 await GetCustomFieldDefinitionsAsync(db, listId, cancellationToken),
                 cancellationToken));
 
+        var stepIds = new HashSet<Guid>();
+        foreach (var step in task.Steps ?? [])
+        {
+            var stepId = step.Id == Guid.Empty ? Guid.NewGuid() : step.Id;
+            if (!stepIds.Add(stepId)) throw new ArgumentException("Duplicate checklist step ID.", nameof(task));
+            entity.Steps.Add(new TodoStepEntity { Id = stepId, TaskId = entity.Id,
+                Title = TodoTaskInputValidation.NormalizeStepTitle(step.Title), IsCompleted = step.IsCompleted,
+                CreatedAtUtc = DateTime.UtcNow });
+        }
+        var eligibleMembers = (list.Participants ?? []).Where(p => !p.InvitationPending && !string.IsNullOrWhiteSpace(p.UserId))
+            .Select(p => p.UserId!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var memberId in (task.MemberUserIds ?? []).Select(value => (value ?? "").Trim()).Where(value => value.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (memberId.Contains('@') || !eligibleMembers.Contains(memberId))
+                throw new ArgumentException("Invalid task member.", nameof(task));
+            entity.Members.Add(new TodoTaskMemberEntity { Id = Guid.NewGuid(), TaskId = entity.Id, UserId = memberId });
+        }
+        entity.MemberUserIds = entity.Members.Select(member => member.UserId).ToList();
+
         db.TodoTasks.Add(entity);
 
         await db.SaveChangesAsync(cancellationToken);
@@ -153,6 +206,7 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
 
         await NotifyListUpdatedAsync(listId, cancellationToken);
 
+        entity.SyncVersion = entity.ContentVersion;
         return entity;
     }
 
@@ -287,9 +341,7 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
         var retainedStepIds = new HashSet<Guid>();
         foreach (var step in task.Steps ?? [])
         {
-            var title = (step.Title ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(title))
-                continue;
+            var title = TodoTaskInputValidation.NormalizeStepTitle(step.Title);
 
             if (step.Id != Guid.Empty && !retainedStepIds.Add(step.Id))
                 throw new ArgumentException("Eine Teilschritt-ID darf innerhalb einer Aufgabe nur einmal vorkommen.", nameof(task));
@@ -332,112 +384,12 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
             entity.ReminderAtUtc = null;
             entity.ReminderSentAtUtc = null;
 
-            var recipients = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            if (!string.IsNullOrWhiteSpace(entity.Assignee))
-                recipients.Add(entity.Assignee.Trim());
-
-            foreach (var m in entity.Members ?? new())
-                recipients.Add(m.UserId.Trim());
-
-            foreach (var r in recipients)
-            {
-                await HubContext.Clients
-                    .Group(TodoHub.UserGroup(r))
-                    .SendAsync(TodoHub.ReminderTriggered,
-                        "Aufgabe abgeschlossen",
-                        $"Die Aufgabe „{entity.Title}“ wurde abgeschlossen.",
-                        entity.Id,
-                        cancellationToken);
-            }
         }
 
         if (CustomFieldsEnabled)
             await ApplyCustomFieldValuesAsync(db, entity.Id, customFieldValues, cancellationToken);
 
-        try
-        {
-            await db.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            throw new WorkspaceConcurrencyException("Die Aufgabe wurde gleichzeitig auf einem anderen Gerät geändert.");
-        }
-
-        // Run automations only after the initiating mutation is durable. Rule failures therefore
-        // cannot roll back the user's edit, and trigger comparisons use the pre-save snapshot.
-        if (!string.Equals(previousTask.Column, entity.Column, StringComparison.OrdinalIgnoreCase))
-        {
-            await _automationService.ExecuteAsync(
-                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.ColumnChanged),
-                cancellationToken);
-        }
-
-        if (!previousTask.Done && entity.Done)
-        {
-            await _automationService.ExecuteAsync(
-                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskCompleted),
-                cancellationToken);
-        }
-        else if (previousTask.Done && !entity.Done)
-        {
-            await _automationService.ExecuteAsync(
-                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskReopened),
-                cancellationToken);
-        }
-
-        if (!string.Equals(previousTask.Assignee, entity.Assignee, StringComparison.OrdinalIgnoreCase))
-        {
-            await _automationService.ExecuteAsync(
-                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.AssigneeChanged),
-                cancellationToken);
-        }
-
-        // Process the concrete user transitions before the generic update. A generic
-        // automation may itself change column, completion or assignee and already emits
-        // the corresponding follow-up trigger. Running it first would then replay the
-        // original transition with stale pre-update state.
-        await _automationService.ExecuteAsync(
-            new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskUpdated),
-            cancellationToken);
-
-        await db.Entry(entity).ReloadAsync(cancellationToken);
-
-        var newAssignee = entity.Assignee;
-        if (!string.Equals((oldAssignee ?? "").Trim(), (newAssignee ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(newAssignee))
-        {
-            await _notificationService.NotifyTaskEventAsync(
-                userId,
-                listId,
-                entity.Id,
-                NotificationEventType.TaskAssigned,
-                "Vorgang zugewiesen",
-                $"Die Aufgabe \"{entity.Title}\" wurde zugewiesen.",
-                newAssignee,
-                cancellationToken);
-        }
-        else
-        {
-            await _notificationService.NotifyTaskEventAsync(
-                userId,
-                listId,
-                entity.Id,
-                entity.Done && !wasAlreadyDone
-                    ? NotificationEventType.TaskCompleted
-                    : !entity.Done && wasAlreadyDone
-                        ? NotificationEventType.TaskReopened
-                        : NotificationEventType.TaskUpdated,
-                entity.Done && !wasAlreadyDone
-                    ? "Vorgang erledigt"
-                    : !entity.Done && wasAlreadyDone
-                        ? "Vorgang erneut geöffnet"
-                        : "Vorgang aktualisiert",
-                $"Die Aufgabe \"{entity.Title}\" wurde geändert.",
-                entity.Assignee,
-                cancellationToken);
-        }
-
+        // The status transition and its successor commit atomically. External effects run afterwards.
         // Wiederholung: Wenn Aufgabe soeben abgeschlossen wurde und ein Wiederholungsintervall hat,
         // wird eine neue Aufgabe mit der berechneten Fälligkeit erstellt.
         if (entity.Done && !wasAlreadyDone && entity.Recurrence != RecurrencePattern.Keine)
@@ -451,9 +403,6 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
 
             if (nextDueDate.HasValue)
             {
-                var activeTasks = await db.TodoTasks
-                    .Where(t => t.ListId == entity.ListId && t.DeletedAt == null && !t.Done)
-                    .ToListAsync(cancellationToken);
                 var successorColumn = entity.Column;
                 if ((list.DoneColumns ?? []).Contains(successorColumn, StringComparer.OrdinalIgnoreCase))
                 {
@@ -462,6 +411,13 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
                             .Contains(column, StringComparer.OrdinalIgnoreCase))
                         ?? successorColumn;
                 }
+
+                // Only sort-order maxima are needed; do not materialize every active
+                // task (including descriptions) when completing a recurring task.
+                var activeTasks = db.TodoTasks.Where(t => t.ListId == entity.ListId && t.DeletedAt == null && !t.Done);
+                var nextListOrder = (await activeTasks.Select(t => (int?)t.ListSortOrder).MaxAsync(cancellationToken) ?? -1) + 1;
+                var nextKanbanOrder = (await activeTasks.Where(t => t.Column == successorColumn)
+                    .Select(t => (int?)t.KanbanSortOrder).MaxAsync(cancellationToken) ?? -1) + 1;
 
                 var newTask = new TodoTaskEntity
                 {
@@ -479,10 +435,8 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
                     CardColor = entity.CardColor,
                     CardColorMode = entity.CardColorMode,
                     CreatedAtUtc = DateTime.UtcNow,
-                    ListSortOrder = activeTasks.Any() ? activeTasks.Max(t => t.ListSortOrder) + 1 : 0,
-                    KanbanSortOrder = activeTasks.Where(t => t.Column == successorColumn).Any()
-                        ? activeTasks.Where(t => t.Column == successorColumn).Max(t => t.KanbanSortOrder) + 1
-                        : 0,
+                    ListSortOrder = nextListOrder,
+                    KanbanSortOrder = nextKanbanOrder,
                     LabelLinks = (entity.LabelLinks ?? new List<TodoTaskLabelEntity>())
                         .Select(ll => new TodoTaskLabelEntity { TaskId = Guid.Empty, LabelId = ll.LabelId })
                         .ToList(),
@@ -504,12 +458,95 @@ public partial class TodoTaskService : TodoWorkspaceServiceBase, ITodoTaskServic
                 foreach (var v in newTask.CustomFieldValues) v.TaskId = newTask.Id;
 
                 db.TodoTasks.Add(newTask);
-                await db.SaveChangesAsync(cancellationToken);
             }
         }
 
-        await NotifyListUpdatedAsync(listId, cancellationToken);
-        await NotifyTaskUpdatesAsync(listId, entity.Id, cancellationToken);
+
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new WorkspaceConcurrencyException("Die Aufgabe wurde gleichzeitig auf einem anderen Gerät geändert.");
+        }
+
+        // Run automations only after the initiating mutation is durable. Rule failures therefore
+        // cannot roll back the user's edit, and trigger comparisons use the pre-save snapshot.
+        if (!string.Equals(previousTask.Column, entity.Column, StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteAutomationAfterCommitAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.ColumnChanged),
+                cancellationToken);
+        }
+
+        if (!previousTask.Done && entity.Done)
+        {
+            await ExecuteAutomationAfterCommitAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskCompleted),
+                cancellationToken);
+        }
+        else if (previousTask.Done && !entity.Done)
+        {
+            await ExecuteAutomationAfterCommitAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskReopened),
+                cancellationToken);
+        }
+
+        if (!string.Equals(previousTask.Assignee, entity.Assignee, StringComparison.OrdinalIgnoreCase))
+        {
+            await ExecuteAutomationAfterCommitAsync(
+                new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.AssigneeChanged),
+                cancellationToken);
+        }
+
+        // Process the concrete user transitions before the generic update. A generic
+        // automation may itself change column, completion or assignee and already emits
+        // the corresponding follow-up trigger. Running it first would then replay the
+        // original transition with stale pre-update state.
+        await ExecuteAutomationAfterCommitAsync(
+            new TodoAutomationContext(listId, list.Name, userId, entity, previousTask, TodoAutomationTriggerType.TaskUpdated),
+            cancellationToken);
+
+        await db.Entry(entity).ReloadAsync(cancellationToken);
+
+        var newAssignee = entity.Assignee;
+        if (!string.Equals((oldAssignee ?? "").Trim(), (newAssignee ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(newAssignee))
+        {
+            await RunPostCommitAsync(entity.Id, "notification", () => _notificationService.NotifyTaskEventAsync(
+                userId,
+                listId,
+                entity.Id,
+                NotificationEventType.TaskAssigned,
+                "Vorgang zugewiesen",
+                $"Die Aufgabe \"{entity.Title}\" wurde zugewiesen.",
+                newAssignee,
+                cancellationToken));
+        }
+        else
+        {
+            await RunPostCommitAsync(entity.Id, "notification", () => _notificationService.NotifyTaskEventAsync(
+                userId,
+                listId,
+                entity.Id,
+                entity.Done && !wasAlreadyDone
+                    ? NotificationEventType.TaskCompleted
+                    : !entity.Done && wasAlreadyDone
+                        ? NotificationEventType.TaskReopened
+                        : NotificationEventType.TaskUpdated,
+                entity.Done && !wasAlreadyDone
+                    ? "Vorgang erledigt"
+                    : !entity.Done && wasAlreadyDone
+                        ? "Vorgang erneut geöffnet"
+                        : "Vorgang aktualisiert",
+                $"Die Aufgabe \"{entity.Title}\" wurde geändert.",
+                entity.Assignee,
+                cancellationToken));
+        }
+
+        await RunPostCommitAsync(entity.Id, "list-signal", () => NotifyListUpdatedAsync(listId, cancellationToken));
+        await RunPostCommitAsync(entity.Id, "task-signal", () => NotifyTaskUpdatesAsync(listId, entity.Id, cancellationToken));
 
         entity.MemberUserIds = incomingMemberIds.ToList();
         entity.SyncVersion = entity.ContentVersion;

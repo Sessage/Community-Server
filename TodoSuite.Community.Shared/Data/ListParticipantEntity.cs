@@ -16,7 +16,7 @@ public class ListParticipantEntity
 
     public bool InvitationPending { get; set; }
 
-    // NEU: Rolle
+    // Effective role combines accepted direct and inherited grants; see RecalculateEffectiveAccess.
     public ListRole Role { get; set; } = ListRole.Member;
 
     /// <summary>Explizit auf dieser Liste erteilte Rolle.</summary>
